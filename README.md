@@ -1,5 +1,7 @@
 # Saynata
 
+[![CI](https://github.com/tranphuocloc070699/saynata/actions/workflows/ci.yml/badge.svg)](https://github.com/tranphuocloc070699/saynata/actions/workflows/ci.yml)
+
 An iOS app for a Vietnamese English learner: look up words, translate sentences, hear them aloud,
 and practise saying the meaning with a score.
 
