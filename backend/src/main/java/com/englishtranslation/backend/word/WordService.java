@@ -26,7 +26,7 @@ public class WordService {
 
     public WordResponse lookUp(String word) {
         String normalized = CacheKeys.normalizeWord(word);
-        String cacheKey = CacheKeys.key("word", properties.promptVersion(), normalized);
+        String cacheKey = CacheKeys.key("word", properties.wordPromptVersion(), normalized);
 
         Optional<WordLookup> saved = repository.findByCacheKey(cacheKey);
         if (saved.isPresent()) {
@@ -36,7 +36,7 @@ public class WordService {
         WordEntry entry = claude.describeWord(normalized);
         try {
             repository.saveAndFlush(new WordLookup(
-                    cacheKey, normalized, jsonMapper.writeValueAsString(entry), properties.model(), properties.promptVersion()));
+                    cacheKey, normalized, jsonMapper.writeValueAsString(entry), properties.model(), properties.wordPromptVersion()));
             return new WordResponse(normalized, entry, false);
         } catch (DataIntegrityViolationException e) {
             // Another request saved the same key while we waited for Claude. Keep the first answer.
