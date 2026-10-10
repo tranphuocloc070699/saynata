@@ -3,7 +3,7 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-10 06:25'
+updated_date: '2026-10-10 06:37'
 ---
 > Status: **backend done, iOS not started** (TASK-4, TASK-5, TASK-6). Last traced from code: 2026-10-10.
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -22,7 +22,7 @@ Grey boxes don't exist yet.
 ```mermaid
 flowchart TD
     A[User enters one word] --> N["Normalise: trim, collapse spaces, lowercase"]
-    N --> B{"In bundled dictionary.sqlite?<br/>(lemma or form, e.g. ran → run)"}
+    N --> B{"In bundled dictionary.sqlite? (lemma or form, e.g. ran → run)"}
     B -- yes --> SHOW[Show entry]
     B -- no --> L{"In local SQLite cache?"}
     L -- yes --> SHOW

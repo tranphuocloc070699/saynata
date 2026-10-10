@@ -3,7 +3,7 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-10 06:23'
+updated_date: '2026-10-10 06:37'
 ---
 > Status: **works, 245 of 2,809 words done** (TASK-3). Last traced from code: 2026-10-10.
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
@@ -19,15 +19,15 @@ uses simple words, and retries with feedback when it doesn't.
 
 ```mermaid
 flowchart LR
-    NGSL["NGSL CSVs<br/>(word, rank, forms)"] --> SRC[sources.py]
-    KK["Kaikki.org<br/>Wiktionary JSONL per word"] --> SRC
-    SRC -->|cached in data/raw/| SEN[senses.py<br/>filter senses]
-    SEN --> GEN[generate.py<br/>LLM call]
-    GEN --> VAL[validate.py<br/>simple-word check]
+    NGSL["NGSL CSVs (word, rank, forms)"] --> SRC[sources.py]
+    KK["Kaikki.org Wiktionary JSONL per word"] --> SRC
+    SRC -->|cached in data/raw/| SEN[senses.py filter senses]
+    SEN --> GEN[generate.py LLM call]
+    GEN --> VAL[validate.py simple-word check]
     VAL -->|problems → feedback, max 3 tries| GEN
-    VAL --> ST[(data/pipeline.db<br/>progress table)]
+    VAL --> ST[(data/pipeline.db progress table)]
     ST --> EXP[export.py]
-    EXP --> OUT1[data/out/dictionary.sqlite<br/>→ iOS app]
+    EXP --> OUT1[data/out/dictionary.sqlite → iOS app]
     EXP --> OUT2[data/out/dictionary.jsonl]
 ```
 
