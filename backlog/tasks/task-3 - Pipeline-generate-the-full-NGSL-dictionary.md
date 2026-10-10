@@ -4,7 +4,7 @@ title: 'Pipeline: generate the full NGSL dictionary'
 status: In Progress
 assignee: []
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-10 07:18'
+updated_date: '2026-10-10 08:02'
 labels:
   - pipeline
 milestone: m-0
@@ -23,9 +23,9 @@ The app bundles dictionary.sqlite, so iOS word lookup needs it. On 2026-10-10: 2
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 No pending words left in uv run pipeline report
+- [x] #1 No pending words left in uv run pipeline report
 - [ ] #2 Failed words retried; remaining failures and needs_review fixed or accepted
-- [ ] #3 uv run pipeline export produces data/out/dictionary.sqlite
+- [x] #3 uv run pipeline export produces data/out/dictionary.sqlite
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -34,4 +34,6 @@ The app bundles dictionary.sqlite, so iOS word lookup needs it. On 2026-10-10: 2
 2026-10-10: switched generate.py from Gemini/DeepSeek (OpenAI SDK) to the Anthropic SDK with structured output (messages.parse, output_format=WordEntry, effort low). Model from CLAUDE_MODEL (default claude-haiku-5-5). PROMPT_VERSION 1 -> 2, so the 245 Gemini entries are redone for a consistent dictionary.
 6-word comparison (reluctant, bank, however, container, ability, order): Haiku 2/6 pass first try, ~2,080 in / 360 out tokens, $0.0004/call, 3.3 s/call; Sonnet 3/6, $0.008/call, 3.8 s/call, clearly better definitions and Vietnamese. Common failure: 'goods'.
 Next step: user picks model, adds ANTHROPIC_API_KEY to pipeline/.env, then run generate.
+
+2026-10-10 run done (Sonnet 5.5, 8 workers, ~45 min): 2,578 done, 231 needs_review, 0 failed; 4,558 LLM calls (~$36). Fixed KeyError('text') in senses._first_example (word 'stock'). Exported data/out/dictionary.sqlite: 2.5 MB. needs_review: 189 fail only on 'hard words', most of them basic (container 18, rude 10, unhappy 8, cloth 8, queen, polite, insect, tv, internet, uk). Next step: user decides allowlist vs retry vs accept.
 <!-- SECTION:NOTES:END -->

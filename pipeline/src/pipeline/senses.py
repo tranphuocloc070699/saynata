@@ -66,7 +66,7 @@ def build_source(entries: list[dict]) -> WordSource:
 
 def _first_example(sense: dict) -> str | None:
     for example in sense.get("examples", []):
-        if example.get("type") == "example":
+        if example.get("type") == "example" and example.get("text"):
             return example["text"]
     return None
 
