@@ -3,7 +3,7 @@ id: doc-1
 title: Vision and spec
 type: specification
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-10 04:30'
+updated_date: '2026-10-10 08:30'
 ---
 # Spec: EnglishTranslation — translator for a Vietnamese English learner
 
@@ -19,7 +19,9 @@ An iOS app that replaces DeepL for daily use. It looks up words and translates s
 - **Word** — input that is one token after normalising (`run`, `ran`, `reluctant`).
 - **Sentence** — any input with more than one token.
 - **Entry** — the dictionary data for one word: senses with a simple English definition,
-  a Vietnamese meaning, examples, collocations and synonyms (shape: `pipeline/src/pipeline/models.py`).
+  a Vietnamese meaning, examples, and **usage**: 2-3 sentence patterns, each with one example
+  ("be reluctant to + verb" → "She was reluctant to leave."). Shape: `pipeline/src/pipeline/models.py`.
+  No collocation or synonym chips (decision-2; code change in TASK-24).
 - **Cache key** — `sha256("sentence" | promptVersion | targetLang | normalisedText)` for a sentence,
   `sha256("word" | promptVersion | normalisedWord)` for a word.
 - **Target language** — the language a sentence is translated into, picked by the user in the app
@@ -78,7 +80,7 @@ not call the LLM.
 `explanation` = `{ meaning, words: [{ word, partOfSpeech, meaning }], translation }`. Only
 `translation` is in `targetLang`; `meaning` and `words` are simple English (difficult = above B1).
 
-`entry` = `{ senses: [{ pos, cefr, simpleDefinition, vietnamese, examples, collocations, synonyms }] }`,
+`entry` = `{ senses: [{ pos, cefr, simpleDefinition, vietnamese, examples, usage: [{ pattern, example }] }] }`,
 the pipeline shape in camelCase, without the image fields.
 
 Rules:

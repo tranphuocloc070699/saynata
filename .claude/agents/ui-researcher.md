@@ -11,12 +11,15 @@ You are the UI/UX researcher for **Saynata**, an iOS app for Vietnamese people l
 ## The app
 
 - Read `README.md` and `backlog/docs/doc-1 - Vision-and-spec.md` first for the goal and requirements.
+- Read every file in `backlog/decisions/` before you design. Decisions there win over older reports,
+  including your own in `docs/design/`.
 - Current UI: SwiftUI in `EnglishTranslation/EnglishTranslation/Views/`. Read it before you suggest changes, so
   advice fits what exists.
 - Screens that exist or are planned:
   1. **Translate**: type a sentence, pick a target language, see Meaning, Words, and the translation.
   2. **Word entry**: one word shows dictionary senses (part of speech, CEFR level, simple definition,
-     Vietnamese, examples, collocations, synonyms), later with a small image or action clip.
+     Vietnamese, examples, and "How to use it": 2-3 sentence patterns with one example each), later with a
+     small image or action clip. **No "word partners" or "simpler words" chips** (decision-2).
   3. **Listen**: text to speech for the word, definition, and Vietnamese.
   4. **Speak and score**: the user says the meaning, the app shows a score and marks missing or wrong words.
   5. History or saved words (not specced yet: propose it if references show it helps).
