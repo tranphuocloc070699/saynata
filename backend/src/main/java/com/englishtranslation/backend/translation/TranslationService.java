@@ -37,7 +37,7 @@ public class TranslationService {
 
     public TranslationResponse translate(String text, TargetLanguage targetLang) {
         String normalized = CacheKeys.normalizeSentence(text);
-        String cacheKey = CacheKeys.key("sentence", properties.promptVersion(), targetLang.code(), normalized);
+        String cacheKey = CacheKeys.key("sentence", properties.sentencePromptVersion(), targetLang.code(), normalized);
 
         Optional<SentenceTranslation> saved = repository.findByCacheKey(cacheKey);
         if (saved.isPresent()) {
@@ -49,7 +49,7 @@ public class TranslationService {
             repository.saveAndFlush(new SentenceTranslation(
                     cacheKey, normalized, targetLang.code(), explanation.meaning(),
                     jsonMapper.writeValueAsString(explanation.words()), explanation.translation(),
-                    properties.model(), properties.promptVersion()));
+                    properties.model(), properties.sentencePromptVersion()));
             return new TranslationResponse(normalized, targetLang, explanation, false);
         } catch (DataIntegrityViolationException e) {
             // Another request saved the same key while we waited for Claude. Keep the first answer.
