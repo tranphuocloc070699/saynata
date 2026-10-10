@@ -1,7 +1,7 @@
-"""Calls the LLM to write simple definitions + Vietnamese for one word.
+"""Calls Claude to write simple definitions + Vietnamese for one word.
 
-Gemini and DeepSeek both speak the OpenAI API format, so one client works for
-both. Pick one with LLM_PROVIDER in .env.
+Structured outputs make Claude return exactly the WordEntry shape, so the prompt
+no longer needs the JSON schema pasted in. Pick the model with CLAUDE_MODEL in .env.
 """
 
 import json
@@ -9,30 +9,15 @@ import os
 import time
 from functools import cache
 
-from openai import OpenAI
+import anthropic
 
 from pipeline.models import WordEntry
 from pipeline.senses import WordSource
 
-# Bump this when the prompt changes, then re-run only rows with an older version.
-PROMPT_VERSION = 1
+# Bump this when the prompt or model changes, then re-run only rows with an older version.
+PROMPT_VERSION = 2
 
-PROVIDERS = {
-    "gemini": {
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "key_env": "GEMINI_API_KEY",
-        "model_env": "GEMINI_MODEL",
-        "default_model": "gemini-3.5-flash-lite",
-        "max_per_minute": 15,  # free tier limit
-    },
-    "deepseek": {
-        "base_url": "https://api.deepseek.com",
-        "key_env": "DEEPSEEK_API_KEY",
-        "model_env": "DEEPSEEK_MODEL",
-        "default_model": "deepseek-v4-flash",
-        "max_per_minute": 0,  # 0 = no pacing
-    },
-}
+DEFAULT_MODEL = "claude-haiku-5-5"
 
 SYSTEM_PROMPT = """You write entries for a learner's dictionary for Vietnamese students of English,
 in the style of the Cambridge Learner's Dictionary.
@@ -46,41 +31,26 @@ Rules:
 - vietnamese: a short, natural Vietnamese meaning (1-6 words), like a good bilingual dictionary.
 - image_type: "photo" if a stock photo clearly shows it, "icon" if a simple icon can show it,
   otherwise "none". Most abstract words are "none".
-- source_index: the index of the Wiktionary sense you based it on.
-
-Reply with JSON only, matching this JSON schema:
-""" + json.dumps(WordEntry.model_json_schema())
-
-
-def _provider() -> dict:
-    return PROVIDERS[os.environ.get("LLM_PROVIDER", "gemini")]
+- source_index: the index of the Wiktionary sense you based it on."""
 
 
 @cache
-def _client() -> OpenAI:
-    # Created once and reused. A new client per call gets garbage-collected
-    # and closed while its request is still running.
-    provider = _provider()
-    # max_retries: the SDK waits and retries on 429 (rate limit) and 5xx errors.
-    return OpenAI(base_url=provider["base_url"], api_key=os.environ[provider["key_env"]], max_retries=5)
+def _client() -> anthropic.Anthropic:
+    # Created once and reused. max_retries: the SDK waits and retries on 429, 5xx and connection errors.
+    return anthropic.Anthropic(max_retries=5)
 
 
 def model_name() -> str:
-    provider = _provider()
-    return os.environ.get(provider["model_env"], provider["default_model"])
+    return os.environ.get("CLAUDE_MODEL", DEFAULT_MODEL)
 
 
 _last_call_at = 0.0
 
 
 def _wait_for_rate_limit() -> None:
-    """Spaces out calls so we stay under the provider's requests-per-minute limit.
-
-    Retrying after a 429 is not enough on Gemini's free tier: it asks you to wait
-    ~40 seconds, longer than the SDK's own retry delays.
-    """
+    """Spaces out calls when LLM_MAX_PER_MINUTE is set. Off by default: the SDK retries 429s itself."""
     global _last_call_at
-    per_minute = int(os.environ.get("LLM_MAX_PER_MINUTE", _provider()["max_per_minute"]))
+    per_minute = int(os.environ.get("LLM_MAX_PER_MINUTE", "0"))
     if per_minute > 0:
         gap = 60 / per_minute - (time.monotonic() - _last_call_at)
         if gap > 0:
@@ -104,15 +74,18 @@ def build_prompt(word: str, source: WordSource, feedback: list[str]) -> str:
 
 
 def generate_entry(word: str, source: WordSource, feedback: list[str]) -> WordEntry:
-    """Raises pydantic.ValidationError if the reply doesn't match WordEntry."""
+    """Raises RuntimeError when Claude refuses or the reply is cut off."""
     _wait_for_rate_limit()
-    response = _client().chat.completions.create(
+    response = _client().messages.parse(
         model=model_name(),
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": build_prompt(word, source, feedback)},
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.3,
+        max_tokens=16000,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": build_prompt(word, source, feedback)}],
+        output_format=WordEntry,
+        output_config={"effort": "low"},
     )
-    return WordEntry.model_validate_json(response.choices[0].message.content)
+    if response.stop_reason == "refusal":
+        raise RuntimeError(f"Claude refused: {response.stop_details}")
+    if response.parsed_output is None:
+        raise RuntimeError(f"No entry returned (stop_reason={response.stop_reason})")
+    return response.parsed_output

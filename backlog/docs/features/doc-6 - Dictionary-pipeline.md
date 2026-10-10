@@ -3,9 +3,9 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-10 06:37'
+updated_date: '2026-10-10 07:18'
 ---
-> Status: **works, 245 of 2,809 words done** (TASK-3). Last traced from code: 2026-10-10.
+> Status: **works, 245 of 2,809 words done** (TASK-3). Last traced from code: 2026-10-10 (Claude switch).
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
 
 ## What it does
@@ -22,7 +22,7 @@ flowchart LR
     NGSL["NGSL CSVs (word, rank, forms)"] --> SRC[sources.py]
     KK["Kaikki.org Wiktionary JSONL per word"] --> SRC
     SRC -->|cached in data/raw/| SEN[senses.py filter senses]
-    SEN --> GEN[generate.py LLM call]
+    SEN --> GEN[generate.py Claude call]
     GEN --> VAL[validate.py simple-word check]
     VAL -->|problems → feedback, max 3 tries| GEN
     VAL --> ST[(data/pipeline.db progress table)]
@@ -41,7 +41,7 @@ sequenceDiagram
     participant DB as store (pipeline.db)
     participant SE as senses
     participant GE as generate
-    participant LLM as Gemini / DeepSeek
+    participant LLM as Claude (Haiku / Sonnet 5.5)
     participant VA as validate
 
     CLI->>SO: load_ngsl() → 2,809 words + forms
@@ -53,7 +53,7 @@ sequenceDiagram
         CLI->>SE: build_source(entries) → candidates, IPA, Vietnamese hints
         loop attempt 1..3
             CLI->>GE: generate_entry(lemma, source, feedback)
-            GE->>GE: wait for rate limit (Gemini: 15/min)
+            GE->>GE: optional pacing (LLM_MAX_PER_MINUTE)
             GE->>LLM: system prompt + candidates + feedback
             LLM-->>GE: JSON
             GE-->>CLI: WordEntry (or ValidationError → feedback, retry)
@@ -94,13 +94,13 @@ sequenceDiagram
 
 | Step | Line | What happens |
 |---|---|---|
-| Provider | [20-35](../../../pipeline/src/pipeline/generate.py#L20-L35), [55-56](../../../pipeline/src/pipeline/generate.py#L55-L56) | `LLM_PROVIDER` = `gemini` (free, 15/min) or `deepseek`. Both speak the OpenAI API, so one client works. |
-| Client | [59-65](../../../pipeline/src/pipeline/generate.py#L59-L65) | Created once (`@cache`). `max_retries=5` for 429 and 5xx errors. |
-| Rate limit | [76-88](../../../pipeline/src/pipeline/generate.py#L76-L88) | Sleeps so calls are ≥ 60/limit seconds apart. SDK retries alone aren't enough for Gemini. |
-| System prompt | [37-52](../../../pipeline/src/pipeline/generate.py#L37-L52) | Cambridge Learner's style, plus the full `WordEntry` JSON schema. |
-| User prompt | [91-103](../../../pipeline/src/pipeline/generate.py#L91-L103) | Headword + candidate senses + Vietnamese hints + **feedback from the last failed try**. |
-| Call | [106-118](../../../pipeline/src/pipeline/generate.py#L106-L118) | `response_format: json_object`, `temperature 0.3`, then `WordEntry.model_validate_json`. |
-| Version | [18](../../../pipeline/src/pipeline/generate.py#L18) | `PROMPT_VERSION = 1`. Bump it and `generate` redoes `done` rows with an older version. |
+| Model | [21](../../../pipeline/src/pipeline/generate.py#L21), [43-44](../../../pipeline/src/pipeline/generate.py#L43-L44) | `CLAUDE_MODEL`: `claude-haiku-5-5` (default, ~$0.0004/call) or `claude-sonnet-5-5` (~$0.008/call, better definitions). |
+| Client | [37-40](../../../pipeline/src/pipeline/generate.py#L37-L40) | Anthropic SDK, created once (`@cache`). `max_retries=5` for 429, 5xx and connection errors. Key: `ANTHROPIC_API_KEY`. |
+| Pacing | [50-58](../../../pipeline/src/pipeline/generate.py#L50-L58) | Off by default. `LLM_MAX_PER_MINUTE` spaces calls if you hit rate limits. |
+| System prompt | [23-34](../../../pipeline/src/pipeline/generate.py#L23-L34) | Cambridge Learner's style rules. No schema in the prompt: structured output enforces the shape. |
+| User prompt | [61-73](../../../pipeline/src/pipeline/generate.py#L61-L73) | Headword + candidate senses + Vietnamese hints + **feedback from the last failed try**. |
+| Call | [76-91](../../../pipeline/src/pipeline/generate.py#L76-L91) | `messages.parse(output_format=WordEntry)`, `effort: low`. A refusal or empty reply raises, and the word becomes `failed`. No `temperature`: the 5.5 models reject it. |
+| Version | [18](../../../pipeline/src/pipeline/generate.py#L18) | `PROMPT_VERSION = 2` (v1 = Gemini). Bump it and `generate` redoes `done` rows with an older version. |
 
 Output shape: [models.py](../../../pipeline/src/pipeline/models.py): `senses[]` with `source_index, pos, cefr, simple_definition, examples, vietnamese, collocations, synonyms, image_type, image_query`.
 
@@ -169,6 +169,6 @@ Run: `uv run pytest` in `pipeline/` (no API key needed).
 
 - **Network errors become `failed` with `attempts=1`**, even when some LLM calls already ran ([cli.py:73-75](../../../pipeline/src/pipeline/cli.py#L73-L75)). `report` undercounts calls for these words.
 - **3 schema errors in a row → `needs_review` with no entry** ([cli.py:59-68](../../../pipeline/src/pipeline/cli.py#L59-L68)). Harmless for export, but `report` shows the schema error as the problem.
-- **`temperature 0.3`**, not the lowest. This is fine here: the output is generated once and stored, so R3's "same input, same output" holds through the file, not the sampling.
+- **No sampling control** on Claude 5.5 models. Fine here: the output is generated once and stored, so R3's "same input, same output" holds through the file.
 - **Image fields are generated but not used yet** (`image_url` is always empty). Images are out of scope for v1.
 - **The iOS app doesn't read the file yet** (TASK-4).

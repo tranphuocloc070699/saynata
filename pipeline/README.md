@@ -16,7 +16,7 @@ NGSL word list ─► Kaikki (Wiktionary JSON) ─► filter senses ─► LLM �
 | `sources.py` | Downloads NGSL + Kaikki entries (cached in `data/raw/`) |
 | `senses.py` | Drops archaic/rare/word-form senses, keeps top 5 per entry |
 | `models.py` | The JSON shape the LLM must return |
-| `generate.py` | The prompt + LLM call (Gemini or DeepSeek, via the OpenAI-compatible API) |
+| `generate.py` | The prompt + Claude call (structured output in the `WordEntry` shape) |
 | `validate.py` | Definition may only use NGSL words, no headword, max 20 words |
 | `store.py` | Progress table (`data/pipeline.db`) so runs can stop and resume |
 | `export.py` | Builds `dictionary.sqlite` for the iOS app + `dictionary.jsonl` |
@@ -24,7 +24,7 @@ NGSL word list ─► Kaikki (Wiktionary JSON) ─► filter senses ─► LLM �
 ## Run
 
 ```bash
-cp .env.example .env        # pick LLM_PROVIDER and add its key
+cp .env.example .env        # add ANTHROPIC_API_KEY, pick CLAUDE_MODEL
 uv sync
 uv run pipeline preview reluctant   # see the prompt input (no key needed)
 uv run pipeline generate --limit 200
@@ -41,7 +41,7 @@ uv run pipeline export
 | Try one word, save nothing | `uv run pipeline try bank` | Yes, 1-3 calls |
 | Small real batch | `uv run pipeline generate --limit 20` then `report` | Yes |
 
-Gemini free tier allows 15 requests/minute, so calls are spaced ~4 s apart (`LLM_MAX_PER_MINUTE`).
+Calls are not paced by default; the SDK retries rate limits (429) itself. Set `LLM_MAX_PER_MINUTE` to slow down.
 
 Changed the prompt? Bump `PROMPT_VERSION` in `generate.py`, and `generate` redoes old rows.
 
