@@ -22,3 +22,10 @@ Do not edit Backlog task, draft, document, decision, or milestone markdown files
 
 </CRITICAL_INSTRUCTION>
 <!-- BACKLOG.MD GUIDELINES END -->
+
+## Feature docs
+
+`docs/features/` has one page per flow (files, `file:line` links, Mermaid diagrams, errors, tests, known gaps).
+Read the matching page before changing a flow. When a change moves, renames, or changes the logic of
+anything on a page, update that page in the same commit, including line numbers and the "Last traced" date.
+A new feature gets a new page from the template in `docs/features/README.md`.

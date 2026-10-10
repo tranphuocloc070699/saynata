@@ -12,3 +12,6 @@ and practise saying the meaning with a score.
 
 Spec: [backlog/docs/doc-1 - Vision-and-spec.md](backlog/docs/doc-1%20-%20Vision-and-spec.md).
 See progress with `backlog board` or `backlog browser`.
+
+- How each feature works: [docs/features/](docs/features/README.md)
+- Daily workflow: [docs/WORKFLOW.md](docs/WORKFLOW.md)
