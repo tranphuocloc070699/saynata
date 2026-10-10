@@ -4,7 +4,7 @@ title: 'Pipeline: generate the full NGSL dictionary'
 status: In Progress
 assignee: []
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-10 08:02'
+updated_date: '2026-10-10 08:25'
 labels:
   - pipeline
 milestone: m-0
@@ -27,6 +27,13 @@ The app bundles dictionary.sqlite, so iOS word lookup needs it. On 2026-10-10: 2
 - [ ] #2 Failed words retried; remaining failures and needs_review fixed or accepted
 - [x] #3 uv run pipeline export produces data/out/dictionary.sqlite
 <!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [ ] #1 Tests pass
+- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+<!-- DOD:END -->
 
 ## Implementation Notes
 

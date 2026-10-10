@@ -4,6 +4,7 @@ title: Show the 500-character limit in the app and a clear 400 message
 status: To Do
 assignee: []
 created_date: '2026-10-10 06:37'
+updated_date: '2026-10-10 08:25'
 labels:
   - ios
   - backend
@@ -27,4 +28,5 @@ The backend rejects text over 500 characters with detail 'Invalid request conten
 <!-- DOD:BEGIN -->
 - [ ] #1 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #2 Tests pass
+- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->

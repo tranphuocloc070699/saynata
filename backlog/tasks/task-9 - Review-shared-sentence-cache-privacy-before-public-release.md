@@ -4,6 +4,7 @@ title: Review shared sentence cache privacy before public release
 status: To Do
 assignee: []
 created_date: '2026-10-10 04:31'
+updated_date: '2026-10-10 08:25'
 labels:
   - backend
 milestone: m-0
@@ -22,3 +23,10 @@ Sentences are shared across users in the backend cache and may contain personal 
 <!-- AC:BEGIN -->
 - [ ] #1 Decision recorded: keep shared, add per-user scope, or opt-out
 <!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [ ] #1 Tests pass
+- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+<!-- DOD:END -->

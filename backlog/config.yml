@@ -13,4 +13,4 @@ bypass_git_hooks: false
 check_active_branches: true
 active_branch_days: 30
 task_prefix: "task"
-definition_of_done: ["Feature doc (backlog/docs/features/) updated if a flow changed", "Tests pass"]
+definition_of_done: ["Tests pass", "Feature doc (backlog/docs/features/) updated if a flow changed", "CLAUDE.md overview updated if the stack, folders, or commands changed"]

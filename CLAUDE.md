@@ -18,6 +18,20 @@ Read before working:
 
 Tests: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` · iOS in Xcode (⌘U).
 
+## Product rule: explain first, translate last
+
+Saynata teaches English. It is not a translator. For every word and sentence, the main result is a **simple
+English explanation** of the meaning (short, plain words, B1-B2 level), so the learner thinks in English.
+The target language (Vietnamese, etc.) is a small helper line at the **bottom** of the result, never the headline.
+
+- UI order: simple English explanation, then words (IPA, type, level, meaning), then the target-language line last.
+- The target-language line is **collapsed by default** (a "Vietnamese" row the user taps to open, per result).
+  Settings has a "Show translation" option to change this: Collapsed (default), Always open, or Remember last choice.
+- Words in a sentence use the same word card as a word search, in compact form.
+- Prompts and response models: ask the LLM for the English explanation first; the target-language text is a
+  secondary field. Do not name or design a feature as "translate X".
+- When a doc, task, or mockup says "translation first", this rule wins. Update the doc.
+
 <!-- BACKLOG.MD GUIDELINES START -->
 <!-- backlog.md-instructions-version: 1.53.0 -->
 <CRITICAL_INSTRUCTION>
@@ -49,3 +63,7 @@ Read the matching page before changing a flow. When a change moves, renames, or 
 anything on a page, update that page in the same commit, including line numbers and the "Last traced" date.
 Edit pages with `backlog doc update <id> --content` (the files have frontmatter). A new feature gets a new page
 from the template in doc-3 (Features overview), created with `backlog doc create "<Feature>" -p features`.
+
+Keep the overview at the top of this file true too: when a change adds a part, changes the stack or a model,
+or changes a command, update it in the same commit. Before every commit, run `python3 scripts/check_docs.py`
+and fix what it reports (links to missing files or past the end of a file).

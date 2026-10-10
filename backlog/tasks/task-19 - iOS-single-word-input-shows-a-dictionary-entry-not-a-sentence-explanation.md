@@ -4,6 +4,7 @@ title: 'iOS: single-word input shows a dictionary entry, not a sentence explanat
 status: To Do
 assignee: []
 created_date: '2026-10-10 06:36'
+updated_date: '2026-10-10 08:25'
 labels:
   - ios
 dependencies:
@@ -29,4 +30,5 @@ Today every input goes to POST /api/translations, so one word like 'Graveyard' g
 <!-- DOD:BEGIN -->
 - [ ] #1 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #2 Tests pass
+- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->

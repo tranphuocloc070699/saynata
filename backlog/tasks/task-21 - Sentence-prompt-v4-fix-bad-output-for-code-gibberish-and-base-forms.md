@@ -4,6 +4,7 @@ title: 'Sentence prompt v4: fix bad output for code, gibberish and base forms'
 status: To Do
 assignee: []
 created_date: '2026-10-10 06:37'
+updated_date: '2026-10-10 08:25'
 labels:
   - backend
 dependencies:
@@ -29,4 +30,5 @@ Probe 2026-10-10 found: (1) code ('for (int i = 0; ...') and gibberish ('asdkj q
 <!-- DOD:BEGIN -->
 - [ ] #1 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #2 Tests pass
+- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->

@@ -4,6 +4,7 @@ title: 'Pipeline: small images and action clips from Pexels'
 status: To Do
 assignee: []
 created_date: '2026-10-10 07:27'
+updated_date: '2026-10-10 08:25'
 labels:
   - pipeline
 dependencies:
@@ -33,4 +34,5 @@ Senses with image_type photo or icon have an image_query but no image (image_url
 <!-- DOD:BEGIN -->
 - [ ] #1 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #2 Tests pass
+- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->

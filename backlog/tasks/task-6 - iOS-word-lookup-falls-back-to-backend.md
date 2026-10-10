@@ -4,6 +4,7 @@ title: 'iOS: word lookup falls back to backend'
 status: To Do
 assignee: []
 created_date: '2026-10-10 04:31'
+updated_date: '2026-10-10 08:25'
 labels:
   - ios
 milestone: m-0
@@ -25,3 +26,10 @@ Full lookup order: bundle -> local cache -> GET /api/words/{word} -> save locall
 - [ ] #2 Result is saved to the local cache
 - [ ] #3 Errors (422, 502, offline) show a clear message
 <!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [ ] #1 Tests pass
+- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+<!-- DOD:END -->

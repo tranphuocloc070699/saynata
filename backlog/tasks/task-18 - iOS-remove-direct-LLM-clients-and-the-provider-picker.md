@@ -4,6 +4,7 @@ title: 'iOS: remove direct LLM clients and the provider picker'
 status: To Do
 assignee: []
 created_date: '2026-10-10 06:36'
+updated_date: '2026-10-10 08:25'
 labels:
   - ios
 dependencies: []
@@ -29,4 +30,5 @@ The app can call DeepSeek, OpenAI and Claude directly with keys from Secrets.xcc
 <!-- DOD:BEGIN -->
 - [ ] #1 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #2 Tests pass
+- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->

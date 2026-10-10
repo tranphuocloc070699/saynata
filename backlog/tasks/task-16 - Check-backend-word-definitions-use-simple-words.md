@@ -4,7 +4,7 @@ title: Check backend word definitions use simple words
 status: To Do
 assignee: []
 created_date: '2026-10-10 06:22'
-updated_date: '2026-10-10 06:23'
+updated_date: '2026-10-10 08:25'
 labels:
   - backend
 dependencies: []
@@ -27,4 +27,5 @@ The pipeline rejects definitions with words outside NGSL (pipeline/src/pipeline/
 <!-- DOD:BEGIN -->
 - [ ] #1 Tests pass
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
