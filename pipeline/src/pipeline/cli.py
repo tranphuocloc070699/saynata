@@ -4,12 +4,14 @@
     uv run pipeline try reluctant        # call the LLM for one word, print result, save nothing
     uv run pipeline generate --limit 200 # generate the 200 most common NGSL words
     uv run pipeline generate --retry-review  # also redo words that failed the checks
+    uv run pipeline generate --workers 8     # LLM calls in parallel (default 8)
     uv run pipeline report               # counts + entries that need review
     uv run pipeline export               # build data/out/dictionary.sqlite
 """
 
 import argparse
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from dotenv import load_dotenv
 from pydantic import ValidationError
@@ -40,8 +42,33 @@ def try_word(word: str) -> None:
     print("\nChecks:", "passed" if not problems else "\n- " + "\n- ".join(problems))
 
 
-def generate(limit: int, retry_review: bool) -> None:
-    from pipeline.generate import PROMPT_VERSION, generate_entry, model_name
+def _generate_word(lemma: str, rank: int, vocabulary: set[str]) -> dict:
+    """Runs in a worker thread: network and LLM only, no DB access. Returns the fields for save_result."""
+    from pipeline.generate import generate_entry
+
+    try:
+        source = build_source(sources.load_kaikki(lemma))
+        feedback: list[str] = []
+        entry = None
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            try:
+                entry = generate_entry(lemma, source, feedback)
+            except ValidationError as error:  # reply was not the JSON shape we asked for
+                feedback = [f"your JSON did not match the schema: {error.errors()[:3]}"]
+                continue
+            feedback = find_problems(lemma, entry, vocabulary, rank=rank)
+            if not feedback:
+                break
+        return {
+            "status": "needs_review" if feedback else "done", "attempts": attempt, "ipa": source.ipa,
+            "entry": entry.model_dump_json() if entry else None, "problems": feedback,
+        }
+    except Exception as error:  # keep going; failed words are retried on the next run
+        return {"status": "failed", "attempts": 1, "problems": [repr(error)]}
+
+
+def generate(limit: int, retry_review: bool, workers: int) -> None:
+    from pipeline.generate import PROMPT_VERSION, model_name
 
     ngsl = sources.load_ngsl()
     vocabulary = build_vocabulary(ngsl)
@@ -49,31 +76,14 @@ def generate(limit: int, retry_review: bool) -> None:
     store.add_words(db, ngsl)
 
     rows = store.words_to_generate(db, limit, PROMPT_VERSION, retry_review)
-    print(f"Model: {model_name()}")
-    for number, row in enumerate(rows, start=1):
-        lemma = row["lemma"]
-        try:
-            source = build_source(sources.load_kaikki(lemma))
-            feedback: list[str] = []
-            entry = None
-            for attempt in range(1, MAX_ATTEMPTS + 1):
-                try:
-                    entry = generate_entry(lemma, source, feedback)
-                except ValidationError as error:  # reply was not the JSON shape we asked for
-                    feedback = [f"your JSON did not match the schema: {error.errors()[:3]}"]
-                    continue
-                feedback = find_problems(lemma, entry, vocabulary, rank=row["rank"])
-                if not feedback:
-                    break
-            status = "needs_review" if feedback else "done"
-            store.save_result(
-                db, lemma, status=status, prompt_version=PROMPT_VERSION, attempts=attempt,
-                ipa=source.ipa, entry=entry.model_dump_json() if entry else None, problems=feedback,
-            )
-        except Exception as error:  # keep going; failed words are retried on the next run
-            status = "failed"
-            store.save_result(db, lemma, status=status, prompt_version=PROMPT_VERSION, attempts=1, problems=[repr(error)])
-        print(f"[{number}/{len(rows)}] {lemma}: {status}")
+    print(f"Model: {model_name()}, {workers} workers")
+    # Worker threads wait on the network in parallel. Only this thread writes to SQLite.
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(_generate_word, row["lemma"], row["rank"], vocabulary): row["lemma"] for row in rows}
+        for number, future in enumerate(as_completed(futures), start=1):
+            lemma, result = futures[future], future.result()
+            store.save_result(db, lemma, prompt_version=PROMPT_VERSION, **result)
+            print(f"[{number}/{len(rows)}] {lemma}: {result['status']}", flush=True)
 
 
 def report() -> None:
@@ -94,6 +104,7 @@ def main() -> None:
     generate_parser = commands.add_parser("generate")
     generate_parser.add_argument("--limit", type=int, default=200)
     generate_parser.add_argument("--retry-review", action="store_true", help="also redo needs_review words")
+    generate_parser.add_argument("--workers", type=int, default=8, help="LLM calls in parallel")
     commands.add_parser("report")
     commands.add_parser("export")
     args = parser.parse_args()
@@ -103,7 +114,7 @@ def main() -> None:
     elif args.command == "try":
         try_word(args.word)
     elif args.command == "generate":
-        generate(args.limit, args.retry_review)
+        generate(args.limit, args.retry_review, args.workers)
     elif args.command == "report":
         report()
     elif args.command == "export":

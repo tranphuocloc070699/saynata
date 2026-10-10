@@ -3,7 +3,7 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-10 07:18'
+updated_date: '2026-10-10 07:28'
 ---
 > Status: **works, 245 of 2,809 words done** (TASK-3). Last traced from code: 2026-10-10 (Claude switch).
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
@@ -70,6 +70,8 @@ sequenceDiagram
 ```
 
 ## Step by step
+
+**Parallel:** `generate` runs `_generate_word` ([cli.py:45-67](../../../pipeline/src/pipeline/cli.py#L45-L67)) for 8 words at a time in worker threads ([cli.py:81-86](../../../pipeline/src/pipeline/cli.py#L81-L86)). Workers only do network and LLM work; the main thread is the only one that writes to SQLite, because a `sqlite3` connection must not be shared across threads. Full NGSL on Sonnet 5.5: about 40 minutes.
 
 ### 1. Sources: [sources.py](../../../pipeline/src/pipeline/sources.py)
 
@@ -151,7 +153,7 @@ stateDiagram-v2
 |---|---|---|
 | `uv run pipeline preview bank` | No | See the exact prompt for a word |
 | `uv run pipeline try bank` | 1–3 calls | Try one word, save nothing, print the checks |
-| `uv run pipeline generate --limit 200` | Yes | Next 200 words by rank |
+| `uv run pipeline generate --limit 200` | Yes | Next 200 words by rank, 8 in parallel (`--workers`) |
 | `uv run pipeline generate --retry-review` | Yes | Also redo `needs_review` |
 | `uv run pipeline report` | No | Counts per status + the problem list |
 | `uv run pipeline export` | No | Build `data/out/dictionary.sqlite` + `.jsonl` |
@@ -167,8 +169,8 @@ Run: `uv run pytest` in `pipeline/` (no API key needed).
 
 ## Known gaps
 
-- **Network errors become `failed` with `attempts=1`**, even when some LLM calls already ran ([cli.py:73-75](../../../pipeline/src/pipeline/cli.py#L73-L75)). `report` undercounts calls for these words.
-- **3 schema errors in a row → `needs_review` with no entry** ([cli.py:59-68](../../../pipeline/src/pipeline/cli.py#L59-L68)). Harmless for export, but `report` shows the schema error as the problem.
+- **Network errors become `failed` with `attempts=1`**, even when some LLM calls already ran ([cli.py:66-67](../../../pipeline/src/pipeline/cli.py#L66-L67)). `report` undercounts calls for these words.
+- **3 schema errors in a row → `needs_review` with no entry** ([cli.py:53-61](../../../pipeline/src/pipeline/cli.py#L53-L61)). Harmless for export, but `report` shows the schema error as the problem.
 - **No sampling control** on Claude 5.5 models. Fine here: the output is generated once and stored, so R3's "same input, same output" holds through the file.
 - **Image fields are generated but not used yet** (`image_url` is always empty). Images are out of scope for v1.
 - **The iOS app doesn't read the file yet** (TASK-4).
