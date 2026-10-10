@@ -4,7 +4,7 @@ title: Add CI that runs backend and pipeline tests
 status: To Do
 assignee: []
 created_date: '2026-10-10 05:46'
-updated_date: '2026-10-10 08:25'
+updated_date: '2026-10-10 08:26'
 labels:
   - devops
 dependencies:
@@ -23,6 +23,7 @@ Nothing forces tests to run, so a change can silently break an old feature. Use 
 - [ ] #1 Workflow runs ./mvnw test in backend/ on push and PR
 - [ ] #2 Workflow runs uv run pytest in pipeline/ on push and PR
 - [ ] #3 Badge or status visible on GitHub
+- [ ] #4 Workflow runs python3 scripts/check_docs.py and fails on broken doc links
 <!-- AC:END -->
 
 ## Definition of Done
