@@ -3,7 +3,7 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-10 06:37'
+updated_date: '2026-10-10 08:39'
 ---
 > Status: **backend done, iOS not started** (TASK-4, TASK-5, TASK-6). Last traced from code: 2026-10-10.
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -52,7 +52,7 @@ sequenceDiagram
     WC->>WC: @Pattern letters, ' and - only, 1 to 64 chars, else 400
     WC->>WS: lookUp("Reluctant")
     WS->>WS: normalizeWord gives "reluctant"
-    WS->>WS: key = sha256 of word, v3, reluctant
+    WS->>WS: key = sha256 of word, v4, reluctant
     WS->>DB: findByCacheKey(key)
     alt hit
         DB-->>WS: entry_json
@@ -78,8 +78,8 @@ sequenceDiagram
 | Hit | [WordService.java:31-34](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L31-L34) | Parse `entry_json` into `WordEntry`, `cached: true`. |
 | Miss | [WordService.java:36-40](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L36-L40) | Claude → save the whole entry as JSON text → `cached: false`. |
 | Race | [WordService.java:41-45](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L41-L45) | Same pattern as sentences: the unique key wins, the second request reads the first row. |
-| Prompt | [ClaudeService.java:43-55](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L43-L55) | `WORD_PROMPT`: 1–4 senses, ≤20-word definition, never the word itself, 2 examples, 0–3 collocations and synonyms. Not an English word → empty `senses`. |
-| Request | [ClaudeService.java:81-94](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L81-L94) | `maxTokens 8000`, `effort LOW`, structured output with `WordEntry.class`. |
+| Prompt | [ClaudeService.java:45-57](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L45-L57) | `WORD_PROMPT`: 1–4 senses, ≤20-word definition, never the word itself, 2 examples, 0–3 collocations and synonyms. Not an English word → empty `senses`. |
+| Request | [ClaudeService.java:82-95](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L82-L95) | `maxTokens 8000`, `effort LOW`, structured output with `WordEntry.class`. The word goes inside `<word>` tags, escaped by `wordMessage` ([103-105](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L103-L105)). |
 | Shape | [WordEntry.java:6-17](../../../backend/src/main/java/com/englishtranslation/backend/word/WordEntry.java#L6-L17) | Same as the pipeline's `models.py`, in camelCase, **without** `source_index`, `image_type`, `image_query`. |
 | Response | [WordResponse.java:3](../../../backend/src/main/java/com/englishtranslation/backend/word/WordResponse.java#L3) | `{ word, entry: { senses: [...] }, cached }`. |
 
