@@ -13,5 +13,7 @@ and practise saying the meaning with a score.
 Spec: [backlog/docs/doc-1 - Vision-and-spec.md](backlog/docs/doc-1%20-%20Vision-and-spec.md).
 See progress with `backlog board` or `backlog browser`.
 
-- How each feature works: [docs/features/](docs/features/README.md)
-- Daily workflow: [docs/WORKFLOW.md](docs/WORKFLOW.md)
+- How each feature works: [backlog/docs/features/](backlog/docs/features/doc-3%20-%20Features-overview.md)
+- Daily workflow: [backlog/docs/doc-2 - Daily-workflow.md](backlog/docs/doc-2%20-%20Daily-workflow.md)
+
+All docs, with diagrams, are also in the web UI: `backlog browser` → Documents.

@@ -1,13 +1,18 @@
-# Feature docs
-
+---
+id: doc-3
+title: Features overview
+type: specification
+created_date: '2026-10-10 06:23'
+updated_date: '2026-10-10 06:24'
+---
 One page per flow: what it does, a diagram, every file and line on the path, the rules that matter,
 what can go wrong, which tests cover it, and what is still missing.
 
 | Feature | Status | Parts |
 |---|---|---|
-| [Sentence translation](sentence-translation.md) | Working | iOS → backend → Claude → Postgres |
-| [Word lookup](word-lookup.md) | Backend done, iOS not started | backend (+ iOS planned) |
-| [Dictionary pipeline](dictionary-pipeline.md) | 245 / 2,809 words | Python, offline |
+| [Sentence translation](doc-4%20-%20Sentence-translation.md) | Working | iOS → backend → Claude → Postgres |
+| [Word lookup](doc-5%20-%20Word-lookup.md) | Backend done, iOS not started | backend (+ iOS planned) |
+| [Dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md) | 245 / 2,809 words | Python, offline |
 
 Not started yet: **text to speech** (TASK-7), **speech to text with a score** (TASK-8). Add a page when work starts.
 
@@ -31,7 +36,7 @@ These pages are only useful if they match the code. The rule:
 
 Backlog.md adds "Feature doc updated if a flow changed" to every new task's Definition of Done,
 and `CLAUDE.md` tells every Claude session to do it. To check a page by hand, ask Claude:
-"trace the sentence translation flow and update docs/features/sentence-translation.md".
+"trace the sentence translation flow and update doc-4 (Sentence translation)".
 
 ## Template for a new page
 
@@ -39,7 +44,7 @@ and `CLAUDE.md` tells every Claude session to do it. To check a page by hand, as
 # <Feature>
 
 > Status: … Last traced from code: YYYY-MM-DD.
-> Spec: R… in [Vision and spec](../../backlog/docs/doc-1%20-%20Vision-and-spec.md).
+> Spec: R… in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
 2–3 sentences, from the user's point of view.

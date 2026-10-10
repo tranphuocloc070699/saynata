@@ -1,5 +1,10 @@
-# Daily workflow
-
+---
+id: doc-2
+title: Daily workflow
+type: guide
+created_date: '2026-10-10 06:22'
+updated_date: '2026-10-10 06:24'
+---
 You don't need to remember this. Open it when you come back after a break.
 
 ```mermaid
@@ -37,8 +42,8 @@ takes seconds to resume. A task without one takes half an hour.
 
 | What | Where |
 |---|---|
-| Goal, requirements, decisions | [backlog/docs/doc-1 - Vision-and-spec.md](../backlog/docs/doc-1%20-%20Vision-and-spec.md) |
-| How each feature works | [docs/features/](features/README.md) |
+| Goal, requirements, decisions | [backlog/docs/doc-1 - Vision-and-spec.md](doc-1%20-%20Vision-and-spec.md) |
+| How each feature works | [Features overview](features/doc-3%20-%20Features-overview.md) (Documents → features in the web UI) |
 | Tasks and progress | `backlog/tasks/`, or `backlog browser` |
 | Decisions made later | `backlog/decisions/` ("record a decision: …") |
-| Reports on finished work | [docs/reports/](reports/) |
+| Reports on finished work | [docs/reports/](../../docs/reports/) |
