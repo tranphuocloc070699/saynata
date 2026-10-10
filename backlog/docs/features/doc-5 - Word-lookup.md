@@ -3,7 +3,7 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-10 06:37'
+updated_date: '2026-10-10 08:50'
 ---
 > Status: **backend done, iOS not started** (TASK-4, TASK-5, TASK-6). Last traced from code: 2026-10-10.
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -102,14 +102,13 @@ bad word → 400, Claude refused → 422, Claude down → 502. A made-up word li
 
 | Test | Covers |
 |---|---|
-| [WordServiceTest.java](../../../backend/src/test/java/com/englishtranslation/backend/word/WordServiceTest.java) | A saved entry reads back the same |
+| [WordServiceTest.java](../../../backend/src/test/java/com/englishtranslation/backend/word/WordServiceTest.java) | The second lookup is `cached: true` and calls Claude once; a saved entry reads back the same |
 | [TranslationControllerTest.java:69](../../../backend/src/test/java/com/englishtranslation/backend/translation/TranslationControllerTest.java#L69) | A word with spaces → 400 |
 | [CacheKeysTest.java](../../../backend/src/test/java/com/englishtranslation/backend/cache/CacheKeysTest.java) | Words are lowercased |
 
 ## Known gaps
 
 - **No iOS code yet.** No bundled dictionary reader, no local cache, no word screen. The iOS app must copy `CacheKeys` normalising **exactly**, or the phone and server will use different keys.
-- **No "second request is cached" test for words.** Sentences have one (`secondRequestComesFromCacheWithoutCallingClaude`). Words only test the read-back.
 - **Backend entries skip the pipeline's quality checks.** The pipeline rejects definitions with words outside NGSL ([validate.py](../../../pipeline/src/pipeline/validate.py)). The backend trusts Claude's answer, so backend definitions can be harder than bundled ones.
 - **Empty answers are cached forever** (for that prompt version), including a typo the user fixes a second later.
 - **Shared prompt version:** see the note in [sentence-translation.md](doc-4%20-%20Sentence-translation.md#known-gaps).
