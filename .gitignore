@@ -1,0 +1,8 @@
+# macOS
+.DS_Store
+
+# Reference app (its own git repo, not ours)
+IceCubesApp/
+
+# Local tooling
+.codegraph/

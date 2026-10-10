@@ -1,0 +1,9 @@
+services:
+  postgres:
+    image: 'postgres:17'
+    environment:
+      - 'POSTGRES_DB=english_translation'
+      - 'POSTGRES_PASSWORD=secret'
+      - 'POSTGRES_USER=app'
+    ports:
+      - '5432'
