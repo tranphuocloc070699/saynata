@@ -1,11 +1,11 @@
 ---
 id: TASK-5
 title: 'iOS: local SQLite cache for results'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-10 04:31'
-updated_date: '2026-10-11 09:32'
+updated_date: '2026-10-11 15:24'
 labels:
   - ios
 milestone: m-0
@@ -21,16 +21,16 @@ Repeat lookups should not hit the network (spec R2 step 2). Cache key must equal
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Translations and word entries are saved locally after a backend answer
-- [ ] #2 Same key is served from the local cache with no network call
-- [ ] #3 Cache key matches backend CacheKeys for the same input
+- [x] #1 Translations and word entries are saved locally after a backend answer
+- [x] #2 Same key is served from the local cache with no network call
+- [x] #3 Cache key matches backend CacheKeys for the same input
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
-- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Tests pass
+- [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -59,3 +59,9 @@ Repeat lookups should not hit the network (spec R2 step 2). Cache key must equal
 
 PR: https://github.com/tranphuocloc070699/saynata/pull/8
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Local SQLite result cache with keys equal to the backend (PR #8). Verified: CacheTests and BackendClientTests.
+<!-- SECTION:FINAL_SUMMARY:END -->

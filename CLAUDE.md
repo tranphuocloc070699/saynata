@@ -6,7 +6,7 @@ learning Swift and English at the same time.
 
 | Part | Stack | Job |
 |---|---|---|
-| `EnglishTranslation/` | SwiftUI, iOS 18 | The app, plus the `ShareExtension` target (Share, then Saynata, explains selected text in a sheet; it compiles the app folder, see doc-10). Talks only to our backend (direct LLM clients are being removed, TASK-18). |
+| `EnglishTranslation/` | SwiftUI, iOS 18 | The app, plus two extensions that show the same explain sheet for selected text: `ShareExtension` (Share, then Saynata) and `TranslationExtension` (the system Translate item, when Saynata is the default translation app, iOS 18.4+). Both compile the app folder, see doc-10. Talks only to our backend (direct LLM clients are being removed, TASK-18). |
 | `backend/` | Spring Boot 4, Java 17, Postgres, Flyway, Claude Haiku 5.5 | `POST /api/translations`, `GET /api/words/{word}`, with a shared cache-first DB. Words not on the bundled SCOWL/NGSL word list are rejected before Claude is called. |
 | `pipeline/` | Python 3.12, uv, Claude Sonnet 5.5 | Builds `dictionary.sqlite` (NGSL words, 3 levelled examples per sense, form types via lemminflect) bundled in the app. |
 
