@@ -56,4 +56,6 @@ Repeat lookups should not hit the network (spec R2 step 2). Cache key must equal
 **Expected:**
 - Step 2 shows the explanation.
 - Step 3 shows the same explanation at once, even with the backend off.. Implemented: CacheKeys.swift, ResultCache.swift, BackendClient cache wiring, tests (29 pass), docs doc-4/doc-5.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/8
 <!-- SECTION:NOTES:END -->
