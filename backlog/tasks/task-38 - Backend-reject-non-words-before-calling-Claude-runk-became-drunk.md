@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-11 14:51'
-updated_date: '2026-10-11 14:56'
+updated_date: '2026-10-11 14:59'
 labels:
   - backend
   - ios
@@ -40,3 +40,9 @@ Developer test 2026-10-11: typing 'runk' showed a card for 'drunk' under the hea
 <!-- SECTION:PLAN:BEGIN -->
 1. EnglishWords (SCOWL 70 + NGSL from the bundle) loaded at startup. 2. WordService rejects unlisted words before Claude, no save. 3. WORD_PROMPT rule. 4. Bump v7 backend + iOS. 5. Tests, docs.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/20. Test it: start backend; curl localhost:8081/api/words/runk -> {"senses":[]}, no Claude call; curl .../serendipity -> full entry; in the app 'runk' shows 'not an English word' + Did you mean; ru%20nk -> 400. Automated: ./mvnw -B test (31 pass), iOS unit tests (85 pass). Follow-up: iOS ResultCache still saves empty answers; 'different headword' check is prompt-only.
+<!-- SECTION:NOTES:END -->
