@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.claude.NotEnglishException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,6 +64,18 @@ class TranslationControllerTest {
                 .andExpect(jsonPath("$.explanation.meaning").value("A greeting."))
                 .andExpect(jsonPath("$.explanation.words").isArray())
                 .andExpect(jsonPath("$.explanation.translation").value("こんにちは"));
+    }
+
+    @Test
+    void textThatIsNotEnglishGivesA422WithAClearMessage() throws Exception {
+        when(claude.explainSentence("asdkj qwe zzxq", TargetLanguage.VI)).thenThrow(new NotEnglishException());
+
+        mockMvc.perform(post("/api/translations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"asdkj qwe zzxq\", \"targetLang\": \"vi\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail")
+                        .value("This doesn't look like English. Type an English word or sentence."));
     }
 
     @Test

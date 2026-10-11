@@ -12,7 +12,7 @@ import Testing
 struct CacheKeysTests {
     @Test func sentenceKeyMatchesTheBackendRule() {
         #expect(CacheKeys.sentenceKey("I was reluctant to leave.", targetLang: "vi")
-            == "1bbb0b83f351c91ca7b9edab960c522812c7596b4a46d512e43d37d1291c885f")
+            == "c150d055734d1e7b43aec6a0135467e9f3ca4914977a2979051c071623ebbd53")
         // The "v1" key from CacheKeysTest.java has no language part, so use the raw function.
         #expect(CacheKeys.key("sentence", "v1", "hello")
             == "c06d91029579e1afa519f6dde66066df0c1aa512806a052cb168c11b3d098aba")
@@ -20,7 +20,7 @@ struct CacheKeysTests {
 
     @Test func sentenceKeyNormalisesBeforeHashing() {
         #expect(CacheKeys.sentenceKey("  I   love\n US  ", targetLang: "ja")
-            == "6ac8a452d346662cc9c8292e9587583a004302a265af6861ebeed72dcbaccfd3")
+            == "32403ddb6ba25368176ca379827aa36ed598c555efef8e5078fbf07792f14834")
         #expect(CacheKeys.sentenceKey("I love US", targetLang: "ja")
             == CacheKeys.sentenceKey("I love\tUS", targetLang: "ja"))
     }
