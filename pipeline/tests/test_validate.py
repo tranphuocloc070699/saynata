@@ -47,3 +47,15 @@ def test_grammar_words_may_use_themselves():
     entry = make_entry("used before a something")
     assert find_problems("a", entry, vocabulary, rank=6) == []
     assert find_problems("a", entry, vocabulary, rank=500) == ["sense 1: definition uses the headword itself"]
+
+
+def test_possessive_counts_as_the_base_word():
+    vocabulary = VOCABULARY | {"person", "name"}
+    assert find_problems("reluctant", make_entry("a person's name"), vocabulary) == []
+
+
+def test_basic_words_outside_ngsl_are_allowed():
+    from pipeline.validate import build_vocabulary
+
+    vocabulary = build_vocabulary([])
+    assert {"container", "rude", "tv"} <= vocabulary

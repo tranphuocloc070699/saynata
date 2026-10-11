@@ -3,9 +3,9 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-10 07:28'
+updated_date: '2026-10-11 06:18'
 ---
-> Status: **works, 245 of 2,809 words done** (TASK-3). Last traced from code: 2026-10-10 (Claude switch).
+> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-11 (allowlist + revalidate).
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
 
 ## What it does
@@ -71,7 +71,7 @@ sequenceDiagram
 
 ## Step by step
 
-**Parallel:** `generate` runs `_generate_word` ([cli.py:45-67](../../../pipeline/src/pipeline/cli.py#L45-L67)) for 8 words at a time in worker threads ([cli.py:81-86](../../../pipeline/src/pipeline/cli.py#L81-L86)). Workers only do network and LLM work; the main thread is the only one that writes to SQLite, because a `sqlite3` connection must not be shared across threads. Full NGSL on Sonnet 5.5: about 40 minutes.
+**Parallel:** `generate` runs `_generate_word` ([cli.py:46-68](../../../pipeline/src/pipeline/cli.py#L46-L68)) for 8 words at a time in worker threads ([cli.py:82-87](../../../pipeline/src/pipeline/cli.py#L82-L87)). Workers only do network and LLM work; the main thread is the only one that writes to SQLite, because a `sqlite3` connection must not be shared across threads. Full NGSL on Sonnet 5.5: about 40 minutes.
 
 ### 1. Sources: [sources.py](../../../pipeline/src/pipeline/sources.py)
 
@@ -112,11 +112,11 @@ The **defining vocabulary** method from learner dictionaries: a definition may o
 
 | Check | Line | Rule |
 |---|---|---|
-| Vocabulary | [41-46](../../../pipeline/src/pipeline/validate.py#L41-L46) | NGSL lemmas + all forms + numbers/days/months + grammar terms + "someone/something…". |
-| Hard words | [56-59](../../../pipeline/src/pipeline/validate.py#L56-L59) | Any word outside the vocabulary → problem. |
-| Headword | [60-62](../../../pipeline/src/pipeline/validate.py#L60-L62) | Can't use the word itself, **except** the top 100 grammar words ("a", "the"). |
-| Length | [63-64](../../../pipeline/src/pipeline/validate.py#L63-L64) | Max 20 words. |
-| Vietnamese / examples | [65-68](../../../pipeline/src/pipeline/validate.py#L65-L68) | Vietnamese not empty, at least 2 examples. |
+| Vocabulary | [52-57](../../../pipeline/src/pipeline/validate.py#L52-L57) | NGSL lemmas + all forms + numbers/days/months + grammar terms + "someone/something…" + `BASIC_WORDS` ([20-27](../../../pipeline/src/pipeline/validate.py#L20-L27)): 58 basic words NGSL misses (container, rude, queen, tv…). |
+| Hard words | [66-71](../../../pipeline/src/pipeline/validate.py#L66-L71) | Any word outside the vocabulary → problem. A possessive `'s` is removed first, so "person's" is checked as "person". |
+| Headword | [72-74](../../../pipeline/src/pipeline/validate.py#L72-L74) | Can't use the word itself, **except** the top 100 grammar words ("a", "the"). |
+| Length | [75-76](../../../pipeline/src/pipeline/validate.py#L75-L76) | Max 20 words. |
+| Vietnamese / examples | [77-80](../../../pipeline/src/pipeline/validate.py#L77-L80) | Vietnamese not empty, at least 2 examples. |
 
 ### 5. Progress table: [store.py](../../../pipeline/src/pipeline/store.py)
 
@@ -129,6 +129,7 @@ stateDiagram-v2
     failed --> done: next generate run
     failed --> needs_review
     needs_review --> done: generate --retry-review
+    needs_review --> done: revalidate (checks changed, no LLM)
     done --> done: PROMPT_VERSION bumped, generated again
 ```
 
@@ -155,6 +156,7 @@ stateDiagram-v2
 | `uv run pipeline try bank` | 1–3 calls | Try one word, save nothing, print the checks |
 | `uv run pipeline generate --limit 200` | Yes | Next 200 words by rank, 8 in parallel (`--workers`) |
 | `uv run pipeline generate --retry-review` | Yes | Also redo `needs_review` |
+| `uv run pipeline revalidate` | No | Re-check stored `needs_review` entries after the checks change; passing ones become `done` ([cli.py:90-106](../../../pipeline/src/pipeline/cli.py#L90-L106)) |
 | `uv run pipeline report` | No | Counts per status + the problem list |
 | `uv run pipeline export` | No | Build `data/out/dictionary.sqlite` + `.jsonl` |
 
@@ -163,14 +165,15 @@ stateDiagram-v2
 | Test | Covers |
 |---|---|
 | [test_senses.py](../../../pipeline/tests/test_senses.py) | Drops archaic and form-of senses, keeps both homograph entries, skips names, reads Vietnamese hints |
-| [test_validate.py](../../../pipeline/tests/test_validate.py) | Simple definition passes, hard word and headword reported, missing Vietnamese/examples, numbers and grammar terms allowed, grammar words may use themselves |
+| [test_validate.py](../../../pipeline/tests/test_validate.py) | Simple definition passes, hard word and headword reported, missing Vietnamese/examples, numbers and grammar terms allowed, grammar words may use themselves, possessive `'s`, basic words outside NGSL |
 
 Run: `uv run pytest` in `pipeline/` (no API key needed).
 
 ## Known gaps
 
-- **Network errors become `failed` with `attempts=1`**, even when some LLM calls already ran ([cli.py:66-67](../../../pipeline/src/pipeline/cli.py#L66-L67)). `report` undercounts calls for these words.
-- **3 schema errors in a row → `needs_review` with no entry** ([cli.py:53-61](../../../pipeline/src/pipeline/cli.py#L53-L61)). Harmless for export, but `report` shows the schema error as the problem.
+- **Network errors become `failed` with `attempts=1`**, even when some LLM calls already ran ([cli.py:67-68](../../../pipeline/src/pipeline/cli.py#L67-L68)). `report` undercounts calls for these words.
+- **3 schema errors in a row → `needs_review` with no entry** ([cli.py:54-62](../../../pipeline/src/pipeline/cli.py#L54-L62)). Harmless for export, but `report` shows the schema error as the problem.
 - **No sampling control** on Claude 5.5 models. Fine here: the output is generated once and stored, so R3's "same input, same output" holds through the file.
 - **Image fields are generated but not used yet** (`image_url` is always empty). Images are out of scope for v1.
 - **The iOS app doesn't read the file yet** (TASK-4).
+- **59 words are not in the file** (`needs_review` after allowlist + Sonnet retry on 2026-10-11: 18 use the headword, 3 too long, the rest use rarer words). The backend fills them on demand.
