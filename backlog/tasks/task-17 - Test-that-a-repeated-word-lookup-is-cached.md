@@ -1,11 +1,11 @@
 ---
 id: TASK-17
 title: Test that a repeated word lookup is cached
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-10-10 06:22'
-updated_date: '2026-10-10 08:50'
+updated_date: '2026-10-11 08:11'
 labels:
   - backend
 dependencies: []
@@ -46,5 +46,5 @@ Added WordServiceTest.secondLookupComesFromCacheWithoutCallingClaude (second loo
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Added a WordServiceTest that the second lookup is cached: true and Claude is called once. Verified with the full backend suite (green). doc-5 updated.
+Added WordServiceTest.secondLookupComesFromCacheWithoutCallingClaude: the second lookup (different case and spaces) is cached: true and Claude is called once. Verified by the backend suite in CI.
 <!-- SECTION:FINAL_SUMMARY:END -->
