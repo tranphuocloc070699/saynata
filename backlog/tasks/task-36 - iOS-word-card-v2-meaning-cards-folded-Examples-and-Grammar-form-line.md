@@ -1,9 +1,11 @@
 ---
 id: TASK-36
 title: 'iOS: word card v2 (meaning cards, folded Examples and Grammar, form line)'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-11 11:31'
+updated_date: '2026-10-11 11:36'
 labels:
   - ios
 dependencies: []
@@ -31,3 +33,9 @@ Developer picked option B from the 2026-10-11 mockups with changes: each meaning
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Model: add Example{level,text} (reads old strings), WordEntry.matchedForm (TASK-35 not merged yet; merge theirs when it lands). 2. Tokens: example level colors in Theme + asset catalog. 3. Views: SenseTitleRow, FormPill, WordExamplesSection, grouped WordUsageSection (Patterns/Collocations/Phrases and idioms); rebuild WordCardView and WordCardCompactView. 4. Samples + previews. 5. Unit tests (usage grouping, pill text, example decoding). 6. Run on iPhone 16 Pro, screenshots. 7. Update doc-5 and design-system.md.
+<!-- SECTION:PLAN:END -->

@@ -87,7 +87,7 @@ final class DictionaryStore: @unchecked Sendable {
                 cefr: Self.text(statement, 1) ?? "",
                 simpleDefinition: Self.text(statement, 2) ?? "",
                 vietnamese: Self.text(statement, 3) ?? "",
-                examples: Self.decodeList(Self.text(statement, 4)),
+                examples: Self.decodeExamples(Self.text(statement, 4)),
                 usage: Self.decodeUsage(Self.text(statement, 5))
             )
         }
@@ -137,9 +137,10 @@ final class DictionaryStore: @unchecked Sendable {
     }
 
     /// Reads a JSON list like `["a", "b"]`. A broken value gives an empty list.
-    private static func decodeList(_ json: String?) -> [String] {
+    /// Items can be plain strings (old data) or `{ level, text }` objects.
+    static func decodeExamples(_ json: String?) -> [Example] {
         guard let data = json?.data(using: .utf8) else { return [] }
-        return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+        return (try? JSONDecoder().decode([Example].self, from: data)) ?? []
     }
 
     /// Reads the usage JSON `[{"kind": "idiom", "pattern": "...", "example": "..."}]`.

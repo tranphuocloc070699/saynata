@@ -36,7 +36,10 @@ There are no mockups in Figma or Claude Design. Build screens straight in SwiftU
    | Example sentence | `.callout` serif italic |
    | Folded row title | `.subheadline` semibold |
    | Chip | `.footnote` medium |
-   | Small label ("MEANING") | `.caption` semibold, uppercase |
+   | Small label ("MEANING", group headings) | `.caption` semibold, uppercase |
+   | Example level label ("easy") | `.caption` semibold |
+   | Sense number | `.footnote` semibold |
+   | Grammar pattern | `.body` medium |
 
 6. **Buttons are icon-only and 44 pt** (`IconButton`). 44×44 pt is Apple's minimum tap target
    ([HIG: Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility)).
@@ -45,10 +48,22 @@ There are no mockups in Figma or Claude Design. Build screens straight in SwiftU
 7. **Spacing and radius only from `Theme.Spacing` and `Theme.Radius`.** Spacing is on a 4 pt grid.
 8. **Meaning first, translation last** (CLAUDE.md "Product rule"). The `MeaningBlock` is the hero.
    Vietnamese is a `FoldedRow` at the bottom, closed by default. One folded row open at a time.
-9. **Show one example, fold the rest** (progressive disclosure: show what most people need, hide the rest
-   behind one tap).
+9. **Fold the details** (progressive disclosure: show what most people need, hide the rest behind one tap).
+   On the word card each sense is a card with its number and explanation; Examples, Grammar and Vietnamese
+   are folded rows, all closed, with no counters.
 10. **Never use color alone to mean something.** A wrong word in the speaking score is red *and*
     underlined or marked with an icon ([HIG: Color](https://developer.apple.com/design/human-interface-guidelines/color)).
+
+## Example level colors (TASK-36)
+
+Small labels before an example sentence. The text uses the token color; the label background is the same
+color at 14% opacity. Never color alone: the label also has the word ("easy", "medium", "harder").
+
+| Token | Hex | Label |
+|---|---|---|
+| `Theme.Colors.levelEasy` | `#1F6B5F` (teal) | easy |
+| `Theme.Colors.levelMedium` | `#8A5A00` (amber) | medium |
+| `Theme.Colors.levelHarder` | `#B4432F` (coral) | harder |
 
 ## Components
 
@@ -56,8 +71,11 @@ There are no mockups in Figma or Claude Design. Build screens straight in SwiftU
 |---|---|
 | `IconButton` | Round 44 pt button: white with a hairline border, or accent fill (`isProminent`) for the one main action |
 | `LevelChip` | Pill with word type and CEFR level, for example "adj · B2" |
+| `SenseTitleRow` | Title of a word-card sense: number in a circle, simple explanation (serif), level chip on the right |
+| `FormPill` | Tinted pill with a "return" arrow under the headword when a form was typed: "past tense of run /rʌn/" |
+| `ExampleLevelLabel` | Small tinted label (easy, medium, harder) before an example sentence |
 | `MeaningBlock` | Tinted box with the "Meaning" label, serif meaning, and one optional example |
-| `FoldedRow` | Row that opens and closes, with an optional count; the parent decides which row is open |
+| `FoldedRow` | Row that opens and closes (the word card uses no counts); the parent decides which row is open |
 | `HairlineDivider` | One-pixel line in the hairline color. Use it, not `Divider().overlay(...)`, which flickers while scrolling |
 
 Add a new component only when two screens need the same thing. Add it to the gallery in the same change.
