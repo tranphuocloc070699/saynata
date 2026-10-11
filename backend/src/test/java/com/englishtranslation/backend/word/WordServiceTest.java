@@ -31,6 +31,18 @@ class WordServiceTest {
     }
 
     @Test
+    void secondLookupComesFromCacheWithoutCallingClaude() {
+        when(claude.describeWord("reluctant")).thenReturn(new WordEntry(List.of()));
+
+        WordResponse first = service.lookUp("reluctant");
+        WordResponse second = service.lookUp("  Reluctant ");
+
+        assertThat(first.cached()).isFalse();
+        assertThat(second.cached()).isTrue();
+        verify(claude, times(1)).describeWord("reluctant");
+    }
+
+    @Test
     void savedEntryIsReadBackTheSame() {
         WordEntry entry = new WordEntry(List.of(new WordEntry.Sense(
                 "adjective", "C1", "not wanting to do something", "miễn cưỡng",
