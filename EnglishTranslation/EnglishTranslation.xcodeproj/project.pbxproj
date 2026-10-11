@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		7A000000000000000000000D /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000002 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7B000000000000000000000D /* TranslationExtension.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = 7B0000000000000000000002 /* TranslationExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,6 +33,13 @@
 			remoteGlobalIDString = 665068843075066F008C6524;
 			remoteInfo = EnglishTranslation;
 		};
+		7B000000000000000000000F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6650687D3075066F008C6524 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7B0000000000000000000001;
+			remoteInfo = TranslationExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -46,6 +54,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7B000000000000000000000C /* Embed ExtensionKit Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(EXTENSIONS_FOLDER_PATH)";
+			dstSubfolderSpec = 16;
+			files = (
+				7B000000000000000000000D /* TranslationExtension.appex in Embed ExtensionKit Extensions */,
+			);
+			name = "Embed ExtensionKit Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -56,6 +75,8 @@
 		665068853075066F008C6524 /* EnglishTranslation.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EnglishTranslation.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6650689230750671008C6524 /* EnglishTranslationTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EnglishTranslationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6650689C30750671008C6524 /* EnglishTranslationUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EnglishTranslationUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7B0000000000000000000010 /* TranslationExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TranslationExtension.entitlements; sourceTree = "<group>"; };
+		7B0000000000000000000002 /* TranslationExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = TranslationExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -92,6 +113,32 @@
 			);
 			target = 7A0000000000000000000001 /* ShareExtension */;
 		};
+		7B0000000000000000000005 /* Exceptions for "EnglishTranslation" folder in "TranslationExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				DesignSystem/DesignSystemGallery.swift,
+				ContentView.swift,
+				EnglishTranslationApp.swift,
+				Info.plist,
+				Lessons/L1_State.swift,
+				Lessons/L2_Binding.swift,
+				Lessons/L3_Observable.swift,
+				Lessons/L4_Environment.swift,
+				Lessons/L5_AsyncState.swift,
+				Lessons/L6_Escaping.swift,
+				Views/Translate/Subviews/TranslateInputView.swift,
+				Views/Translate/Subviews/TranslateOptionsView.swift,
+				Views/Translate/TranslateView.swift,
+			);
+			target = 7B0000000000000000000001 /* TranslationExtension */;
+		};
+		7B0000000000000000000004 /* Exceptions for "TranslationExtension" folder in "TranslationExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7B0000000000000000000001 /* TranslationExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -100,6 +147,7 @@
 			exceptions = (
 				6642CB603076366500108489 /* Exceptions for "EnglishTranslation" folder in "EnglishTranslation" target */,
 				7A0000000000000000000005 /* Exceptions for "EnglishTranslation" folder in "ShareExtension" target */,
+				7B0000000000000000000005 /* Exceptions for "EnglishTranslation" folder in "TranslationExtension" target */,
 			);
 			path = EnglishTranslation;
 			sourceTree = "<group>";
@@ -120,6 +168,14 @@
 		6650689F30750671008C6524 /* EnglishTranslationUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = EnglishTranslationUITests;
+			sourceTree = "<group>";
+		};
+		7B0000000000000000000003 /* TranslationExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7B0000000000000000000004 /* Exceptions for "TranslationExtension" folder in "TranslationExtension" target */,
+			);
+			path = TranslationExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -153,6 +209,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7B0000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -161,12 +224,14 @@
 			children = (
 				665068873075066F008C6524 /* EnglishTranslation */,
 				7A0000000000000000000003 /* ShareExtension */,
+				7B0000000000000000000003 /* TranslationExtension */,
 				6650689530750671008C6524 /* EnglishTranslationTests */,
 				6650689F30750671008C6524 /* EnglishTranslationUITests */,
 				665068863075066F008C6524 /* Products */,
 				6642CB5D3076359A00108489 /* Secrets.xcconfig */,
 				7A0000000000000000000010 /* EnglishTranslation.entitlements */,
 				7A0000000000000000000011 /* ShareExtension.entitlements */,
+				7B0000000000000000000010 /* TranslationExtension.entitlements */,
 			);
 			sourceTree = "<group>";
 		};
@@ -175,6 +240,7 @@
 			children = (
 				665068853075066F008C6524 /* EnglishTranslation.app */,
 				7A0000000000000000000002 /* ShareExtension.appex */,
+				7B0000000000000000000002 /* TranslationExtension.appex */,
 				6650689230750671008C6524 /* EnglishTranslationTests.xctest */,
 				6650689C30750671008C6524 /* EnglishTranslationUITests.xctest */,
 			);
@@ -192,11 +258,13 @@
 				665068823075066F008C6524 /* Frameworks */,
 				665068833075066F008C6524 /* Resources */,
 				7A000000000000000000000C /* Embed Foundation Extensions */,
+				7B000000000000000000000C /* Embed ExtensionKit Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				7A000000000000000000000E /* PBXTargetDependency */,
+				7B000000000000000000000E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				665068873075066F008C6524 /* EnglishTranslation */,
@@ -277,6 +345,29 @@
 			productReference = 7A0000000000000000000002 /* ShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		7B0000000000000000000001 /* TranslationExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7B0000000000000000000009 /* Build configuration list for PBXNativeTarget "TranslationExtension" */;
+			buildPhases = (
+				7B0000000000000000000006 /* Sources */,
+				7B0000000000000000000007 /* Frameworks */,
+				7B0000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				665068873075066F008C6524 /* EnglishTranslation */,
+				7B0000000000000000000003 /* TranslationExtension */,
+			);
+			name = TranslationExtension;
+			packageProductDependencies = (
+			);
+			productName = TranslationExtension;
+			productReference = 7B0000000000000000000002 /* TranslationExtension.appex */;
+			productType = "com.apple.product-type.extensionkit-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -291,6 +382,9 @@
 						CreatedOnToolsVersion = 26.3;
 					};
 					7A0000000000000000000001 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					7B0000000000000000000001 = {
 						CreatedOnToolsVersion = 26.3;
 					};
 					6650689130750671008C6524 = {
@@ -319,6 +413,7 @@
 			targets = (
 				665068843075066F008C6524 /* EnglishTranslation */,
 				7A0000000000000000000001 /* ShareExtension */,
+				7B0000000000000000000001 /* TranslationExtension */,
 				6650689130750671008C6524 /* EnglishTranslationTests */,
 				6650689B30750671008C6524 /* EnglishTranslationUITests */,
 			);
@@ -348,6 +443,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7A0000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7B0000000000000000000008 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -385,6 +487,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7B0000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -402,6 +511,11 @@
 			isa = PBXTargetDependency;
 			target = 7A0000000000000000000001 /* ShareExtension */;
 			targetProxy = 7A000000000000000000000F /* PBXContainerItemProxy */;
+		};
+		7B000000000000000000000E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7B0000000000000000000001 /* TranslationExtension */;
+			targetProxy = 7B000000000000000000000F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -747,6 +861,70 @@
 			};
 			name = Release;
 		};
+		7B000000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TranslationExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SVPCB3XQCD;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TranslationExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Saynata;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.luke.EnglishTranslation.TranslationExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7B000000000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TranslationExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SVPCB3XQCD;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TranslationExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Saynata;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.luke.EnglishTranslation.TranslationExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -791,6 +969,15 @@
 			buildConfigurations = (
 				7A000000000000000000000A /* Debug */,
 				7A000000000000000000000B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7B0000000000000000000009 /* Build configuration list for PBXNativeTarget "TranslationExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7B000000000000000000000A /* Debug */,
+				7B000000000000000000000B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

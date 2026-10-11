@@ -14,7 +14,7 @@ final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        let sheet = ShareSheetView(
+        let sheet = SelectedTextResultView(
             loadText: { [weak self] in await self?.readSharedText() ?? "" },
             onOpenApp: { [weak self] url in self?.openApp(at: url) },
             onClose: { [weak self] in self?.close() })
