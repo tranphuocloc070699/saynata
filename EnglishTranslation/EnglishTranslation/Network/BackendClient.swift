@@ -16,18 +16,19 @@ private struct TranslationResponse: Decodable {
     let explanation: Explanation
 }
 
-/// The part of the `GET /api/words/{word}` reply we need: `{ word, entry: { senses }, cached }`.
+/// The part of the `GET /api/words/{word}` reply we need: `{ word, entry: { senses }, cached, ipa }`.
 private struct WordResponse: Decodable {
     let word: String
     let entry: Body
+    /// The backend adds it from an IPA list. Missing or null (older replies, rare words) means no IPA line.
+    let ipa: String?
 
     struct Body: Decodable {
         let senses: [Sense]
     }
 
-    /// The backend sends no IPA, so the card shows none.
     var wordEntry: WordEntry {
-        WordEntry(word: word, ipa: nil, senses: entry.senses)
+        WordEntry(word: word, ipa: ipa, senses: entry.senses)
     }
 }
 

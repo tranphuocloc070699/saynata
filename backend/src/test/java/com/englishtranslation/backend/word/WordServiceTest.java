@@ -7,6 +7,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import com.englishtranslation.backend.cache.CacheKeys;
+import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +28,12 @@ class WordServiceTest {
 
     @Autowired
     EnglishWords englishWords;
+
+    @Autowired
+    IpaDictionary ipaDictionary;
+
+    @Autowired
+    ClaudeProperties properties;
 
     @MockitoBean
     ClaudeService claude;
@@ -73,6 +81,7 @@ class WordServiceTest {
         assertThat(response.word()).isEqualTo("runk");
         assertThat(response.entry().senses()).isEmpty();
         assertThat(response.cached()).isFalse();
+        assertThat(response.ipa()).isNull();
         verify(claude, never()).describeWord(anyString());
         assertThat(repository.count()).isZero();
     }
@@ -105,5 +114,48 @@ class WordServiceTest {
         assertThat(englishWords.contains("ran")).isTrue();
         assertThat(englishWords.contains("runk")).isFalse();
         assertThat(englishWords.size()).isGreaterThan(100_000);
+    }
+
+    @Test
+    void wordWithIpaOnTheListGetsIt() {
+        when(claude.describeWord("graveyard")).thenReturn(new WordEntry(List.of()));
+
+        WordResponse response = service.lookUp("Graveyard");
+
+        assertThat(response.ipa()).isEqualTo("/ˈɡɹeɪvˌjɑɹd/");
+    }
+
+    @Test
+    void realWordMissingFromTheIpaListGetsNullIpa() {
+        // "aardwolf" is on the SCOWL word list but not on the IPA list.
+        when(claude.describeWord("aardwolf")).thenReturn(new WordEntry(List.of()));
+
+        WordResponse response = service.lookUp("aardwolf");
+
+        assertThat(englishWords.contains("aardwolf")).isTrue();
+        assertThat(response.ipa()).isNull();
+        assertThat(response.entry()).isNotNull();
+    }
+
+    @Test
+    void rowSavedBeforeIpaExistedGetsIpaWhenReadFromCache() {
+        // A row as it was saved before this feature: the entry JSON has no IPA.
+        String key = CacheKeys.key("word", properties.wordPromptVersion(), "apple");
+        repository.saveAndFlush(new WordLookup(
+                key, "apple", "{\"senses\":[]}", properties.model(), properties.wordPromptVersion()));
+
+        WordResponse response = service.lookUp("apple");
+
+        assertThat(response.cached()).isTrue();
+        assertThat(response.ipa()).isEqualTo("/ˈæpəɫ/");
+        verify(claude, never()).describeWord(anyString());
+    }
+
+    @Test
+    void ipaListLoadsTheFirstIpaOfAWordWithManyAndIgnoresCase() {
+        assertThat(ipaDictionary.ipaFor("hello")).isEqualTo("/həˈɫoʊ/");
+        assertThat(ipaDictionary.ipaFor("HELLO")).isEqualTo("/həˈɫoʊ/");
+        assertThat(ipaDictionary.ipaFor("qwzxv")).isNull();
+        assertThat(ipaDictionary.size()).isGreaterThan(100_000);
     }
 }
