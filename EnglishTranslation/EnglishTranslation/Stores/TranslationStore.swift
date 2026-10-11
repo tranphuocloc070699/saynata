@@ -14,17 +14,15 @@ final class TranslationStore {
     var inputText = ""
     /// The language of the translation at the bottom of the result.
     var targetLanguage: TargetLanguage = .vietnamese
-    /// The service used on the next request.
-    var provider: Provider = .server
     private(set) var state: TranslationState = .idle
 
-    private let makeTranslator: @MainActor (Provider) throws -> any Translating
+    private let makeTranslator: @MainActor () throws -> any Translating
     private let makeWordLookup: @MainActor () throws -> any WordLooking
 
-    /// - Parameter makeTranslator: Builds the translator for a provider on each request, so a
-    ///   missing key shows as a `.failed` state instead of crashing at launch.
+    /// - Parameter makeTranslator: Builds the translator on each request, so a
+    ///   missing setting shows as a `.failed` state instead of crashing at launch.
     init(
-        makeTranslator: @escaping @MainActor (Provider) throws -> any Translating = TranslatorFactory.makeTranslator(for:),
+        makeTranslator: @escaping @MainActor () throws -> any Translating = TranslatorFactory.makeTranslator,
         makeWordLookup: @escaping @MainActor () throws -> any WordLooking = TranslatorFactory.makeWordLookup
     ) {
         self.makeTranslator = makeTranslator
@@ -42,7 +40,7 @@ final class TranslationStore {
     }
 
     /// Handles `inputText` and updates `state`. One token goes to the word lookup (a dictionary entry);
-    /// more than one goes to `provider` as a sentence. Does nothing if `canTranslate` is false.
+    /// more than one goes to the backend as a sentence. Does nothing if `canTranslate` is false.
     func translate() async {
         guard canTranslate else { return }
         state = .loading
@@ -85,7 +83,7 @@ final class TranslationStore {
 
     private func explainSentence() async {
         do {
-            let translator = try makeTranslator(provider)
+            let translator = try makeTranslator()
             let explanation = try await translator.explain(trimmedInput, translatingTo: targetLanguage)
             state = .loaded(explanation)
         } catch {

@@ -24,7 +24,7 @@ enum TargetLanguage: String, CaseIterable, Identifiable {
     /// The code the backend expects, for example "vi".
     var code: String { rawValue }
 
-    /// The name shown in the picker and in the prompt for the direct providers.
+    /// The name shown in the picker.
     var title: String {
         switch self {
         case .vietnamese: "Vietnamese"

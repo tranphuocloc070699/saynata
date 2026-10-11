@@ -47,13 +47,13 @@ private final class FakeWordLookup: WordLooking, @unchecked Sendable {
 @MainActor
 struct TranslationStoreTests {
     @Test func emptyInputCannotTranslate() {
-        let store = TranslationStore(makeTranslator: { _ in FakeTranslator(result: .success(sample("x"))) })
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
         store.inputText = "   \n"
         #expect(store.canTranslate == false)
     }
 
     @Test func successShowsLoadedText() async {
-        let store = TranslationStore(makeTranslator: { _ in FakeTranslator(result: .success(sample("Xin chào"))) })
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("Xin chào"))) })
         store.inputText = "Hello there"
         await store.translate()
         guard case let .loaded(explanation) = store.state else {
@@ -64,8 +64,8 @@ struct TranslationStoreTests {
     }
 
     @Test func translatorErrorShowsFailedMessage() async {
-        let store = TranslationStore(makeTranslator: { _ in
-            FakeTranslator(result: .failure(LLMError.badStatus(401)))
+        let store = TranslationStore(makeTranslator: {
+            FakeTranslator(result: .failure(BackendError.badStatus(401, detail: nil)))
         })
         store.inputText = "Hello there"
         await store.translate()
@@ -77,40 +77,27 @@ struct TranslationStoreTests {
     }
 
     @Test func missingKeyShowsFailedMessage() async {
-        let store = TranslationStore(makeTranslator: { _ in throw AppConfig.ConfigError.missing("ClaudeAPIKey") })
+        let store = TranslationStore(makeTranslator: { throw AppConfig.ConfigError.missing("BackendBaseURL") })
         store.inputText = "Hello there"
         await store.translate()
         guard case let .failed(message, _) = store.state else {
             Issue.record("Expected .failed, got \(store.state)")
             return
         }
-        #expect(message.contains("ClaudeAPIKey"))
-    }
-
-    @Test func usesSelectedProvider() async {
-        var requested: Provider?
-        let store = TranslationStore(makeTranslator: { provider in
-            requested = provider
-            return FakeTranslator(result: .success(sample("x")))
-        })
-        store.provider = .claude
-        store.inputText = "Hello there"
-        await store.translate()
-        #expect(requested == .claude)
+        #expect(message.contains("BackendBaseURL"))
     }
 
     @Test func passesSelectedLanguage() async {
         let recorder = LanguageRecorder()
-        let store = TranslationStore(makeTranslator: { _ in recorder })
+        let store = TranslationStore(makeTranslator: { recorder })
         store.targetLanguage = .japanese
         store.inputText = "Hello there"
         await store.translate()
         #expect(await recorder.lastLanguage == .japanese)
     }
 
-    @Test func defaultsToServerAndVietnamese() {
-        let store = TranslationStore(makeTranslator: { _ in FakeTranslator(result: .success(sample("x"))) })
-        #expect(store.provider == .server)
+    @Test func defaultsToVietnamese() {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
         #expect(store.targetLanguage == .vietnamese)
     }
 
@@ -119,7 +106,7 @@ struct TranslationStoreTests {
     @Test func oneWordGoesToTheWordLookupNotTheSentenceTranslator() async {
         let lookup = FakeWordLookup(.success(.run))
         let store = TranslationStore(
-            makeTranslator: { _ in Issue.record("A word must not use the sentence translator"); throw LLMError.badStatus(0) },
+            makeTranslator: { Issue.record("A word must not use the sentence translator"); throw BackendError.badStatus(0, detail: nil) },
             makeWordLookup: { lookup })
         store.inputText = "  Ran \n"
         await store.translate()
@@ -134,7 +121,7 @@ struct TranslationStoreTests {
 
     @Test func moreThanOneWordGoesToTheSentenceTranslator() async {
         let store = TranslationStore(
-            makeTranslator: { _ in FakeTranslator(result: .success(sample("Xin chào"))) },
+            makeTranslator: { FakeTranslator(result: .success(sample("Xin chào"))) },
             makeWordLookup: { Issue.record("A sentence must not use the word lookup"); throw WordLookupError.notOneWord })
         store.inputText = "Hello   there"
         await store.translate()
@@ -217,7 +204,7 @@ struct TranslationStoreTests {
 
     @Test func sendsTrimmedText() async {
         let recorder = LanguageRecorder()
-        let store = TranslationStore(makeTranslator: { _ in recorder })
+        let store = TranslationStore(makeTranslator: { recorder })
         store.inputText = "  Hello there \n"
         await store.translate()
         #expect(await recorder.lastText == "Hello there")
@@ -233,29 +220,5 @@ private actor LanguageRecorder: Translating {
         lastText = text
         lastLanguage = language
         return sample("x")
-    }
-}
-
-/// Decoding the model's JSON reply.
-struct ExplanationDecodingTests {
-    private let json = """
-        {"meaning": "He took an old watch out.",         "words": [{"word": "drew out", "partOfSpeech": "phrasal verb", "meaning": "took out"}],         "translation": "Anh ấy rút ra một chiếc đồng hồ."}
-        """
-
-    @Test func decodesPlainJSON() throws {
-        let explanation = try Explanation.decode(fromModelReply: json)
-        #expect(explanation.words.first?.partOfSpeech == "phrasal verb")
-        #expect(explanation.translation.hasPrefix("Anh ấy"))
-    }
-
-    @Test func decodesJSONInsideMarkdownFence() throws {
-        let explanation = try Explanation.decode(fromModelReply: "Sure!\n```json\n\(json)\n```")
-        #expect(explanation.meaning == "He took an old watch out.")
-    }
-
-    @Test func throwsBadFormatForPlainText() {
-        #expect(throws: LLMError.self) {
-            try Explanation.decode(fromModelReply: "Anh ấy rút ra một chiếc đồng hồ.")
-        }
     }
 }
