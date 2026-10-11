@@ -1,10 +1,11 @@
 ---
 id: TASK-14
 title: 'Fix result heading showing the picker language, not the result''s'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-10 06:22'
-updated_date: '2026-10-10 08:25'
+updated_date: '2026-10-11 15:37'
 labels:
   - ios
 dependencies: []
@@ -29,3 +30,9 @@ TranslateView passes store.targetLanguage.title to TranslateResultView (Translat
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. TranslationState.loaded carries a SentenceResult (sentence, explanation, language it was made in). The result view reads the language from it, not from the picker. 2. Unit test: change the picker after loading, the loaded language stays.
+<!-- SECTION:PLAN:END -->

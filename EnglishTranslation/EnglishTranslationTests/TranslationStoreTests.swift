@@ -52,6 +52,48 @@ struct TranslationStoreTests {
         #expect(store.canTranslate == false)
     }
 
+    // MARK: - 500-character limit (TASK-22)
+
+    @Test func exactly500CharactersIsAllowed() {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
+        store.inputText = String(repeating: "a", count: 500)
+        #expect(store.inputLength == 500)
+        #expect(store.isOverLimit == false)
+        #expect(store.canTranslate == true)
+    }
+
+    @Test func oneCharacterOverTheLimitCannotTranslate() {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
+        store.inputText = String(repeating: "a", count: 501)
+        #expect(store.isOverLimit == true)
+        #expect(store.canTranslate == false)
+    }
+
+    @Test func spacesAroundTheTextAreNotCounted() {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
+        store.inputText = "  " + String(repeating: "a", count: 500) + "\n "
+        #expect(store.inputLength == 500)
+        #expect(store.canTranslate == true)
+    }
+
+    @Test func anEmojiCountsAsTwoLikeJava() {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
+        store.inputText = String(repeating: "😀", count: 250)
+        #expect(store.inputLength == 500)
+        store.inputText = String(repeating: "😀", count: 251)
+        #expect(store.isOverLimit == true)
+    }
+
+    @Test func overTheLimitNothingIsSent() async {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
+        store.inputText = String(repeating: "word ", count: 120)
+        await store.translate()
+        guard case .idle = store.state else {
+            Issue.record("Expected .idle, got \(store.state)")
+            return
+        }
+    }
+
     @Test func successShowsLoadedText() async {
         let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("Xin chào"))) })
         store.inputText = "Hello there"

@@ -29,10 +29,24 @@ final class TranslationStore {
         self.makeWordLookup = makeWordLookup
     }
 
+    /// The backend accepts 1 to 500 characters (`TranslationRequest.java`).
+    static let maxInputLength = 500
+
+    /// How many characters the backend will count. Java counts UTF-16 units, so an emoji is 2.
+    /// Counting the same way means the app never allows text the backend would reject.
+    var inputLength: Int {
+        trimmedInput.utf16.count
+    }
+
+    /// True when the text is too long to send. The input shows "Make it shorter."
+    var isOverLimit: Bool {
+        inputLength > Self.maxInputLength
+    }
+
     /// True when the button should be enabled.
     var canTranslate: Bool {
         if case .loading = state { return false }
-        return !trimmedInput.isEmpty
+        return !trimmedInput.isEmpty && !isOverLimit
     }
 
     private var trimmedInput: String {

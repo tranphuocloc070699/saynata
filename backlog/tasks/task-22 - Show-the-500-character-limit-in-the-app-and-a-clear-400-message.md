@@ -1,10 +1,11 @@
 ---
 id: TASK-22
 title: Show the 500-character limit in the app and a clear 400 message
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-10 06:37'
-updated_date: '2026-10-10 08:25'
+updated_date: '2026-10-11 15:37'
 labels:
   - ios
   - backend
@@ -30,3 +31,9 @@ The backend rejects text over 500 characters with detail 'Invalid request conten
 - [ ] #2 Tests pass
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Backend: ApiExceptionHandler gives a clear 400 detail for long or blank text ('Text must be 1-500 characters.'), with tests. 2. iOS: 500 limit in TranslationStore (UTF-16 count like Java), counter and 'Make it shorter.' in TranslateInputView, Explain disabled over the limit.
+<!-- SECTION:PLAN:END -->
