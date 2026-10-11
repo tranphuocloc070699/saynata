@@ -10,7 +10,7 @@ def make_entry(definition: str, examples=("One.", "Two."), vietnamese="mi·ªÖn c∆
     return WordEntry.model_validate({"senses": [{
         "source_index": 0, "pos": "adjective", "cefr": "B2",
         "simple_definition": definition, "examples": list(examples), "vietnamese": vietnamese,
-        "collocations": [], "synonyms": [], "image_type": "none", "image_query": "",
+        "usage": [], "image_type": "none", "image_query": "",
     }]})
 
 

@@ -20,6 +20,8 @@ enum DictionaryError: Error {
 /// See https://www.sqlite.org/threadsafe.html
 final class DictionaryStore: @unchecked Sendable {
     private var database: OpaquePointer?
+    /// The old bundled file has no `senses.usage` column (added by TASK-24). Then usage is empty.
+    private var hasUsageColumn = false
 
     /// Opens the dictionary file at `url`.
     init(url: URL) throws {
@@ -29,6 +31,7 @@ final class DictionaryStore: @unchecked Sendable {
             sqlite3_close(database)
             throw DictionaryError.cannotOpen(message)
         }
+        hasUsageColumn = try columnExists("usage", in: "senses")
     }
 
     /// Opens the dictionary inside the app bundle.
@@ -72,8 +75,10 @@ final class DictionaryStore: @unchecked Sendable {
     }
 
     private func loadSenses(wordID: Int64) throws -> [Sense] {
+        // Without the column, SELECT NULL so the column numbers stay the same.
+        let usageColumn = hasUsageColumn ? "usage" : "NULL"
         let sql = """
-            SELECT pos, cefr, simple_definition, vietnamese, examples
+            SELECT pos, cefr, simple_definition, vietnamese, examples, \(usageColumn)
             FROM senses WHERE word_id = ?1 ORDER BY position
             """
         return try run(sql, int: wordID) { statement in
@@ -82,9 +87,16 @@ final class DictionaryStore: @unchecked Sendable {
                 cefr: Self.text(statement, 1) ?? "",
                 simpleDefinition: Self.text(statement, 2) ?? "",
                 vietnamese: Self.text(statement, 3) ?? "",
-                examples: Self.decodeList(Self.text(statement, 4))
+                examples: Self.decodeList(Self.text(statement, 4)),
+                usage: Self.decodeUsage(Self.text(statement, 5))
             )
         }
+    }
+
+    private func columnExists(_ column: String, in table: String) throws -> Bool {
+        // PRAGMA cannot bind a table name, so it is written into the SQL. Callers pass fixed names only.
+        let names = try run("PRAGMA table_info(\(table))") { statement in Self.text(statement, 1) }
+        return names.contains(column)
     }
 
     // MARK: - Small SQLite helpers (private on purpose; TASK-5 has its own)
@@ -128,6 +140,13 @@ final class DictionaryStore: @unchecked Sendable {
     private static func decodeList(_ json: String?) -> [String] {
         guard let data = json?.data(using: .utf8) else { return [] }
         return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+    }
+
+    /// Reads the usage JSON `[{"kind": "idiom", "pattern": "...", "example": "..."}]`.
+    /// A missing value or broken JSON gives an empty list. A missing or unknown kind becomes `.pattern`.
+    static func decodeUsage(_ json: String?) -> [Usage] {
+        guard let data = json?.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([Usage].self, from: data)) ?? []
     }
 
     private static func message(of database: OpaquePointer?) -> String {

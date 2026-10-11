@@ -57,6 +57,14 @@ def words_to_generate(connection: sqlite3.Connection, limit: int, prompt_version
     ).fetchall()
 
 
+def save_entry(connection, lemma, entry_json):
+    """Replaces only the entry JSON (the usage pass). Status, version and attempts stay as they are."""
+    connection.execute(
+        "UPDATE words SET entry = ?, updated_at = CURRENT_TIMESTAMP WHERE lemma = ?", (entry_json, lemma)
+    )
+    connection.commit()
+
+
 def save_result(connection, lemma, *, status, prompt_version, attempts, ipa=None, entry=None, problems=None):
     connection.execute(
         """

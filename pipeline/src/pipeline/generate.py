@@ -15,11 +15,43 @@ from pipeline.models import WordEntry
 from pipeline.senses import WordSource
 
 # Bump this when the prompt or model changes, then re-run only rows with an older version.
+# Not bumped for TASK-24: that would redo every done entry (~$36). Usage is added by `pipeline usage` instead.
 PROMPT_VERSION = 2
 
 DEFAULT_MODEL = "claude-haiku-5-5"
 
-SYSTEM_PROMPT = """You write entries for a learner's dictionary for Vietnamese students of English,
+# Used by this file and by usage.py (the usage pass), so both ask for the same thing.
+USAGE_RULES = """usage: 0-3 items that show how to use THIS sense. Give fewer, or none, when there are no good ones.
+  Each item has a kind, a pattern and one example sentence.
+  - kind "pattern": a sentence pattern, e.g. "depend on + something"
+  - kind "collocation": words that go together, e.g. "make a decision" (not "do a decision")
+  - kind "phrase": a phrasal verb or fixed phrase, e.g. "get used to + -ing", "It depends."
+  - kind "idiom": a common idiom, e.g. "take it easy"
+  Rules for usage:
+  - Placeholders are: someone, something, + noun, + verb, + -ing, + adjective. Never write sb or sth.
+  - Only common, natural items a native speaker uses often. No rare, old or formal idioms.
+  - Every item must fit the meaning of this sense. "get up" does not belong on the "buy" sense of "get".
+  - The example is one short natural sentence with simple words only (the 2,800 most common words).
+  Examples of good usage:
+  get (to buy, to find):
+    pattern "get + noun" -> "I need to get some milk."
+    collocation "get a job" -> "He got a new job last month."
+    idiom "get hold of something" -> "I finally got hold of two tickets."
+  get (to become):
+    pattern "get + adjective" -> "It's getting dark outside."
+    collocation "get better" -> "I hope you get better soon."
+    phrase "get used to + -ing" -> "I'm getting used to living here."
+  make (to decide):
+    collocation "make a decision" -> "We need to make a decision today."
+    idiom "make up your mind" -> "I can't make up my mind."
+  take (to rest):
+    collocation "take a break" -> "Let's take a break."
+    idiom "take it easy" -> "Take it easy. You've worked a lot today."
+  depend:
+    pattern "depend on + something" -> "It depends on the weather."
+    phrase "It depends." -> "\"Are you coming?\" \"It depends.\"" """
+
+SYSTEM_PROMPT = f"""You write entries for a learner's dictionary for Vietnamese students of English,
 in the style of the Cambridge Learner's Dictionary.
 
 Rules:
@@ -29,6 +61,7 @@ Rules:
   a verb sense starts with "to ...", an adjective sense describes the quality.
 - examples: exactly 2 short, natural sentences a learner might hear in daily life.
 - vietnamese: a short, natural Vietnamese meaning (1-6 words), like a good bilingual dictionary.
+- {USAGE_RULES}
 - image_type: "photo" if a stock photo clearly shows it, "icon" if a simple icon can show it,
   otherwise "none". Most abstract words are "none".
 - source_index: the index of the Wiktionary sense you based it on."""
