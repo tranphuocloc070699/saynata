@@ -3,7 +3,7 @@ id: doc-8
 title: Strategy and workflow
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-11 08:52'
+updated_date: '2026-10-11 09:10'
 ---
 # Strategy and workflow
 
@@ -12,7 +12,7 @@ for a video, and as the plan for a boilerplate for new projects.
 
 ## The situation
 
-- One developer, 3-5 years of experience. New to Swift, learning English (B1-B2).
+- One developer, 3-5 years of experience, most of it in Java (so the backend is Java: "easier for me to review"). New to Swift, learning English (B1-B2).
 - Most of the code is written by AI ("I vibe code this project").
 - Many projects in one day, so it is easy to forget how a flow works.
 - Small budget: a ~$10 VPS, $200 of Claude API credit, free tools first.
@@ -27,7 +27,8 @@ helper at the bottom, collapsed by default. Each word shows how to use it in a s
 "be reluctant to + verb"), not lists of similar words.
 
 **Why:** the developer is the first user, and English is their top goal. Reading a translation does not
-build English. Reading a simple English explanation does.
+build English. Reading a simple English explanation does. In the developer's words: "I want to learn vocabulary, and I think using English to explain English
+is the best way to learn it." Mobile first, because "I want to use it on my phone first. I usually read books."
 
 **Who else does it:**
 - Learner's dictionaries explain words only with simple English. The Longman dictionary uses a
@@ -116,7 +117,8 @@ The Test it card means the developer checks behaviour, not every line of code th
 SwiftUI preview gallery as the "mockup". Icon-only buttons with VoiceOver labels.
 
 **Why:** "I don't believe in my taste." HIG already decides most values. Real SwiftUI previews are
-more honest than Figma or HTML mockups. Mobbin (real app screens) is used for references.
+more honest than Figma or HTML mockups. Mobbin (real app screens) is used for references. Icon-only buttons: "they look clean, and
+I've seen a lot of apps do it." No dark mode yet: a mini game is planned, and dark mode does not suit a game UI.
 
 **Who else does it:** Apple HIG, https://developer.apple.com/design/human-interface-guidelines/ ;
 design tokens are used by most design systems (Material, Carbon).
