@@ -1,10 +1,11 @@
 ---
 id: TASK-30
 title: 'iOS: share extension to explain selected text'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-11 08:36'
-updated_date: '2026-10-11 15:22'
+updated_date: '2026-10-11 15:26'
 labels:
   - ios
 dependencies:
@@ -33,6 +34,17 @@ From the UX report (docs/design/translate-ux-2026-10-10.md, item 11): selecting 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Shared text routing (TextRoute: empty / tooLong >500 / word / sentence) and DeepLink (saynata://lookup?text=) in the app folder, with unit tests.
+2. App: register the saynata URL scheme, .onOpenURL fills the input and explains it. ResultCache moves to the App Group container (falls back to Application Support).
+3. Extension target ShareExtension: reuse the app source folder through target membership (exclude app-only files), own folder with ShareViewController (UIHostingController), ShareSheetView, Info.plist (text activation rule, BackendBaseURL), entitlements.
+4. WordCardView: split out WordHeaderView so the sheet can put Listen / Open in Saynata / Close beside the headword.
+5. pbxproj: small hand edits, then clean build of both targets, run unit tests, drive Notes/Safari share sheet on iPhone 16 Pro.
+6. Docs: new feature page Share extension, CLAUDE.md overview, doc-3 table.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
