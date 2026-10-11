@@ -31,6 +31,15 @@ class ClaudeServiceTest {
     }
 
     @Test
+    void sentencePromptAsksForTheExplanationFirstAndTheTranslationLast() {
+        String prompt = ClaudeService.SENTENCE_PROMPT;
+
+        assertThat(prompt.indexOf("1. meaning")).isPositive().isLessThan(prompt.indexOf("2. words"));
+        assertThat(prompt.indexOf("2. words")).isLessThan(prompt.indexOf("3. translation"));
+        assertThat(prompt).contains("main answer is a simple English explanation", "small helper");
+    }
+
+    @Test
     void ampersandIsEscapedFirst() {
         assertThat(ClaudeService.escapeTags("a < b && c > d &lt;"))
                 .isEqualTo("a &lt; b &amp;&amp; c &gt; d &amp;lt;");

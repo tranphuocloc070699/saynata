@@ -3,7 +3,7 @@ id: doc-1
 title: Vision and spec
 type: specification
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-11 11:45'
+updated_date: '2026-10-11 15:06'
 ---
 # Spec: EnglishTranslation — translator for a Vietnamese English learner
 
@@ -18,6 +18,9 @@ An iOS app that replaces DeepL for daily use. It looks up words and translates s
 
 - **Word** — input that is one token after normalising (`run`, `ran`, `reluctant`).
 - **Sentence** — any input with more than one token.
+- **Explanation** — the answer for a sentence: `meaning` (the sentence in simple English, B1-B2), then `words`
+  (difficult words), then `translation` last, a small helper line in the target language (product rule: explain first,
+  translate last). The JSON keeps this order (TASK-28).
 - **Entry** — the dictionary data for one word: senses with a simple English definition,
   a Vietnamese meaning, 3 **examples**, and **usage**: up to 3 usage items per sense (fewer when there are no good
   ones). Shape: `pipeline/src/pipeline/models.py`. No collocation or synonym chips (decision-2, done in TASK-24).
@@ -91,6 +94,7 @@ not call the LLM.
 
 `explanation` = `{ meaning, words: [{ word, partOfSpeech, meaning }], translation }`. Only
 `translation` is in `targetLang`; `meaning` and `words` are simple English (difficult = above B1).
+The fields always come in this order: `meaning`, `words`, `translation`.
 
 `entry` = `{ senses: [{ pos, cefr, simpleDefinition, vietnamese, examples, usage: [{ pattern, example }] }] }`,
 the pipeline shape in camelCase, without the image fields.

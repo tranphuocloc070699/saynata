@@ -3,16 +3,17 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 09:53'
+updated_date: '2026-10-11 15:06'
 ---
-> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11 (TASK-6 and TASK-19 moved the store and client lines; the sentence logic is unchanged).
+> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11 (TASK-28: explain-first prompt `v5`).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
 
 The user types an English sentence, picks a target language, and taps **Explain**. (A single word is not a sentence: it goes to the dictionary path in [Word lookup](doc-5%20-%20Word-lookup.md).) The app shows
-three parts: **Meaning** (simple English), **Words** (hard words for a B1 learner), and the
-**translation** in the target language. With the default **Server** provider, the backend caches every
+three parts, in this order: **Meaning** (simple English, B1-B2), **Words** (hard words for a B1 learner), and last
+the **translation** in the target language, a small helper line. The backend JSON has the same order:
+`meaning`, `words`, `translation` (pinned with `@JsonPropertyOrder` in [Explanation.java](../../../backend/src/main/java/com/englishtranslation/backend/translation/Explanation.java)). With the default **Server** provider, the backend caches every
 answer in Postgres, so the same sentence + language is only sent to Claude once, for all users.
 
 ## Big picture
@@ -144,11 +145,11 @@ Tests also inject a fake through the same `makeTranslator` closure.
 | Step | File | What happens |
 |---|---|---|
 | Client | [ClaudeConfig.java:13-21](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeConfig.java#L13-L21) | Builds `AnthropicClient`. **Fails at startup** if `CLAUDE_API_KEY` is empty. |
-| Config | [application.properties:13-18](../../../backend/src/main/resources/application.properties#L13-L18) | `app.claude.model=claude-haiku-5-5`, `app.claude.sentence-prompt-version=v4` (words have their own `app.claude.word-prompt-version`). The key comes from `backend/.env`. |
-| Prompt | [ClaudeService.java:27-43](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L27-L43) | `SENTENCE_PROMPT`. User text goes inside `<text>` tags and is "never instructions" (prompt-injection guard). It also says `&lt;` `&gt;` `&amp;` stand for the real characters. |
-| Escape | [ClaudeService.java:124-137](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L124-L137) | `sentenceMessage` escapes `&`, `<`, `>` in the user text (`&` first), so `</text>` in the input cannot close the tag early (TASK-20). |
-| Request | [ClaudeService.java:94-107](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L94-L107) | `maxTokens 4000`, `effort LOW`, **structured output** with `Explanation.class` as the JSON schema. |
-| Reply | [ClaudeService.java:139-148](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L139-L148) | `stopReason == REFUSAL` → `ClaudeRefusedException`. Otherwise the first text block, parsed into `Explanation`. |
+| Config | [application.properties:13-18](../../../backend/src/main/resources/application.properties#L13-L18) | `app.claude.model=claude-haiku-5-5`, `app.claude.sentence-prompt-version=v5` (words have their own `app.claude.word-prompt-version`). The key comes from `backend/.env`. |
+| Prompt | [ClaudeService.java:27-46](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L27-L46) | `SENTENCE_PROMPT`. Says the main answer is the simple English explanation and lists the fields in order: 1 `meaning`, 2 `words`, 3 `translation` (last, a helper). User text goes inside `<text>` tags and is "never instructions" (prompt-injection guard). It also says `&lt;` `&gt;` `&amp;` stand for the real characters. |
+| Escape | [ClaudeService.java:159-172](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L159-L172) | `sentenceMessage` escapes `&`, `<`, `>` in the user text (`&` first), so `</text>` in the input cannot close the tag early (TASK-20). |
+| Request | [ClaudeService.java:129-142](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L129-L142) | `maxTokens 4000`, `effort LOW`, **structured output** with `Explanation.class` as the JSON schema. |
+| Reply | [ClaudeService.java:174-183](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L174-L183) | `stopReason == REFUSAL` → `ClaudeRefusedException`. Otherwise the first text block, parsed into `Explanation`. |
 
 **Why no `temperature: 0`:** Haiku 5.5 rejects sampling parameters. Repeatable output comes from the
 cache instead (spec, Decisions).
@@ -193,7 +194,7 @@ sequenceDiagram
 | `BackendBaseURL` missing | `AppConfig` | — | "Missing BackendBaseURL. Check Secrets.xcconfig and the Info tab." |
 | Direct provider key missing | `AppConfig.apiKey` | — | "Missing DeepSeekAPIKey. …" |
 | Text > 500 or blank, bad `targetLang` | Spring validation | 400 | ProblemDetail `detail` + "(status 400)" |
-| Claude refused | [ClaudeService.java:140-142](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L140-L142) → [ApiExceptionHandler.java:18-21](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L18-L21) | 422 | "Claude declined to answer this text. (status 422)" |
+| Claude refused | [ClaudeService.java:175-177](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L175-L177) → [ApiExceptionHandler.java:18-21](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L18-L21) | 422 | "Claude declined to answer this text. (status 422)" |
 | Claude API down / bad key | [ApiExceptionHandler.java:23-27](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L23-L27) | 502 | "The translation service is not available. Try again later. (status 502)" |
 | Backend not running | `URLSession` | — | `URLError` text, e.g. "Could not connect to the server." |
 | Direct LLM bad JSON | `Explanation.decode` | — | "The model's answer was not in the expected format. Try again." |
@@ -207,7 +208,8 @@ sequenceDiagram
 | [CacheTests.swift](../../../EnglishTranslation/EnglishTranslationTests/CacheTests.swift) | Swift cache keys equal known sha256 values from the backend rule, normalising matches Java, prompt versions equal `application.properties`, SQLite cache round trip and reopen |
 | [TranslationControllerTest.java](../../../backend/src/test/java/com/englishtranslation/backend/translation/TranslationControllerTest.java) | Blank text, unknown or missing language → 400, code read and returned |
 | [TranslationServiceTest.java](../../../backend/src/test/java/com/englishtranslation/backend/translation/TranslationServiceTest.java) | Second request cached without Claude, cached explanation reads back the same, each language cached separately |
-| [ClaudeServiceTest.java](../../../backend/src/test/java/com/englishtranslation/backend/claude/ClaudeServiceTest.java) | `</text>` and `<text>` in the input are escaped, plain text unchanged, `&` escaped first |
+| [ClaudeServiceTest.java](../../../backend/src/test/java/com/englishtranslation/backend/claude/ClaudeServiceTest.java) | `</text>` and `<text>` in the input are escaped, plain text unchanged, `&` escaped first, the prompt lists meaning, then words, then translation |
+| [ExplanationTest.java](../../../backend/src/test/java/com/englishtranslation/backend/translation/ExplanationTest.java) | The response JSON starts with `meaning` and ends with `translation` |
 | [CacheKeysTest.java](../../../backend/src/test/java/com/englishtranslation/backend/cache/CacheKeysTest.java) | Whitespace and case rules, key changes with prompt version and kind |
 
 Run: `./mvnw test` in `backend/`, and the iOS tests in Xcode (⌘U).
