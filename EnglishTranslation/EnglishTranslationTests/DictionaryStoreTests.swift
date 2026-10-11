@@ -85,7 +85,7 @@ struct DictionaryStoreTests {
         let ran = try #require(try store.lookUp("Ran"))
 
         #expect(ran.word == "run")
-        #expect(ran.matchedForm == WordForm(form: "ran", type: "past tense"))
+        #expect(ran.matchedForm == MatchedForm(text: "ran", type: "past tense"))
         #expect(ran.senses.first?.examples == [
             Example(level: .easy, text: "I run."),
             Example(level: .medium, text: "She runs to school."),
@@ -103,15 +103,15 @@ struct DictionaryStoreTests {
         let ran = try #require(try DictionaryStore(url: url).lookUp("ran"))
 
         #expect(ran.word == "run")
-        #expect(ran.matchedForm == WordForm(form: "ran", type: "form"))  // no type column: the neutral label
-        // Old examples are plain strings. They become easy, medium.
-        #expect(ran.senses.first?.examples.map(\.level) == [.easy, .medium])
+        #expect(ran.matchedForm == MatchedForm(text: "ran", type: "form"))  // no type column: the neutral label
+        // Old examples are plain strings. They have no level.
+        #expect(ran.senses.first?.examples == [Example(text: "I run."), Example(text: "She runs to school.")])
     }
 
-    @Test func plainStringExamplesBecomeEasyThenMedium() throws {
+    @Test func plainStringExamplesHaveNoLevel() throws {
         let old = #"{"pos":"verb","cefr":"A1","simpleDefinition":"d","vietnamese":"v","examples":["One.","Two."]}"#
         let sense = try JSONDecoder().decode(Sense.self, from: Data(old.utf8))
-        #expect(sense.examples == [Example(level: .easy, text: "One."), Example(level: .medium, text: "Two.")])
+        #expect(sense.examples == [Example(text: "One."), Example(text: "Two.")])
 
         let new = #"{"pos":"verb","cefr":"A1","simpleDefinition":"d","vietnamese":"v","examples":[{"level":"harder","text":"Three."}]}"#
         let newer = try JSONDecoder().decode(Sense.self, from: Data(new.utf8))

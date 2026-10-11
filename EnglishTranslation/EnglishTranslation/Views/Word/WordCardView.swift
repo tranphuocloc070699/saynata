@@ -5,15 +5,16 @@
 
 import SwiftUI
 
-/// The full word card: word, IPA, then for each sense the meaning, examples and usage.
-/// The Vietnamese row is last in each sense and closed by default (CLAUDE.md "Product rule").
+/// The full word card (word card v2, TASK-36): the headword, then one card per sense.
+/// A sense card has a numbered title and three folded rows: Examples, Grammar, Vietnamese.
+/// Vietnamese is last and closed by default (CLAUDE.md "Product rule").
 /// Shown for a single-word input (TASK-19); previews use the sample words.
 struct WordCardView: View {
     let entry: WordEntry
     /// Called when the listen button is tapped. Speech is not built yet.
     var onListen: () -> Void = {}
 
-    /// Which folded row is open, for example "0-Vietnamese". Only one at a time (design rule 8).
+    /// Which folded row is open, for example "0-Vietnamese". Only one at a time per card (design rule 8).
     @State private var openRow = ""
 
     var body: some View {
@@ -21,25 +22,23 @@ struct WordCardView: View {
             header
 
             ForEach(Array(entry.senses.enumerated()), id: \.offset) { index, sense in
-                if index > 0 {
-                    HairlineDivider()
-                }
-                senseView(sense, index: index)
+                senseCard(sense, index: index)
             }
         }
-        .padding(Theme.Spacing.large)
-        .background(Theme.Colors.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
     }
 
     // MARK: - Parts
 
+    /// The word as typed (a form like "ran" stays "ran"). With a form, the pill shows the base word.
     private var header: some View {
-        HStack(alignment: .center, spacing: Theme.Spacing.small) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
-                Text(entry.word)
+        HStack(alignment: .top, spacing: Theme.Spacing.small) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                Text(entry.matchedForm?.text ?? entry.word)
                     .font(.largeTitle.weight(.semibold))
                     .foregroundStyle(Theme.Colors.textPrimary)
-                if let ipa = entry.ipa {
+                if let pill = entry.formPillText {
+                    FormPill(text: pill)
+                } else if let ipa = entry.ipa {
                     Text(ipa)
                         .font(.callout)
                         .foregroundStyle(Theme.Colors.textSecondary)
@@ -50,28 +49,19 @@ struct WordCardView: View {
         }
     }
 
-    private func senseView(_ sense: Sense, index: Int) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-            LevelChip(text: sense.chipText)
-
-            MeaningBlock(meaning: sense.simpleDefinition, example: sense.examples.first?.text)
+    private func senseCard(_ sense: Sense, index: Int) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+            SenseTitleRow(number: index + 1, sense: sense)
 
             VStack(spacing: 0) {
-                if sense.examples.count > 1 {
-                    foldedRow("More examples", index: index, count: sense.examples.count - 1) {
-                        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                            ForEach(sense.examples.dropFirst(), id: \.text) { example in
-                                Text(example.text)
-                                    .font(.system(.callout, design: .serif).italic())
-                                    .foregroundStyle(Theme.Colors.textSecondary)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                if !sense.examples.isEmpty {
+                    foldedRow("Examples", index: index) {
+                        WordExamplesSection(examples: sense.examples)
                     }
                 }
                 if !sense.usage.isEmpty {
-                    foldedRow("How to use it", index: index, count: sense.usage.count) {
-                        WordUsageSection(usage: sense.usage)
+                    foldedRow("Grammar", index: index) {
+                        WordUsageSection(groups: sense.usageGroups)
                     }
                 }
                 if !sense.vietnamese.isEmpty {
@@ -84,19 +74,22 @@ struct WordCardView: View {
                 }
             }
         }
+        .padding(Theme.Spacing.large)
+        .background(Theme.Colors.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.Colors.hairline, lineWidth: 1)
+        }
     }
 
-    /// One folded row. Opening one closes the others.
+    /// One folded row, closed by default. Opening one closes the others.
     private func foldedRow<Content: View>(
         _ title: String,
         index: Int,
-        count: Int? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
         let key = "\(index)-\(title)"
         return FoldedRow(
             title: title,
-            count: count,
             isExpanded: Binding(
                 get: { openRow == key },
                 set: { openRow = $0 ? key : "" }
@@ -106,18 +99,28 @@ struct WordCardView: View {
     }
 }
 
-#Preview("Normal word") {
-    ScrollView { WordCardView(entry: .depend).padding() }
+#Preview("Form: ran") {
+    ScrollView { WordCardView(entry: .ran).padding() }
         .background(Theme.Colors.background)
 }
 
-#Preview("Usage labels") {
+#Preview("Two senses: apple") {
+    ScrollView { WordCardView(entry: .apple).padding() }
+        .background(Theme.Colors.background)
+}
+
+#Preview("Usage in all groups: get") {
     ScrollView { WordCardView(entry: .get).padding() }
         .background(Theme.Colors.background)
 }
 
-#Preview("Many senses") {
+#Preview("Sense with no usage") {
     ScrollView { WordCardView(entry: .run).padding() }
+        .background(Theme.Colors.background)
+}
+
+#Preview("Old data: string examples") {
+    ScrollView { WordCardView(entry: .oldData).padding() }
         .background(Theme.Colors.background)
 }
 

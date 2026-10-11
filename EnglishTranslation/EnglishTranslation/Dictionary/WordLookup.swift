@@ -9,6 +9,14 @@ import Foundation
 protocol WordLooking: Sendable {
     /// Returns the entry for `word`. Throws `WordLookupError`, `BackendError` or a `URLError`.
     func lookUp(_ word: String) async throws -> WordEntry
+
+    /// Close bundled words for a word that was not found ("did you mean"). Works offline.
+    func suggestions(for word: String) -> [String]
+}
+
+extension WordLooking {
+    /// Most lookups have no suggestions (tests use this default).
+    func suggestions(for word: String) -> [String] { [] }
 }
 
 /// The second step of a word lookup: the local cache and our backend. `BackendClient` is the real one.
@@ -36,6 +44,12 @@ struct WordLookup: WordLooking {
     /// The dictionary inside the app. Nil if it cannot be opened (then every word goes to the backend).
     let dictionary: DictionaryStore?
     let backend: any WordFetching
+    /// Finds "did you mean" words in the bundle. Nil if there is no dictionary.
+    var suggester: SpellingSuggester?
+
+    func suggestions(for word: String) -> [String] {
+        suggester?.suggestions(for: CacheKeys.trimmingWordPunctuation(word)) ?? []
+    }
 
     func lookUp(_ input: String) async throws -> WordEntry {
         // "Run!" and "run" must be the same word, for the bundle, the cache key and the backend.

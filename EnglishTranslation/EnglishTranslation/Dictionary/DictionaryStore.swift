@@ -58,9 +58,25 @@ final class DictionaryStore: @unchecked Sendable {
         return WordEntry(word: match.lemma, ipa: match.ipa, senses: senses, matchedForm: match.matchedForm)
     }
 
+    /// Every spelling the dictionary knows, for "did you mean". Base words and word forms ("ran"),
+    /// each with the base word to show and its NGSL rank (lower = more common).
+    func spellingCandidates() throws -> [SpellingCandidate] {
+        let sql = """
+            SELECT lemma, lemma, rank FROM words
+            UNION ALL
+            SELECT f.form, w.lemma, w.rank FROM forms f JOIN words w ON w.id = f.word_id
+            """
+        return try run(sql) { statement in
+            SpellingCandidate(
+                spelling: (Self.text(statement, 0) ?? "").lowercased(),
+                lemma: Self.text(statement, 1) ?? "",
+                rank: Int(sqlite3_column_int64(statement, 2)))
+        }
+    }
+
     // MARK: - Queries
 
-    private func findWord(_ key: String) throws -> (id: Int64, lemma: String, ipa: String?, matchedForm: WordForm?)? {
+    private func findWord(_ key: String) throws -> (id: Int64, lemma: String, ipa: String?, matchedForm: MatchedForm?)? {
         // UNION ALL keeps the order: a base form is tried before a word form.
         // Without the type column, SELECT NULL so the column numbers stay the same.
         let typeColumn = hasFormTypeColumn ? "f.type" : "NULL"
@@ -76,7 +92,7 @@ final class DictionaryStore: @unchecked Sendable {
             return (id: sqlite3_column_int64(statement, 0),
                     lemma: Self.text(statement, 1) ?? "",
                     ipa: Self.text(statement, 2),
-                    matchedForm: form.map { WordForm(form: $0, type: Self.text(statement, 4) ?? "form") })
+                    matchedForm: form.map { MatchedForm(text: $0.lowercased(), type: Self.text(statement, 4) ?? "form") })
         }
         return rows.first
     }
@@ -94,7 +110,7 @@ final class DictionaryStore: @unchecked Sendable {
                 cefr: Self.text(statement, 1) ?? "",
                 simpleDefinition: Self.text(statement, 2) ?? "",
                 vietnamese: Self.text(statement, 3) ?? "",
-                examples: Example.decodeList(Self.text(statement, 4)),
+                examples: Self.decodeExamples(Self.text(statement, 4)),
                 usage: Self.decodeUsage(Self.text(statement, 5))
             )
         }
@@ -141,6 +157,13 @@ final class DictionaryStore: @unchecked Sendable {
     private static func text(_ statement: OpaquePointer, _ column: Int32) -> String? {
         guard let pointer = sqlite3_column_text(statement, column) else { return nil }
         return String(cString: pointer)
+    }
+
+    /// Reads a JSON list like `["a", "b"]`. A broken value gives an empty list.
+    /// Items can be plain strings (old data) or `{ level, text }` objects.
+    static func decodeExamples(_ json: String?) -> [Example] {
+        guard let data = json?.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([Example].self, from: data)) ?? []
     }
 
     /// Reads the usage JSON `[{"kind": "idiom", "pattern": "...", "example": "..."}]`.
