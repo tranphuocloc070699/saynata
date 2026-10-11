@@ -58,5 +58,6 @@ There are no mockups in Figma or Claude Design. Build screens straight in SwiftU
 | `LevelChip` | Pill with word type and CEFR level, for example "adj · B2" |
 | `MeaningBlock` | Tinted box with the "Meaning" label, serif meaning, and one optional example |
 | `FoldedRow` | Row that opens and closes, with an optional count; the parent decides which row is open |
+| `HairlineDivider` | One-pixel line in the hairline color. Use it, not `Divider().overlay(...)`, which flickers while scrolling |
 
 Add a new component only when two screens need the same thing. Add it to the gallery in the same change.

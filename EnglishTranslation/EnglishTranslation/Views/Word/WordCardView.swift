@@ -22,7 +22,7 @@ struct WordCardView: View {
 
             ForEach(Array(entry.senses.enumerated()), id: \.offset) { index, sense in
                 if index > 0 {
-                    Divider().overlay(Theme.Colors.hairline)
+                    HairlineDivider()
                 }
                 senseView(sense, index: index)
             }
