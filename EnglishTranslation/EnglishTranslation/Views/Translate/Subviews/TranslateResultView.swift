@@ -13,12 +13,14 @@ struct TranslateResultView: View {
     var body: some View {
         switch state {
         case .idle:
-            Text("Type a sentence, then tap Explain.")
+            Text("Type a word or a sentence, then tap Explain.")
                 .foregroundStyle(.secondary)
         case .loading:
             ProgressView()
         case let .loaded(explanation):
             TranslateExplanationView(explanation: explanation, targetLanguage: targetLanguage)
+        case let .loadedWord(entry):
+            WordCardView(entry: entry)
         case let .failed(message):
             Text(message).foregroundStyle(.red)
         }

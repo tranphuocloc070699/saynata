@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 09:56'
+updated_date: '2026-10-11 09:57'
 ---
-> Status: **backend done; iOS bundled-dictionary lookup (TASK-4) and local cache (TASK-5) done; backend fallback (TASK-6) and UI (TASK-19) not started**. Last traced from code: 2026-10-11.
+> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19. Last traced from code: 2026-10-11.
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -16,13 +16,13 @@ a simple English definition, a Vietnamese meaning, 2 examples, and up to 3 **usa
 Most words come from the dictionary bundled in the app (built by the [dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md)).
 Only words the bundle doesn't have go to the backend, which asks Claude once and caches the answer for everyone.
 
-## Planned full flow (spec R2)
-
-Grey boxes don't exist yet.
+## Full flow (spec R2)
 
 ```mermaid
 flowchart TD
-    A[User enters one word] --> N["Normalise: trim, collapse spaces, lowercase"]
+    A["User enters text"] --> T{"One token after normalising?"}
+    T -- "no" --> SENT["Sentence path (doc-4)"]
+    T -- yes --> N["Normalise: trim, collapse spaces, lowercase"]
     N --> B{"In bundled dictionary.sqlite? (lemma or form, e.g. ran → run)"}
     B -- yes --> SHOW[Show entry]
     B -- no --> L{"In local SQLite cache?"}
@@ -31,10 +31,9 @@ flowchart TD
     API --> PG{"In Postgres word_lookup?"}
     PG -- yes --> SAVE[Save in local cache]
     PG -- no --> CL[Claude describeWord] --> PGS[Save in Postgres] --> SAVE
-    SAVE --> SHOW
-
-    classDef todo fill:#eee,stroke:#999,stroke-dasharray: 4 3,color:#666
-    class N,B,L,SAVE todo
+    SAVE --> EMPTY{"Any senses?"}
+    EMPTY -- yes --> SHOW
+    EMPTY -- no --> NOTWORD["Message: not an English word"]
 ```
 
 ## Backend: step by step (works today)
@@ -115,9 +114,70 @@ Expected shape (the words differ from run to run, the keys do not; first call `"
 
 Tests: [DictionaryStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/DictionaryStoreTests.swift) (hit, miss, form, usage kind default, usage JSON decode, a tiny file with a `usage` column; normalising is tested in [CacheTests.swift](../../../EnglishTranslation/EnglishTranslationTests/CacheTests.swift)).
 
-## iOS word card (sample data only)
+## iOS: the full lookup (TASK-6, TASK-19)
 
-Built in TASK-27 with sample data. Not wired to lookup yet (TASK-19). Uses the model from the TASK-4 section above. An empty `cefr` or `vietnamese` (what the store gives for a missing value) hides the chip level or the Vietnamese row. Last traced: 2026-10-11.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant ST as TranslationStore
+    participant WL as WordLookup
+    participant DS as DictionaryStore
+    participant BC as BackendClient
+    participant RC as ResultCache
+    participant API as GET /api/words/word
+
+    U->>ST: taps Explain with "serendipity"
+    ST->>ST: CacheKeys.isSingleToken is true, state = .loading
+    ST->>WL: lookUp("serendipity")
+    WL->>DS: lookUp (lemma, then form)
+    alt in the bundle
+        DS-->>WL: WordEntry
+    else not in the bundle
+        WL->>BC: entry(forWord:)
+        BC->>RC: data(forKey: wordKey)
+        alt in the local cache
+            RC-->>BC: saved backend JSON
+        else not saved yet
+            BC->>API: GET /api/words/serendipity
+            API-->>BC: 200 {word, entry, cached}
+            BC->>RC: save(JSON as-is, kind .word)
+        end
+        BC-->>WL: WordEntry (no IPA)
+    end
+    WL-->>ST: WordEntry, or a throw
+    ST-->>U: .loadedWord shows WordCardView, or .failed shows a short message
+```
+
+| Step | File | What happens |
+|---|---|---|
+| Word or sentence | [CacheKeys.swift:56-62](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L56-L62) | `isSingleToken`: normalise like the backend, then no space left and not empty. "don't" and "well-known" are one token, "go home" is two. The no-break space does not split (same as Java). |
+| Route | [TranslationStore.swift:44-54](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L44-L54) | One token goes to `lookUpWord`, more go to `explainSentence` (doc-4). The input is trimmed first. The target-language picker does not matter for a word: entries are English plus Vietnamese. |
+| Word path | [TranslationStore.swift:56-63](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L56-L63) | `makeWordLookup().lookUp(...)`, then `.loadedWord(entry)` or `.failed(error.localizedDescription)`. The lookup is built per request (like the translator), by [TranslatorFactory.swift:25-33](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L25-L33). |
+| Punctuation | [CacheKeys.swift:64-75](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L64-L75) | `trimmingWordPunctuation`: word path only. Removes punctuation and symbols at the start and end ("Run!", "(run)", "“run”" give "Run"); inner `'` and `-` stay. `WordLookup` calls it first, so the bundle, the cache key and the backend all get the clean word. Nothing left ("?!") gives `notOneWord`. Sentences are not touched. |
+| Order | [WordLookup.swift:34-62](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L34-L62) | 1. bundle (`DictionaryStore.lookUp`, a broken file counts as a miss), 2. and 3. `backend.entry(forWord:)`. Protocols `WordLooking` and `WordFetching` ([WordLookup.swift:9-18](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L9-L18)) let tests use fakes. |
+| Cache and fetch | [BackendClient.swift:86-101](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L86-L101) | `entry(forWord:)`: key = `CacheKeys.wordKey` (same as the backend), local hit returns with no network. A miss calls `GET {baseURL}/api/words/{normalised word}` (the word is percent-encoded as one path part), then saves the **raw JSON** under the key. Errors are never saved. |
+| Decode | [BackendClient.swift:19-32](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L19-L32) | `WordResponse` reads `word` and `entry.senses`. The backend sends no `ipa`, so the card has none. Old `collocations` and `synonyms` in an older backend reply are ignored. |
+| Status check | [BackendClient.swift:104-112](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L104-L112) | Shared with sentences: not 200 gives `BackendError.badStatus(code, detail)`. |
+| Not a word | [WordLookup.swift:57-59](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L57-L59) | Empty `senses` gives `WordLookupError.notAnEnglishWord`. The empty answer is saved in the local cache too (the server keeps it as well). |
+| Result | [TranslateResultView.swift:22-23](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateResultView.swift#L22-L23) | `.loadedWord(entry)` shows `WordCardView(entry:)`. |
+
+What the user sees when it goes wrong:
+
+| Cause | HTTP | Message |
+|---|---|---|
+| Only punctuation ("?!"), or digits, symbols inside, or more than 64 letters | none / 400 | "Type one English word, with letters only." |
+| Made-up word (`asdkj`) | 200, empty senses | "\"asdkj\" is not an English word. Check the spelling." |
+| Claude refused | 422 | "Claude declined to answer this text. (status 422)" (same text as sentences) |
+| Claude down | 502 | "The translation service is not available. Try again later. (status 502)" |
+| Offline, or backend not running (and not in the bundle or cache) | none | The system text, for example "The Internet connection appears to be offline." |
+| `BackendBaseURL` missing | none | "Missing BackendBaseURL. Check Secrets.xcconfig and the Info tab." (it stops even bundled words, because the lookup is built whole) |
+
+Tests: [WordLookupTests.swift](../../../EnglishTranslation/EnglishTranslationTests/WordLookupTests.swift) (bundle first, backend on a miss, empty senses, 400 message, other errors pass through), the word tests in [BackendClientTests.swift](../../../EnglishTranslation/EnglishTranslationTests/BackendClientTests.swift) (GET path and decode, save then serve with no network, errors not saved), the token rule in [CacheTests.swift](../../../EnglishTranslation/EnglishTranslationTests/CacheTests.swift), and the word or sentence choice in [TranslationStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStoreTests.swift).
+
+## iOS word card
+
+Built in TASK-27 with sample data, shown for real lookups since TASK-19. Uses the model from the TASK-4 section above. An empty `cefr` or `vietnamese` (what the store gives for a missing value) hides the chip level or the Vietnamese row. Last traced: 2026-10-11.
 
 | Part | File |
 |---|---|
@@ -143,7 +203,9 @@ bad word → 400, Claude refused → 422, Claude down → 502. A made-up word li
 
 ## Known gaps
 
-- **iOS has the bundled lookup and the local cache only.** The cache ([ResultCache.swift](../../../EnglishTranslation/EnglishTranslation/Cache/ResultCache.swift), `CacheKeys.wordKey` in [CacheKeys.swift](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift)) is not called for words yet; there is no backend fallback and no word screen. `CacheKeys.swift` must copy the backend normalising **exactly**, or the phone and server use different keys. The bundled lookup uses the same `CacheKeys.normalizeWord`. The word prompt version lives in `PromptVersions.word` and must equal `app.claude.word-prompt-version`.
+- **Keep the keys equal.** `CacheKeys.swift` must copy the backend normalising **exactly**, or the phone and server use different keys. The word prompt version lives in `PromptVersions.word` and must equal `app.claude.word-prompt-version`.
+- **A word from the backend has no IPA** (the backend does not send it), and its usage list can be empty if the saved answer is from an older prompt version.
+- **Direct providers (DeepSeek, ChatGPT, Claude) still use the word path for one word**, because the word lookup does not depend on the provider. They go away in TASK-18.
 - **Backend entries skip the pipeline's quality checks.** The pipeline rejects definitions with words outside NGSL ([validate.py](../../../pipeline/src/pipeline/validate.py)). The backend trusts Claude's answer, so backend definitions can be harder than bundled ones.
 - **Empty answers are cached forever** (for that prompt version), including a typo the user fixes a second later.
 - **Own prompt version:** `app.claude.word-prompt-version`, separate from the sentence one (TASK-15). Changing `WORD_PROMPT`? Bump it, or old entries keep being served.

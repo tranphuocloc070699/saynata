@@ -22,6 +22,16 @@ enum TranslatorFactory {
         BackendClient(baseURL: try AppConfig.backendBaseURL(), cache: ResultCache.shared)
     }
 
+    /// The bundled dictionary file. Opened once; nil if it cannot be opened.
+    private static let bundledDictionary = try? DictionaryStore.bundled()
+
+    /// Word lookup: bundled dictionary, then local cache, then our backend. Throws if `BackendBaseURL` is missing.
+    static func makeWordLookup() throws -> any WordLooking {
+        WordLookup(
+            dictionary: bundledDictionary,
+            backend: BackendClient(baseURL: try AppConfig.backendBaseURL(), cache: ResultCache.shared))
+    }
+
     /// DeepSeek, OpenAI-compatible. Models: https://api-docs.deepseek.com
     static func makeDeepSeekClient() throws -> any Translating {
         LLMClient(
