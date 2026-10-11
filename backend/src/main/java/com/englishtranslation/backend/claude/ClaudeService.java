@@ -42,7 +42,7 @@ public class ClaudeService {
                           If the text is already in that language, copy it unchanged.
                         """;
 
-        private static final String WORD_PROMPT = """
+        static final String WORD_PROMPT = """
                         You write learner dictionary entries for Vietnamese people learning English.
                         For the English word inside <word> tags, return 1-4 senses a learner really needs,
                         most common first. For each sense:
@@ -51,8 +51,35 @@ public class ClaudeService {
                         - simpleDefinition: at most 20 words, only very common words, never the word itself
                         - vietnamese: a short Vietnamese meaning, like a bilingual dictionary
                         - examples: exactly 2 short, natural example sentences
-                        - collocations: 0-3 common word partners, e.g. "reluctant to do sth"
-                        - synonyms: 0-3 simpler or common synonyms
+                        - usage: 0-3 items that show how to use THIS sense. Give fewer, or none, when
+                          there are no good ones. Each item has a kind, a pattern and one example sentence.
+                          kind "pattern": a sentence pattern, e.g. "depend on + something".
+                          kind "collocation": words that go together, e.g. "make a decision" (not "do a decision").
+                          kind "phrase": a phrasal verb or fixed phrase, e.g. "get used to + -ing", "It depends.".
+                          kind "idiom": a common idiom, e.g. "take it easy".
+                          Placeholders are: someone, something, + noun, + verb, + -ing, + adjective.
+                          Never write sb or sth.
+                          Only common, natural items that a native speaker uses often. No rare, old or formal idioms.
+                          Every item must fit the meaning of this sense. "get up" does not belong on the "buy" sense of "get".
+                          The example is one short natural sentence with simple words only.
+                        Examples of good usage:
+                        get (to buy, to find):
+                          pattern "get + noun" -> "I need to get some milk."
+                          collocation "get a job" -> "He got a new job last month."
+                          idiom "get hold of something" -> "I finally got hold of two tickets."
+                        get (to become):
+                          pattern "get + adjective" -> "It's getting dark outside."
+                          collocation "get better" -> "I hope you get better soon."
+                          phrase "get used to + -ing" -> "I'm getting used to living here."
+                        make (to decide):
+                          collocation "make a decision" -> "We need to make a decision today."
+                          idiom "make up your mind" -> "I can't make up my mind."
+                        take (to rest):
+                          collocation "take a break" -> "Let's take a break."
+                          idiom "take it easy" -> "Take it easy. You've worked a lot today."
+                        depend:
+                          pattern "depend on + something" -> "It depends on the weather."
+                          phrase "It depends." -> "\"Are you coming?\" \"It depends.\""
                         If it is not an English word, return an empty list of senses.
                         """;
 

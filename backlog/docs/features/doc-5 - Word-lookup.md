@@ -3,7 +3,7 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 15:20'
+updated_date: '2026-10-11 09:33'
 ---
 > Status: **backend done, iOS not started** (TASK-4, TASK-5, TASK-6). Last traced from code: 2026-10-10.
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -11,7 +11,8 @@ updated_date: '2026-10-11 15:20'
 ## What it does
 
 A single word gets a **learner dictionary entry**: 1–4 senses, each with part of speech, CEFR level,
-a simple English definition, a Vietnamese meaning, 2 examples, collocations, and synonyms.
+a simple English definition, a Vietnamese meaning, 2 examples, and up to 3 **usage** items
+(`{ kind, pattern, example }`, see the glossary in doc-1). It has no collocations or synonyms any more (decision-2, TASK-24).
 Most words come from the dictionary bundled in the app (built by the [dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md)).
 Only words the bundle doesn't have go to the backend, which asks Claude once and caches the answer for everyone.
 
@@ -78,9 +79,10 @@ sequenceDiagram
 | Hit | [WordService.java:31-34](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L31-L34) | Parse `entry_json` into `WordEntry`, `cached: true`. |
 | Miss | [WordService.java:36-40](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L36-L40) | Claude → save the whole entry as JSON text → `cached: false`. |
 | Race | [WordService.java:41-45](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L41-L45) | Same pattern as sentences: the unique key wins, the second request reads the first row. |
-| Prompt | [ClaudeService.java:45-57](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L45-L57) | `WORD_PROMPT`: 1–4 senses, ≤20-word definition, never the word itself, 2 examples, 0–3 collocations and synonyms. Not an English word → empty `senses`. |
-| Request | [ClaudeService.java:82-95](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L82-L95) | `maxTokens 8000`, `effort LOW`, structured output with `WordEntry.class`. The word goes inside `<word>` tags, escaped by `wordMessage` ([103-105](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L103-L105)). |
-| Shape | [WordEntry.java:6-17](../../../backend/src/main/java/com/englishtranslation/backend/word/WordEntry.java#L6-L17) | Same as the pipeline's `models.py`, in camelCase, **without** `source_index`, `image_type`, `image_query`. |
+| Prompt | [ClaudeService.java:45-84](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L45-L84) | `WORD_PROMPT`: 1–4 senses, ≤20-word definition, never the word itself, 2 examples, 0–3 `usage` items with the rules and the agreed few-shot examples (get, make, take, depend). Not an English word → empty `senses`. |
+| Request | [ClaudeService.java:109-122](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L109-L122) | `maxTokens 8000`, `effort LOW`, structured output with `WordEntry.class`. The word goes inside `<word>` tags, escaped by `wordMessage` ([130-132](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L130-L132)). |
+| Shape | [WordEntry.java:7-29](../../../backend/src/main/java/com/englishtranslation/backend/word/WordEntry.java#L7-L29) | Same as the pipeline's `models.py`, in camelCase, **without** `source_index`, `image_type`, `image_query`. `usage` is a list of `{ kind, pattern, example }`; `kind` is a plain lowercase String (an enum would be written in capitals in the schema). |
+| Cache version | [application.properties:18](../../../backend/src/main/resources/application.properties#L18) | `app.claude.word-prompt-version=v4` (TASK-24). Rows saved with v3 have collocations and synonyms and no usage; the new key never reads them. |
 | Response | [WordResponse.java:3](../../../backend/src/main/java/com/englishtranslation/backend/word/WordResponse.java#L3) | `{ word, entry: { senses: [...] }, cached }`. |
 
 **Table `word_lookup`** ([V1](../../../backend/src/main/resources/db/migration/V1__create_cache_tables.sql#L11-L19), entity [WordLookup.java](../../../backend/src/main/java/com/englishtranslation/backend/word/WordLookup.java)):
@@ -90,7 +92,16 @@ Unlike `sentence_translation`, the entry is stored as **one JSON column**, not s
 Try it:
 
 ```bash
-curl -s localhost:8081/api/words/serendipity
+curl -s localhost:8081/api/words/depend
+```
+
+Expected shape (the words differ from run to run, the keys do not; first call `"cached": false`, second `true`):
+
+```json
+{ "word": "depend", "cached": false, "entry": { "senses": [ {
+  "pos": "verb", "cefr": "A2", "simpleDefinition": "...", "vietnamese": "...", "examples": ["...", "..."],
+  "usage": [ { "kind": "pattern", "pattern": "depend on + something", "example": "It depends on the weather." } ]
+} ] } }
 ```
 
 ## Errors

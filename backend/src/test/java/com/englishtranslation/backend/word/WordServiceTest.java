@@ -47,7 +47,7 @@ class WordServiceTest {
         WordEntry entry = new WordEntry(List.of(new WordEntry.Sense(
                 "adjective", "C1", "not wanting to do something", "miễn cưỡng",
                 List.of("She was reluctant to leave.", "He gave a reluctant smile."),
-                List.of("reluctant to do sth"), List.of("unwilling"))));
+                List.of(new WordEntry.Usage("pattern", "be reluctant to + verb", "She was reluctant to leave.")))));
         when(claude.describeWord("reluctant")).thenReturn(entry);
 
         WordResponse first = service.lookUp("Reluctant");

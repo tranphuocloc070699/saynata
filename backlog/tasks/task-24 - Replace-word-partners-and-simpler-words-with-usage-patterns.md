@@ -1,10 +1,11 @@
 ---
 id: TASK-24
 title: Replace word partners and simpler words with usage patterns
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-10 08:21'
-updated_date: '2026-10-10 08:25'
+updated_date: '2026-10-11 09:25'
 labels:
   - pipeline
   - backend
@@ -34,3 +35,13 @@ User decision 2026-10-10: the word card drops the 'Word partners' (collocations)
 - [ ] #2 Tests pass
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. pipeline: Usage model (kind, pattern, example), Sense.usage, drop collocations/synonyms; shared USAGE_RULES in the prompt; usage checks in validate.py.
+2. pipeline: usage pass (usage.py + 'pipeline usage' command): one call per word, no retries, only adds sense.usage, resume-safe; tested with a mocked LLM.
+3. export: usage as JSON column; remove collocations/synonyms.
+4. backend: WordEntry.Sense.usage, WORD_PROMPT with the agreed examples, word-prompt-version v3 -> v4; tests.
+5. Docs: doc-1 glossary, doc-5, doc-6, pipeline README, CLAUDE.md check.
+<!-- SECTION:PLAN:END -->
