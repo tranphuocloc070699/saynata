@@ -41,4 +41,6 @@ The pipeline rejects definitions with words outside NGSL (pipeline/src/pipeline/
 
 <!-- SECTION:NOTES:BEGIN -->
 Implemented SimpleWords + one retry + needs_review flag (V4). Backend tests: 41 pass. Test it: run ./mvnw -B test; flagged rows: SELECT word FROM word_lookup WHERE needs_review. See PR.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/31
 <!-- SECTION:NOTES:END -->
