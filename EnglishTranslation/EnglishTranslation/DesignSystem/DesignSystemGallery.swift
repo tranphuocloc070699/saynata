@@ -8,9 +8,6 @@ import SwiftUI
 /// Every color, text style and component on one screen. Open the preview in Xcode to
 /// check the design system. Not shown in the app.
 struct DesignSystemGallery: View {
-    /// All rows start closed: Vietnamese is collapsed by default (CLAUDE.md "Product rule").
-    @State private var openRow = ""
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.xLarge) {
@@ -101,53 +98,15 @@ struct DesignSystemGallery: View {
         }
     }
 
-    // MARK: - Word card sample
+    // MARK: - Word card
 
-    /// The parts put together, in the order from CLAUDE.md: meaning first, Vietnamese last.
+    /// The real word cards with sample data: full card, then the compact one.
     private var wordCardSample: some View {
         TitledSection(title: "Word card") {
             VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.small) {
-                    Text("thorough").font(.largeTitle.weight(.semibold))
-                    Text("/ˈθʌr.ə/")
-                        .font(.callout)
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                    LevelChip(text: "adj · B2")
-                }
-                .foregroundStyle(Theme.Colors.textPrimary)
-
-                iconRow
-
-                MeaningBlock(
-                    meaning: "Very careful to do things well and correctly.",
-                    example: "She is thorough in her work."
-                )
-
-                VStack(spacing: 0) {
-                    foldedRow("More examples", count: 1, text: "The police did a thorough search of the house.")
-                    foldedRow("How to use it", count: 2, text: "be thorough in something")
-                    foldedRow("Vietnamese", text: "Kỹ lưỡng, cẩn thận.")
-                }
+                WordCardView(entry: .depend)
+                WordCardCompactView(entry: .depend)
             }
-            .padding(Theme.Spacing.large)
-            .background(Theme.Colors.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
-        }
-    }
-
-    /// One folded row. Opening one closes the others.
-    private func foldedRow(_ title: String, count: Int? = nil, text: String) -> some View {
-        FoldedRow(
-            title: title,
-            count: count,
-            isExpanded: Binding(
-                get: { openRow == title },
-                set: { openRow = $0 ? title : "" }
-            )
-        ) {
-            Text(text)
-                .font(.body)
-                .foregroundStyle(Theme.Colors.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

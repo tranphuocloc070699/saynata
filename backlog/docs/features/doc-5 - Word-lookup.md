@@ -3,7 +3,7 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 15:20'
+updated_date: '2026-10-11 09:35'
 ---
 > Status: **backend done, iOS not started** (TASK-4, TASK-5, TASK-6). Last traced from code: 2026-10-10.
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -112,3 +112,17 @@ bad word → 400, Claude refused → 422, Claude down → 502. A made-up word li
 - **Backend entries skip the pipeline's quality checks.** The pipeline rejects definitions with words outside NGSL ([validate.py](../../../pipeline/src/pipeline/validate.py)). The backend trusts Claude's answer, so backend definitions can be harder than bundled ones.
 - **Empty answers are cached forever** (for that prompt version), including a typo the user fixes a second later.
 - **Own prompt version:** `app.claude.word-prompt-version`, separate from the sentence one (TASK-15). Changing `WORD_PROMPT`? Bump it, or old entries keep being served.
+
+## iOS word card (sample data only)
+
+Built in TASK-27 with sample data. Not wired to lookup yet (TASK-19). Last traced: 2026-10-11.
+
+| Part | File |
+|---|---|
+| Model: `WordEntry`, `Sense`, `Usage` (+ `Usage.Kind`) | [WordEntry.swift](../../../EnglishTranslation/EnglishTranslation/Models/WordEntry.swift) |
+| Sample words for previews | [WordEntry+Samples.swift](../../../EnglishTranslation/EnglishTranslation/Models/WordEntry+Samples.swift) |
+| Full card | [WordCardView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift) |
+| Compact card (word list in a sentence) | [WordCardCompactView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardCompactView.swift) |
+| "How to use it" content | [WordUsageSection.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordUsageSection.swift) |
+
+Order per sense: level chip, meaning block, More examples, How to use it, Vietnamese (last, closed). One folded row is open at a time.
