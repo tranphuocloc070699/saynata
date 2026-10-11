@@ -14,12 +14,14 @@ private final class StubURLProtocol: URLProtocol {
     nonisolated(unsafe) static var body = Data()
     nonisolated(unsafe) static var lastRequest: URLRequest?
     nonisolated(unsafe) static var lastBody: Data?
+    nonisolated(unsafe) static var requestCount = 0
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         Self.lastRequest = request
+        Self.requestCount += 1
         // URLSession moves httpBody into a stream before it reaches a URLProtocol.
         Self.lastBody = request.httpBody ?? request.httpBodyStream.map(Self.readAll)
         let response = HTTPURLResponse(url: request.url!, statusCode: Self.status, httpVersion: nil, headerFields: nil)!
@@ -86,6 +88,49 @@ struct BackendClientTests {
         #expect(explanation.meaning == "The speaker did not want to go.")
         #expect(explanation.words == [.init(word: "reluctant", partOfSpeech: "adjective", meaning: "not wanting to do something")])
         #expect(explanation.translation == "帰るのは気が進まなかった。")
+    }
+
+    @Test func repeatRequestIsServedFromTheCacheWithoutNetwork() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = successBody
+        StubURLProtocol.requestCount = 0
+        var cachedClient = client
+        cachedClient.cache = try ResultCache(fileURL: nil)
+
+        let first = try await cachedClient.explain("I was reluctant to leave.", translatingTo: .japanese)
+        // The same sentence with other spaces gives the same key.
+        let second = try await cachedClient.explain("  I was   reluctant to leave. ", translatingTo: .japanese)
+
+        #expect(StubURLProtocol.requestCount == 1)
+        #expect(second == first)
+    }
+
+    @Test func otherLanguageIsNotServedFromTheCache() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = successBody
+        StubURLProtocol.requestCount = 0
+        var cachedClient = client
+        cachedClient.cache = try ResultCache(fileURL: nil)
+
+        _ = try await cachedClient.explain("Hello", translatingTo: .japanese)
+        _ = try await cachedClient.explain("Hello", translatingTo: .korean)
+
+        #expect(StubURLProtocol.requestCount == 2)
+    }
+
+    @Test func failedRequestIsNotCached() async throws {
+        StubURLProtocol.status = 502
+        StubURLProtocol.body = Data()
+        StubURLProtocol.requestCount = 0
+        var cachedClient = client
+        cachedClient.cache = try ResultCache(fileURL: nil)
+
+        _ = try? await cachedClient.explain("Hello", translatingTo: .vietnamese)
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = successBody
+        _ = try await cachedClient.explain("Hello", translatingTo: .vietnamese)
+
+        #expect(StubURLProtocol.requestCount == 2)
     }
 
     @Test func serverErrorShowsItsDetail() async {

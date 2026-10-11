@@ -3,9 +3,9 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-10 08:49'
+updated_date: '2026-10-11 09:32'
 ---
-> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-10.
+> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11.
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -106,11 +106,12 @@ Tests also inject a fake through the same `makeTranslator` closure.
 
 | Step | File | What happens |
 |---|---|---|
-| Pick client | [TranslatorFactory.swift:11-18](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L11-L18) | `switch provider`: `.server` → `BackendClient`, others → direct LLM clients. |
+| Pick client | [TranslatorFactory.swift:11-18](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L11-L18) | `switch provider`: `.server` → `BackendClient` (with `ResultCache.shared`), others → direct LLM clients. |
 | Base URL | [AppConfig.swift:25-30](../../../EnglishTranslation/EnglishTranslation/Config/AppConfig.swift#L25-L30) | Reads `BackendBaseURL` from Info.plist, which gets it from `Secrets.xcconfig`. Missing → `ConfigError.missing`. |
-| Send | [BackendClient.swift:45-50](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L45-L50) | `POST {baseURL}/api/translations`, JSON body `{ "text", "targetLang": language.code }`. |
-| Status check | [BackendClient.swift:53-57](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L53-L57) | Not 200 → reads Spring's `ProblemDetail.detail` and throws `BackendError.badStatus(code, detail)`. |
-| Decode | [BackendClient.swift:58](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L58) | Only `explanation` is decoded. `cached`, `text`, `targetLang` are ignored. |
+| Local cache | [BackendClient.swift:48-58](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L48-L58) | `explain` builds the key with [CacheKeys.swift](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift) (same rule as the backend) and asks [ResultCache.swift](../../../EnglishTranslation/EnglishTranslation/Cache/ResultCache.swift) first. A hit returns with **no network call**. After a 200 answer, the raw JSON is saved under the key. A saved blob that no longer decodes is ignored and fetched again. |
+| Send | [BackendClient.swift:61-67](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L61-L67) | `POST {baseURL}/api/translations`, JSON body `{ "text", "targetLang": language.code }`. |
+| Status check | [BackendClient.swift:70-73](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L70-L73) | Not 200 → reads Spring's `ProblemDetail.detail` and throws `BackendError.badStatus(code, detail)`. Errors are never cached. |
+| Decode | [BackendClient.swift:74](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L74) | Only `explanation` is decoded. `cached`, `text`, `targetLang` are ignored. |
 | Language codes | [TargetLanguage.swift:10-19](../../../EnglishTranslation/EnglishTranslation/Translation/TargetLanguage.swift#L10-L19) | `vi en ja ko zh th fr es de`. **Must match** the backend enum (a test checks this). |
 
 ### 3. API and cache (backend)
@@ -202,7 +203,8 @@ sequenceDiagram
 | Test | Covers |
 |---|---|
 | [TranslationStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStoreTests.swift) | Empty input, success, errors, missing key, picked provider and language, defaults, trimming, lenient JSON decode |
-| [BackendClientTests.swift](../../../EnglishTranslation/EnglishTranslationTests/BackendClientTests.swift) | Request body, decode, error detail, error without body, bad JSON, **language codes match the backend** |
+| [BackendClientTests.swift](../../../EnglishTranslation/EnglishTranslationTests/BackendClientTests.swift) | Request body, decode, error detail, error without body, bad JSON, **language codes match the backend**, repeat request served from the cache with no network call, other language not shared, errors not cached |
+| [CacheTests.swift](../../../EnglishTranslation/EnglishTranslationTests/CacheTests.swift) | Swift cache keys equal known sha256 values from the backend rule, normalising matches Java, prompt versions equal `application.properties`, SQLite cache round trip and reopen |
 | [TranslationControllerTest.java](../../../backend/src/test/java/com/englishtranslation/backend/translation/TranslationControllerTest.java) | Blank text, unknown or missing language → 400, code read and returned |
 | [TranslationServiceTest.java](../../../backend/src/test/java/com/englishtranslation/backend/translation/TranslationServiceTest.java) | Second request cached without Claude, cached explanation reads back the same, each language cached separately |
 | [ClaudeServiceTest.java](../../../backend/src/test/java/com/englishtranslation/backend/claude/ClaudeServiceTest.java) | `</text>` and `<text>` in the input are escaped, plain text unchanged, `&` escaped first |

@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 15:20'
+updated_date: '2026-10-11 09:32'
 ---
-> Status: **backend done, iOS not started** (TASK-4, TASK-5, TASK-6). Last traced from code: 2026-10-10.
+> Status: **backend done, iOS not started** (TASK-4, TASK-5 local cache done, TASK-6). Last traced from code: 2026-10-11.
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -108,7 +108,7 @@ bad word → 400, Claude refused → 422, Claude down → 502. A made-up word li
 
 ## Known gaps
 
-- **No iOS code yet.** No bundled dictionary reader, no local cache, no word screen. The iOS app must copy `CacheKeys` normalising **exactly**, or the phone and server will use different keys.
+- **Little iOS code yet.** The local cache exists ([ResultCache.swift](../../../EnglishTranslation/EnglishTranslation/Cache/ResultCache.swift), `CacheKeys.wordKey` in [CacheKeys.swift](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift), with tests in `CacheTests.swift`), but no code calls it for words yet. The bundled dictionary reader and the word screen are not built. `CacheKeys.swift` must copy the backend normalising **exactly**, or the phone and server will use different keys. The word prompt version lives in `PromptVersions.word` and must equal `app.claude.word-prompt-version`.
 - **Backend entries skip the pipeline's quality checks.** The pipeline rejects definitions with words outside NGSL ([validate.py](../../../pipeline/src/pipeline/validate.py)). The backend trusts Claude's answer, so backend definitions can be harder than bundled ones.
 - **Empty answers are cached forever** (for that prompt version), including a typo the user fixes a second later.
 - **Own prompt version:** `app.claude.word-prompt-version`, separate from the sentence one (TASK-15). Changing `WORD_PROMPT`? Bump it, or old entries keep being served.

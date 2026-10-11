@@ -40,9 +40,25 @@ struct BackendClient: Translating {
     let baseURL: URL
     /// Tests pass a session with a fake `URLProtocol`.
     var session: URLSession = .shared
+    /// Answers we already got. A repeat request with the same key never reaches the network. Nil means no cache.
+    var cache: ResultCache?
 
-    /// Sends `text` to the backend and returns its explanation. Throws `BackendError` or a `URLError`.
+    /// Returns the explanation from the local cache if it is there; otherwise asks the backend and saves
+    /// the answer. Throws `BackendError` or a `URLError`.
     func explain(_ text: String, translatingTo language: TargetLanguage) async throws -> Explanation {
+        let key = CacheKeys.sentenceKey(text, targetLang: language.code)
+        if let saved = await cache?.data(forKey: key),
+           let response = try? JSONDecoder().decode(TranslationResponse.self, from: saved) {
+            return response.explanation
+        }
+
+        let (data, explanation) = try await askBackend(text, translatingTo: language)
+        await cache?.save(data, forKey: key, kind: .sentence)
+        return explanation
+    }
+
+    /// Sends `text` to the backend. Returns the raw reply (to cache as-is) and the decoded explanation.
+    private func askBackend(_ text: String, translatingTo language: TargetLanguage) async throws -> (Data, Explanation) {
         var request = URLRequest(url: baseURL.appending(path: "api/translations"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -55,6 +71,6 @@ struct BackendClient: Translating {
             let detail = try? JSONDecoder().decode(ProblemDetail.self, from: data).detail
             throw BackendError.badStatus(statusCode, detail: detail)
         }
-        return try JSONDecoder().decode(TranslationResponse.self, from: data).explanation
+        return (data, try JSONDecoder().decode(TranslationResponse.self, from: data).explanation)
     }
 }
