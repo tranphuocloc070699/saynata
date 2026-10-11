@@ -59,7 +59,14 @@ public class ClaudeService {
                           kind "idiom": a common idiom, e.g. "take it easy".
                           Placeholders are: someone, something, + noun, + verb, + -ing, + adjective.
                           Never write sb or sth.
-                          Only common, natural items that a native speaker uses often. No rare, old or formal idioms.
+                          Natural items a native speaker really says. No very old-fashioned or rare ones.
+                          Idioms: when this sense has a real idiom a learner may meet (common or less common,
+                          B2-C1 is fine), include at least one idiom. It must fit this sense. Its example still
+                          uses simple words only.
+                          No duplicates: across ALL senses of the word, no two items may repeat the same phrase or
+                          the same meaning. Each item must teach something new.
+                          The placeholder must match the example: "+ noun" needs a noun in the example, "+ -ing" an
+                          -ing verb. "It depends on how much time we have" is not "depends on + noun".
                           Every item must fit the meaning of this sense. "get up" does not belong on the "buy" sense of "get".
                           The example is one short natural sentence with simple words only.
                         Examples of good usage:
@@ -77,6 +84,12 @@ public class ClaudeService {
                         take (to rest):
                           collocation "take a break" -> "Let's take a break."
                           idiom "take it easy" -> "Take it easy. You've worked a lot today."
+                        make (to have just enough money):
+                          idiom "make ends meet" -> "It is hard to make ends meet in this city."
+                        take (to believe):
+                          idiom "take something with a pinch of salt" -> "Take his news with a pinch of salt."
+                        get (to learn):
+                          idiom "get the hang of something" -> "I'm getting the hang of this game."
                         depend:
                           pattern "depend on + something" -> "It depends on the weather."
                           phrase "It depends." -> "\"Are you coming?\" \"It depends.\""

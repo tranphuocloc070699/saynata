@@ -27,7 +27,7 @@ struct CacheKeysTests {
 
     @Test func wordKeyMatchesTheBackendRule() {
         #expect(CacheKeys.wordKey(" Reluctant ")
-            == "9749a124498a852c62dea4c4fc1a2e205901d82ca9081362a6b37243e2620f0a")
+            == "d951b4725d5e8cb627dba94f63bbdc0560c29cd62c0e534d9c3375ea5b46d310")
     }
 
     @Test func normalisingMatchesJava() {

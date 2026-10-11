@@ -162,7 +162,7 @@ def test_bad_items_are_dropped_and_the_rest_kept(db):
 
 
 def test_at_most_three_items_per_sense():
-    many = [item("pattern", f"get {n}", "I need to get some milk.") for n in range(5)]
+    many = [item("pattern", f"get {word}", "I need to get some milk.") for word in ["up", "out", "in", "off", "away"]]
     kept, dropped = usage.clean_usage(many, VOCABULARY)
     assert len(kept) == 3 and len(dropped) == 2
 
