@@ -3,9 +3,9 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 15:50'
+updated_date: '2026-10-11 16:01'
 ---
-> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11 (TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language).
+> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11 (TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -89,14 +89,14 @@ sequenceDiagram
 |---|---|---|
 | App start | [EnglishTranslationApp.swift:10](../../../EnglishTranslation/EnglishTranslation/EnglishTranslationApp.swift#L10) | Creates **one** `TranslationStore` and shares it with `.environment(store)`. |
 | Screen | [TranslateView.swift:17-22](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift#L17-L22) | Puts three subviews together: options, input, result. The result gets the state and a `loadWordEntry` closure (`store.wordEntry(for:)`). |
-| Picker | [TranslateOptionsView.swift:14-19](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateOptionsView.swift#L14-L19) | Menu **language** picker, bound to `store.targetLanguage`. There is no provider picker any more. |
+| Picker | [TranslateOptionsView.swift:14-24](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateOptionsView.swift#L14-L24) | Menu **language** picker, bound to `store.targetLanguage`, and at the right an icon-only gear button ("Settings") that opens `SettingsView` as a sheet (TASK-29). There is no provider picker any more. |
 | Button and counter | [TranslateInputView.swift:23-28](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateInputView.swift#L23-L28) | `CharacterCounter` "41 / 500" ([line 35](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateInputView.swift#L35)), then the icon-only **Explain** button (label "Explain", dimmed when disabled) starts `Task { await store.translate() }`. Over 500 the counter turns red and says "Make it shorter." (TASK-22). |
 | Guard and limit | [TranslationStore.swift:32-50](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L32-L50) | `maxInputLength = 500`. `inputLength` is the trimmed text counted in UTF-16 units, like Java (an emoji is 2). `canTranslate` is false while loading, when the trimmed text is empty, or when `isOverLimit`. This stops double taps and too-long text. |
 | Request | [TranslationStore.swift:56-122](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L56-L122) | Sets `.loading`. If `CacheKeys.isSingleToken` is true the input is a word and goes to the word path (doc-5). Otherwise `explainSentence` copies the trimmed sentence and the picked language **first** (the user can change them while waiting), builds the translator **on each request**, calls `explain`, then builds a `SentenceResult` (with the bundled dictionary entry for each word) and sets `.loaded`, or `.failed(message)`. |
 | States | [TranslationState.swift:10-22](../../../EnglishTranslation/EnglishTranslation/Translation/TranslationState.swift#L10-L22) | `idle`, `loading`, `loaded(SentenceResult)`, `loadedWord(WordEntry)` (doc-5), `failed(String)`. |
 | Result data | [SentenceResult.swift:11-34](../../../EnglishTranslation/EnglishTranslation/Translation/SentenceResult.swift#L11-L34) | Sentence, `Explanation`, the **language the result was made in** (TASK-14: the heading never follows the live picker), and one `SentenceWordInfo` per word. |
 | Result | [TranslateResultView.swift:14-41](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateResultView.swift#L14-L41) | One `switch` over the state: hint text, spinner, `SentenceResultView`, word card, or red error. |
-| Sentence cards | [SentenceResultView.swift:10-45](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceResultView.swift#L10-L45) | `SentenceHeader` (the sentence in quotes, serif, icon-only Listen (placeholder, F3) and Copy), `MeaningCard` (simple English, then the folded target-language row, closed; the text is the backend's `translation`), then the "Words" list of `SentenceWordCard`. Words are hidden when empty. |
+| Sentence cards | [SentenceResultView.swift:10-45](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceResultView.swift#L10-L45) | `SentenceHeader` (the sentence in quotes, serif, icon-only Listen (placeholder, F3) and Copy), `MeaningCard` (simple English, then the folded target-language row, which starts open or closed as "Show translation" says (closed by default); the text is the backend's `translation`), then the "Words" list of `SentenceWordCard`. Words are hidden when empty. |
 | Word card (small) | [SentenceWordCard.swift:10-50](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceWordCard.swift#L10-L50), [SentenceWordInfo.swift:12-67](../../../EnglishTranslation/EnglishTranslation/Translation/SentenceWordInfo.swift#L12-L67) | Word, `FormPill`, `LevelChip`, short explanation. **Pill and chip come from the bundled dictionary** (`WordLooking.bundledEntry(for:)`: `matchedForm` as "past tense of blur", first sense `pos · cefr`). If the word is not bundled, the backend's "base form: X" note becomes the pill and there is **no chip**. The note is removed from the explanation text. |
 | Open the full word | [SentenceWordSheet.swift:10-49](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceWordSheet.swift#L10-L49) | Tapping a single word opens `WordCardView` in a sheet (`store.wordEntry(for:)`: the bundled entry, otherwise cache then backend). A phrase like "drew out" is not tappable. The sentence result stays under the sheet. |
 
@@ -156,6 +156,10 @@ Tests also inject a fake through the same `makeTranslator` closure.
 **Why no `temperature: 0`:** Haiku 5.5 rejects sampling parameters. Repeatable output comes from the
 cache instead (spec, Decisions).
 
+### Show translation setting (TASK-29)
+
+[SettingsView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Settings/SettingsView.swift) has one section, "Show translation", with three checkmark options: Collapsed (default), Always open, Remember last choice. The choice is saved with `@AppStorage` under `showTranslationMode`. The logic is the small type [TranslationRowPreference](../../../EnglishTranslation/EnglishTranslation/Settings/TranslationRowPreference.swift): `startsOpen` says how a new row starts, and `rowChanged(isOpen:)` saves the last open or closed state the learner set on any target-language row (used by "Remember last choice"). `MeaningCard` reads `startsOpen` when it appears and calls `rowChanged` when the row changes. The word cards do the same (see doc-5). A result already on screen does not change when the setting changes; the next result does.
+
 ## Errors: what the user sees
 
 | Cause | Where it starts | HTTP | Message on screen |
@@ -170,6 +174,8 @@ cache instead (spec, Decisions).
 | Backend not running | `URLSession` | — | `URLError` text, e.g. "Could not connect to the server." |
 
 ## Tests
+
+[TranslationRowPreferenceTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationRowPreferenceTests.swift): default collapsed, always open, remember last choice, saved mode, unknown value.
 
 | Test | Covers |
 |---|---|

@@ -14,7 +14,8 @@ struct MeaningCard: View {
     /// The language the translation was made in. It titles the folded row.
     let language: TargetLanguage
 
-    @State private var isTranslationOpen = false
+    /// Starts the way "Show translation" in Settings says.
+    @State private var isTranslationOpen = TranslationRowPreference().startsOpen
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
@@ -35,6 +36,9 @@ struct MeaningCard: View {
                     .foregroundStyle(Theme.Colors.textPrimary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .onChange(of: isTranslationOpen) { _, isOpen in
+                TranslationRowPreference().rowChanged(isOpen: isOpen)
             }
         }
         .cardSurface()

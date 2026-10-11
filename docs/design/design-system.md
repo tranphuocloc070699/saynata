@@ -47,7 +47,7 @@ There are no mockups in Figma or Claude Design. Build screens straight in SwiftU
    ([HIG: SF Symbols](https://developer.apple.com/design/human-interface-guidelines/sf-symbols)).
 7. **Spacing and radius only from `Theme.Spacing` and `Theme.Radius`.** Spacing is on a 4 pt grid.
 8. **Meaning first, translation last** (CLAUDE.md "Product rule"). The `MeaningBlock` is the hero.
-   Vietnamese is a `FoldedRow` at the bottom, closed by default. One folded row open at a time.
+   Vietnamese is a `FoldedRow` at the bottom, closed by default (Settings > Show translation can change this). One folded row open at a time.
 9. **Fold the details** (progressive disclosure: show what most people need, hide the rest behind one tap).
    On the word card each sense is a card with its number and explanation; Examples, Grammar and Vietnamese
    are folded rows, all closed, with no counters.
@@ -78,6 +78,7 @@ color at 14% opacity. Never color alone: the label also has the word ("easy", "m
 | `FoldedRow` | Row that opens and closes (the word card uses no counts); the parent decides which row is open |
 | `cardSurface()` | View modifier: padding, surface color, hairline border, card radius. The sentence cards use it |
 | `SentenceHeader`, `MeaningCard`, `SentenceWordCard` | The sentence result (TASK-41): the quoted sentence with Listen and Copy; the Meaning card with the target language folded and closed; one small card per word (word, `FormPill`, `LevelChip`, short explanation). They live in `Views/Sentence/` and are in the gallery |
+| `SettingsView` | The Settings sheet (TASK-29): native `List`, one "Show translation" section with a checkmark list. Opened by the icon-only gear button next to the language picker. Not a component to reuse; it lives in `Views/Settings/` |
 | `CharacterCounter` | "41 / 500" under the input. Over the limit it is red and says "Make it shorter." (words too, not only color) |
 | `HairlineDivider` | One-pixel line in the hairline color. Use it, not `Divider().overlay(...)`, which flickers while scrolling |
 

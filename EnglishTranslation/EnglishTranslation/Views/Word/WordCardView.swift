@@ -18,6 +18,17 @@ struct WordCardView: View {
 
     /// Which folded row is open, for example "0-Vietnamese". Only one at a time per card (design rule 8).
     @State private var openRow = ""
+    /// Which senses have their target-language row open (by index). Starts as "Show translation" in Settings says.
+    /// Kept apart from `openRow`, so "Always open" can open the row on every sense.
+    @State private var openTargetRows: Set<Int>
+
+    init(entry: WordEntry, targetLanguage: TargetLanguage = .vietnamese, onListen: @escaping () -> Void = {}) {
+        self.entry = entry
+        self.targetLanguage = targetLanguage
+        self.onListen = onListen
+        let startsOpen = TranslationRowPreference().startsOpen
+        _openTargetRows = State(initialValue: startsOpen ? Set(entry.senses.indices) : [])
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.large) {
@@ -67,7 +78,15 @@ struct WordCardView: View {
                     }
                 }
                 if sense.hasTargetLanguageRow(for: targetLanguage) {
-                    foldedRow(targetLanguage.title, index: index) {
+                    FoldedRow(
+                        title: targetLanguage.title,
+                        isExpanded: Binding(
+                            get: { openTargetRows.contains(index) },
+                            set: { isOpen in
+                                if isOpen { openTargetRows.insert(index) } else { openTargetRows.remove(index) }
+                                TranslationRowPreference().rowChanged(isOpen: isOpen)
+                            })
+                    ) {
                         TargetLanguageRowContent(sense: sense, language: targetLanguage)
                     }
                 }
