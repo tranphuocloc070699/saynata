@@ -3,7 +3,7 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 09:56'
+updated_date: '2026-10-11 10:00'
 ---
 > Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-11 (usage replaces collocations and synonyms, TASK-24). **The usage pass has not run on the real data yet:** until it does, the 2,750 `done` entries have no usage.
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
@@ -171,9 +171,9 @@ sequenceDiagram
 |---|---|---|
 | Finished test | [usage.py:33-34](../../../pipeline/src/pipeline/usage.py#L33-L34) | A word is done when every sense has a `usage` key (an empty list counts). So a stopped run resumes where it stopped, and a second run makes no calls. |
 | The call | [usage.py:45-67](../../../pipeline/src/pipeline/usage.py#L45-L67) | `messages.parse(output_format=UsageResult)`, `effort: low`, system prompt = short intro + `USAGE_RULES`. `fetch` is a parameter, so tests pass a fake and never call Claude. |
-| Clean up | [usage.py:70-128](../../../pipeline/src/pipeline/usage.py#L70-L128) | One call, no retries. An item that fails the checks (hard word in the example only, `sb`/`sth`, more than 3) is **dropped**. A duplicate is dropped too: after removing placeholders and punctuation, a pattern that equals, or sits inside, another kept pattern of the same word (across all senses) is a duplicate. One-word patterns like `get + noun` are too short to count as contained. A sense may end with fewer items, or none. |
-| Save | [usage.py:131-143](../../../pipeline/src/pipeline/usage.py#L131-L143) | Copies the sense as it was, adds `usage`, and removes the old `collocations` and `synonyms`. |
-| Errors | [usage.py:146-153](../../../pipeline/src/pipeline/usage.py#L146-L153) | Any error (network, refusal) leaves the row as it is. The next run picks it up again. |
+| Clean up | [usage.py:70-141](../../../pipeline/src/pipeline/usage.py#L70-L141) | One call, no retries. An item that fails the checks (hard word in the example only, `sb`/`sth`, more than 3) is **dropped**. A duplicate is dropped too: after ignoring punctuation and case (placeholders become tokens: `someone`, `something`/`+ noun`, `+ verb`, `+ -ing`, `+ adjective`, `+ clause`), a pattern that equals, or sits inside, another kept pattern of the same word (across all senses) is a duplicate. One-word patterns like `get` are too short to count as contained. A sense may end with fewer items, or none. |
+| Save | [usage.py:144-157](../../../pipeline/src/pipeline/usage.py#L144-L157) | Copies the sense as it was, adds `usage`, and removes the old `collocations` and `synonyms`. |
+| Errors | [usage.py:159-166](../../../pipeline/src/pipeline/usage.py#L159-L166) | Any error (network, refusal) leaves the row as it is. The next run picks it up again. |
 
 ### 7. Export: [export.py](../../../pipeline/src/pipeline/export.py)
 

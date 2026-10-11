@@ -218,3 +218,15 @@ def test_export_stores_usage_as_json_and_counts_missing(db, tmp_path, monkeypatc
     stored = json.loads(app.execute("SELECT usage FROM senses s JOIN words w ON w.id = s.word_id WHERE w.lemma = 'get'").fetchone()[0])
     assert stored[0] == {"kind": "pattern", "pattern": "get + noun", "example": "I need to get some milk."}
     assert (count, without_usage) == (2, 1)
+
+
+def test_depend_on_someone_is_kept_next_to_depend_on_something():
+    # Different meaning: "be decided by" vs "rely on a person". Only the same placeholder is a repeat.
+    items = [
+        item("pattern", "depend on + noun", "It depends on the weather."),
+        item("pattern", "depend on + someone", "You can depend on me."),
+        item("pattern", "It depends on + something", "It depends on the weather."),
+    ]
+    kept, dropped = usage.clean_usage(items, VOCABULARY | {"depends", "me"})
+    assert [k["pattern"] for k in kept] == ["depend on + noun", "depend on + someone"]
+    assert len(dropped) == 1 and "It depends on + something" in dropped[0]

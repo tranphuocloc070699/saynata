@@ -68,17 +68,30 @@ def fetch_from_claude(lemma: str, entry: dict) -> UsageResult:
     return response.parsed_output
 
 
-_PLACEHOLDERS = re.compile(r"\+\s*(noun|verb|-ing|adjective|clause)|\b(someone|something|sb|sth)\b", re.IGNORECASE)
+# Placeholders become tokens, so "depend on + someone" and "depend on + something" stay different.
+_TOKEN = re.compile(r"\+\s*(noun|verb|-ing|adjective|clause)|[a-z']+")
+_PLACEHOLDER_TOKENS = {
+    "someone": "SOMEONE", "somebody": "SOMEONE", "sb": "SOMEONE",
+    "something": "SOMETHING", "sth": "SOMETHING", "noun": "SOMETHING",
+    "verb": "VERB", "-ing": "ING", "adjective": "ADJECTIVE", "clause": "CLAUSE",
+}
 
 
 def pattern_words(pattern: str) -> tuple[str, ...]:
-    """The words of a pattern without placeholders and punctuation, for finding duplicates.
+    """The tokens of a pattern, for finding duplicates. Punctuation and case are ignored.
 
-    "depend on + something" -> ("depend", "on"). "It depends on + noun." -> ("it", "depend", "on").
-    A trailing "s" is cut so "depends" and "depend" match.
+    "depend on + something" -> ("depend", "on", "SOMETHING"). "It depends on + noun." matches it
+    (contained). "depend on + someone" is a different pattern. A trailing "s" is cut from plain words
+    so "depends" and "depend" match.
     """
-    plain = _PLACEHOLDERS.sub(" ", pattern.lower())
-    return tuple(word.rstrip("s") for word in re.findall(r"[a-z']+", plain))
+    tokens: list[str] = []
+    for match in _TOKEN.finditer(pattern.lower()):
+        word = match.group(1) or match.group(0)
+        if word in _PLACEHOLDER_TOKENS:
+            tokens.append(_PLACEHOLDER_TOKENS[word])
+        else:
+            tokens.append(word.rstrip("s"))
+    return tuple(tokens)
 
 
 def _contains(longer: tuple[str, ...], shorter: tuple[str, ...]) -> bool:
@@ -89,7 +102,7 @@ def _contains(longer: tuple[str, ...], shorter: tuple[str, ...]) -> bool:
 def is_duplicate(words: tuple[str, ...], kept_words: list[tuple[str, ...]]) -> bool:
     """True when the pattern equals, or sits inside, or contains, a pattern already kept.
 
-    A single word ("get") is too short to count as "contained", or "get + noun" would hide "get a job".
+    A single token ("get") is too short to count as "contained", or it would hide "get a job".
     """
     for other in kept_words:
         if words == other:
