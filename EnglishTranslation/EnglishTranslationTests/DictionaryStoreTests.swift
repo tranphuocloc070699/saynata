@@ -22,7 +22,8 @@ struct DictionaryStoreTests {
         #expect(first.pos == "verb")
         #expect(!first.simpleDefinition.isEmpty)
         #expect(!first.vietnamese.isEmpty)
-        #expect(first.examples.count == 2)
+        #expect(first.examples.count == 3)  // TASK-35 examples pass: easy, medium, harder
+        #expect(first.examples.first?.level == .easy)
         #expect(!first.usage.isEmpty)  // filled by the TASK-24 usage pass
     }
 
