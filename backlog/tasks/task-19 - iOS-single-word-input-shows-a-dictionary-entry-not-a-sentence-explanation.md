@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-10 06:36'
-updated_date: '2026-10-11 09:55'
+updated_date: '2026-10-11 09:57'
 labels:
   - ios
 dependencies:
@@ -78,4 +78,6 @@ Other failures: a first-time word with the backend off shows the system offline 
 
 **Automated:** 56 unit tests (token rule, store route, lookup order, cache save and reuse, errors). Command:
 `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 17e' -only-testing:EnglishTranslationTests -parallel-testing-enabled NO` (read the last "Test run with N tests" line).
+
+Review fix: word path trims leading/trailing punctuation and symbols (CacheKeys.trimmingWordPunctuation, called first in WordLookup.lookUp) so Run!, (run), curly-quoted words share the cache entry and the backend never gets punctuation. Only punctuation gives the notOneWord message. Sentences unchanged. 59 unit tests pass.
 <!-- SECTION:NOTES:END -->

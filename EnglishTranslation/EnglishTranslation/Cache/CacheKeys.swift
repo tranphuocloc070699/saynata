@@ -61,6 +61,19 @@ enum CacheKeys {
         return !normalized.isEmpty && !normalized.contains(" ")
     }
 
+    /// For the word path only: normalises like `normalizeSentence`, then removes punctuation and symbols
+    /// at the start and the end. "Run!", "(run)" and "“run”" give "Run"; "don't" and "well-known" keep their
+    /// inner marks. Returns "" if nothing is left ("?!"). Case is kept: `normalizeWord` lowercases later.
+    static func trimmingWordPunctuation(_ text: String) -> String {
+        let marks = CharacterSet.punctuationCharacters.union(.symbols)
+        let scalars = Array(normalizeSentence(text).unicodeScalars)
+        guard
+            let start = scalars.firstIndex(where: { !marks.contains($0) }),
+            let end = scalars.lastIndex(where: { !marks.contains($0) })
+        else { return "" }
+        return String(String.UnicodeScalarView(scalars[start ... end]))
+    }
+
     /// The key for a sentence answer: sha256 of `sentence|promptVersion|targetLang|text`.
     static func sentenceKey(
         _ text: String,

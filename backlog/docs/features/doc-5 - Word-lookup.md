@@ -3,7 +3,7 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 09:53'
+updated_date: '2026-10-11 09:57'
 ---
 > Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19. Last traced from code: 2026-10-11.
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -154,18 +154,19 @@ sequenceDiagram
 | Word or sentence | [CacheKeys.swift:56-62](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L56-L62) | `isSingleToken`: normalise like the backend, then no space left and not empty. "don't" and "well-known" are one token, "go home" is two. The no-break space does not split (same as Java). |
 | Route | [TranslationStore.swift:44-54](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L44-L54) | One token goes to `lookUpWord`, more go to `explainSentence` (doc-4). The input is trimmed first. The target-language picker does not matter for a word: entries are English plus Vietnamese. |
 | Word path | [TranslationStore.swift:56-63](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L56-L63) | `makeWordLookup().lookUp(...)`, then `.loadedWord(entry)` or `.failed(error.localizedDescription)`. The lookup is built per request (like the translator), by [TranslatorFactory.swift:25-33](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L25-L33). |
-| Order | [WordLookup.swift:34-58](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L34-L58) | 1. bundle (`DictionaryStore.lookUp`, a broken file counts as a miss), 2. and 3. `backend.entry(forWord:)`. Protocols `WordLooking` and `WordFetching` ([WordLookup.swift:9-18](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L9-L18)) let tests use fakes. |
+| Punctuation | [CacheKeys.swift:64-75](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L64-L75) | `trimmingWordPunctuation`: word path only. Removes punctuation and symbols at the start and end ("Run!", "(run)", "“run”" give "Run"); inner `'` and `-` stay. `WordLookup` calls it first, so the bundle, the cache key and the backend all get the clean word. Nothing left ("?!") gives `notOneWord`. Sentences are not touched. |
+| Order | [WordLookup.swift:34-62](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L34-L62) | 1. bundle (`DictionaryStore.lookUp`, a broken file counts as a miss), 2. and 3. `backend.entry(forWord:)`. Protocols `WordLooking` and `WordFetching` ([WordLookup.swift:9-18](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L9-L18)) let tests use fakes. |
 | Cache and fetch | [BackendClient.swift:86-101](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L86-L101) | `entry(forWord:)`: key = `CacheKeys.wordKey` (same as the backend), local hit returns with no network. A miss calls `GET {baseURL}/api/words/{normalised word}` (the word is percent-encoded as one path part), then saves the **raw JSON** under the key. Errors are never saved. |
 | Decode | [BackendClient.swift:19-32](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L19-L32) | `WordResponse` reads `word` and `entry.senses`. The backend sends no `ipa`, so the card has none. Old `collocations` and `synonyms` in an older backend reply are ignored. |
 | Status check | [BackendClient.swift:104-112](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L104-L112) | Shared with sentences: not 200 gives `BackendError.badStatus(code, detail)`. |
-| Not a word | [WordLookup.swift:53-55](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L53-L55) | Empty `senses` gives `WordLookupError.notAnEnglishWord`. The empty answer is saved in the local cache too (the server keeps it as well). |
+| Not a word | [WordLookup.swift:57-59](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L57-L59) | Empty `senses` gives `WordLookupError.notAnEnglishWord`. The empty answer is saved in the local cache too (the server keeps it as well). |
 | Result | [TranslateResultView.swift:22-23](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateResultView.swift#L22-L23) | `.loadedWord(entry)` shows `WordCardView(entry:)`. |
 
 What the user sees when it goes wrong:
 
 | Cause | HTTP | Message |
 |---|---|---|
-| Word has digits, symbols, or more than 64 letters | 400 | "Type one English word, with letters only." |
+| Only punctuation ("?!"), or digits, symbols inside, or more than 64 letters | none / 400 | "Type one English word, with letters only." |
 | Made-up word (`asdkj`) | 200, empty senses | "\"asdkj\" is not an English word. Check the spelling." |
 | Claude refused | 422 | "Claude declined to answer this text. (status 422)" (same text as sentences) |
 | Claude down | 502 | "The translation service is not available. Try again later. (status 502)" |
@@ -203,7 +204,6 @@ bad word → 400, Claude refused → 422, Claude down → 502. A made-up word li
 ## Known gaps
 
 - **Keep the keys equal.** `CacheKeys.swift` must copy the backend normalising **exactly**, or the phone and server use different keys. The word prompt version lives in `PromptVersions.word` and must equal `app.claude.word-prompt-version`.
-- **A token with punctuation goes to the word path and fails.** "Hello." or "hello!" is one token, so the backend answers 400 and the user sees "Type one English word, with letters only." Stripping the punctuation first would be friendlier (follow-up).
 - **A word from the backend has no IPA** (the backend does not send it), and its usage list can be empty if the saved answer is from an older prompt version.
 - **Direct providers (DeepSeek, ChatGPT, Claude) still use the word path for one word**, because the word lookup does not depend on the provider. They go away in TASK-18.
 - **Backend entries skip the pipeline's quality checks.** The pipeline rejects definitions with words outside NGSL ([validate.py](../../../pipeline/src/pipeline/validate.py)). The backend trusts Claude's answer, so backend definitions can be harder than bundled ones.

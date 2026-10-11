@@ -86,6 +86,28 @@ struct WordLookupTests {
             == "\"asdkj\" is not an English word. Check the spelling.")
     }
 
+    @Test func punctuationIsRemovedBeforeEveryStep() async throws {
+        let backend = FakeBackend(.success(backendEntry))
+        let lookup = WordLookup(dictionary: try makeDictionary(), backend: backend)
+
+        // Bundle: "Ran!" finds "run".
+        #expect(try await lookup.lookUp("Ran!").word == "run")
+        // Backend: it gets the word without punctuation, so "Run!" and "run" share one cache entry.
+        _ = try await lookup.lookUp("\u{201C}Serendipity.\u{201D}")
+        #expect(backend.calls == ["Serendipity"])
+        #expect(CacheKeys.wordKey("Serendipity") == CacheKeys.wordKey("serendipity"))
+    }
+
+    @Test func onlyPunctuationGivesTheNotOneWordMessage() async throws {
+        let backend = FakeBackend(.success(backendEntry))
+        let lookup = WordLookup(dictionary: try makeDictionary(), backend: backend)
+
+        await #expect(throws: WordLookupError.notOneWord) {
+            try await lookup.lookUp("?!")
+        }
+        #expect(backend.calls.isEmpty)
+    }
+
     @Test func badRequestGivesAShortMessage() async throws {
         let backend = FakeBackend(.failure(BackendError.badStatus(400, detail: "Validation failure")))
         let lookup = WordLookup(dictionary: nil, backend: backend)

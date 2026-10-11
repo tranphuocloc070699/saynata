@@ -55,6 +55,23 @@ struct CacheKeysTests {
         #expect(CacheKeys.isSingleToken("") == false)
     }
 
+    @Test func wordPunctuationIsTrimmedAtBothEnds() {
+        #expect(CacheKeys.trimmingWordPunctuation("Hello.") == "Hello")
+        #expect(CacheKeys.trimmingWordPunctuation("run!") == "run")
+        #expect(CacheKeys.trimmingWordPunctuation("(word)") == "word")
+        #expect(CacheKeys.trimmingWordPunctuation("\u{201C}word\u{201D}") == "word")
+        #expect(CacheKeys.trimmingWordPunctuation("  \"run\"?! ") == "run")
+        // Inner apostrophes and hyphens stay.
+        #expect(CacheKeys.trimmingWordPunctuation("don't") == "don't")
+        #expect(CacheKeys.trimmingWordPunctuation("well-known.") == "well-known")
+        // Nothing left.
+        #expect(CacheKeys.trimmingWordPunctuation("?!") == "")
+        #expect(CacheKeys.trimmingWordPunctuation("  ") == "")
+        // Still one token or a sentence by the normal rule.
+        #expect(CacheKeys.isSingleToken("Hello."))
+        #expect(CacheKeys.isSingleToken("Hello there.") == false)
+    }
+
     @Test func caseAndKindChangeTheKey() {
         #expect(CacheKeys.sentenceKey("US", targetLang: "vi") != CacheKeys.sentenceKey("us", targetLang: "vi"))
         #expect(CacheKeys.sentenceKey("run", targetLang: "vi") != CacheKeys.wordKey("run"))

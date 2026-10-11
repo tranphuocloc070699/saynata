@@ -37,7 +37,11 @@ struct WordLookup: WordLooking {
     let dictionary: DictionaryStore?
     let backend: any WordFetching
 
-    func lookUp(_ word: String) async throws -> WordEntry {
+    func lookUp(_ input: String) async throws -> WordEntry {
+        // "Run!" and "run" must be the same word, for the bundle, the cache key and the backend.
+        let word = CacheKeys.trimmingWordPunctuation(input)
+        guard !word.isEmpty else { throw WordLookupError.notOneWord }
+
         // 1. The bundle. A broken file is treated like a miss.
         if let entry = try? dictionary?.lookUp(word) {
             return entry
