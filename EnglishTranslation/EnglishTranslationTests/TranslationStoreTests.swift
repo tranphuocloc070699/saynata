@@ -3,6 +3,7 @@
 //  EnglishTranslationTests
 //
 
+import Foundation
 import Testing
 @testable import EnglishTranslation
 
@@ -24,9 +25,17 @@ private func sample(_ translation: String) -> Explanation {
 private final class FakeWordLookup: WordLooking, @unchecked Sendable {
     var result: Result<WordEntry, Error>
     var lastWord: String?
+    /// What `suggestions(for:)` returns, and the word it was asked about.
+    var suggestionWords: [String] = []
+    var suggestionsAskedFor: String?
 
     init(_ result: Result<WordEntry, Error>) {
         self.result = result
+    }
+
+    func suggestions(for word: String) -> [String] {
+        suggestionsAskedFor = word
+        return suggestionWords
     }
 
     func lookUp(_ word: String) async throws -> WordEntry {
@@ -60,7 +69,7 @@ struct TranslationStoreTests {
         })
         store.inputText = "Hello there"
         await store.translate()
-        guard case let .failed(message) = store.state else {
+        guard case let .failed(message, _) = store.state else {
             Issue.record("Expected .failed, got \(store.state)")
             return
         }
@@ -71,7 +80,7 @@ struct TranslationStoreTests {
         let store = TranslationStore(makeTranslator: { _ in throw AppConfig.ConfigError.missing("ClaudeAPIKey") })
         store.inputText = "Hello there"
         await store.translate()
-        guard case let .failed(message) = store.state else {
+        guard case let .failed(message, _) = store.state else {
             Issue.record("Expected .failed, got \(store.state)")
             return
         }
@@ -141,11 +150,69 @@ struct TranslationStoreTests {
         store.inputText = "asdkj"
         await store.translate()
 
-        guard case let .failed(message) = store.state else {
+        guard case let .failed(message, _) = store.state else {
             Issue.record("Expected .failed, got \(store.state)")
             return
         }
         #expect(message == "\"asdkj\" is not an English word. Check the spelling.")
+    }
+
+    @Test func notAnEnglishWordCarriesSuggestions() async {
+        let fake = FakeWordLookup(.failure(WordLookupError.notAnEnglishWord("runj")))
+        fake.suggestionWords = ["run", "rung"]
+        let store = TranslationStore(makeWordLookup: { fake })
+        store.inputText = " Runj! "
+        await store.translate()
+
+        guard case let .failed(message, spelling) = store.state else {
+            Issue.record("Expected .failed, got \(store.state)")
+            return
+        }
+        #expect(message == "\"runj\" is not an English word. Check the spelling.")  // the old message stays
+        #expect(spelling == SpellingHelp(typedWord: "runj", suggestions: ["run", "rung"]))
+        #expect(fake.suggestionsAskedFor == "runj")
+    }
+
+    @Test func offlineLookupAlsoCarriesSuggestions() async {
+        let fake = FakeWordLookup(.failure(URLError(.notConnectedToInternet)))
+        fake.suggestionWords = ["run"]
+        let store = TranslationStore(makeWordLookup: { fake })
+        store.inputText = "runj"
+        await store.translate()
+
+        guard case let .failed(_, spelling) = store.state else {
+            Issue.record("Expected .failed, got \(store.state)")
+            return
+        }
+        #expect(spelling?.suggestions == ["run"])
+    }
+
+    @Test func otherErrorsHaveNoSuggestions() async {
+        let fake = FakeWordLookup(.failure(BackendError.badStatus(502, detail: "down")))
+        fake.suggestionWords = ["run"]
+        let store = TranslationStore(makeWordLookup: { fake })
+        store.inputText = "serendipity"
+        await store.translate()
+
+        guard case let .failed(_, spelling) = store.state else {
+            Issue.record("Expected .failed, got \(store.state)")
+            return
+        }
+        #expect(spelling == nil)
+    }
+
+    @Test func tappingASuggestionLooksItUp() async {
+        let fake = FakeWordLookup(.success(WordEntry(word: "run", ipa: nil, senses: [])))
+        let store = TranslationStore(makeWordLookup: { fake })
+        store.inputText = "runj"
+        await store.lookUp(suggestion: "run")
+
+        #expect(store.inputText == "run")
+        #expect(fake.lastWord == "run")
+        guard case .loadedWord = store.state else {
+            Issue.record("Expected .loadedWord, got \(store.state)")
+            return
+        }
     }
 
     @Test func sendsTrimmedText() async {

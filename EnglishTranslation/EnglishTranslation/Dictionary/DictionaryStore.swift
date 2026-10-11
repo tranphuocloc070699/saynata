@@ -55,6 +55,22 @@ final class DictionaryStore: @unchecked Sendable {
         return WordEntry(word: match.lemma, ipa: match.ipa, senses: senses)
     }
 
+    /// Every spelling the dictionary knows, for "did you mean". Base words and word forms ("ran"),
+    /// each with the base word to show and its NGSL rank (lower = more common).
+    func spellingCandidates() throws -> [SpellingCandidate] {
+        let sql = """
+            SELECT lemma, lemma, rank FROM words
+            UNION ALL
+            SELECT f.form, w.lemma, w.rank FROM forms f JOIN words w ON w.id = f.word_id
+            """
+        return try run(sql) { statement in
+            SpellingCandidate(
+                spelling: (Self.text(statement, 0) ?? "").lowercased(),
+                lemma: Self.text(statement, 1) ?? "",
+                rank: Int(sqlite3_column_int64(statement, 2)))
+        }
+    }
+
     // MARK: - Queries
 
     private func findWord(_ key: String) throws -> (id: Int64, lemma: String, ipa: String?)? {

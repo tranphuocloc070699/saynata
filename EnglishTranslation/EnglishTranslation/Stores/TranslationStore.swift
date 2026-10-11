@@ -54,12 +54,33 @@ final class TranslationStore {
     }
 
     private func lookUpWord() async {
+        var lookup: (any WordLooking)?
         do {
-            let entry = try await makeWordLookup().lookUp(trimmedInput)
-            state = .loadedWord(entry)
+            let wordLookup = try makeWordLookup()
+            lookup = wordLookup
+            state = .loadedWord(try await wordLookup.lookUp(trimmedInput))
         } catch {
-            state = .failed(error.localizedDescription)
+            state = .failed(error.localizedDescription, spelling: spellingHelp(after: error, lookup: lookup))
         }
+    }
+
+    /// Close words to show under the error. Only when the backend says it is not an English word,
+    /// or cannot be reached (`URLError`). The bundle was already checked before both.
+    private func spellingHelp(after error: Error, lookup: (any WordLooking)?) -> SpellingHelp? {
+        guard let lookup else { return nil }
+        var mayBeMisspelled = error is URLError
+        if case .notAnEnglishWord = error as? WordLookupError { mayBeMisspelled = true }
+        guard mayBeMisspelled else { return nil }
+
+        let typedWord = CacheKeys.normalizeWord(CacheKeys.trimmingWordPunctuation(trimmedInput))
+        let words = lookup.suggestions(for: typedWord)
+        return words.isEmpty ? nil : SpellingHelp(typedWord: typedWord, suggestions: words)
+    }
+
+    /// The user tapped a "did you mean" word: put it in the input and look it up.
+    func lookUp(suggestion word: String) async {
+        inputText = word
+        await translate()
     }
 
     private func explainSentence() async {

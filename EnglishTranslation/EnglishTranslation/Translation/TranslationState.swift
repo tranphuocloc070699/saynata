@@ -16,7 +16,13 @@ enum TranslationState {
     case loaded(Explanation)
     ///A single word was looked up. Holds the dictionary entry
     case loadedWord(WordEntry)
-    ///The request failed. Holds a message the user can read
-    case failed(String)
+    ///The request failed. Holds a message the user can read, and "did you mean" words for a misspelled word
+    case failed(String, spelling: SpellingHelp? = nil)
 
+}
+
+/// "Did you mean" for a word that was not found: what the user typed and up to 3 close words.
+struct SpellingHelp: Equatable {
+    let typedWord: String
+    let suggestions: [String]
 }
