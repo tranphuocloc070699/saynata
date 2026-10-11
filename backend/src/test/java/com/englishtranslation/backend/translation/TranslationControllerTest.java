@@ -36,6 +36,47 @@ class TranslationControllerTest {
     }
 
     @Test
+    void blankTextSaysWhatIsWrong() throws Exception {
+        mockMvc.perform(post("/api/translations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"   \", \"targetLang\": \"vi\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Text must be 1-500 characters."));
+    }
+
+    @Test
+    void textOver500CharactersSaysWhatIsWrong() throws Exception {
+        String longText = "a".repeat(501);
+
+        mockMvc.perform(post("/api/translations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"" + longText + "\", \"targetLang\": \"vi\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Text must be 1-500 characters."));
+    }
+
+    @Test
+    void textOf500CharactersIsAccepted() throws Exception {
+        String text = "a".repeat(500);
+        when(claude.explainSentence(text, TargetLanguage.VI))
+                .thenReturn(new Explanation("A long text.", List.of(), "Một văn bản dài."));
+
+        mockMvc.perform(post("/api/translations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"" + text + "\", \"targetLang\": \"vi\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void missingLanguageSaysWhatIsWrong() throws Exception {
+        mockMvc.perform(post("/api/translations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"hello\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Choose a target language."));
+    }
+
+    @Test
     void unknownLanguageIsRejected() throws Exception {
         mockMvc.perform(post("/api/translations")
                         .contentType(MediaType.APPLICATION_JSON)

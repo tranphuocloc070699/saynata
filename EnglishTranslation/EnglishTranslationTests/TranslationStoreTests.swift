@@ -38,6 +38,13 @@ private final class FakeWordLookup: WordLooking, @unchecked Sendable {
         return suggestionWords
     }
 
+    /// Words that are "in the bundle", for the sentence word cards.
+    var bundled: [String: WordEntry] = [:]
+
+    func bundledEntry(for word: String) -> WordEntry? {
+        bundled[word]
+    }
+
     func lookUp(_ word: String) async throws -> WordEntry {
         lastWord = word
         return try result.get()
@@ -52,15 +59,164 @@ struct TranslationStoreTests {
         #expect(store.canTranslate == false)
     }
 
+    // MARK: - 500-character limit (TASK-22)
+
+    @Test func exactly500CharactersIsAllowed() {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
+        store.inputText = String(repeating: "a", count: 500)
+        #expect(store.inputLength == 500)
+        #expect(store.isOverLimit == false)
+        #expect(store.canTranslate == true)
+    }
+
+    @Test func oneCharacterOverTheLimitCannotTranslate() {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
+        store.inputText = String(repeating: "a", count: 501)
+        #expect(store.isOverLimit == true)
+        #expect(store.canTranslate == false)
+    }
+
+    @Test func spacesAroundTheTextAreNotCounted() {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
+        store.inputText = "  " + String(repeating: "a", count: 500) + "\n "
+        #expect(store.inputLength == 500)
+        #expect(store.canTranslate == true)
+    }
+
+    @Test func anEmojiCountsAsTwoLikeJava() {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
+        store.inputText = String(repeating: "😀", count: 250)
+        #expect(store.inputLength == 500)
+        store.inputText = String(repeating: "😀", count: 251)
+        #expect(store.isOverLimit == true)
+    }
+
+    @Test func overTheLimitNothingIsSent() async {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("x"))) })
+        store.inputText = String(repeating: "word ", count: 120)
+        await store.translate()
+        guard case .idle = store.state else {
+            Issue.record("Expected .idle, got \(store.state)")
+            return
+        }
+    }
+
     @Test func successShowsLoadedText() async {
         let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("Xin chào"))) })
         store.inputText = "Hello there"
         await store.translate()
-        guard case let .loaded(explanation) = store.state else {
+        guard case let .loaded(result) = store.state else {
             Issue.record("Expected .loaded, got \(store.state)")
             return
         }
-        #expect(explanation.translation == "Xin chào")
+        #expect(result.explanation.translation == "Xin chào")
+        #expect(result.sentence == "Hello there")
+    }
+
+    // MARK: - Word cards in a sentence result (TASK-41)
+
+    @Test func sentenceWordsGetTheirPillAndChipFromTheBundle() async {
+        let explanation = Explanation(
+            meaning: "x",
+            words: [
+                .init(word: "blurred", partOfSpeech: "verb", meaning: "made hard to see"),
+                .init(word: "edges", partOfSpeech: "noun", meaning: "outside parts (base form: edge)"),
+            ],
+            translation: "y")
+        let lookup = FakeWordLookup(.success(.depend))
+        lookup.bundled["blurred"] = WordEntry(
+            word: "blur", ipa: nil, senses: WordEntry.depend.senses,
+            matchedForm: MatchedForm(text: "blurred", type: "past tense"))
+        let store = TranslationStore(
+            makeTranslator: { FakeTranslator(result: .success(explanation)) },
+            makeWordLookup: { lookup })
+        store.inputText = "The mist blurred the edges"
+        await store.translate()
+
+        guard case let .loaded(result) = store.state else {
+            Issue.record("Expected .loaded, got \(store.state)")
+            return
+        }
+        #expect(result.words[0].pillText == "past tense of blur")
+        #expect(result.words[0].chipText == "verb · A2")
+        #expect(result.words[1].pillText == "base form: edge")
+        #expect(result.words[1].chipText == nil)
+    }
+
+    @Test func sentenceStillLoadsWhenThereIsNoWordLookup() async {
+        let explanation = Explanation(
+            meaning: "x", words: [.init(word: "edges", partOfSpeech: "noun", meaning: "outside parts")], translation: "y")
+        let store = TranslationStore(
+            makeTranslator: { FakeTranslator(result: .success(explanation)) },
+            makeWordLookup: { throw AppConfig.ConfigError.missing("BackendBaseURL") })
+        store.inputText = "The edges of it"
+        await store.translate()
+
+        guard case let .loaded(result) = store.state else {
+            Issue.record("Expected .loaded, got \(store.state)")
+            return
+        }
+        #expect(result.words.count == 1)
+        #expect(result.words[0].chipText == nil)
+    }
+
+    @Test func tappedWordUsesTheBundleEntryWithoutALookup() async throws {
+        let lookup = FakeWordLookup(.failure(WordLookupError.notOneWord))
+        let store = TranslationStore(makeWordLookup: { lookup })
+        let info = SentenceWordInfo(word: .init(word: "blurred", partOfSpeech: "verb", meaning: "x"), entry: .depend)
+        let entry = try await store.wordEntry(for: info)
+        #expect(entry == .depend)
+        #expect(lookup.lastWord == nil)
+    }
+
+    @Test func tappedWordNotInTheBundleIsLookedUp() async throws {
+        let lookup = FakeWordLookup(.success(.run))
+        let store = TranslationStore(makeWordLookup: { lookup })
+        let info = SentenceWordInfo(word: .init(word: "edges", partOfSpeech: "noun", meaning: "x"), entry: nil)
+        let entry = try await store.wordEntry(for: info)
+        #expect(entry == .run)
+        #expect(lookup.lastWord == "edges")
+    }
+
+    // MARK: - The result keeps its language (TASK-14)
+
+    @Test func loadedResultKeepsItsLanguageWhenThePickerChanges() async {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("こんにちは"))) })
+        store.targetLanguage = .japanese
+        store.inputText = "Hello there"
+        await store.translate()
+
+        store.targetLanguage = .french
+        store.inputText = "Something else"
+
+        guard case let .loaded(result) = store.state else {
+            Issue.record("Expected .loaded, got \(store.state)")
+            return
+        }
+        #expect(result.language == .japanese)
+        #expect(result.sentence == "Hello there")
+    }
+
+    @Test func pickerChangedWhileWaitingDoesNotChangeTheResultLanguage() async {
+        /// Changes the picker while the "request" is in flight.
+        struct PickerChangingTranslator: Translating {
+            let store: TranslationStore
+            func explain(_ text: String, translatingTo language: TargetLanguage) async throws -> Explanation {
+                await MainActor.run { store.targetLanguage = .french }
+                return sample("こんにちは")
+            }
+        }
+        var store: TranslationStore!
+        store = TranslationStore(makeTranslator: { PickerChangingTranslator(store: store) })
+        store.targetLanguage = .japanese
+        store.inputText = "Hello there"
+        await store.translate()
+
+        guard case let .loaded(result) = store.state else {
+            Issue.record("Expected .loaded, got \(store.state)")
+            return
+        }
+        #expect(result.language == .japanese)
     }
 
     @Test func translatorErrorShowsFailedMessage() async {
@@ -120,11 +276,14 @@ struct TranslationStoreTests {
     }
 
     @Test func moreThanOneWordGoesToTheSentenceTranslator() async {
+        // The sentence path may read the bundle (for word cards) but must never call `lookUp`.
+        let lookup = FakeWordLookup(.failure(WordLookupError.notOneWord))
         let store = TranslationStore(
             makeTranslator: { FakeTranslator(result: .success(sample("Xin chào"))) },
-            makeWordLookup: { Issue.record("A sentence must not use the word lookup"); throw WordLookupError.notOneWord })
+            makeWordLookup: { lookup })
         store.inputText = "Hello   there"
         await store.translate()
+        #expect(lookup.lastWord == nil)
 
         guard case .loaded = store.state else {
             Issue.record("Expected .loaded, got \(store.state)")

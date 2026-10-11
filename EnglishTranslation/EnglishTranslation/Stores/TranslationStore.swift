@@ -29,10 +29,24 @@ final class TranslationStore {
         self.makeWordLookup = makeWordLookup
     }
 
+    /// The backend accepts 1 to 500 characters (`TranslationRequest.java`).
+    static let maxInputLength = 500
+
+    /// How many characters the backend will count. Java counts UTF-16 units, so an emoji is 2.
+    /// Counting the same way means the app never allows text the backend would reject.
+    var inputLength: Int {
+        trimmedInput.utf16.count
+    }
+
+    /// True when the text is too long to send. The input shows "Make it shorter."
+    var isOverLimit: Bool {
+        inputLength > Self.maxInputLength
+    }
+
     /// True when the button should be enabled.
     var canTranslate: Bool {
         if case .loading = state { return false }
-        return !trimmedInput.isEmpty
+        return !trimmedInput.isEmpty && !isOverLimit
     }
 
     private var trimmedInput: String {
@@ -81,11 +95,27 @@ final class TranslationStore {
         await translate()
     }
 
+    /// The full word card for a word in a sentence result. Uses the bundled entry when there is one,
+    /// otherwise the normal lookup (local cache, then backend). The sentence result stays on screen.
+    func wordEntry(for word: SentenceWordInfo) async throws -> WordEntry {
+        if let entry = word.entry { return entry }
+        return try await makeWordLookup().lookUp(word.word)
+    }
+
     private func explainSentence() async {
+        // Copy these first. The user can change the picker or the text while we wait.
+        let sentence = trimmedInput
+        let language = targetLanguage
         do {
             let translator = try makeTranslator()
-            let explanation = try await translator.explain(trimmedInput, translatingTo: targetLanguage)
-            state = .loaded(explanation)
+            let explanation = try await translator.explain(sentence, translatingTo: language)
+            // The bundled dictionary gives each word card its pill and chip. No dictionary is fine.
+            let lookup = try? makeWordLookup()
+            state = .loaded(SentenceResult(
+                sentence: sentence,
+                explanation: explanation,
+                language: language,
+                bundledEntry: { lookup?.bundledEntry(for: $0) }))
         } catch {
             state = .failed(error.localizedDescription)
         }
