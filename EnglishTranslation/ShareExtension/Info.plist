@@ -4,6 +4,10 @@
 <dict>
 	<key>BackendBaseURL</key>
 	<string>http://localhost:8081</string>
+	<key>CFBundleDisplayName</key>
+	<string>Saynata</string>
+	<key>CFBundleName</key>
+	<string>Saynata</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
