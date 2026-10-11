@@ -32,6 +32,13 @@ The target language (Vietnamese, etc.) is a small helper line at the **bottom** 
   secondary field. Do not name or design a feature as "translate X".
 - When a doc, task, or mockup says "translation first", this rule wins. Update the doc.
 
+## UI rule: icon-only buttons
+
+Buttons have **no text labels** (no "Listen", "Speak", "Copy"). Use an icon only, with an accessibility label
+for VoiceOver. This applies to mockups, designs, and SwiftUI code. Add a visible word to a button only when the
+developer asks for it. Section rows and headings (for example "Vietnamese", "How to use it") are not buttons
+and keep their text.
+
 <!-- BACKLOG.MD GUIDELINES START -->
 <!-- backlog.md-instructions-version: 1.53.0 -->
 <CRITICAL_INSTRUCTION>
