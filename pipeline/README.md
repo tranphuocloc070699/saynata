@@ -29,6 +29,7 @@ uv sync
 uv run pipeline preview reluctant   # see the prompt input (no key needed)
 uv run pipeline generate --limit 200
 uv run pipeline report
+uv run pipeline revalidate          # after changing the checks: re-check needs_review words, no LLM
 uv run pipeline export
 ```
 
