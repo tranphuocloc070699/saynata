@@ -3,7 +3,7 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 11:40'
+updated_date: '2026-10-11 11:44'
 ---
 > Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-11 (levelled examples and form types, TASK-35). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
@@ -105,7 +105,7 @@ sequenceDiagram
 | Client | [70-73](../../../pipeline/src/pipeline/generate.py#L70-L73) | Anthropic SDK, created once (`@cache`). `max_retries=5` for 429, 5xx and connection errors. Key: `ANTHROPIC_API_KEY`. |
 | Pacing | [83-91](../../../pipeline/src/pipeline/generate.py#L83-L91) | Off by default. `LLM_MAX_PER_MINUTE` spaces calls if you hit rate limits. |
 | System prompt | [54-67](../../../pipeline/src/pipeline/generate.py#L54-L67) | Cambridge Learner's style rules. No schema in the prompt: structured output enforces the shape. |
-| Example rules | [67-79](../../../pipeline/src/pipeline/generate.py#L67-L79) | `EXAMPLE_RULES`: 3 examples per sense, levels easy (4-8 words, simplest words), medium (8-12 words, simple words), harder (up to ~18 words, a few B2 words, no rare ones); easy and medium use only the 2,800 common words, harder at most 2 outside; every example uses the headword (or a form) in **this** sense. Used by the system prompt **and** by the examples pass. |
+| Example rules | [67-93](../../../pipeline/src/pipeline/generate.py#L67-L93) | `EXAMPLE_RULES`: 3 examples per sense that differ in **structure and situation**, not just length. Easy (A1-A2): short present simple. Medium (B1): a different situation and structure (past, question, imperative, two clauses). Harder (B2): a more complex structure (present perfect, conditional, relative clause, passive, reported speech) and/or a B2 collocation, under ~16 words. Easy and medium use only the 2,800 common words, harder at most 2 outside. Every example uses the headword (or a form) in **this** sense. Has a bad example ("Longer is not harder") and two good sets (get, run). Used by the system prompt **and** by the examples pass. |
 | Usage rules | [24-64](../../../pipeline/src/pipeline/generate.py#L24-L64) | `USAGE_RULES`: kinds, placeholders, "natural, not old-fashioned", "at least one idiom when the sense has a real one (B2-C1 is fine)", "no duplicates across all senses", "the placeholder must match the example", "must fit this sense", simple example words, and the agreed few-shot examples. Used by the system prompt **and** by the usage pass. |
 | User prompt | [94-106](../../../pipeline/src/pipeline/generate.py#L94-L106) | Headword + candidate senses + Vietnamese hints + **feedback from the last failed try**. |
 | Call | [109-124](../../../pipeline/src/pipeline/generate.py#L109-L124) | `messages.parse(output_format=WordEntry)`, `effort: low`. A refusal or empty reply raises, and the word becomes `failed`. No `temperature`: the 5.5 models reject it. |
@@ -189,9 +189,9 @@ Same shape as the usage pass. Gives every sense 3 examples `{ level, text }`, ea
 |---|---|---|
 | Finished test | [examples.py:35-37](../../../pipeline/src/pipeline/examples.py#L35-L37) | A word is done when no example is a plain string any more. A second run makes no calls. |
 | The call | [examples.py:44-79](../../../pipeline/src/pipeline/examples.py#L44-L79) | One call per word. The prompt lists each sense with its definition and its **old examples**; the system prompt tells the model it may reuse a good one. `effort: low`. `fetch` is a parameter, so tests pass a fake. |
-| Clean up | [examples.py:82-99](../../../pipeline/src/pipeline/examples.py#L82-L99) | One call, no retries. An example that fails the checks is **dropped**. At most one example per level, saved in the order easy, medium, harder (even if the model mixes them up). A sense may end with fewer than 3. |
-| No good example | [examples.py:110-125](../../../pipeline/src/pipeline/examples.py#L110-L125) | If none of a sense's new examples is good, it keeps its old two (as easy, medium), so it is never empty. |
-| Errors | [examples.py:128-136](../../../pipeline/src/pipeline/examples.py#L128-L136) | Any error leaves the row as it is; the next run tries again. |
+| Clean up | [examples.py:104-132](../../../pipeline/src/pipeline/examples.py#L104-L132) | One call, no retries. An example that fails the checks is **dropped**. At most one example per level, saved in the order easy, medium, harder (even if the model mixes them up). An example is also dropped when more than 60% of its content words (no headword forms, no stop words like "the", "I", "was") are shared with an earlier kept example of the sense ([content_words](../../../pipeline/src/pipeline/examples.py#L92-L101)). A sense may end with fewer than 3. |
+| No good example | [examples.py:143-158](../../../pipeline/src/pipeline/examples.py#L143-L158) | If none of a sense's new examples is good, it keeps its old two (as easy, medium), so it is never empty. |
+| Errors | [examples.py:161-170](../../../pipeline/src/pipeline/examples.py#L161-L170) | Any error leaves the row as it is; the next run tries again. |
 
 ### 8. Form types: [forms.py](../../../pipeline/src/pipeline/forms.py) (TASK-35)
 
@@ -239,7 +239,7 @@ Uses the free library **lemminflect** to say what each form is, so the app can s
 | [test_validate.py](../../../pipeline/tests/test_validate.py) | Simple definition passes, hard word and headword reported, missing Vietnamese/examples, numbers and grammar terms allowed, grammar words may use themselves, possessive `'s`, basic words outside NGSL |
 
 | [test_usage.py](../../../pipeline/tests/test_usage.py) | Usage checks (contractions, hard words, `sb`/`sth`), the pass with a fake LLM (definitions untouched, resume, no retry on error, bad items dropped, max 3, dry run), the prompt has the agreed examples, export stores usage as JSON |
-| [test_examples.py](../../../pipeline/tests/test_examples.py) | Example checks (levels, 2 words outside the list for harder, headword or a form), the examples pass with a fake LLM (definitions untouched, order, resume, no retry, drops, old examples kept as a fallback, dry run), old string examples load, form types (ran, went, running, apples, runs, …), export stores levels and form types |
+| [test_examples.py](../../../pipeline/tests/test_examples.py) | Example checks (levels, 2 words outside the list for harder, headword or a form), an example that repeats another one is dropped, the examples pass with a fake LLM (definitions untouched, order, resume, no retry, drops, old examples kept as a fallback, dry run), old string examples load, form types (ran, went, running, apples, runs, …), export stores levels and form types |
 
 Run: `uv run pytest` in `pipeline/` (no API key needed).
 

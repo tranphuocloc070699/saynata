@@ -165,6 +165,33 @@ def test_bad_examples_are_dropped_and_the_rest_kept(db):
     assert counts["dropped"] == 2
 
 
+def test_example_that_repeats_an_earlier_one_is_dropped():
+    # "He got a new job." and "He got a new job last month." share all their content words.
+    kept, dropped = examples.clean_examples(
+        [example("easy", "He got a new job."), example("medium", "He got a new job last month."),
+         example("harder", "I need to get some milk.")],
+        "get", {"got"}, VOCABULARY,
+    )
+    assert [e["level"] for e in kept] == ["easy", "harder"]
+    assert len(dropped) == 1 and "repeats another example" in dropped[0]
+
+
+def test_examples_about_different_things_are_all_kept():
+    kept, dropped = examples.clean_examples(
+        [example("easy", "I need to get some milk."), example("medium", "He got a new job last month."),
+         example("harder", "She was very happy when she got her exam results.")],
+        "get", {"got"}, VOCABULARY,
+    )
+    assert len(kept) == 3 and dropped == []
+
+
+def test_prompt_rules_ask_for_different_structures_and_show_a_good_set():
+    from pipeline.generate import EXAMPLE_RULES
+
+    assert "present perfect" in EXAMPLE_RULES and "Longer is not harder" in EXAMPLE_RULES
+    assert "Examples of good sets" in EXAMPLE_RULES
+
+
 def test_sense_with_no_good_example_keeps_its_old_ones_as_easy_and_medium(db):
     add_done_word(db, "get", 1, old_entry())
     examples.run_pass(db, VOCABULARY, fake_fetch([], ExamplesResult(senses=[])), limit=10, workers=1)
@@ -235,7 +262,7 @@ def test_export_stores_levels_and_form_types(db, tmp_path, monkeypatch):
     add_done_word(db, "go", 1, old_entry(), forms=["went", "gone", "going", "goes"])
     add_done_word(db, "make", 2, old_entry())
     go_result = ExamplesResult(senses=[SenseExamples(sense_number=1, examples=[
-        example("easy", "I go home."), example("medium", "We can go to school."),
+        example("easy", "I go to school."), example("medium", "We can go to the store."),
         example("harder", "She was very happy when she went home."),
     ])])
     examples.run_pass(db, VOCABULARY | {"went"}, fake_fetch([], go_result), limit=10, workers=1, words=["go"])

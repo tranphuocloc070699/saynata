@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from pipeline import store
 from pipeline.forms import word_forms
 from pipeline.models import EXAMPLE_LEVELS, Example
-from pipeline.validate import example_problems
+from pipeline.validate import WORD_RE, _plain_word, example_problems
 
 
 class SenseExamples(BaseModel):
@@ -79,6 +79,28 @@ def fetch_from_claude(lemma: str, entry: dict) -> ExamplesResult:
     return response.parsed_output
 
 
+# Words that do not make two sentences "the same": grammar words and very common helpers.
+STOP_WORDS = {
+    "i", "you", "he", "she", "it", "we", "they", "me", "him", "her", "us", "them", "my", "your", "his", "its",
+    "our", "their", "a", "an", "the", "to", "of", "in", "on", "at", "for", "with", "and", "or", "but", "so",
+    "is", "am", "are", "was", "were", "be", "been", "do", "does", "did", "have", "has", "had", "will", "would",
+    "can", "could", "this", "that", "there", "not", "no", "if", "when", "very", "just",
+}
+MAX_SHARED_WORDS = 0.6  # more than 60% shared with another example of the sense: drop it
+
+
+def content_words(text: str, headword_forms: set[str]) -> set[str]:
+    """The words that carry the meaning of a sentence: no headword (or its forms) and no stop words."""
+    words = {_plain_word(w) for w in WORD_RE.findall(text.replace("’", "'"))}
+    return words - headword_forms - STOP_WORDS
+
+
+def shared_share(first: set[str], second: set[str]) -> float:
+    """How much of the shorter sentence's content words the other sentence also has (0 to 1)."""
+    smaller = min(len(first), len(second))
+    return len(first & second) / smaller if smaller else 0.0
+
+
 def clean_examples(
     items: list[Example], headword: str, headword_forms: set[str], vocabulary: set[str],
 ) -> tuple[list[dict], list[str]]:
@@ -96,7 +118,18 @@ def clean_examples(
             dropped.extend(problems)
         else:
             best[item.level.value] = {"level": item.level.value, "text": item.text.strip()}
-    return [best[level.value] for level in EXAMPLE_LEVELS if level.value in best], dropped
+    kept: list[dict] = []
+    kept_words: list[set[str]] = []
+    for level in EXAMPLE_LEVELS:  # easy is kept first; a later one that repeats an earlier one is dropped
+        if level.value not in best:
+            continue
+        words = content_words(best[level.value]["text"], headword_forms | {headword.lower()})
+        if any(shared_share(words, other) > MAX_SHARED_WORDS for other in kept_words):
+            dropped.append(f"{level.value} example '{best[level.value]['text']}' repeats another example of the sense")
+            continue
+        kept.append(best[level.value])
+        kept_words.append(words)
+    return kept, dropped
 
 
 def old_examples_as_levels(sense: dict) -> list[dict]:

@@ -65,18 +65,32 @@ USAGE_RULES = """usage: 0-3 items that show how to use THIS sense. Give fewer, o
 
 # Used by this file and by examples.py (the examples pass), so both ask for the same thing.
 EXAMPLE_RULES = """examples: exactly 3 example sentences for THIS sense, ordered from easy to hard.
-  Each example has a level and a text.
-  - level "easy": short (about 4-8 words), the simplest words, a very clear picture of the meaning.
-  - level "medium": a normal daily-life sentence (about 8-12 words), simple words only.
-  - level "harder": a longer or richer sentence (up to about 18 words). It may use a few B2 words, but no
-    rare, technical or literary words.
+  Each example has a level and a text. The three must differ in STRUCTURE and SITUATION, not just in length.
+  - level "easy" (A1-A2): short present simple (about 4-8 words), the most common words, a very clear picture.
+  - level "medium" (B1): a DIFFERENT situation and a DIFFERENT structure from the easy one: past tense, a
+    question, an imperative, or two clauses (about 8-12 words). Simple words only.
+  - level "harder" (B2): a more complex structure, such as present perfect, a conditional, a relative clause,
+    the passive or reported speech, and/or a B2 collocation. Under about 16 words. No rare, technical or
+    literary words.
   Rules for examples:
   - Easy and medium use ONLY very common words (the 2,800 most common words). Harder may use at most 2
     words outside that list.
   - Every example must use the headword (or a form of it, like "ran" for "run") in THIS sense, not in
     another sense of the word.
-  - Natural sentences a native speaker would really say. No two examples may be nearly the same.
-  - Put them in this order: easy, medium, harder. """
+  - Natural sentences a native speaker would really say.
+  - The three examples must show three different situations and must not reuse the same phrase.
+    Bad: "I went for a run today." / "I went for a run before breakfast this morning." (same phrase, same
+    situation, only longer). Longer is not harder.
+  - Put them in this order: easy, medium, harder.
+  Examples of good sets:
+    get (to buy):
+      easy "I get milk every day."
+      medium "Can you get some bread on your way home?"
+      harder "If you get a chance, I'd like you to get tickets before they sell out."
+    run (to move fast on foot):
+      easy "I run in the park."
+      medium "Don't run in the house!"
+      harder "She has been running every morning since she decided to run a marathon." """
 
 SYSTEM_PROMPT = f"""You write entries for a learner's dictionary for Vietnamese students of English,
 in the style of the Cambridge Learner's Dictionary.
