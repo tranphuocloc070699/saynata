@@ -139,6 +139,18 @@ public class ClaudeService {
         }
 
         public WordEntry describeWord(String word) {
+                return describeWordWithMessage(wordMessage(word));
+        }
+
+        /**
+         * The second try for a word whose first entry used hard words. The feedback names them,
+         * so Claude can write the entry again with simpler words.
+         */
+        public WordEntry describeWordAgain(String word, String feedback) {
+                return describeWordWithMessage(wordMessage(word) + "\n" + feedback);
+        }
+
+        private WordEntry describeWordWithMessage(String userMessage) {
                 StructuredMessageCreateParams<WordEntry> params = MessageCreateParams.builder()
                                 .model(properties.model())
                                 .maxTokens(8000L)
@@ -147,7 +159,7 @@ public class ClaudeService {
                                                 .format(WordEntry.class)
                                                 .effort(OutputConfig.Effort.LOW)
                                                 .build())
-                                .addUserMessage(wordMessage(word))
+                                .addUserMessage(userMessage)
                                 .build();
 
                 return readOutput(client.messages().create(params));
