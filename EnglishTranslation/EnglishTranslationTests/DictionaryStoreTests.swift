@@ -76,11 +76,57 @@ struct DictionaryStoreTests {
         ])
     }
 
+    @Test func fileWithLevelsAndFormTypesIsRead() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "dictionary-forms-\(UUID().uuidString).sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Self.writeTinyDictionary(at: url, withFormTypes: true)
+
+        let store = try DictionaryStore(url: url)
+        let ran = try #require(try store.lookUp("Ran"))
+
+        #expect(ran.word == "run")
+        #expect(ran.matchedForm == WordForm(form: "ran", type: "past tense"))
+        #expect(ran.senses.first?.examples == [
+            Example(level: .easy, text: "I run."),
+            Example(level: .medium, text: "She runs to school."),
+            Example(level: .harder, text: "He ran the shop for ten years."),
+        ])
+        // The base word has no matched form.
+        #expect(try store.lookUp("run")?.matchedForm == nil)
+    }
+
+    @Test func oldFileWithoutFormTypesStillLoads() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "dictionary-old-\(UUID().uuidString).sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Self.writeTinyDictionary(at: url, withFormTypes: false)
+
+        let ran = try #require(try DictionaryStore(url: url).lookUp("ran"))
+
+        #expect(ran.word == "run")
+        #expect(ran.matchedForm == WordForm(form: "ran", type: "form"))  // no type column: the neutral label
+        // Old examples are plain strings. They become easy, medium.
+        #expect(ran.senses.first?.examples.map(\.level) == [.easy, .medium])
+    }
+
+    @Test func plainStringExamplesBecomeEasyThenMedium() throws {
+        let old = #"{"pos":"verb","cefr":"A1","simpleDefinition":"d","vietnamese":"v","examples":["One.","Two."]}"#
+        let sense = try JSONDecoder().decode(Sense.self, from: Data(old.utf8))
+        #expect(sense.examples == [Example(level: .easy, text: "One."), Example(level: .medium, text: "Two.")])
+
+        let new = #"{"pos":"verb","cefr":"A1","simpleDefinition":"d","vietnamese":"v","examples":[{"level":"harder","text":"Three."}]}"#
+        let newer = try JSONDecoder().decode(Sense.self, from: Data(new.utf8))
+        #expect(newer.examples == [Example(level: .harder, text: "Three.")])
+    }
+
     /// A tiny dictionary file with the new `usage` column, made with the schema the pipeline exports.
-    private static func writeTinyDictionary(at url: URL) throws {
+    private static func writeTinyDictionary(at url: URL, withFormTypes: Bool? = nil) throws {
         var db: OpaquePointer?
         guard sqlite3_open(url.path(percentEncoded: false), &db) == SQLITE_OK else { throw DictionaryError.fileMissing }
         defer { sqlite3_close(db) }
+        if let withFormTypes {
+            try writeRunDictionary(db, withFormTypes: withFormTypes)
+            return
+        }
         let sql = """
             CREATE TABLE words (id INTEGER PRIMARY KEY, lemma TEXT NOT NULL UNIQUE, rank INTEGER NOT NULL, ipa TEXT);
             CREATE TABLE forms (form TEXT NOT NULL, word_id INTEGER NOT NULL);
@@ -92,6 +138,28 @@ struct DictionaryStoreTests {
                 '["It depends."]',
                 '[{"kind":"pattern","pattern":"depend on + something","example":"It depends on the weather."}]',
                 'none', '');
+            """
+        guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else { throw DictionaryError.queryFailed("setup") }
+    }
+
+    /// "run" with the form "ran". The new file has levelled examples and `forms.type`; the old one has neither.
+    private static func writeRunDictionary(_ db: OpaquePointer?, withFormTypes: Bool) throws {
+        let formsTable = withFormTypes
+            ? "CREATE TABLE forms (form TEXT NOT NULL, word_id INTEGER NOT NULL, type TEXT NOT NULL);"
+            : "CREATE TABLE forms (form TEXT NOT NULL, word_id INTEGER NOT NULL);"
+        let formRow = withFormTypes ? "INSERT INTO forms VALUES ('ran', 1, 'past tense');" : "INSERT INTO forms VALUES ('ran', 1);"
+        let examples = withFormTypes
+            ? #"[{"level":"easy","text":"I run."},{"level":"medium","text":"She runs to school."},{"level":"harder","text":"He ran the shop for ten years."}]"#
+            : #"["I run.", "She runs to school."]"#
+        let sql = """
+            CREATE TABLE words (id INTEGER PRIMARY KEY, lemma TEXT NOT NULL UNIQUE, rank INTEGER NOT NULL, ipa TEXT);
+            \(formsTable)
+            CREATE TABLE senses (id INTEGER PRIMARY KEY, word_id INTEGER NOT NULL, position INTEGER NOT NULL,
+                pos TEXT NOT NULL, cefr TEXT NOT NULL, simple_definition TEXT NOT NULL, vietnamese TEXT NOT NULL,
+                examples TEXT NOT NULL, usage TEXT NOT NULL, image_type TEXT NOT NULL, image_query TEXT NOT NULL);
+            INSERT INTO words VALUES (1, 'run', 1, NULL);
+            \(formRow)
+            INSERT INTO senses VALUES (1, 1, 0, 'verb', 'A1', 'to move fast on foot', 'chạy', '\(examples)', '[]', 'none', '');
             """
         guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else { throw DictionaryError.queryFailed("setup") }
     }

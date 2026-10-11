@@ -63,6 +63,21 @@ USAGE_RULES = """usage: 0-3 items that show how to use THIS sense. Give fewer, o
     pattern "depend on + something" -> "It depends on the weather."
     phrase "It depends." -> "\"Are you coming?\" \"It depends.\"" """
 
+# Used by this file and by examples.py (the examples pass), so both ask for the same thing.
+EXAMPLE_RULES = """examples: exactly 3 example sentences for THIS sense, ordered from easy to hard.
+  Each example has a level and a text.
+  - level "easy": short (about 4-8 words), the simplest words, a very clear picture of the meaning.
+  - level "medium": a normal daily-life sentence (about 8-12 words), simple words only.
+  - level "harder": a longer or richer sentence (up to about 18 words). It may use a few B2 words, but no
+    rare, technical or literary words.
+  Rules for examples:
+  - Easy and medium use ONLY very common words (the 2,800 most common words). Harder may use at most 2
+    words outside that list.
+  - Every example must use the headword (or a form of it, like "ran" for "run") in THIS sense, not in
+    another sense of the word.
+  - Natural sentences a native speaker would really say. No two examples may be nearly the same.
+  - Put them in this order: easy, medium, harder. """
+
 SYSTEM_PROMPT = f"""You write entries for a learner's dictionary for Vietnamese students of English,
 in the style of the Cambridge Learner's Dictionary.
 
@@ -71,7 +86,7 @@ Rules:
 - simple_definition: max 20 words. Use ONLY very common, simple English words (the 2,800 most common words).
   Never use the headword itself. Start like Cambridge does: a noun sense starts with "a/an/the ...",
   a verb sense starts with "to ...", an adjective sense describes the quality.
-- examples: exactly 2 short, natural sentences a learner might hear in daily life.
+- {EXAMPLE_RULES}
 - vietnamese: a short, natural Vietnamese meaning (1-6 words), like a good bilingual dictionary.
 - {USAGE_RULES}
 - image_type: "photo" if a stock photo clearly shows it, "icon" if a simple icon can show it,

@@ -3,7 +3,7 @@ id: doc-1
 title: Vision and spec
 type: specification
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-11 09:33'
+updated_date: '2026-10-11 11:40'
 ---
 # Spec: EnglishTranslation — translator for a Vietnamese English learner
 
@@ -19,8 +19,13 @@ An iOS app that replaces DeepL for daily use. It looks up words and translates s
 - **Word** — input that is one token after normalising (`run`, `ran`, `reluctant`).
 - **Sentence** — any input with more than one token.
 - **Entry** — the dictionary data for one word: senses with a simple English definition,
-  a Vietnamese meaning, examples, and **usage**: up to 3 usage items per sense (fewer when there are no good
+  a Vietnamese meaning, 3 **examples**, and **usage**: up to 3 usage items per sense (fewer when there are no good
   ones). Shape: `pipeline/src/pipeline/models.py`. No collocation or synonym chips (decision-2, done in TASK-24).
+- **Example** — `{ level, text }`: a sentence that uses the word in that sense. A sense has 3, ordered easy, medium, harder
+  (TASK-35). Easy and medium use only NGSL words; harder may use a few B2 words (at most 2 outside the list), but no
+  rare ones. Old data with plain-string examples is read as easy, medium.
+- **Form type** — what a form of a word is, stored in `forms.type` and shown as "past tense of run": past tense,
+  past participle, -ing form, third person, plural, comparative, superlative, or `form` when unsure. Made by lemminflect.
 - **Usage item** — `{ kind, pattern, example }`: a pattern with one example sentence
   ("depend on + something" → "It depends on the weather."). `kind` is one of `pattern`, `collocation`
   ("make a decision"), `phrase` (a phrasal verb or fixed phrase: "get used to + -ing", "It depends."), `idiom`

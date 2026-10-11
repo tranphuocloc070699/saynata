@@ -22,6 +22,8 @@ final class DictionaryStore: @unchecked Sendable {
     private var database: OpaquePointer?
     /// The old bundled file has no `senses.usage` column (added by TASK-24). Then usage is empty.
     private var hasUsageColumn = false
+    /// The old bundled file has no `forms.type` column (added by TASK-35). Then the type is "form".
+    private var hasFormTypeColumn = false
 
     /// Opens the dictionary file at `url`.
     init(url: URL) throws {
@@ -32,6 +34,7 @@ final class DictionaryStore: @unchecked Sendable {
             throw DictionaryError.cannotOpen(message)
         }
         hasUsageColumn = try columnExists("usage", in: "senses")
+        hasFormTypeColumn = try columnExists("type", in: "forms")
     }
 
     /// Opens the dictionary inside the app bundle.
@@ -52,24 +55,28 @@ final class DictionaryStore: @unchecked Sendable {
         let key = CacheKeys.normalizeWord(word)
         guard !key.isEmpty, let match = try findWord(key) else { return nil }
         let senses = try loadSenses(wordID: match.id)
-        return WordEntry(word: match.lemma, ipa: match.ipa, senses: senses)
+        return WordEntry(word: match.lemma, ipa: match.ipa, senses: senses, matchedForm: match.matchedForm)
     }
 
     // MARK: - Queries
 
-    private func findWord(_ key: String) throws -> (id: Int64, lemma: String, ipa: String?)? {
+    private func findWord(_ key: String) throws -> (id: Int64, lemma: String, ipa: String?, matchedForm: WordForm?)? {
         // UNION ALL keeps the order: a base form is tried before a word form.
+        // Without the type column, SELECT NULL so the column numbers stay the same.
+        let typeColumn = hasFormTypeColumn ? "f.type" : "NULL"
         let sql = """
-            SELECT id, lemma, ipa FROM words WHERE lemma = ?1 COLLATE NOCASE
+            SELECT id, lemma, ipa, NULL, NULL FROM words WHERE lemma = ?1 COLLATE NOCASE
             UNION ALL
-            SELECT w.id, w.lemma, w.ipa FROM forms f JOIN words w ON w.id = f.word_id
+            SELECT w.id, w.lemma, w.ipa, f.form, \(typeColumn) FROM forms f JOIN words w ON w.id = f.word_id
             WHERE f.form = ?1 COLLATE NOCASE
             LIMIT 1
             """
         let rows = try run(sql, text: key) { statement in
-            (id: sqlite3_column_int64(statement, 0),
-             lemma: Self.text(statement, 1) ?? "",
-             ipa: Self.text(statement, 2))
+            let form = Self.text(statement, 3)
+            return (id: sqlite3_column_int64(statement, 0),
+                    lemma: Self.text(statement, 1) ?? "",
+                    ipa: Self.text(statement, 2),
+                    matchedForm: form.map { WordForm(form: $0, type: Self.text(statement, 4) ?? "form") })
         }
         return rows.first
     }
@@ -87,7 +94,7 @@ final class DictionaryStore: @unchecked Sendable {
                 cefr: Self.text(statement, 1) ?? "",
                 simpleDefinition: Self.text(statement, 2) ?? "",
                 vietnamese: Self.text(statement, 3) ?? "",
-                examples: Self.decodeList(Self.text(statement, 4)),
+                examples: Example.decodeList(Self.text(statement, 4)),
                 usage: Self.decodeUsage(Self.text(statement, 5))
             )
         }
@@ -134,12 +141,6 @@ final class DictionaryStore: @unchecked Sendable {
     private static func text(_ statement: OpaquePointer, _ column: Int32) -> String? {
         guard let pointer = sqlite3_column_text(statement, column) else { return nil }
         return String(cString: pointer)
-    }
-
-    /// Reads a JSON list like `["a", "b"]`. A broken value gives an empty list.
-    private static func decodeList(_ json: String?) -> [String] {
-        guard let data = json?.data(using: .utf8) else { return [] }
-        return (try? JSONDecoder().decode([String].self, from: data)) ?? []
     }
 
     /// Reads the usage JSON `[{"kind": "idiom", "pattern": "...", "example": "..."}]`.

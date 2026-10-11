@@ -1,9 +1,11 @@
 ---
 id: TASK-35
 title: 'Pipeline: 3 examples per sense from easy to hard, and word form types'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-11 11:31'
+updated_date: '2026-10-11 11:40'
 labels:
   - pipeline
   - backend
@@ -33,3 +35,13 @@ Developer feedback on the F1 word card (2026-10-11): each meaning should show 2-
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Pipeline: Example model (levels, old strings load as easy/medium), EXAMPLE_RULES shared prompt, validate.example_problems, examples.py pass modelled on usage.py, 'pipeline examples' command.
+2. forms.py with lemminflect; export forms.type and levelled examples; warnings in export command.
+3. Backend: WordEntry.Example, WORD_PROMPT, word-prompt-version v6; iOS PromptVersions.word v6 + CacheTests hash.
+4. iOS (data only): Example, WordForm, Sense decoding, DictionaryStore reads forms.type, old files still load.
+5. Tests in all three parts, docs (doc-1, doc-5, doc-6, pipeline README), one 3-word dry run.
+<!-- SECTION:PLAN:END -->

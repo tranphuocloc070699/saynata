@@ -54,14 +54,14 @@ struct WordCardView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             LevelChip(text: sense.chipText)
 
-            MeaningBlock(meaning: sense.simpleDefinition, example: sense.examples.first)
+            MeaningBlock(meaning: sense.simpleDefinition, example: sense.examples.first?.text)
 
             VStack(spacing: 0) {
                 if sense.examples.count > 1 {
                     foldedRow("More examples", index: index, count: sense.examples.count - 1) {
                         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                            ForEach(sense.examples.dropFirst(), id: \.self) { example in
-                                Text(example)
+                            ForEach(sense.examples.dropFirst(), id: \.text) { example in
+                                Text(example.text)
                                     .font(.system(.callout, design: .serif).italic())
                                     .foregroundStyle(Theme.Colors.textSecondary)
                             }

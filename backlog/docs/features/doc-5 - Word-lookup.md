@@ -3,15 +3,15 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 09:57'
+updated_date: '2026-10-11 11:40'
 ---
-> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19. Last traced from code: 2026-10-11.
+> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19. Last traced from code: 2026-10-11 (levelled examples and form types, TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
 
 A single word gets a **learner dictionary entry**: 1–4 senses, each with part of speech, CEFR level,
-a simple English definition, a Vietnamese meaning, 2 examples, and up to 3 **usage** items
+a simple English definition, a Vietnamese meaning, 3 **examples** ordered easy, medium, harder (`{ level, text }`), and up to 3 **usage** items
 (`{ kind, pattern, example }`, see the glossary in doc-1). It has no collocations or synonyms any more (decision-2, TASK-24).
 Most words come from the dictionary bundled in the app (built by the [dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md)).
 Only words the bundle doesn't have go to the backend, which asks Claude once and caches the answer for everyone.
@@ -52,7 +52,7 @@ sequenceDiagram
     WC->>WC: @Pattern letters, ' and - only, 1 to 64 chars, else 400
     WC->>WS: lookUp("Reluctant")
     WS->>WS: normalizeWord gives "reluctant"
-    WS->>WS: key = sha256 of word, v5, reluctant
+    WS->>WS: key = sha256 of word, v6, reluctant
     WS->>DB: findByCacheKey(key)
     alt hit
         DB-->>WS: entry_json
@@ -78,10 +78,10 @@ sequenceDiagram
 | Hit | [WordService.java:31-34](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L31-L34) | Parse `entry_json` into `WordEntry`, `cached: true`. |
 | Miss | [WordService.java:36-40](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L36-L40) | Claude → save the whole entry as JSON text → `cached: false`. |
 | Race | [WordService.java:41-45](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L41-L45) | Same pattern as sentences: the unique key wins, the second request reads the first row. |
-| Prompt | [ClaudeService.java:45-84](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L45-L84) | `WORD_PROMPT`: 1–4 senses, ≤20-word definition, never the word itself, 2 examples, 0–3 `usage` items with the rules and the agreed few-shot examples (get, make, take, depend). Not an English word → empty `senses`. |
+| Prompt | [ClaudeService.java:45-107](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L45-L107) | `WORD_PROMPT`: 1–4 senses, ≤20-word definition, never the word itself, exactly 3 examples with a level (easy, medium, harder; same rules as the pipeline's `EXAMPLE_RULES`), 0–3 `usage` items with the rules and the agreed few-shot examples (get, make, take, depend). Not an English word → empty `senses`. |
 | Request | [ClaudeService.java:109-122](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L109-L122) | `maxTokens 8000`, `effort LOW`, structured output with `WordEntry.class`. The word goes inside `<word>` tags, escaped by `wordMessage` ([130-132](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L130-L132)). |
-| Shape | [WordEntry.java:7-29](../../../backend/src/main/java/com/englishtranslation/backend/word/WordEntry.java#L7-L29) | Same as the pipeline's `models.py`, in camelCase, **without** `source_index`, `image_type`, `image_query`. `usage` is a list of `{ kind, pattern, example }`; `kind` is a plain lowercase String (an enum would be written in capitals in the schema). |
-| Cache version | [application.properties:18](../../../backend/src/main/resources/application.properties#L18) | `app.claude.word-prompt-version=v5` (TASK-24). Rows saved with v3 or v4 have collocations and synonyms and no usage; the new key never reads them. |
+| Shape | [WordEntry.java:7-41](../../../backend/src/main/java/com/englishtranslation/backend/word/WordEntry.java#L7-L41) | Same as the pipeline's `models.py`, in camelCase, **without** `source_index`, `image_type`, `image_query`. `examples` is a list of `{ level, text }` (`level` is a lowercase String, like `kind`). `usage` is a list of `{ kind, pattern, example }`; `kind` is a plain lowercase String (an enum would be written in capitals in the schema). |
+| Cache version | [application.properties:18](../../../backend/src/main/resources/application.properties#L18) | `app.claude.word-prompt-version=v6` (TASK-35). Rows saved with v3 to v5 have no example levels (or no usage); the new key never reads them. The app has the same value in `PromptVersions.word` ([CacheKeys.swift:15](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L15)); a test checks they match. |
 | Response | [WordResponse.java:3](../../../backend/src/main/java/com/englishtranslation/backend/word/WordResponse.java#L3) | `{ word, entry: { senses: [...] }, cached }`. |
 
 **Table `word_lookup`** ([V1](../../../backend/src/main/resources/db/migration/V1__create_cache_tables.sql#L11-L19), entity [WordLookup.java](../../../backend/src/main/java/com/englishtranslation/backend/word/WordLookup.java)):
@@ -98,7 +98,7 @@ Expected shape (the words differ from run to run, the keys do not; first call `"
 
 ```json
 { "word": "depend", "cached": false, "entry": { "senses": [ {
-  "pos": "verb", "cefr": "A2", "simpleDefinition": "...", "vietnamese": "...", "examples": ["...", "..."],
+  "pos": "verb", "cefr": "A2", "simpleDefinition": "...", "vietnamese": "...", "examples": [ { "level": "easy", "text": "..." }, { "level": "medium", "text": "..." }, { "level": "harder", "text": "..." } ],
   "usage": [ { "kind": "pattern", "pattern": "depend on + something", "example": "It depends on the weather." } ]
 } ] } }
 ```
@@ -109,10 +109,10 @@ Expected shape (the words differ from run to run, the keys do not; first call `"
 |---|---|---|
 | Bundle | `EnglishTranslation/EnglishTranslation/Resources/dictionary.sqlite` | Copy of the pipeline output. Refresh: after a pipeline run, copy `pipeline/data/out/dictionary.sqlite` over it and commit. |
 | Normalise | [CacheKeys.swift:51-53](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L51-L53) | `CacheKeys.normalizeWord`: trim, collapse spaces, lowercase, exactly like the backend. `DictionaryStore.lookUp` calls it. |
-| Look up | [DictionaryStore.swift:51-56](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L51-L56) | `lookUp(_:)` returns a `WordEntry` or nil. Tries `words.lemma`, then `forms.form` ("ran" finds "run"). Uses system SQLite3, read-only. |
-| Model | [WordEntry.swift](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordEntry.swift) | `WordEntry { word, ipa, senses }`, `Sense { pos, cefr, simpleDefinition, vietnamese, examples, usage }`, `Usage { kind, pattern, example }`. `usage` is read from the `senses.usage` JSON column ([DictionaryStore.swift:77-94](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L77-L94), [decodeUsage:147-150](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L147-L150)). The old bundled file has no such column: [columnExists:96-100](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L96-L100) checks `PRAGMA table_info(senses)` once at open, and then usage is empty. A missing or unknown `kind` becomes `.pattern`. Collocations and synonyms are not loaded (decision-2). |
+| Look up | [DictionaryStore.swift:51-56](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L51-L56) | `lookUp(_:)` returns a `WordEntry` or nil. Tries `words.lemma`, then `forms.form` ("ran" finds "run", and `WordEntry.matchedForm` is `{ form: "ran", type: "past tense" }`; a base-word hit has none). Uses system SQLite3, read-only. |
+| Model | [WordEntry.swift](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordEntry.swift) | `WordEntry { word, ipa, senses, matchedForm? }`, `WordForm { form, type }`, `Sense { pos, cefr, simpleDefinition, vietnamese, examples, usage }`, `Example { level: easy|medium|harder, text }`, `Usage { kind, pattern, example }`. `examples` accepts the new `[{level, text}]` JSON **and** the old list of strings (they become easy, medium): [Sense.init(from:)](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordEntry.swift#L52-L66), [Example.decodeList](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordEntry.swift#L105-L109). `forms.type` is read the same careful way as `usage`: `hasFormTypeColumn` ([DictionaryStore.swift:37](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L37)); in an old file the type is "form". `usage` is read from the `senses.usage` JSON column ([DictionaryStore.swift:77-94](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L77-L94), [decodeUsage:147-150](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L147-L150)). The old bundled file has no such column: [columnExists:96-100](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L96-L100) checks `PRAGMA table_info(senses)` once at open, and then usage is empty. A missing or unknown `kind` becomes `.pattern`. Collocations and synonyms are not loaded (decision-2). |
 
-Tests: [DictionaryStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/DictionaryStoreTests.swift) (hit, miss, form, usage kind default, usage JSON decode, a tiny file with a `usage` column; normalising is tested in [CacheTests.swift](../../../EnglishTranslation/EnglishTranslationTests/CacheTests.swift)).
+Tests: [DictionaryStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/DictionaryStoreTests.swift) (hit, miss, form, usage kind default, usage JSON decode, a tiny file with a `usage` column, a tiny file with levelled examples and `forms.type`, an old file without them, old string examples; normalising is tested in [CacheTests.swift](../../../EnglishTranslation/EnglishTranslationTests/CacheTests.swift)).
 
 ## iOS: the full lookup (TASK-6, TASK-19)
 

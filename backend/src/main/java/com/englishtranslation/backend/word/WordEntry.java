@@ -11,9 +11,20 @@ public record WordEntry(List<Sense> senses) {
             String cefr,
             String simpleDefinition,
             String vietnamese,
-            List<String> examples,
+            @JsonPropertyDescription("Exactly 3 examples of this sense, ordered easy, medium, harder.")
+            List<Example> examples,
             @JsonPropertyDescription("0-3 common, natural ways to use this sense. Fewer, or none, when there are no good ones.")
             List<Usage> usage) {
+    }
+
+    /**
+     * One example sentence. level is a String, not an enum, for the same reason as Usage.kind:
+     * exactly one of easy, medium, harder (lowercase).
+     */
+    public record Example(
+            @JsonPropertyDescription("Exactly one of: easy, medium, harder")
+            String level,
+            String text) {
     }
 
     /**

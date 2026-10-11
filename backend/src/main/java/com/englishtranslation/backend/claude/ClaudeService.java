@@ -50,7 +50,17 @@ public class ClaudeService {
                         - cefr: A1, A2, B1, B2, C1 or C2
                         - simpleDefinition: at most 20 words, only very common words, never the word itself
                         - vietnamese: a short Vietnamese meaning, like a bilingual dictionary
-                        - examples: exactly 2 short, natural example sentences
+                        - examples: exactly 3 example sentences for THIS sense, ordered from easy to hard.
+                          Each has a level and a text.
+                          level "easy": short (about 4-8 words), the simplest words, a very clear picture of the meaning.
+                          level "medium": a normal daily-life sentence (about 8-12 words), simple words only.
+                          level "harder": a longer or richer sentence (up to about 18 words). It may use a few B2
+                          words, but no rare, technical or literary words.
+                          Easy and medium use ONLY very common words (the 2,800 most common words). Harder may use
+                          at most 2 words outside that list.
+                          Every example must use the word (or a form of it, like "ran" for "run") in THIS sense,
+                          not in another sense. Natural sentences a native speaker would really say. No two
+                          examples may be nearly the same. Put them in this order: easy, medium, harder.
                         - usage: 0-3 items that show how to use THIS sense. Give fewer, or none, when
                           there are no good ones. Each item has a kind, a pattern and one example sentence.
                           kind "pattern": a sentence pattern, e.g. "depend on + something".
