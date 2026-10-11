@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-11 08:36'
-updated_date: '2026-10-11 15:06'
+updated_date: '2026-10-11 15:11'
 labels:
   - backend
 dependencies: []
@@ -45,4 +45,6 @@ CLAUDE.md product rule: Saynata teaches English, it is not a translator. The mai
 
 <!-- SECTION:NOTES:BEGIN -->
 Prompt now says explain first (1 meaning, 2 words, 3 translation as a helper). JSON order pinned with @JsonPropertyOrder. Field names kept (meaning/words/translation): the shape was already explain-first, so no iOS decoding or layout change. Sentence prompt v4 -> v5 in application.properties, iOS PromptVersions.sentence, and CacheTests hashes. doc-4 and doc-1 updated.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/24 . Test it. Goal: explain-first sentence; non-English gives a clear 422. Steps: run backend + app; (1) 'I was reluctant to leave.' (2) 'asdkj qwe zzxq' (3) code line (4) Vietnamese sentence. Expected: (1) meaning, words, translation last, no wrong base form; (2-4) 'This doesn't look like English. Type an English word or sentence. (status 422)', nothing cached. Automated: cd backend && ./mvnw -B test; iOS xcodebuild test -only-testing:EnglishTranslationTests (both pass).
 <!-- SECTION:NOTES:END -->

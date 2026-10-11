@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-10 06:37'
-updated_date: '2026-10-11 15:08'
+updated_date: '2026-10-11 15:11'
 labels:
   - backend
 dependencies:
@@ -44,4 +44,6 @@ Probe 2026-10-10 found: (1) code ('for (int i = 0; ...') and gibberish ('asdkj q
 
 <!-- SECTION:NOTES:BEGIN -->
 Decision AC#1 (orchestrator default, developer may change): not-English input (code, gibberish, another language) -> HTTP 422, detail "This doesn't look like English. Type an English word or sentence.", nothing cached. Model returns isEnglish (SentenceAnswer); ClaudeService.toExplanation throws NotEnglishException; handler maps to 422. Prompt v6: translation is always a translation of the input; base form only for inflected words. Vietnamese input now also gets 422 (the old 'copy unchanged' probe rows change). Backend and iOS PromptVersions.sentence = v6, CacheTests hashes updated.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/24 . Test it. Goal: explain-first sentence; non-English gives a clear 422. Steps: run backend + app; (1) 'I was reluctant to leave.' (2) 'asdkj qwe zzxq' (3) code line (4) Vietnamese sentence. Expected: (1) meaning, words, translation last, no wrong base form; (2-4) 'This doesn't look like English. Type an English word or sentence. (status 422)', nothing cached. Automated: cd backend && ./mvnw -B test; iOS xcodebuild test -only-testing:EnglishTranslationTests (both pass).
 <!-- SECTION:NOTES:END -->
