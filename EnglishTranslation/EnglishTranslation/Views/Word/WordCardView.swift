@@ -7,7 +7,7 @@ import SwiftUI
 
 /// The full word card: word, IPA, then for each sense the meaning, examples and usage.
 /// The Vietnamese row is last in each sense and closed by default (CLAUDE.md "Product rule").
-/// Shows sample data for now; real data is wired in by TASK-19.
+/// Shown for a single-word input (TASK-19); previews use the sample words.
 struct WordCardView: View {
     let entry: WordEntry
     /// Called when the listen button is tapped. Speech is not built yet.

@@ -40,6 +40,38 @@ struct CacheKeysTests {
         #expect(CacheKeys.normalizeSentence("\u{00A0}a") == "\u{00A0}a")
     }
 
+    @Test func tokenRuleMatchesTheBackendNormalising() {
+        // One token after normalising: a word.
+        #expect(CacheKeys.isSingleToken("run"))
+        #expect(CacheKeys.isSingleToken("  Ran \n"))
+        #expect(CacheKeys.isSingleToken("don't"))
+        #expect(CacheKeys.isSingleToken("well-known"))
+        // A no-break space is not whitespace for Java's \s+, so it does not split a token.
+        #expect(CacheKeys.isSingleToken("a\u{00A0}b"))
+        // More than one token, or none: not a word.
+        #expect(CacheKeys.isSingleToken("go home") == false)
+        #expect(CacheKeys.isSingleToken("go\n\thome") == false)
+        #expect(CacheKeys.isSingleToken("   ") == false)
+        #expect(CacheKeys.isSingleToken("") == false)
+    }
+
+    @Test func wordPunctuationIsTrimmedAtBothEnds() {
+        #expect(CacheKeys.trimmingWordPunctuation("Hello.") == "Hello")
+        #expect(CacheKeys.trimmingWordPunctuation("run!") == "run")
+        #expect(CacheKeys.trimmingWordPunctuation("(word)") == "word")
+        #expect(CacheKeys.trimmingWordPunctuation("\u{201C}word\u{201D}") == "word")
+        #expect(CacheKeys.trimmingWordPunctuation("  \"run\"?! ") == "run")
+        // Inner apostrophes and hyphens stay.
+        #expect(CacheKeys.trimmingWordPunctuation("don't") == "don't")
+        #expect(CacheKeys.trimmingWordPunctuation("well-known.") == "well-known")
+        // Nothing left.
+        #expect(CacheKeys.trimmingWordPunctuation("?!") == "")
+        #expect(CacheKeys.trimmingWordPunctuation("  ") == "")
+        // Still one token or a sentence by the normal rule.
+        #expect(CacheKeys.isSingleToken("Hello."))
+        #expect(CacheKeys.isSingleToken("Hello there.") == false)
+    }
+
     @Test func caseAndKindChangeTheKey() {
         #expect(CacheKeys.sentenceKey("US", targetLang: "vi") != CacheKeys.sentenceKey("us", targetLang: "vi"))
         #expect(CacheKeys.sentenceKey("run", targetLang: "vi") != CacheKeys.wordKey("run"))
