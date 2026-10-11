@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-10 06:22'
-updated_date: '2026-10-11 15:37'
+updated_date: '2026-10-11 15:51'
 labels:
   - ios
 dependencies: []
@@ -36,3 +36,9 @@ TranslateView passes store.targetLanguage.title to TranslateResultView (Translat
 <!-- SECTION:PLAN:BEGIN -->
 1. TranslationState.loaded carries a SentenceResult (sentence, explanation, language it was made in). The result view reads the language from it, not from the picker. 2. Unit test: change the picker after loading, the loaded language stays.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/26. Test it: explain a sentence in Vietnamese, then change the picker to Japanese without tapping Explain. Expected: result row still says Vietnamese. Automated: TranslationStoreTests loadedResultKeepsItsLanguageWhenThePickerChanges and pickerChangedWhileWaitingDoesNotChangeTheResultLanguage.
+<!-- SECTION:NOTES:END -->

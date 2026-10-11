@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-10 06:37'
-updated_date: '2026-10-11 15:37'
+updated_date: '2026-10-11 15:51'
 labels:
   - ios
   - backend
@@ -37,3 +37,9 @@ The backend rejects text over 500 characters with detail 'Invalid request conten
 <!-- SECTION:PLAN:BEGIN -->
 1. Backend: ApiExceptionHandler gives a clear 400 detail for long or blank text ('Text must be 1-500 characters.'), with tests. 2. iOS: 500 limit in TranslationStore (UTF-16 count like Java), counter and 'Make it shorter.' in TranslateInputView, Explain disabled over the limit.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/26. Test it: type or paste over 500 characters. Expected: counter turns red 'Make it shorter. 538 / 500', Explain disabled. Backend 400 detail is 'Text must be 1-500 characters.' (restart backend to see it with curl). Automated: ./mvnw -B test (50 passed), TranslationControllerTest; TranslationStoreTests limit tests.
+<!-- SECTION:NOTES:END -->
