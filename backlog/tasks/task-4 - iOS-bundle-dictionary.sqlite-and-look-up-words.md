@@ -1,11 +1,11 @@
 ---
 id: TASK-4
 title: 'iOS: bundle dictionary.sqlite and look up words'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-10 04:31'
-updated_date: '2026-10-11 09:26'
+updated_date: '2026-10-11 15:24'
 labels:
   - ios
 milestone: m-0
@@ -23,16 +23,16 @@ Words should be answered offline from the bundled dictionary first (spec R1, R2 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 dictionary.sqlite is bundled in the app
-- [ ] #2 A single-token input is normalised and looked up in the bundle, including word forms
-- [ ] #3 Unit tests cover hit and miss
+- [x] #1 dictionary.sqlite is bundled in the app
+- [x] #2 A single-token input is normalised and looked up in the bundle, including word forms
+- [x] #3 Unit tests cover hit and miss
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
-- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Tests pass
+- [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -48,3 +48,9 @@ Test it: run DictionaryStoreTests (hit run, form ran, miss zzzzqq). Command: xco
 
 PR: https://github.com/tranphuocloc070699/saynata/pull/7
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Bundled dictionary.sqlite and offline lookup incl. word forms (PR #7). Verified: DictionaryStoreTests, 94 iOS tests on the F1 branch.
+<!-- SECTION:FINAL_SUMMARY:END -->

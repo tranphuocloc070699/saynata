@@ -1,11 +1,11 @@
 ---
 id: TASK-24
 title: Replace word partners and simpler words with usage patterns
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-10 08:21'
-updated_date: '2026-10-11 10:00'
+updated_date: '2026-10-11 15:24'
 labels:
   - pipeline
   - backend
@@ -22,21 +22,21 @@ User decision 2026-10-10: the word card drops the 'Word partners' (collocations)
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A usage pass fills usage for existing done entries without changing their definitions; resume-safe
-- [ ] #2 Export schema stores usage as JSON; dictionary.sqlite re-exported
-- [ ] #3 Spec glossary (doc-1) and feature docs (doc-5, doc-6) updated
-- [ ] #4 Sense model (pipeline models.py, backend WordEntry, iOS Sense) has usage: [{kind, pattern, example}] with kind one of pattern, collocation, phrase (phrasal verb or fixed phrase), idiom; no collocations or synonyms fields
-- [ ] #5 Pipeline prompt and backend WORD_PROMPT ask for up to 3 usage items per sense (fewer when the sense has no good ones); placeholders are someone, something, + noun, + verb, + -ing (no sb/sth)
-- [ ] #6 Prompt rules: only common, natural items a native speaker uses often (no rare or old idioms); each item matches that sense's meaning; examples use simple words and pass the NGSL check
-- [ ] #7 Idioms: when the sense has a known idiom (common or less common, B2-C1 is fine), include at least one; its example still uses simple words
-- [ ] #8 No duplicates: no two usage items in a word repeat the same phrase or meaning (e.g. 'depend on + something' and 'It depends on + noun'), across all its senses; the placeholder matches the example
+- [x] #1 A usage pass fills usage for existing done entries without changing their definitions; resume-safe
+- [x] #2 Export schema stores usage as JSON; dictionary.sqlite re-exported
+- [x] #3 Spec glossary (doc-1) and feature docs (doc-5, doc-6) updated
+- [x] #4 Sense model (pipeline models.py, backend WordEntry, iOS Sense) has usage: [{kind, pattern, example}] with kind one of pattern, collocation, phrase (phrasal verb or fixed phrase), idiom; no collocations or synonyms fields
+- [x] #5 Pipeline prompt and backend WORD_PROMPT ask for up to 3 usage items per sense (fewer when the sense has no good ones); placeholders are someone, something, + noun, + verb, + -ing (no sb/sth)
+- [x] #6 Prompt rules: only common, natural items a native speaker uses often (no rare or old idioms); each item matches that sense's meaning; examples use simple words and pass the NGSL check
+- [x] #7 Idioms: when the sense has a known idiom (common or less common, B2-C1 is fine), include at least one; its example still uses simple words
+- [x] #8 No duplicates: no two usage items in a word repeat the same phrase or meaning (e.g. 'depend on + something' and 'It depends on + noun'), across all its senses; the placeholder matches the example
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #2 Tests pass
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #2 Tests pass
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -61,3 +61,9 @@ Follow-up (idioms + no duplicates): USAGE_RULES and WORD_PROMPT now ask for at l
 PR #12 (idioms + no duplicates, prompt v5): https://github.com/tranphuocloc070699/saynata/pull/12. Test it: cd pipeline && uv run pytest (26 pass); optional dry run uv run pipeline usage --dry-run --words depend make take (~$0.01); then the real pass uv run pipeline usage (~$8-9) and uv run pipeline export. Backend 24 pass, iOS unit tests pass.
 2026-10-11 dry run (get, make, depend, Sonnet, ~$0.01): 29 items, 0 dropped, natural. Developer asked for more idioms (not only common ones) and no duplication before the full run.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Usage lines (pattern, collocation, phrase, idiom) replace word partners and simpler words; idioms and no duplicates; full pass 16,043 lines (PRs #9, #12, #13). Verified: pipeline/backend/iOS tests, dry runs, sample review.
+<!-- SECTION:FINAL_SUMMARY:END -->

@@ -1,11 +1,11 @@
 ---
 id: TASK-27
 title: 'iOS: word card screen on the design system'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-11 08:36'
-updated_date: '2026-10-11 09:35'
+updated_date: '2026-10-11 15:24'
 labels:
   - ios
 dependencies: []
@@ -26,18 +26,18 @@ The word card is the main thing a learner sees for a word, and the same card (co
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Full card shows the word, IPA, and per sense: part of speech, CEFR level, simple English definition, examples, and How to use it (2-3 pattern + example items)
-- [ ] #2 The Vietnamese line is the last row, collapsed by default, and opens on tap
-- [ ] #3 A compact variant exists for the word list inside a sentence result
-- [ ] #4 Uses design-system tokens and components only; buttons are icon-only with accessibility labels
-- [ ] #5 SwiftUI previews cover a normal word, a word with many senses, and missing optional fields
+- [x] #1 Full card shows the word, IPA, and per sense: part of speech, CEFR level, simple English definition, examples, and How to use it (2-3 pattern + example items)
+- [x] #2 The Vietnamese line is the last row, collapsed by default, and opens on tap
+- [x] #3 A compact variant exists for the word list inside a sentence result
+- [x] #4 Uses design-system tokens and components only; buttons are icon-only with accessibility labels
+- [x] #5 SwiftUI previews cover a normal word, a word with many senses, and missing optional fields
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
-- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Tests pass
+- [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -51,3 +51,9 @@ The word card is the main thing a learner sees for a word, and the same card (co
 <!-- SECTION:NOTES:BEGIN -->
 Built WordCardView, WordCardCompactView, WordUsageSection with sample data. Test it: open previews in WordCardView.swift / WordCardCompactView.swift and DesignSystemGallery; Vietnamese row last and closed. Unit tests pass.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Word card on the design system, compact variant, flicker fix (PRs #10, #15). Verified: unit tests, simulator, developer test.
+<!-- SECTION:FINAL_SUMMARY:END -->

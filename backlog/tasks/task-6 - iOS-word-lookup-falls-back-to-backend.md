@@ -1,11 +1,11 @@
 ---
 id: TASK-6
 title: 'iOS: word lookup falls back to backend'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-10 04:31'
-updated_date: '2026-10-11 09:55'
+updated_date: '2026-10-11 15:24'
 labels:
   - ios
 milestone: m-0
@@ -23,16 +23,16 @@ Full lookup order: bundle -> local cache -> GET /api/words/{word} -> save locall
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Word missing from bundle and local cache calls /api/words and shows the entry
-- [ ] #2 Result is saved to the local cache
-- [ ] #3 Errors (422, 502, offline) show a clear message
+- [x] #1 Word missing from bundle and local cache calls /api/words and shows the entry
+- [x] #2 Result is saved to the local cache
+- [x] #3 Errors (422, 502, offline) show a clear message
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
-- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Tests pass
+- [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -78,3 +78,9 @@ Other failures: a first-time word with the backend off shows the system offline 
 **Automated:** 56 unit tests (token rule, store route, lookup order, cache save and reuse, errors). Command:
 `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 17e' -only-testing:EnglishTranslationTests -parallel-testing-enabled NO` (read the last "Test run with N tests" line).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Word lookup falls back to GET /api/words and saves the answer locally; clear errors (PR #11). Verified: WordLookupTests, simulator check.
+<!-- SECTION:FINAL_SUMMARY:END -->
