@@ -3,14 +3,14 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 09:33'
+updated_date: '2026-10-11 09:53'
 ---
-> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11.
+> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11 (TASK-6 and TASK-19 moved the store and client lines; the sentence logic is unchanged).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
 
-The user types an English sentence, picks a target language, and taps **Explain**. The app shows
+The user types an English sentence, picks a target language, and taps **Explain**. (A single word is not a sentence: it goes to the dictionary path in [Word lookup](doc-5%20-%20Word-lookup.md).) The app shows
 three parts: **Meaning** (simple English), **Words** (hard words for a B1 learner), and the
 **translation** in the target language. With the default **Server** provider, the backend caches every
 answer in Postgres, so the same sentence + language is only sent to Claude once, for all users.
@@ -92,14 +92,14 @@ sequenceDiagram
 | Screen | [TranslateView.swift:17-19](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift#L17-L19) | Puts three subviews together: options, input, result. |
 | Pickers | [TranslateOptionsView.swift:15-27](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateOptionsView.swift#L15-L27) | Segmented **provider** picker and menu **language** picker, bound to `store.provider` / `store.targetLanguage`. |
 | Button | [TranslateInputView.swift:21-25](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateInputView.swift#L21-L25) | "Explain" starts `Task { await store.translate() }`. Disabled when `!store.canTranslate`. |
-| Guard | [TranslationStore.swift:32-35](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L32-L35) | `canTranslate` is false while loading or when the trimmed text is empty. This stops double taps. |
-| Request | [TranslationStore.swift:42-52](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L42-L52) | Sets `.loading`, builds the translator **on each request**, calls `explain`, then sets `.loaded` or `.failed(message)`. |
-| States | [TranslationState.swift:10-19](../../../EnglishTranslation/EnglishTranslation/Translation/TranslationState.swift#L10-L19) | `idle`, `loading`, `loaded(Explanation)`, `failed(String)`. |
-| Result | [TranslateResultView.swift:14-24](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateResultView.swift#L14-L24) | One `switch` over the state: hint text, spinner, explanation, or red error. |
+| Guard | [TranslationStore.swift:34-38](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L34-L38) | `canTranslate` is false while loading or when the trimmed text is empty. This stops double taps. |
+| Request | [TranslationStore.swift:44-73](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L44-L73) | Sets `.loading`. If `CacheKeys.isSingleToken` is true the input is a word and goes to the word path (doc-5). Otherwise `explainSentence` builds the translator **on each request**, calls `explain`, then sets `.loaded` or `.failed(message)`. |
+| States | [TranslationState.swift:10-22](../../../EnglishTranslation/EnglishTranslation/Translation/TranslationState.swift#L10-L22) | `idle`, `loading`, `loaded(Explanation)`, `loadedWord(WordEntry)` (doc-5), `failed(String)`. |
+| Result | [TranslateResultView.swift:14-27](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateResultView.swift#L14-L27) | One `switch` over the state: hint text, spinner, explanation, word card, or red error. |
 | Explanation | [TranslateExplanationView.swift:14-30](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateExplanationView.swift#L14-L30) | Meaning → Words (hidden when empty) → translation. Text is selectable. |
 
 **Why the translator is built per request:** a missing API key becomes a `.failed` message on screen
-instead of a crash at launch ([TranslationStore.swift:23-24](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L23-L24)).
+instead of a crash at launch ([TranslationStore.swift:24-25](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L24-L25)).
 Tests also inject a fake through the same `makeTranslator` closure.
 
 ### 2. Network client (iOS)
@@ -108,11 +108,11 @@ Tests also inject a fake through the same `makeTranslator` closure.
 |---|---|---|
 | Pick client | [TranslatorFactory.swift:11-18](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L11-L18) | `switch provider`: `.server` → `BackendClient` (with `ResultCache.shared`), others → direct LLM clients. |
 | Base URL | [AppConfig.swift:25-30](../../../EnglishTranslation/EnglishTranslation/Config/AppConfig.swift#L25-L30) | Reads `BackendBaseURL` from Info.plist, which gets it from `Secrets.xcconfig`. Missing → `ConfigError.missing`. |
-| Local cache | [BackendClient.swift:48-58](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L48-L58) | `explain` builds the key with [CacheKeys.swift](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift) (same rule as the backend) and asks [ResultCache.swift](../../../EnglishTranslation/EnglishTranslation/Cache/ResultCache.swift) first. A hit returns with **no network call**. After a 200 answer, the raw JSON is saved under the key. A saved blob that no longer decodes is ignored and fetched again. |
-| Send | [BackendClient.swift:61-67](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L61-L67) | `POST {baseURL}/api/translations`, JSON body `{ "text", "targetLang": language.code }`. |
-| Status check | [BackendClient.swift:70-73](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L70-L73) | Not 200 → reads Spring's `ProblemDetail.detail` and throws `BackendError.badStatus(code, detail)`. Errors are never cached. |
-| Decode | [BackendClient.swift:74](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L74) | Only `explanation` is decoded. `cached`, `text`, `targetLang` are ignored. |
-| Language codes | [TargetLanguage.swift:10-19](../../../EnglishTranslation/EnglishTranslation/Translation/TargetLanguage.swift#L10-L19) | `vi en ja ko zh th fr es de`. **Must match** the backend enum (a test checks this). |
+| Local cache | [BackendClient.swift:61-73](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L61-L73) | `explain` builds the key with [CacheKeys.swift](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift) (same rule as the backend) and asks [ResultCache.swift](../../../EnglishTranslation/EnglishTranslation/Cache/ResultCache.swift) first. A hit returns with **no network call**. After a 200 answer, the raw JSON is saved under the key. A saved blob that no longer decodes is ignored and fetched again. |
+| Send | [BackendClient.swift:76-82](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L76-L82) | `POST {baseURL}/api/translations`, JSON body `{ "text", "targetLang": language.code }`. |
+| Status check | [BackendClient.swift:104-112](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L104-L112) | Not 200 → reads Spring's `ProblemDetail.detail` and throws `BackendError.badStatus(code, detail)`. Errors are never cached. |
+| Decode | [BackendClient.swift:83](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L83) | Only `explanation` is decoded. `cached`, `text`, `targetLang` are ignored. |
+| Language codes | [TargetLanguage.swift:10-19](../../../EnglishTranslation/EnglishTranslation/Translation/TargetLanguage.swift#L10-L22) | `vi en ja ko zh th fr es de`. **Must match** the backend enum (a test checks this). |
 
 ### 3. API and cache (backend)
 
@@ -182,7 +182,7 @@ sequenceDiagram
 | Prompt | [Translating.swift:33-48](../../../EnglishTranslation/EnglishTranslation/Network/Translating.swift#L33-L48) | Kept in line with the backend's `SENTENCE_PROMPT` **by hand**. |
 | DeepSeek / OpenAI | [LLMClient.swift:72-97](../../../EnglishTranslation/EnglishTranslation/Network/LLMClient.swift#L72-L97) | OpenAI-compatible `chat/completions`, `response_format: json_object`. |
 | Claude | [ClaudeClient.swift:48-73](../../../EnglishTranslation/EnglishTranslation/Network/ClaudeClient.swift#L48-L73) | `v1/messages`, `max_tokens 1024`, first `text` block. |
-| Models | [TranslatorFactory.swift:26-46](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L26-L46) | `deepseek-v4-flash`, `gpt-4.1-mini`, `claude-haiku-5-5`. |
+| Models | [TranslatorFactory.swift:35-56](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L35-L56) | `deepseek-v4-flash`, `gpt-4.1-mini`, `claude-haiku-5-5`. |
 | Lenient decode | [Explanation.swift:32-45](../../../EnglishTranslation/EnglishTranslation/Translation/Explanation.swift#L32-L45) | Removes ```json fences or extra text around the JSON. |
 
 ## Errors: what the user sees

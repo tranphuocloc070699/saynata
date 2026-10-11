@@ -14,6 +14,8 @@ enum TranslationState {
     case loading
     ///The request worked. Holds the explanation and the translation
     case loaded(Explanation)
+    ///A single word was looked up. Holds the dictionary entry
+    case loadedWord(WordEntry)
     ///The request failed. Holds a message the user can read
     case failed(String)
 

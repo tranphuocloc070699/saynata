@@ -53,6 +53,14 @@ enum CacheKeys {
         normalizeSentence(word).lowercased()
     }
 
+    /// True when the input is one token after normalising: a Word in the spec (R1). Tokens are separated
+    /// by the spaces that `normalizeSentence` leaves, so "Run", " run " and "don't" are one token and "go home" is two.
+    /// An empty input has no token.
+    static func isSingleToken(_ text: String) -> Bool {
+        let normalized = normalizeSentence(text)
+        return !normalized.isEmpty && !normalized.contains(" ")
+    }
+
     /// The key for a sentence answer: sha256 of `sentence|promptVersion|targetLang|text`.
     static func sentenceKey(
         _ text: String,

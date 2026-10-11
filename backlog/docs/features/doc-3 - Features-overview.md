@@ -3,7 +3,7 @@ id: doc-3
 title: Features overview
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-10 06:24'
+updated_date: '2026-10-11 09:54'
 ---
 One page per flow: what it does, a diagram, every file and line on the path, the rules that matter,
 what can go wrong, which tests cover it, and what is still missing.
@@ -11,7 +11,7 @@ what can go wrong, which tests cover it, and what is still missing.
 | Feature | Status | Parts |
 |---|---|---|
 | [Sentence translation](doc-4%20-%20Sentence-translation.md) | Working | iOS → backend → Claude → Postgres |
-| [Word lookup](doc-5%20-%20Word-lookup.md) | Backend done, iOS not started | backend (+ iOS planned) |
+| [Word lookup](doc-5%20-%20Word-lookup.md) | Working: bundle, local cache, backend, word card | iOS + backend |
 | [Dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md) | 245 / 2,809 words | Python, offline |
 
 Not started yet: **text to speech** (TASK-7), **speech to text with a score** (TASK-8). Add a page when work starts.
