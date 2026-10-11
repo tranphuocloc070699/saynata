@@ -1,11 +1,11 @@
 ---
 id: TASK-15
 title: Split the prompt version for sentences and words
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-10-10 06:22'
-updated_date: '2026-10-10 08:49'
+updated_date: '2026-10-11 08:10'
 labels:
   - backend
 dependencies: []
