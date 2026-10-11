@@ -72,6 +72,16 @@ Do not edit Backlog task, draft, document, decision, or milestone markdown files
 </CRITICAL_INSTRUCTION>
 <!-- BACKLOG.MD GUIDELINES END -->
 
+## Working with the developer
+
+- **Feature status with every "please test".** When you ask the developer to test, start with a short status
+  table of all features (F1-F4 and other user-facing tasks): done and merged, ready to test now, in progress,
+  not started. Say exactly which ones this build contains, so they do not test something that is not built.
+  Give branch-switch commands as `git fetch origin && git switch <branch> && git pull`.
+- **Mockup before UI code.** Any change to how a screen looks (layout, new section, separators, labels, order)
+  starts with a mockup (an inline visual or a page) and waits for the developer's choice. Only then change
+  SwiftUI code. Bug fixes that keep the agreed design (flicker, wrong colour token) do not need a mockup.
+
 ## Feature docs
 
 `backlog/docs/features/` has one page per flow (files, `file:line` links, Mermaid diagrams, errors, tests, known gaps).
