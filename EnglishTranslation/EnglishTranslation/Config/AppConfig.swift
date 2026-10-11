@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// Values that come from `Secrets.xcconfig` through the Info.plist.
+/// Values that come from the Info.plist.
 enum AppConfig {
     /// The error shown when a required value is missing.
     enum ConfigError: LocalizedError {
@@ -16,7 +16,7 @@ enum AppConfig {
         var errorDescription: String? {
             switch self {
             case let .missing(name):
-                "Missing \(name). Check Secrets.xcconfig and the Info tab."
+                "Missing \(name). Check the Info tab."
             }
         }
     }
@@ -27,16 +27,6 @@ enum AppConfig {
             throw ConfigError.missing("BackendBaseURL")
         }
         return url
-    }
-
-    /// The API key for `provider`. Throws if the key is missing or empty.
-    static func apiKey(for provider: Provider) throws -> String {
-        switch provider {
-        case .server: preconditionFailure("The server provider has no API key.")
-        case .deepSeek: try value(for: "DeepSeekAPIKey")
-        case .openAI: try value(for: "OpenAIAPIKey")
-        case .claude: try value(for: "ClaudeAPIKey")
-        }
     }
 
     private static func value(for name: String) throws -> String {

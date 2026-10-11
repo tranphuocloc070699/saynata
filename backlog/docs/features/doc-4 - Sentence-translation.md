@@ -3,16 +3,16 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 09:53'
+updated_date: '2026-10-11 15:06'
 ---
-> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11 (TASK-6 and TASK-19 moved the store and client lines; the sentence logic is unchanged).
+> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11 (TASK-18 removed the direct LLM providers and the provider picker; the app only talks to the backend).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
 
 The user types an English sentence, picks a target language, and taps **Explain**. (A single word is not a sentence: it goes to the dictionary path in [Word lookup](doc-5%20-%20Word-lookup.md).) The app shows
 three parts: **Meaning** (simple English), **Words** (hard words for a B1 learner), and the
-**translation** in the target language. With the default **Server** provider, the backend caches every
+**translation** in the target language. The app only talks to our backend, which caches every
 answer in Postgres, so the same sentence + language is only sent to Claude once, for all users.
 
 ## Big picture
@@ -23,7 +23,6 @@ flowchart LR
         V[TranslateView] --> S[TranslationStore]
         S --> F[TranslatorFactory]
         F --> B[BackendClient]
-        F --> D["LLMClient / ClaudeClient (direct providers)"]
     end
     subgraph API["Java backend :8081"]
         C[TranslationController] --> T[TranslationService]
@@ -33,10 +32,9 @@ flowchart LR
     end
     B -- "POST /api/translations" --> C
     CS -- "Messages API structured output" --> CL[Claude Haiku 5.5]
-    D -- "HTTPS + API key from Secrets.xcconfig" --> LLM[DeepSeek / OpenAI / Claude]
 ```
 
-## Step by step: Server provider (the default)
+## Step by step
 
 ```mermaid
 sequenceDiagram
@@ -55,7 +53,7 @@ sequenceDiagram
     U->>IV: types text, taps "Explain"
     IV->>ST: Task { await translate() }
     ST->>ST: guard canTranslate, state = .loading
-    ST->>TF: makeTranslator(.server)
+    ST->>TF: makeTranslator()
     TF-->>ST: BackendClient(baseURL from Info.plist)
     ST->>BC: explain(trimmedText, translatingTo: lang)
     BC->>TC: POST /api/translations {text, targetLang}
@@ -90,24 +88,24 @@ sequenceDiagram
 |---|---|---|
 | App start | [EnglishTranslationApp.swift:10](../../../EnglishTranslation/EnglishTranslation/EnglishTranslationApp.swift#L10) | Creates **one** `TranslationStore` and shares it with `.environment(store)`. |
 | Screen | [TranslateView.swift:17-19](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift#L17-L19) | Puts three subviews together: options, input, result. |
-| Pickers | [TranslateOptionsView.swift:15-27](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateOptionsView.swift#L15-L27) | Segmented **provider** picker and menu **language** picker, bound to `store.provider` / `store.targetLanguage`. |
+| Picker | [TranslateOptionsView.swift:14-19](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateOptionsView.swift#L14-L19) | Menu **language** picker, bound to `store.targetLanguage`. There is no provider picker any more. |
 | Button | [TranslateInputView.swift:21-25](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateInputView.swift#L21-L25) | "Explain" starts `Task { await store.translate() }`. Disabled when `!store.canTranslate`. |
-| Guard | [TranslationStore.swift:34-38](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L34-L38) | `canTranslate` is false while loading or when the trimmed text is empty. This stops double taps. |
-| Request | [TranslationStore.swift:44-73](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L44-L73) | Sets `.loading`. If `CacheKeys.isSingleToken` is true the input is a word and goes to the word path (doc-5). Otherwise `explainSentence` builds the translator **on each request**, calls `explain`, then sets `.loaded` or `.failed(message)`. |
+| Guard | [TranslationStore.swift:33-36](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L33-L36) | `canTranslate` is false while loading or when the trimmed text is empty. This stops double taps. |
+| Request | [TranslationStore.swift:44-92](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L44-L92) | Sets `.loading`. If `CacheKeys.isSingleToken` is true the input is a word and goes to the word path (doc-5). Otherwise `explainSentence` builds the translator **on each request**, calls `explain`, then sets `.loaded` or `.failed(message)`. |
 | States | [TranslationState.swift:10-22](../../../EnglishTranslation/EnglishTranslation/Translation/TranslationState.swift#L10-L22) | `idle`, `loading`, `loaded(Explanation)`, `loadedWord(WordEntry)` (doc-5), `failed(String)`. |
 | Result | [TranslateResultView.swift:14-27](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateResultView.swift#L14-L27) | One `switch` over the state: hint text, spinner, explanation, word card, or red error. |
 | Explanation | [TranslateExplanationView.swift:14-30](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateExplanationView.swift#L14-L30) | Meaning → Words (hidden when empty) → translation. Text is selectable. |
 
-**Why the translator is built per request:** a missing API key becomes a `.failed` message on screen
-instead of a crash at launch ([TranslationStore.swift:24-25](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L24-L25)).
+**Why the translator is built per request:** a missing `BackendBaseURL` becomes a `.failed` message on screen
+instead of a crash at launch ([TranslationStore.swift:22-23](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L22-L23)).
 Tests also inject a fake through the same `makeTranslator` closure.
 
 ### 2. Network client (iOS)
 
 | Step | File | What happens |
 |---|---|---|
-| Pick client | [TranslatorFactory.swift:11-18](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L11-L18) | `switch provider`: `.server` → `BackendClient` (with `ResultCache.shared`), others → direct LLM clients. |
-| Base URL | [AppConfig.swift:25-30](../../../EnglishTranslation/EnglishTranslation/Config/AppConfig.swift#L25-L30) | Reads `BackendBaseURL` from Info.plist, which gets it from `Secrets.xcconfig`. Missing → `ConfigError.missing`. |
+| Build client | [TranslatorFactory.swift:11-18](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L11-L18) | `makeTranslator()` → `BackendClient` (with `ResultCache.shared`). It is the only client. |
+| Base URL | [AppConfig.swift:25-30](../../../EnglishTranslation/EnglishTranslation/Config/AppConfig.swift#L25-L30) | Reads `BackendBaseURL` from Info.plist, (a plain value, no secrets). Missing → `ConfigError.missing`. |
 | Local cache | [BackendClient.swift:61-73](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L61-L73) | `explain` builds the key with [CacheKeys.swift](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift) (same rule as the backend) and asks [ResultCache.swift](../../../EnglishTranslation/EnglishTranslation/Cache/ResultCache.swift) first. A hit returns with **no network call**. After a 200 answer, the raw JSON is saved under the key. A saved blob that no longer decodes is ignored and fetched again. |
 | Send | [BackendClient.swift:76-82](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L76-L82) | `POST {baseURL}/api/translations`, JSON body `{ "text", "targetLang": language.code }`. |
 | Status check | [BackendClient.swift:104-112](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L104-L112) | Not 200 → reads Spring's `ProblemDetail.detail` and throws `BackendError.badStatus(code, detail)`. Errors are never cached. |
@@ -153,56 +151,22 @@ Tests also inject a fake through the same `makeTranslator` closure.
 **Why no `temperature: 0`:** Haiku 5.5 rejects sampling parameters. Repeatable output comes from the
 cache instead (spec, Decisions).
 
-## Other path: direct providers (DeepSeek, ChatGPT, Claude)
-
-These skip the backend. The phone calls the LLM with a key from `Secrets.xcconfig`. **No cache** at all.
-
-```mermaid
-sequenceDiagram
-    participant ST as TranslationStore
-    participant TF as TranslatorFactory
-    participant CC as ChatCompleting.explain
-    participant HTTP as LLMClient / ClaudeClient
-    participant LLM as LLM API
-    ST->>TF: makeTranslator(.deepSeek / .openAI / .claude)
-    TF->>TF: AppConfig.apiKey(for:) or throw ConfigError
-    TF-->>ST: client
-    ST->>CC: explain(text, lang)
-    CC->>HTTP: reply(system: TranslationPrompt, user: text)
-    HTTP->>LLM: POST chat/completions or v1/messages
-    LLM-->>HTTP: raw text
-    HTTP-->>CC: raw text
-    CC->>CC: Explanation.decode(fromModelReply:), keeps only the JSON object
-    CC-->>ST: Explanation or LLMError.badFormat
-```
-
-| Part | File | Note |
-|---|---|---|
-| Shared logic | [Translating.swift:21-28](../../../EnglishTranslation/EnglishTranslation/Network/Translating.swift#L21-L28) | `ChatCompleting.explain` = prompt + `reply` + decode. Each client only does HTTP. |
-| Prompt | [Translating.swift:33-48](../../../EnglishTranslation/EnglishTranslation/Network/Translating.swift#L33-L48) | Kept in line with the backend's `SENTENCE_PROMPT` **by hand**. |
-| DeepSeek / OpenAI | [LLMClient.swift:72-97](../../../EnglishTranslation/EnglishTranslation/Network/LLMClient.swift#L72-L97) | OpenAI-compatible `chat/completions`, `response_format: json_object`. |
-| Claude | [ClaudeClient.swift:48-73](../../../EnglishTranslation/EnglishTranslation/Network/ClaudeClient.swift#L48-L73) | `v1/messages`, `max_tokens 1024`, first `text` block. |
-| Models | [TranslatorFactory.swift:35-56](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L35-L56) | `deepseek-v4-flash`, `gpt-4.1-mini`, `claude-haiku-5-5`. |
-| Lenient decode | [Explanation.swift:32-45](../../../EnglishTranslation/EnglishTranslation/Translation/Explanation.swift#L32-L45) | Removes ```json fences or extra text around the JSON. |
-
 ## Errors: what the user sees
 
 | Cause | Where it starts | HTTP | Message on screen |
 |---|---|---|---|
 | Empty text | `canTranslate` | — | Button disabled |
-| `BackendBaseURL` missing | `AppConfig` | — | "Missing BackendBaseURL. Check Secrets.xcconfig and the Info tab." |
-| Direct provider key missing | `AppConfig.apiKey` | — | "Missing DeepSeekAPIKey. …" |
+| `BackendBaseURL` missing | `AppConfig` | — | "Missing BackendBaseURL. Check the Info tab." |
 | Text > 500 or blank, bad `targetLang` | Spring validation | 400 | ProblemDetail `detail` + "(status 400)" |
 | Claude refused | [ClaudeService.java:140-142](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L140-L142) → [ApiExceptionHandler.java:18-21](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L18-L21) | 422 | "Claude declined to answer this text. (status 422)" |
 | Claude API down / bad key | [ApiExceptionHandler.java:23-27](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L23-L27) | 502 | "The translation service is not available. Try again later. (status 502)" |
 | Backend not running | `URLSession` | — | `URLError` text, e.g. "Could not connect to the server." |
-| Direct LLM bad JSON | `Explanation.decode` | — | "The model's answer was not in the expected format. Try again." |
 
 ## Tests
 
 | Test | Covers |
 |---|---|
-| [TranslationStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStoreTests.swift) | Empty input, success, errors, missing key, picked provider and language, defaults, trimming, lenient JSON decode |
+| [TranslationStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStoreTests.swift) | Empty input, success, errors, missing base URL, picked language, defaults, trimming, word vs sentence routing |
 | [BackendClientTests.swift](../../../EnglishTranslation/EnglishTranslationTests/BackendClientTests.swift) | Request body, decode, error detail, error without body, bad JSON, **language codes match the backend**, repeat request served from the cache with no network call, other language not shared, errors not cached |
 | [CacheTests.swift](../../../EnglishTranslation/EnglishTranslationTests/CacheTests.swift) | Swift cache keys equal known sha256 values from the backend rule, normalising matches Java, prompt versions equal `application.properties`, SQLite cache round trip and reopen |
 | [TranslationControllerTest.java](../../../backend/src/test/java/com/englishtranslation/backend/translation/TranslationControllerTest.java) | Blank text, unknown or missing language → 400, code read and returned |
@@ -215,9 +179,8 @@ Run: `./mvnw test` in `backend/`, and the iOS tests in Xcode (⌘U).
 ## Change checklist
 
 - **Changing `SENTENCE_PROMPT`?** Bump `app.claude.sentence-prompt-version`, or old answers keep being served.
-  Also update `TranslationPrompt` in `Translating.swift` so direct providers match.
 - **Adding a language?** Add it to `TargetLanguage.java` **and** `TargetLanguage.swift`. The test `codesMatchTheBackend` fails if you forget one.
-- **Changing the `Explanation` shape?** Update the Java record, the Swift struct, the Flyway schema (new migration), and both prompts.
+- **Changing the `Explanation` shape?** Update the Java record, the Swift struct, the Flyway schema (new migration), and the prompt.
 
 ## Known gaps
 
