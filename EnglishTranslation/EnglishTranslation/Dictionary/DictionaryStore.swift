@@ -15,15 +15,16 @@ enum DictionaryError: Error {
 
 /// Reads the bundled `dictionary.sqlite` (built by the pipeline). Works offline.
 ///
-/// The file is opened read-only. SQLite's default "serialized" mode lets several
-/// threads share one connection, so this class is safe to share.
+/// The file is opened read-only with SQLITE_OPEN_FULLMUTEX. Apple's SQLite is built in
+/// multi-thread mode, so this flag is what makes sharing one connection across threads safe.
+/// See https://www.sqlite.org/threadsafe.html
 final class DictionaryStore: @unchecked Sendable {
     private var database: OpaquePointer?
 
     /// Opens the dictionary file at `url`.
     init(url: URL) throws {
         let path = url.path(percentEncoded: false)
-        guard sqlite3_open_v2(path, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+        guard sqlite3_open_v2(path, &database, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
             let message = Self.message(of: database)
             sqlite3_close(database)
             throw DictionaryError.cannotOpen(message)
