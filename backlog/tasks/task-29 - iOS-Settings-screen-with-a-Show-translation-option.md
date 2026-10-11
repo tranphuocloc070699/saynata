@@ -1,9 +1,11 @@
 ---
 id: TASK-29
 title: 'iOS: Settings screen with a Show translation option'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-11 08:36'
+updated_date: '2026-10-11 15:54'
 labels:
   - ios
 dependencies: []
@@ -30,3 +32,9 @@ CLAUDE.md product rule: the target-language line is collapsed by default, and Se
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. TranslationRowPreference (mode + last-open, UserDefaults) with unit tests. 2. SettingsView sheet, gear IconButton beside language picker. 3. MeaningCard, WordCardView, WordCardCompactView read startsOpen and record changes. 4. Update doc-4, doc-5, design-system.
+<!-- SECTION:PLAN:END -->

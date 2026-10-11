@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 15:07'
+updated_date: '2026-10-11 16:01'
 ---
-> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19. Last traced from code: 2026-10-11 (target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
+> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19. Last traced from code: 2026-10-11 (Show translation setting: TASK-29; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -231,13 +231,13 @@ hides the level or the Vietnamese row. Last traced: 2026-10-11.
 
 Top to bottom:
 
-1. **Header** ([WordCardView.swift:35-52](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L35-L52)): the headword as typed (`matchedForm.text`, else `word`), and the Listen icon button. Under it, either the form pill (when `matchedForm` is set; it has the lemma IPA) or the IPA (when the user typed the base word).
-2. **One card per sense** ([senseCard:54-81](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L54-L81)): surface, hairline border, card radius. Title = `SenseTitleRow`.
-3. **Three folded rows, all closed**, in this order: Examples, Grammar, and the picked language (title from `TargetLanguage.title`, "Vietnamese" by default). No counters. One row open at a time per card. Examples is hidden with no examples, Grammar with no usage. The language row is hidden for English, for Vietnamese with no text, and for other languages with no simple explanation (`Sense.hasTargetLanguageRow(for:)`).
+1. **Header** ([WordCardView.swift:46-63](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L46-L63)): the headword as typed (`matchedForm.text`, else `word`), and the Listen icon button. Under it, either the form pill (when `matchedForm` is set; it has the lemma IPA) or the IPA (when the user typed the base word).
+2. **One card per sense** ([senseCard:65-100](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L65-L100)): surface, hairline border, card radius. Title = `SenseTitleRow`.
+3. **Three folded rows**, in this order: Examples, Grammar, and the picked language (title from `TargetLanguage.title`, "Vietnamese" by default). No counters. Examples and Grammar are closed and only one of them is open at a time per card. The language row starts closed unless "Show translation" in Settings says otherwise (TASK-29); it is tracked apart from the other two (`openTargetRows`), so "Always open" can open it on every sense. Examples is hidden with no examples, Grammar with no usage. The language row is hidden for English, for Vietnamese with no text, and for other languages with no simple explanation (`Sense.hasTargetLanguageRow(for:)`).
 4. **Examples (open)**: one line each, with a level label (`ExampleLevelLabel`: easy teal, medium amber, harder coral). No level (old data) means no label.
 5. **Grammar (open)**: `Sense.usageGroups` ([WordEntry+Display.swift:22-33](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordEntry+Display.swift#L22-L33)) groups by kind in a fixed order: Patterns, Collocations, Phrases and idioms (phrase and idiom together). Empty groups are hidden. Each item is a bullet: pattern in medium weight, example below in secondary serif.
 
-Compact card: word, IPA, Listen, then the same `SenseTitleRow` for sense 1, then the language row (closed).
+Compact card: word, IPA, Listen, then the same `SenseTitleRow` for sense 1, then the language row (closed by default, follows "Show translation" too).
 
 ### Target-language row (TASK-40, doc-7)
 
@@ -248,10 +248,11 @@ The picked language reaches the card as `TranslationStore.targetLanguage`, throu
 - **English**: no row (the explanation is already English).
 - Chinese uses Apple's code `zh-Hans` (`TargetLanguage.appleIdentifier`).
 - The cache lives in memory only. It is gone when the app quits.
+- **Show translation (TASK-29)**: `TranslationRowPreference.startsOpen` sets the first state of the row on `WordCardView`, `WordCardCompactView` and the sentence `MeaningCard`. Opening or closing a row calls `rowChanged(isOpen:)`, which "Remember last choice" reuses. Details in doc-4.
 - Known gap: the iOS Simulator reports the pair as unsupported, so the real translation and the download sheet can only be tested on a device.
 
 
-Tests: [TargetLanguageRowTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TargetLanguageRowTests.swift) (row title, Vietnamese uses the dictionary text, other languages need translation, English has no row, Chinese code, cache), [WordEntryTests.swift](../../../EnglishTranslation/EnglishTranslationTests/WordEntryTests.swift) (usage grouping and order, empty groups, form pill text, example decoding of old strings and new objects, entry without `matchedForm`).
+Tests: [TranslationRowPreferenceTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationRowPreferenceTests.swift) (Show translation logic), [TargetLanguageRowTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TargetLanguageRowTests.swift) (row title, Vietnamese uses the dictionary text, other languages need translation, English has no row, Chinese code, cache), [WordEntryTests.swift](../../../EnglishTranslation/EnglishTranslationTests/WordEntryTests.swift) (usage grouping and order, empty groups, form pill text, example decoding of old strings and new objects, entry without `matchedForm`).
 
 ## Errors
 
