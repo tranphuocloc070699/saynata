@@ -3,9 +3,11 @@ id: TASK-26
 title: >-
   Set up the orchestrator workflow: Sonnet implementer subagent and feature
   waves
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-10-11 08:21'
+updated_date: '2026-10-11 08:37'
 labels:
   - workflow
 dependencies: []
@@ -41,3 +43,28 @@ Decided with the developer on 2026-10-11, so a fresh chat can start without this
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Write .claude/agents/implementer.md (sonnet, effort medium, isolation worktree, permissionMode bypassPermissions). Prompt: read CLAUDE.md, task, practices/swift.md; branch off the feature branch; tests + check_docs; push; gh pr create with a Test it card; append notes; never Done, never merge, never push main.
+2. Add .claude/settings.json deny rules for force-push and push to main, plus a PreToolUse hook script (.claude/hooks/guard-git-push.sh) because Bash deny patterns miss forms like 'git -C . push' (docs: permissions#bash-rule-limits).
+3. Verify: docs say deny rules block in every mode incl. bypassPermissions (permission-modes#available-modes); run a real check with claude -p --permission-mode bypassPermissions and --dry-run pushes.
+4. Backlog: create missing tasks (explain-first backend change, word card screen, Settings 'Show translation', share extension) and feature tasks F1-F4 with dependencies; fix TASK-19 AC #2 to usage patterns (decision-2).
+5. Branch model: one long-lived feature branch per feature (feature/f1-word-lookup); workers open task PRs into it (orchestrator reviews and merges); one feature PR into main with the Test it card, merged after the developer says yes. The feature branch is deleted only after its main PR merges, so no child PR is closed.
+6. Commit to main; developer pushes main so worktrees and PRs start from it.
+7. Start F1 wave: TASK-4, TASK-5, word card screen, TASK-24 (max 4 workers). TASK-6 and TASK-19 in the next wave.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Done so far (2026-10-11):
+- .claude/agents/implementer.md: sonnet, effort medium, isolation worktree, permissionMode bypassPermissions; Test it card required in every PR.
+- .claude/settings.json deny rules + .claude/hooks/guard-git-push.sh (PreToolUse). Hook unit-checked on 15 commands.
+- Verified with claude -p --permission-mode bypassPermissions: deny rule alone (hooks off) blocked a force dry-run push; hook blocked 'git -C . push origin HEAD:main', a form the deny rules miss. Docs: 'Deny rules block in every mode, including bypassPermissions' (code.claude.com/docs/en/permission-modes).
+- Finding: subagent permissionMode bypassPermissions only applies when the main chat is in bypassPermissions too (sub-agents docs). In auto mode the worker runs in auto.
+- .worktreeinclude copies EnglishTranslation/Secrets.xcconfig into worktrees so iOS builds.
+- New tasks: TASK-27 word card screen, TASK-28 explain-first backend, TASK-29 Settings, TASK-30 share extension. Features: TASK-31 F1, TASK-32 F2, TASK-33 F3, TASK-34 F4. TASK-19 AC now says usage patterns, depends on TASK-24 and TASK-27.
+- Branch model: feature/fN-* branch per feature; task PRs into it; one feature PR into main.
+<!-- SECTION:NOTES:END -->

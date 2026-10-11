@@ -4,12 +4,14 @@ title: 'iOS: single-word input shows a dictionary entry, not a sentence explanat
 status: To Do
 assignee: []
 created_date: '2026-10-10 06:36'
-updated_date: '2026-10-10 08:25'
+updated_date: '2026-10-11 08:36'
 labels:
   - ios
 dependencies:
   - TASK-4
   - TASK-6
+  - TASK-24
+  - TASK-27
 ordinal: 19000
 ---
 
@@ -22,8 +24,8 @@ Today every input goes to POST /api/translations, so one word like 'Graveyard' g
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Input with one token goes to the word lookup path; more than one token goes to /api/translations
-- [ ] #2 Word result shows each sense: pos, CEFR, simple definition, Vietnamese, examples, collocations, synonyms
-- [ ] #3 Token rule matches backend CacheKeys normalising (unit tests)
+- [ ] #2 Token rule matches backend CacheKeys normalising (unit tests)
+- [ ] #3 Word result shows each sense: pos, CEFR, simple definition, examples, and How to use it (usage patterns, decision-2); the Vietnamese line comes last
 <!-- AC:END -->
 
 ## Definition of Done

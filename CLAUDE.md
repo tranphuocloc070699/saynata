@@ -17,6 +17,10 @@ Read before working:
 - UI work (colors, text styles, components, HIG rules): `docs/design/design-system.md`
 - What's done and what's next: `backlog task list --plain`, and any In Progress task's notes
 
+Workers: the main chat plans and reviews; `.claude/agents/implementer.md` (Sonnet, own worktree) builds one task and
+opens a PR into its feature branch (TASK-31 to 34 are features F1-F4). `.claude/hooks/guard-git-push.sh` blocks
+force-push and pushes to main in every permission mode.
+
 Tests: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` · iOS in Xcode (⌘U).
 
 ## Product rule: explain first, translate last
