@@ -41,9 +41,9 @@ struct WordCardCompactView: View {
                     .font(.system(.body, design: .serif))
                     .foregroundStyle(Theme.Colors.textPrimary)
 
-                if let vietnamese = sense.vietnamese {
+                if !sense.vietnamese.isEmpty {
                     FoldedRow(title: "Vietnamese", isExpanded: $isVietnameseOpen) {
-                        Text(vietnamese)
+                        Text(sense.vietnamese)
                             .font(.body)
                             .foregroundStyle(Theme.Colors.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)

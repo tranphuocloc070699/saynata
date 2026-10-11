@@ -20,7 +20,7 @@ struct WordEntryTests {
         #expect(WordEntry.depend.senses.count == 2)
         #expect(WordEntry.run.senses.count >= 4)
         #expect(WordEntry.sparse.ipa == nil)
-        #expect(WordEntry.sparse.senses[0].vietnamese == nil)
+        #expect(WordEntry.sparse.senses[0].vietnamese.isEmpty)
         #expect(WordEntry.sparse.senses[0].usage.isEmpty)
     }
 

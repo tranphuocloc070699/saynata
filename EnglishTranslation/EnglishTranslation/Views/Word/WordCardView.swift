@@ -74,9 +74,9 @@ struct WordCardView: View {
                         WordUsageSection(usage: sense.usage)
                     }
                 }
-                if let vietnamese = sense.vietnamese {
+                if !sense.vietnamese.isEmpty {
                     foldedRow("Vietnamese", index: index) {
-                        Text(vietnamese)
+                        Text(sense.vietnamese)
                             .font(.body)
                             .foregroundStyle(Theme.Colors.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)

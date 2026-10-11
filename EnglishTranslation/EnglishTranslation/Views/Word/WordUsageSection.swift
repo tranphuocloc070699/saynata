@@ -13,7 +13,7 @@ struct WordUsageSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-            ForEach(usage, id: \.self) { item in
+            ForEach(Array(usage.enumerated()), id: \.offset) { _, item in
                 VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
                     if let label = item.kind.label {
                         Text(label)

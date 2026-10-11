@@ -116,7 +116,7 @@ extension WordEntry {
         word: "zeitgeist",
         ipa: nil,
         senses: [
-            Sense(pos: "noun", cefr: nil, simpleDefinition: "the main ideas and feelings of a certain time in history", vietnamese: nil),
+            Sense(pos: "noun", cefr: "", simpleDefinition: "the main ideas and feelings of a certain time in history", vietnamese: "", examples: []),
         ]
     )
 }
