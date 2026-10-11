@@ -46,7 +46,7 @@ struct FoldedRow<Content: View>: View {
                     .padding(.bottom, Theme.Spacing.medium)
             }
 
-            Divider().overlay(Theme.Colors.hairline)
+            HairlineDivider()
         }
     }
 }
