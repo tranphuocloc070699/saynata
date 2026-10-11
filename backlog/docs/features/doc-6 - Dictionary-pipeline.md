@@ -3,7 +3,7 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 09:33'
+updated_date: '2026-10-11 10:00'
 ---
 > Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-11 (usage replaces collocations and synonyms, TASK-24). **The usage pass has not run on the real data yet:** until it does, the 2,750 `done` entries have no usage.
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
@@ -102,7 +102,7 @@ sequenceDiagram
 | Client | [70-73](../../../pipeline/src/pipeline/generate.py#L70-L73) | Anthropic SDK, created once (`@cache`). `max_retries=5` for 429, 5xx and connection errors. Key: `ANTHROPIC_API_KEY`. |
 | Pacing | [83-91](../../../pipeline/src/pipeline/generate.py#L83-L91) | Off by default. `LLM_MAX_PER_MINUTE` spaces calls if you hit rate limits. |
 | System prompt | [54-67](../../../pipeline/src/pipeline/generate.py#L54-L67) | Cambridge Learner's style rules. No schema in the prompt: structured output enforces the shape. |
-| Usage rules | [24-52](../../../pipeline/src/pipeline/generate.py#L24-L52) | `USAGE_RULES`: kinds, placeholders, "common and natural only", "must fit this sense", simple example words, and the agreed few-shot examples. Used by the system prompt **and** by the usage pass. |
+| Usage rules | [24-64](../../../pipeline/src/pipeline/generate.py#L24-L64) | `USAGE_RULES`: kinds, placeholders, "natural, not old-fashioned", "at least one idiom when the sense has a real one (B2-C1 is fine)", "no duplicates across all senses", "the placeholder must match the example", "must fit this sense", simple example words, and the agreed few-shot examples. Used by the system prompt **and** by the usage pass. |
 | User prompt | [94-106](../../../pipeline/src/pipeline/generate.py#L94-L106) | Headword + candidate senses + Vietnamese hints + **feedback from the last failed try**. |
 | Call | [109-124](../../../pipeline/src/pipeline/generate.py#L109-L124) | `messages.parse(output_format=WordEntry)`, `effort: low`. A refusal or empty reply raises, and the word becomes `failed`. No `temperature`: the 5.5 models reject it. |
 | Version | [19](../../../pipeline/src/pipeline/generate.py#L19) | `PROMPT_VERSION = 2` (v1 = Gemini). Bump it and `generate` redoes `done` rows with an older version. **Not bumped for TASK-24**: that would redo all 2,750 entries (~$36). The usage pass adds usage instead (~$8). |
@@ -171,9 +171,9 @@ sequenceDiagram
 |---|---|---|
 | Finished test | [usage.py:33-34](../../../pipeline/src/pipeline/usage.py#L33-L34) | A word is done when every sense has a `usage` key (an empty list counts). So a stopped run resumes where it stopped, and a second run makes no calls. |
 | The call | [usage.py:45-67](../../../pipeline/src/pipeline/usage.py#L45-L67) | `messages.parse(output_format=UsageResult)`, `effort: low`, system prompt = short intro + `USAGE_RULES`. `fetch` is a parameter, so tests pass a fake and never call Claude. |
-| Clean up | [usage.py:70-87](../../../pipeline/src/pipeline/usage.py#L70-L87) | One call, no retries. An item that fails the checks (hard word in the example, `sb`/`sth`, duplicate pattern, more than 3) is **dropped**. A sense may end with fewer items, or none. |
-| Save | [usage.py:90-101](../../../pipeline/src/pipeline/usage.py#L90-L101) | Copies the sense as it was, adds `usage`, and removes the old `collocations` and `synonyms`. |
-| Errors | [usage.py:104-110](../../../pipeline/src/pipeline/usage.py#L104-L110) | Any error (network, refusal) leaves the row as it is. The next run picks it up again. |
+| Clean up | [usage.py:70-141](../../../pipeline/src/pipeline/usage.py#L70-L141) | One call, no retries. An item that fails the checks (hard word in the example only, `sb`/`sth`, more than 3) is **dropped**. A duplicate is dropped too: after ignoring punctuation and case (placeholders become tokens: `someone`, `something`/`+ noun`, `+ verb`, `+ -ing`, `+ adjective`, `+ clause`), a pattern that equals, or sits inside, another kept pattern of the same word (across all senses) is a duplicate. One-word patterns like `get` are too short to count as contained. A sense may end with fewer items, or none. |
+| Save | [usage.py:144-157](../../../pipeline/src/pipeline/usage.py#L144-L157) | Copies the sense as it was, adds `usage`, and removes the old `collocations` and `synonyms`. |
+| Errors | [usage.py:159-166](../../../pipeline/src/pipeline/usage.py#L159-L166) | Any error (network, refusal) leaves the row as it is. The next run picks it up again. |
 
 ### 7. Export: [export.py](../../../pipeline/src/pipeline/export.py)
 

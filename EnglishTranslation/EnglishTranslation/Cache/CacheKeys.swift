@@ -12,7 +12,7 @@ import Foundation
 /// in `backend/src/main/resources/application.properties`.
 enum PromptVersions {
     static let sentence = "v4"
-    static let word = "v4"
+    static let word = "v5"
 }
 
 /// Builds the same cache keys as `CacheKeys.java` in the backend, so one key means one answer

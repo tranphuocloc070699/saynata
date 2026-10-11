@@ -52,7 +52,7 @@ sequenceDiagram
     WC->>WC: @Pattern letters, ' and - only, 1 to 64 chars, else 400
     WC->>WS: lookUp("Reluctant")
     WS->>WS: normalizeWord gives "reluctant"
-    WS->>WS: key = sha256 of word, v4, reluctant
+    WS->>WS: key = sha256 of word, v5, reluctant
     WS->>DB: findByCacheKey(key)
     alt hit
         DB-->>WS: entry_json
@@ -81,7 +81,7 @@ sequenceDiagram
 | Prompt | [ClaudeService.java:45-84](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L45-L84) | `WORD_PROMPT`: 1–4 senses, ≤20-word definition, never the word itself, 2 examples, 0–3 `usage` items with the rules and the agreed few-shot examples (get, make, take, depend). Not an English word → empty `senses`. |
 | Request | [ClaudeService.java:109-122](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L109-L122) | `maxTokens 8000`, `effort LOW`, structured output with `WordEntry.class`. The word goes inside `<word>` tags, escaped by `wordMessage` ([130-132](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L130-L132)). |
 | Shape | [WordEntry.java:7-29](../../../backend/src/main/java/com/englishtranslation/backend/word/WordEntry.java#L7-L29) | Same as the pipeline's `models.py`, in camelCase, **without** `source_index`, `image_type`, `image_query`. `usage` is a list of `{ kind, pattern, example }`; `kind` is a plain lowercase String (an enum would be written in capitals in the schema). |
-| Cache version | [application.properties:18](../../../backend/src/main/resources/application.properties#L18) | `app.claude.word-prompt-version=v4` (TASK-24). Rows saved with v3 have collocations and synonyms and no usage; the new key never reads them. |
+| Cache version | [application.properties:18](../../../backend/src/main/resources/application.properties#L18) | `app.claude.word-prompt-version=v5` (TASK-24). Rows saved with v3 or v4 have collocations and synonyms and no usage; the new key never reads them. |
 | Response | [WordResponse.java:3](../../../backend/src/main/java/com/englishtranslation/backend/word/WordResponse.java#L3) | `{ word, entry: { senses: [...] }, cached }`. |
 
 **Table `word_lookup`** ([V1](../../../backend/src/main/resources/db/migration/V1__create_cache_tables.sql#L11-L19), entity [WordLookup.java](../../../backend/src/main/java/com/englishtranslation/backend/word/WordLookup.java)):

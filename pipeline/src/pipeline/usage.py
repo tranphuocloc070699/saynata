@@ -6,6 +6,7 @@ A word is finished when every sense has a `usage` key, so a stopped run resumes 
 """
 
 import json
+import re
 import sqlite3
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -67,22 +68,75 @@ def fetch_from_claude(lemma: str, entry: dict) -> UsageResult:
     return response.parsed_output
 
 
-def clean_usage(items: list[Usage], vocabulary: set[str]) -> tuple[list[dict], list[str]]:
-    """Keeps up to 3 good, different items. Returns (items to save, reasons for the dropped ones)."""
+# Placeholders become tokens, so "depend on + someone" and "depend on + something" stay different.
+_TOKEN = re.compile(r"\+\s*(noun|verb|-ing|adjective|clause)|[a-z']+")
+_PLACEHOLDER_TOKENS = {
+    "someone": "SOMEONE", "somebody": "SOMEONE", "sb": "SOMEONE",
+    "something": "SOMETHING", "sth": "SOMETHING", "noun": "SOMETHING",
+    "verb": "VERB", "-ing": "ING", "adjective": "ADJECTIVE", "clause": "CLAUSE",
+}
+
+
+def pattern_words(pattern: str) -> tuple[str, ...]:
+    """The tokens of a pattern, for finding duplicates. Punctuation and case are ignored.
+
+    "depend on + something" -> ("depend", "on", "SOMETHING"). "It depends on + noun." matches it
+    (contained). "depend on + someone" is a different pattern. A trailing "s" is cut from plain words
+    so "depends" and "depend" match.
+    """
+    tokens: list[str] = []
+    for match in _TOKEN.finditer(pattern.lower()):
+        word = match.group(1) or match.group(0)
+        if word in _PLACEHOLDER_TOKENS:
+            tokens.append(_PLACEHOLDER_TOKENS[word])
+        else:
+            tokens.append(word.rstrip("s"))
+    return tuple(tokens)
+
+
+def _contains(longer: tuple[str, ...], shorter: tuple[str, ...]) -> bool:
+    size = len(shorter)
+    return any(longer[i:i + size] == shorter for i in range(len(longer) - size + 1))
+
+
+def is_duplicate(words: tuple[str, ...], kept_words: list[tuple[str, ...]]) -> bool:
+    """True when the pattern equals, or sits inside, or contains, a pattern already kept.
+
+    A single token ("get") is too short to count as "contained", or it would hide "get a job".
+    """
+    for other in kept_words:
+        if words == other:
+            return True
+        if len(words) >= 2 and _contains(other, words):
+            return True
+        if len(other) >= 2 and _contains(words, other):
+            return True
+    return False
+
+
+def clean_usage(
+    items: list[Usage], vocabulary: set[str], kept_words: list[tuple[str, ...]] | None = None,
+) -> tuple[list[dict], list[str]]:
+    """Keeps up to 3 good, different items. Returns (items to save, reasons for the dropped ones).
+
+    `kept_words` holds the patterns already kept for the other senses of the same word, so a repeat
+    in another sense is dropped too. New kept patterns are added to it.
+    """
     kept: list[dict] = []
     dropped: list[str] = []
-    seen: set[str] = set()
+    if kept_words is None:
+        kept_words = []
     for item in items:
         problems = usage_problems(item, vocabulary)
-        pattern_key = item.pattern.strip().lower()
-        if pattern_key in seen:
+        words = pattern_words(item.pattern)
+        if words and is_duplicate(words, kept_words):
             problems.append(f"'{item.pattern}' is a duplicate")
         if len(kept) >= MAX_USAGE_PER_SENSE:
             problems.append(f"'{item.pattern}' is over the limit of {MAX_USAGE_PER_SENSE}")
         if problems:
             dropped.extend(problems)
             continue
-        seen.add(pattern_key)
+        kept_words.append(words)
         kept.append({"kind": item.kind.value, "pattern": item.pattern.strip(), "example": item.example.strip()})
     return kept, dropped
 
@@ -92,8 +146,9 @@ def add_usage(entry: dict, result: UsageResult, vocabulary: set[str]) -> tuple[d
     by_number = {s.sense_number: s.usage for s in result.senses}
     new_entry = {**entry, "senses": []}
     dropped: list[str] = []
+    kept_words: list[tuple[str, ...]] = []  # shared by all senses: no repeats across senses
     for number, sense in enumerate(entry["senses"], start=1):
-        usage, sense_dropped = clean_usage(by_number.get(number, []), vocabulary)
+        usage, sense_dropped = clean_usage(by_number.get(number, []), vocabulary, kept_words)
         dropped.extend(f"sense {number}: {reason}" for reason in sense_dropped)
         # collocations/synonyms are gone from the model (decision-2), so leave them out of the saved entry.
         rest = {k: v for k, v in sense.items() if k not in ("collocations", "synonyms")}
