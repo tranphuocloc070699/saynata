@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 15:20'
+updated_date: '2026-10-11 09:26'
 ---
-> Status: **backend done, iOS not started** (TASK-4, TASK-5, TASK-6). Last traced from code: 2026-10-10.
+> Status: **backend done; iOS bundled-dictionary lookup done (TASK-4); local cache (TASK-5), backend fallback (TASK-6) and UI (TASK-19) not started**. Last traced from code: 2026-10-11.
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -93,6 +93,17 @@ Try it:
 curl -s localhost:8081/api/words/serendipity
 ```
 
+## iOS: bundled dictionary lookup (TASK-4)
+
+| Step | File | What happens |
+|---|---|---|
+| Bundle | `EnglishTranslation/EnglishTranslation/Resources/dictionary.sqlite` | Copy of the pipeline output. Refresh: after a pipeline run, copy `pipeline/data/out/dictionary.sqlite` over it and commit. |
+| Normalise | [WordNormalizer.swift:12-16](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordNormalizer.swift#L12-L16) | Trim, collapse spaces, lowercase. Same as `CacheKeys.normalizeWord`. |
+| Look up | [DictionaryStore.swift:47-52](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L47-L52) | `lookUp(_:)` returns a `WordEntry` or nil. Tries `words.lemma`, then `forms.form` ("ran" finds "run"). Uses system SQLite3, read-only. |
+| Model | [WordEntry.swift](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordEntry.swift) | `WordEntry { word, ipa, senses }`, `Sense { pos, cefr, simpleDefinition, vietnamese, examples, usage }`, `Usage { kind, pattern, example }`. `usage` is empty until TASK-24. Collocations and synonyms are not loaded (decision-2). |
+
+Tests: [DictionaryStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/DictionaryStoreTests.swift) (hit, miss, form, normalise, usage kind default).
+
 ## Errors
 
 Same handler as sentences ([ApiExceptionHandler.java](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java)):
@@ -108,7 +119,7 @@ bad word → 400, Claude refused → 422, Claude down → 502. A made-up word li
 
 ## Known gaps
 
-- **No iOS code yet.** No bundled dictionary reader, no local cache, no word screen. The iOS app must copy `CacheKeys` normalising **exactly**, or the phone and server will use different keys.
+- **iOS has the bundled lookup only.** No local cache, no backend fallback, no word screen yet. Normalising is copied from `CacheKeys` and must stay the same, or the phone and server use different keys.
 - **Backend entries skip the pipeline's quality checks.** The pipeline rejects definitions with words outside NGSL ([validate.py](../../../pipeline/src/pipeline/validate.py)). The backend trusts Claude's answer, so backend definitions can be harder than bundled ones.
 - **Empty answers are cached forever** (for that prompt version), including a typo the user fixes a second later.
 - **Own prompt version:** `app.claude.word-prompt-version`, separate from the sentence one (TASK-15). Changing `WORD_PROMPT`? Bump it, or old entries keep being served.
