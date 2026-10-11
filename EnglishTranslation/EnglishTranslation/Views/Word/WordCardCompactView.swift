@@ -10,9 +10,10 @@ import SwiftUI
 /// (number, simple meaning, level chip). Vietnamese is a closed row at the bottom.
 struct WordCardCompactView: View {
     let entry: WordEntry
+    var targetLanguage: TargetLanguage = .vietnamese
     var onListen: () -> Void = {}
 
-    @State private var isVietnameseOpen = false
+    @State private var isLanguageRowOpen = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
@@ -34,12 +35,9 @@ struct WordCardCompactView: View {
             if let sense = entry.senses.first {
                 SenseTitleRow(number: 1, sense: sense)
 
-                if !sense.vietnamese.isEmpty {
-                    FoldedRow(title: "Vietnamese", isExpanded: $isVietnameseOpen) {
-                        Text(sense.vietnamese)
-                            .font(.body)
-                            .foregroundStyle(Theme.Colors.textPrimary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                if sense.hasTargetLanguageRow(for: targetLanguage) {
+                    FoldedRow(title: targetLanguage.title, isExpanded: $isLanguageRowOpen) {
+                        TargetLanguageRowContent(sense: sense, language: targetLanguage)
                     }
                 }
             }

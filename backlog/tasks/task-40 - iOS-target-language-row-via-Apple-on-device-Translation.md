@@ -1,9 +1,11 @@
 ---
 id: TASK-40
 title: 'iOS: target-language row via Apple on-device Translation'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-11 15:01'
+updated_date: '2026-10-11 15:08'
 labels:
   - ios
 dependencies: []
@@ -31,3 +33,17 @@ Developer chose option A (doc-7, 2026-10-11) and approved the mockup: when the p
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. TranslationCache (in-memory, per English text + language) and small TargetLanguage/Sense helpers. 2. TargetLanguageRowContent view: Vietnamese = dictionary text; others = .translationTask, lazy (view exists only when row is open). 3. Pass targetLanguage to WordCardView and compact card; row title = language title; no row for English. 4. Unit tests, simulator run, update doc-5.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented. PR Test it card: pick Korean, look up 'ran', open the 'Korean' row on a real iPhone (iOS 18): spinner, then Korean text + 'Translated on this iPhone'; reopen is instant; Vietnamese still shows dictionary text; declining the download shows 'Could not translate...'. Simulator (iPhone 16 Pro 18.5) reports en-ko unsupported, so only the error message path was seen there. Tests: 92 pass.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/23
+<!-- SECTION:NOTES:END -->
