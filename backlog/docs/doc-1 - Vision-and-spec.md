@@ -3,7 +3,7 @@ id: doc-1
 title: Vision and spec
 type: specification
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-11 11:44'
+updated_date: '2026-10-11 11:45'
 ---
 # Spec: EnglishTranslation — translator for a Vietnamese English learner
 
@@ -24,7 +24,7 @@ An iOS app that replaces DeepL for daily use. It looks up words and translates s
 - **Example** — `{ level, text }`: a sentence that uses the word in that sense. A sense has 3, ordered easy, medium, harder
   (TASK-35). They differ in structure and situation, not only in length: easy is a short present simple, medium
   another situation (past, question, imperative, two clauses), harder a complex structure (present perfect,
-  conditional, relative clause, passive) or a B2 collocation. Easy and medium use only NGSL words; harder may use at
+  conditional, relative clause, passive) or a B2 collocation. Easy uses only NGSL words; medium may use 1 word outside the list; harder may use at
   most 2 words outside the list, but no rare ones. An example that repeats another one of the sense is dropped. Old data with plain-string examples is read as easy, medium.
 - **Form type** — what a form of a word is, stored in `forms.type` and shown as "past tense of run": past tense,
   past participle, -ing form, third person, plural, comparative, superlative, or `form` when unsure. Made by lemminflect.

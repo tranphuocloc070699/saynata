@@ -74,9 +74,17 @@ def test_easy_example_with_the_headword_passes():
     assert example_problems(example("easy", "I need to get some milk."), "get", set(), VOCABULARY) == []
 
 
-def test_easy_and_medium_allow_no_hard_words():
-    problems = example_problems(example("medium", "I need to get a laptop."), "get", set(), VOCABULARY)
-    assert problems == ["medium example 'I need to get a laptop.' uses hard words ['laptop']"]
+def test_easy_allows_no_hard_words():
+    problems = example_problems(example("easy", "I need to get a laptop."), "get", set(), VOCABULARY)
+    assert problems == ["easy example 'I need to get a laptop.' uses hard words ['laptop']"]
+
+
+def test_medium_allows_one_word_outside_the_list_but_not_two():
+    one = example("medium", "I need to get a laptop.")
+    two = example("medium", "I need to get a laptop and a charger.")
+    assert example_problems(one, "get", set(), VOCABULARY) == []
+    assert example_problems(two, "get", set(), VOCABULARY) == [
+        "medium example 'I need to get a laptop and a charger.' uses hard words ['charger', 'laptop']"]
 
 
 def test_harder_allows_two_words_outside_the_list_but_not_three():
@@ -157,7 +165,7 @@ def test_bad_examples_are_dropped_and_the_rest_kept(db):
     add_done_word(db, "get", 1, old_entry())
     result = ExamplesResult(senses=[SenseExamples(sense_number=1, examples=[
         example("easy", "I need to get some milk."),
-        example("medium", "I need to get a laptop."),  # hard word
+        example("medium", "I need to get a laptop and a charger."),  # 2 hard words
         example("harder", "She was very happy at home."),  # no headword
     ])])
     counts = examples.run_pass(db, VOCABULARY, fake_fetch([], result), limit=10, workers=1)

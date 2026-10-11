@@ -73,8 +73,8 @@ EXAMPLE_RULES = """examples: exactly 3 example sentences for THIS sense, ordered
     the passive or reported speech, and/or a B2 collocation. Under about 16 words. No rare, technical or
     literary words.
   Rules for examples:
-  - Easy and medium use ONLY very common words (the 2,800 most common words). Harder may use at most 2
-    words outside that list.
+  - Easy uses ONLY very common words (the 2,800 most common words). Medium may use at most 1 word outside
+    that list. Harder may use at most 2.
   - Every example must use the headword (or a form of it, like "ran" for "run") in THIS sense, not in
     another sense of the word.
   - Natural sentences a native speaker would really say.

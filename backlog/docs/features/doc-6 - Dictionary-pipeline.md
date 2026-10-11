@@ -3,7 +3,7 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 11:44'
+updated_date: '2026-10-11 11:45'
 ---
 > Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-11 (levelled examples and form types, TASK-35). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
@@ -105,7 +105,7 @@ sequenceDiagram
 | Client | [70-73](../../../pipeline/src/pipeline/generate.py#L70-L73) | Anthropic SDK, created once (`@cache`). `max_retries=5` for 429, 5xx and connection errors. Key: `ANTHROPIC_API_KEY`. |
 | Pacing | [83-91](../../../pipeline/src/pipeline/generate.py#L83-L91) | Off by default. `LLM_MAX_PER_MINUTE` spaces calls if you hit rate limits. |
 | System prompt | [54-67](../../../pipeline/src/pipeline/generate.py#L54-L67) | Cambridge Learner's style rules. No schema in the prompt: structured output enforces the shape. |
-| Example rules | [67-93](../../../pipeline/src/pipeline/generate.py#L67-L93) | `EXAMPLE_RULES`: 3 examples per sense that differ in **structure and situation**, not just length. Easy (A1-A2): short present simple. Medium (B1): a different situation and structure (past, question, imperative, two clauses). Harder (B2): a more complex structure (present perfect, conditional, relative clause, passive, reported speech) and/or a B2 collocation, under ~16 words. Easy and medium use only the 2,800 common words, harder at most 2 outside. Every example uses the headword (or a form) in **this** sense. Has a bad example ("Longer is not harder") and two good sets (get, run). Used by the system prompt **and** by the examples pass. |
+| Example rules | [67-93](../../../pipeline/src/pipeline/generate.py#L67-L93) | `EXAMPLE_RULES`: 3 examples per sense that differ in **structure and situation**, not just length. Easy (A1-A2): short present simple. Medium (B1): a different situation and structure (past, question, imperative, two clauses). Harder (B2): a more complex structure (present perfect, conditional, relative clause, passive, reported speech) and/or a B2 collocation, under ~16 words. Easy uses only the 2,800 common words, medium may have 1 word outside, harder 2. Every example uses the headword (or a form) in **this** sense. Has a bad example ("Longer is not harder") and two good sets (get, run). Used by the system prompt **and** by the examples pass. |
 | Usage rules | [24-64](../../../pipeline/src/pipeline/generate.py#L24-L64) | `USAGE_RULES`: kinds, placeholders, "natural, not old-fashioned", "at least one idiom when the sense has a real one (B2-C1 is fine)", "no duplicates across all senses", "the placeholder must match the example", "must fit this sense", simple example words, and the agreed few-shot examples. Used by the system prompt **and** by the usage pass. |
 | User prompt | [94-106](../../../pipeline/src/pipeline/generate.py#L94-L106) | Headword + candidate senses + Vietnamese hints + **feedback from the last failed try**. |
 | Call | [109-124](../../../pipeline/src/pipeline/generate.py#L109-L124) | `messages.parse(output_format=WordEntry)`, `effort: low`. A refusal or empty reply raises, and the word becomes `failed`. No `temperature`: the 5.5 models reject it. |
@@ -127,7 +127,7 @@ The **defining vocabulary** method from learner dictionaries: a definition may o
 | Headword | [109-111](../../../pipeline/src/pipeline/validate.py#L109-L111) | Can't use the word itself, **except** the top 100 grammar words ("a", "the"). |
 | Length | [112-113](../../../pipeline/src/pipeline/validate.py#L112-L113) | Max 20 words. |
 | Vietnamese / examples | [validate.py:122-147](../../../pipeline/src/pipeline/validate.py#L122-L147) | Vietnamese not empty, at least 2 examples. |
-| Example levels | [example_problems:93-111](../../../pipeline/src/pipeline/validate.py#L93-L111) | Used by the examples pass. Easy and medium: every word must be in the vocabulary (same check as usage examples). Harder: up to 2 words outside it. All levels: the sentence must contain the headword or one of its forms. |
+| Example levels | [example_problems:93-111](../../../pipeline/src/pipeline/validate.py#L93-L111) | Used by the examples pass. Easy: every word must be in the vocabulary (same check as usage examples). Medium: up to 1 word outside it. Harder: up to 2. All levels: the sentence must contain the headword or one of its forms. |
 | Usage | [118-121](../../../pipeline/src/pipeline/validate.py#L118-L121), [74-86](../../../pipeline/src/pipeline/validate.py#L74-L86) | At most 3 items. Each example may only use NGSL words (contractions like "I'm" and "can't" count as their base word; `me`, `my`, `oh` are allowed too). The pattern must not use `sb`/`sth`. |
 
 ### 5. Progress table: [store.py](../../../pipeline/src/pipeline/store.py)

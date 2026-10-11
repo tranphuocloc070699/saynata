@@ -87,14 +87,15 @@ def usage_problems(item: Usage, vocabulary: set[str]) -> list[str]:
 
 
 # A "harder" example may use a few words outside the vocabulary (B2 words), but not many.
-MAX_HARDER_OUTSIDE_WORDS = 2
+# Words outside the vocabulary that an example may have: easy none, medium 1, harder 2.
+MAX_OUTSIDE_WORDS = {ExampleLevel.EASY: 0, ExampleLevel.MEDIUM: 1, ExampleLevel.HARDER: 2}
 
 
 def example_problems(example: Example, headword: str, headword_forms: set[str], vocabulary: set[str]) -> list[str]:
     """Checks one example. An empty list means it is good enough to keep.
 
-    Easy and medium: every word must be in the vocabulary (the same check as usage examples).
-    Harder: up to 2 words may be outside it. Every level must contain the headword or one of its forms.
+    Easy: every word must be in the vocabulary (the same check as usage examples).
+    Medium: up to 1 word may be outside it. Harder: up to 2. Every level must contain the headword or one of its forms.
     `headword_forms` holds the lemma and its inflected forms, lowercase.
     """
     text = example.text.strip()
@@ -103,7 +104,7 @@ def example_problems(example: Example, headword: str, headword_forms: set[str], 
     words = {_plain_word(w) for w in WORD_RE.findall(text.replace("’", "'"))}
     problems: list[str] = []
     outside = sorted(words - vocabulary - EXAMPLE_EXTRA_WORDS)
-    allowed = MAX_HARDER_OUTSIDE_WORDS if example.level == ExampleLevel.HARDER else 0
+    allowed = MAX_OUTSIDE_WORDS[example.level]
     if len(outside) > allowed:
         problems.append(f"{example.level.value} example '{text}' uses hard words {outside}")
     if not words & (headword_forms | {headword.lower()}):

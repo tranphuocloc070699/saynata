@@ -60,8 +60,8 @@ public class ClaudeService {
                           level "harder" (B2): a more complex structure, such as present perfect, a conditional,
                           a relative clause, the passive or reported speech, and/or a B2 collocation. Under about
                           16 words. No rare, technical or literary words.
-                          Easy and medium use ONLY very common words (the 2,800 most common words). Harder may use
-                          at most 2 words outside that list.
+                          Easy uses ONLY very common words (the 2,800 most common words). Medium may use at most
+                          1 word outside that list. Harder may use at most 2.
                           Every example must use the word (or a form of it, like "ran" for "run") in THIS sense,
                           not in another sense. Natural sentences a native speaker would really say.
                           The three examples must show three different situations and must not reuse the same
