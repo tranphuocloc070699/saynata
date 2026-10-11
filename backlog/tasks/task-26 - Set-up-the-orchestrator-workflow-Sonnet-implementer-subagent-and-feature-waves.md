@@ -3,11 +3,11 @@ id: TASK-26
 title: >-
   Set up the orchestrator workflow: Sonnet implementer subagent and feature
   waves
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-10-11 08:21'
-updated_date: '2026-10-11 08:37'
+updated_date: '2026-10-11 09:45'
 labels:
   - workflow
 dependencies: []
@@ -30,18 +30,18 @@ Decided with the developer on 2026-10-11, so a fresh chat can start without this
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 .claude/agents/implementer.md exists with model sonnet, effort medium, isolation worktree, permissionMode bypassPermissions, and a prompt that requires a Test it card in every PR
-- [ ] #2 Deny rules block force-push and pushing to main, and it is verified that they still apply in bypassPermissions mode
-- [ ] #3 Backlog has feature tasks F1-F4 with their task lists, and the missing tasks exist: explain-first backend change, word card screen, Settings, share extension
-- [ ] #4 TASK-19 acceptance criteria say usage patterns, not collocations and synonyms (decision-2)
-- [ ] #5 First wave (F1) started with at most 4 workers
+- [x] #1 .claude/agents/implementer.md exists with model sonnet, effort medium, isolation worktree, permissionMode bypassPermissions, and a prompt that requires a Test it card in every PR
+- [x] #2 Deny rules block force-push and pushing to main, and it is verified that they still apply in bypassPermissions mode
+- [x] #3 Backlog has feature tasks F1-F4 with their task lists, and the missing tasks exist: explain-first backend change, word card screen, Settings, share extension
+- [x] #4 TASK-19 acceptance criteria say usage patterns, not collocations and synonyms (decision-2)
+- [x] #5 First wave (F1) started with at most 4 workers
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
-- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Tests pass
+- [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -67,4 +67,14 @@ Done so far (2026-10-11):
 - .worktreeinclude copies EnglishTranslation/Secrets.xcconfig into worktrees so iOS builds.
 - New tasks: TASK-27 word card screen, TASK-28 explain-first backend, TASK-29 Settings, TASK-30 share extension. Features: TASK-31 F1, TASK-32 F2, TASK-33 F3, TASK-34 F4. TASK-19 AC now says usage patterns, depends on TASK-24 and TASK-27.
 - Branch model: feature/fN-* branch per feature; task PRs into it; one feature PR into main.
+
+2026-10-11: F1 wave 1 started. Branch feature/f1-word-lookup pushed. 3 implementer workers: TASK-4, TASK-5, TASK-27. TASK-24 held for a brainstorm with the developer (how usage patterns look) before a worker starts it.
+
+2026-10-11 wave 1 result: PRs #7 (TASK-4), #9 (TASK-24), #8 (TASK-5), #10 (TASK-27) reviewed and squash-merged into feature/f1-word-lookup. Combined branch: 43 iOS unit tests pass (iPhone 17e), CI green. Lessons: parallel workers duplicated the model and normaliser (fixed in review); catch up by merging the feature branch, never rebase (force-push is blocked); iOS tests are not in CI, so the orchestrator runs them before each merge.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Set up the orchestrator workflow: .claude/agents/implementer.md (Sonnet, worktree, Test it card), deny rules + guard-git-push.sh hook (verified with claude -p in bypassPermissions), .worktreeinclude, feature tasks F1-F4 (TASK-31..34) and missing tasks TASK-27..30, TASK-19 AC on usage patterns. First F1 wave ran 4 workers; all 4 PRs merged into feature/f1-word-lookup with 43 iOS tests passing.
+<!-- SECTION:FINAL_SUMMARY:END -->

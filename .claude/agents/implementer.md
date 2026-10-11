@@ -39,6 +39,9 @@ git switch -c <feature-branch>/<task-id> origin/<feature-branch>   # e.g. f1/tas
 If the orchestrator named no feature branch, branch from `origin/main`. Never stack your branch on another
 worker's task branch.
 
+To catch up after other PRs merge, run `git fetch origin && git merge origin/<feature-branch>` and push
+normally. Never rebase a branch you already pushed: that needs a force-push, which is blocked.
+
 ## While you work
 
 - Stay inside the task's acceptance criteria. Anything else goes in your report as a follow-up idea.
@@ -59,7 +62,8 @@ worker's task branch.
 2. `git push -u origin <your-task-branch>`.
 3. Open the PR into the feature branch (or `main` if none was named):
    `gh pr create --base <feature-branch> --head <your-task-branch> --title "TASK-4: ..." --body-file <file>`.
-   Write the body file in your worktree, not in /tmp.
+   Write the body file in your worktree's `.git` folder (`$(git rev-parse --git-dir)/pr-body.md`), so it is
+   never committed, and not in /tmp.
 4. The PR body **must** have this "Test it" card, filled in so the developer can follow it on the simulator
    or a device without reading the code:
 
