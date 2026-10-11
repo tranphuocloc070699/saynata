@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-11 14:51'
-updated_date: '2026-10-11 14:59'
+updated_date: '2026-10-11 15:23'
 labels:
   - backend
   - ios
@@ -22,10 +22,10 @@ Developer test 2026-10-11: typing 'runk' showed a card for 'drunk' under the hea
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The backend checks the normalised word against a bundled open English word list (SCOWL / Hunspell en_US, license file included) plus its inflections; a word not on the list returns the existing not-a-word answer without calling Claude
+- [x] #1 The backend checks the normalised word against a bundled open English word list (SCOWL / Hunspell en_US, license file included) plus its inflections; a word not on the list returns the existing not-a-word answer without calling Claude
 - [ ] #2 WORD_PROMPT forbids spelling correction and describing a different word; entries whose senses define a different headword are rejected
-- [ ] #3 Word prompt version bumped (backend and iOS PromptVersions) so cached wrong entries like 'runk' are never served again
-- [ ] #4 Tests: runk -> not a word with no Claude call; serendipity -> Claude called; run -> allowed; the app shows Did you mean for runk
+- [x] #3 Word prompt version bumped (backend and iOS PromptVersions) so cached wrong entries like 'runk' are never served again
+- [x] #4 Tests: runk -> not a word with no Claude call; serendipity -> Claude called; run -> allowed; the app shows Did you mean for runk
 <!-- AC:END -->
 
 ## Definition of Done
@@ -45,4 +45,6 @@ Developer test 2026-10-11: typing 'runk' showed a card for 'drunk' under the hea
 
 <!-- SECTION:NOTES:BEGIN -->
 PR: https://github.com/tranphuocloc070699/saynata/pull/20. Test it: start backend; curl localhost:8081/api/words/runk -> {"senses":[]}, no Claude call; curl .../serendipity -> full entry; in the app 'runk' shows 'not an English word' + Did you mean; ru%20nk -> 400. Automated: ./mvnw -B test (31 pass), iOS unit tests (85 pass). Follow-up: iOS ResultCache still saves empty answers; 'different headword' check is prompt-only.
+
+AC #2 left open: the prompt forbids spelling correction, but code cannot check which word a definition describes; the SCOWL word list (AC #1) is the real guard. Merged in PR #20 / F1 #14.
 <!-- SECTION:NOTES:END -->
