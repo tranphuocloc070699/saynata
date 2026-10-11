@@ -35,11 +35,11 @@ private func makeDictionary() throws -> DictionaryStore {
     #expect(sqlite3_open(url.path(percentEncoded: false), &handle) == SQLITE_OK)
     defer { sqlite3_close(handle) }
     let sql = """
-        CREATE TABLE words (id INTEGER PRIMARY KEY, lemma TEXT, ipa TEXT);
+        CREATE TABLE words (id INTEGER PRIMARY KEY, lemma TEXT, ipa TEXT, rank INTEGER);
         CREATE TABLE forms (word_id INTEGER, form TEXT);
         CREATE TABLE senses (word_id INTEGER, position INTEGER, pos TEXT, cefr TEXT,
                              simple_definition TEXT, vietnamese TEXT, examples TEXT);
-        INSERT INTO words VALUES (1, 'run', '/ɹʌn/');
+        INSERT INTO words VALUES (1, 'run', '/ɹʌn/', 100);
         INSERT INTO forms VALUES (1, 'ran');
         INSERT INTO senses VALUES (1, 0, 'verb', 'A1', 'move fast on your feet', 'chạy', '["I run."]');
         """
@@ -127,5 +127,25 @@ struct WordLookupTests {
         await #expect(throws: URLError.self) {
             try await WordLookup(dictionary: nil, backend: offline).lookUp("serendipity")
         }
+    }
+
+    @Test func suggestionsComeFromTheBundledWords() throws {
+        let dictionary = try makeDictionary()
+        let suggester = SpellingSuggester(loadCandidates: { (try? dictionary.spellingCandidates()) ?? [] })
+        let lookup = WordLookup(dictionary: dictionary, backend: FakeBackend(.success(backendEntry)), suggester: suggester)
+
+        #expect(lookup.suggestions(for: "Runj!") == ["run"])  // punctuation and case are ignored
+        #expect(lookup.suggestions(for: "ran").isEmpty)       // a form is a correct word
+        #expect(WordLookup(dictionary: nil, backend: FakeBackend(.success(backendEntry))).suggestions(for: "runj").isEmpty)
+    }
+
+    @Test func realWordMissingFromTheBundleStillAsksTheBackendFirst() async throws {
+        let dictionary = try makeDictionary()
+        let suggester = SpellingSuggester(loadCandidates: { (try? dictionary.spellingCandidates()) ?? [] })
+        let backend = FakeBackend(.success(backendEntry))
+        let lookup = WordLookup(dictionary: dictionary, backend: backend, suggester: suggester)
+
+        #expect(try await lookup.lookUp("serendipity") == backendEntry)
+        #expect(backend.calls == ["serendipity"])
     }
 }

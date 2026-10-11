@@ -16,7 +16,9 @@ struct TranslateView: View {
             VStack(alignment: .leading, spacing: 16) {
                 TranslateOptionsView(provider: $store.provider, targetLanguage: $store.targetLanguage)
                 TranslateInputView()
-                TranslateResultView(state: store.state, targetLanguage: store.targetLanguage.title)
+                TranslateResultView(state: store.state, targetLanguage: store.targetLanguage.title) { word in
+                    Task { await store.lookUp(suggestion: word) }
+                }
             }
             .padding()
         }
