@@ -18,7 +18,8 @@ struct SelectedTextResultView: View {
     /// Opens the Saynata app on this link (`saynata://lookup?text=...`).
     /// Nil when the extension cannot open the app (the translation extension): the Open button is then hidden.
     var onOpenApp: ((URL) -> Void)?
-    let onClose: () -> Void
+    /// Closes the sheet. Nil when the host draws its own close button (the translation extension): the Close button is then hidden.
+    var onClose: (() -> Void)?
 
     @State private var store = TranslationStore()
     /// Nil while the text is still being read.
@@ -92,7 +93,9 @@ struct SelectedTextResultView: View {
         if let onOpenApp, let url = openURL {
             IconButton(systemImage: "arrow.up.forward.app", label: "Open in Saynata") { onOpenApp(url) }
         }
-        IconButton(systemImage: "xmark", label: "Close", action: onClose)
+        if let onClose {
+            IconButton(systemImage: "xmark", label: "Close", action: onClose)
+        }
     }
 
     /// True once a word card or a sentence explanation is on screen.

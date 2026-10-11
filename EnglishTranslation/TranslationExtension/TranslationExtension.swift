@@ -24,13 +24,12 @@ class TranslationExtension: TranslationUIProviderExtension {
 }
 
 /// Shows the same sheet as the share extension for the text the user selected.
-/// There is no "Replace with translation" button: Saynata explains the text, it does not replace it.
+/// There is no "Replace with translation" button (Saynata explains, it does not replace) and no Close button (the system draws its own X).
 private struct TranslationSheetView: View {
     let context: TranslationUIProviderContext
 
     var body: some View {
         SelectedTextResultView(
-            loadText: { context.inputText.map { String($0.characters) } ?? "" },
-            onClose: { context.finish(translation: nil) })
+            loadText: { context.inputText.map { String($0.characters) } ?? "" })
     }
 }

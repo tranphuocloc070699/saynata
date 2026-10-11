@@ -3,7 +3,7 @@ id: doc-10
 title: Share extension
 type: specification
 created_date: '2026-10-11 15:35'
-updated_date: '2026-10-11 15:55'
+updated_date: '2026-10-11 16:01'
 ---
 # Share extension and Translate button
 
@@ -47,7 +47,7 @@ Why: no files moved and no new module; a change in `WordCardView` shows in both.
 | Read the text | [ShareViewController.swift:38-60](../../../EnglishTranslation/ShareExtension/ShareViewController.swift#L38-L60) | Loads the first `public.text` attachment (or `attributedContentText`). Empty string if none. |
 | Host the sheet | [ShareViewController.swift:14-31](../../../EnglishTranslation/ShareExtension/ShareViewController.swift#L14-L31) | `UIHostingController` with `ShareSheetView`, pinned to the full view. |
 | Route | [TextRoute.swift:23-36](../../../EnglishTranslation/EnglishTranslation/Translation/TextRoute.swift#L23-L36) | Trim, then: empty, over 500 UTF-16 units (the same count as Java's `@Size(max = 500)`), one token (`CacheKeys.isSingleToken`) or sentence. |
-| Show / explain | [SelectedTextResultView.swift:41-82](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L41-L82), [115-122](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L115-L122). The view lives in the shared app folder, so both extensions compile it. | A problem message is shown as text. Otherwise `TranslationStore.translate()` runs. Header row: for a word, `WordHeaderView` (headword large, IPA or form pill under it); for a sentence, the quoted text in serif. On the right: Listen (placeholder), Open in Saynata (only when the host gives an `onOpenApp` closure: the share extension does, the translation extension does not), Close, all icon-only with accessibility labels. Below the header the app's own views are reused unchanged: `WordCardView(showsHeader: false)` for a word, `TranslateResultView` for a sentence and for errors (with "Did you mean"). The sentence layout is not built here, so it follows the app when that view is restyled. |
+| Show / explain | [SelectedTextResultView.swift:41-82](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L41-L82), [115-122](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L115-L122). The view lives in the shared app folder, so both extensions compile it. | A problem message is shown as text. Otherwise `TranslationStore.translate()` runs. Header row: for a word, `WordHeaderView` (headword large, IPA or form pill under it); for a sentence, the quoted text in serif. On the right: Listen (placeholder), Open in Saynata (only when the host gives an `onOpenApp` closure: the share extension does, the translation extension does not), Close (only when the host gives an `onClose` closure: the share extension does, the translation extension does not), all icon-only with accessibility labels. Below the header the app's own views are reused unchanged: `WordCardView(showsHeader: false)` for a word, `TranslateResultView` for a sentence and for errors (with "Did you mean"). The sentence layout is not built here, so it follows the app when that view is restyled. |
 | Open the app | [ShareViewController.swift:72-83](../../../EnglishTranslation/ShareExtension/ShareViewController.swift#L72-L83) | A share extension cannot call `UIApplication.shared`, and `extensionContext.open` does not work for share extensions. The code walks the responder chain to the host's `UIApplication` and calls `open(url)`, then closes the sheet. Checked on the iOS 18.5 simulator; it relies on the responder chain, so re-check it on each new iOS version. |
 | Link | [DeepLink.swift](../../../EnglishTranslation/EnglishTranslation/Translation/DeepLink.swift) | `saynata://lookup?text=<encoded text>`. The scheme is in the app's Info.plist (`CFBundleURLTypes`). |
 | App side | [EnglishTranslationApp.swift:16-21](../../../EnglishTranslation/EnglishTranslation/EnglishTranslationApp.swift#L16-L21) | `onOpenURL`: put the text in the input and call `translate()`. Other URLs are ignored. |
@@ -105,7 +105,7 @@ flowchart TD
 |---|---|---|
 | Extension target | `TranslationExtension` in project.pbxproj: product type `com.apple.product-type.extensionkit-extension`, minimum iOS 18.4, embedded in the app's `Extensions/` folder by an "Embed ExtensionKit Extensions" phase | It is not a share-services extension. `EXAppExtensionAttributes` / `EXExtensionPointIdentifier` = `com.apple.public.translation-ui-provider` in [TranslationExtension/Info.plist](../../../EnglishTranslation/TranslationExtension/Info.plist). |
 | Entry point | [TranslationExtension.swift:15-25](../../../EnglishTranslation/TranslationExtension/TranslationExtension.swift#L15-L25) | `@main` class conforming to `TranslationUIProviderExtension`; scene `TranslationUIProviderSelectedTextScene`. |
-| Sheet | [TranslationExtension.swift:28-36](../../../EnglishTranslation/TranslationExtension/TranslationExtension.swift#L28-L36) | `context.inputText` is an `AttributedString`; it is turned into a `String` and given to `SelectedTextResultView`. Close calls `context.finish(translation: nil)`. No Replace button (Saynata explains, it does not replace), so `allowsReplacement` is ignored. No Open in Saynata button: the context has no way to open the app. |
+| Sheet | [TranslationExtension.swift:28-35](../../../EnglishTranslation/TranslationExtension/TranslationExtension.swift#L28-L35) | `context.inputText` is an `AttributedString`; it is turned into a `String` and given to `SelectedTextResultView`. No Close button of our own: the system draws its own X above the sheet. No Replace button (Saynata explains, it does not replace), so `allowsReplacement` is ignored. No Open in Saynata button: the context has no way to open the app. |
 | Entitlement | [EnglishTranslation.entitlements](../../../EnglishTranslation/EnglishTranslation.entitlements): `com.apple.developer.translation-app` = true | On the **app** target, as in Apple's guide. Without it the app is not offered in Default Apps. |
 | Network key | `com.apple.developer.translation-ui-provider.network-access` = true in the app's and the extension's Info.plist | Needed because the extension calls our backend. |
 | Sharing code | Same synchronized folder and exception list as the share extension | `dictionary.sqlite` and the asset catalog are compiled into the extension too. |
@@ -118,7 +118,7 @@ The `com.apple.developer.translation-app` entitlement is a restricted capability
 
 ### Errors
 
-Same as the share sheet: empty text, over 500 characters, offline, not an English word. The system also shows its own close button above the sheet, so there are two close icons (the system one and Saynata's).
+Same as the share sheet: empty text, over 500 characters, offline, not an English word. The system draws its own X above the sheet, so the Translate sheet has no Close button of its own (one X only).
 
 ### Known gaps (Translate button)
 
