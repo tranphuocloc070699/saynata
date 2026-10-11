@@ -111,7 +111,8 @@ public class ClaudeService {
                         depend:
                           pattern "depend on + something" -> "It depends on the weather."
                           phrase "It depends." -> "\"Are you coming?\" \"It depends.\""
-                        If it is not an English word, return an empty list of senses.
+                        Never correct spelling. Never describe a different word. If the word in <word> tags is
+                        not a real English word exactly as written, return an empty list of senses.
                         """;
 
         private final AnthropicClient client;

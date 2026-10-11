@@ -1,8 +1,10 @@
 package com.englishtranslation.backend.word;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.englishtranslation.backend.claude.ClaudeService;
@@ -21,6 +23,9 @@ class WordServiceTest {
 
     @Autowired
     WordLookupRepository repository;
+
+    @Autowired
+    EnglishWords englishWords;
 
     @MockitoBean
     ClaudeService claude;
@@ -59,5 +64,46 @@ class WordServiceTest {
         assertThat(second.cached()).isTrue();
         assertThat(second.entry()).isEqualTo(entry);
         verify(claude, times(1)).describeWord("reluctant");
+    }
+
+    @Test
+    void wordNotOnTheListIsRejectedWithoutCallingClaudeOrSaving() {
+        WordResponse response = service.lookUp("runk");
+
+        assertThat(response.word()).isEqualTo("runk");
+        assertThat(response.entry().senses()).isEmpty();
+        assertThat(response.cached()).isFalse();
+        verify(claude, never()).describeWord(anyString());
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void realRareWordCallsClaude() {
+        when(claude.describeWord("serendipity")).thenReturn(new WordEntry(List.of()));
+
+        service.lookUp("serendipity");
+
+        verify(claude, times(1)).describeWord("serendipity");
+    }
+
+    @Test
+    void baseAndInflectedFormsAreAllowedAndUppercaseWorks() {
+        when(claude.describeWord(anyString())).thenReturn(new WordEntry(List.of()));
+
+        service.lookUp("run");
+        service.lookUp("running");
+        service.lookUp("SERENDIPITY");
+
+        verify(claude).describeWord("run");
+        verify(claude).describeWord("running");
+        verify(claude).describeWord("serendipity");
+    }
+
+    @Test
+    void wordListHasScowlAndNgslWords() {
+        assertThat(englishWords.contains("serendipity")).isTrue();
+        assertThat(englishWords.contains("ran")).isTrue();
+        assertThat(englishWords.contains("runk")).isFalse();
+        assertThat(englishWords.size()).isGreaterThan(100_000);
     }
 }
