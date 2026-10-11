@@ -95,6 +95,13 @@ final class TranslationStore {
         await translate()
     }
 
+    /// The full word card for a word in a sentence result. Uses the bundled entry when there is one,
+    /// otherwise the normal lookup (local cache, then backend). The sentence result stays on screen.
+    func wordEntry(for word: SentenceWordInfo) async throws -> WordEntry {
+        if let entry = word.entry { return entry }
+        return try await makeWordLookup().lookUp(word.word)
+    }
+
     private func explainSentence() async {
         // Copy these first. The user can change the picker or the text while we wait.
         let sentence = trimmedInput
@@ -102,7 +109,13 @@ final class TranslationStore {
         do {
             let translator = try makeTranslator()
             let explanation = try await translator.explain(sentence, translatingTo: language)
-            state = .loaded(SentenceResult(sentence: sentence, explanation: explanation, language: language))
+            // The bundled dictionary gives each word card its pill and chip. No dictionary is fine.
+            let lookup = try? makeWordLookup()
+            state = .loaded(SentenceResult(
+                sentence: sentence,
+                explanation: explanation,
+                language: language,
+                bundledEntry: { lookup?.bundledEntry(for: $0) }))
         } catch {
             state = .failed(error.localizedDescription)
         }

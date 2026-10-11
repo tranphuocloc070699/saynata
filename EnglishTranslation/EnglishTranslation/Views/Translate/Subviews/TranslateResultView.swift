@@ -11,6 +11,11 @@ struct TranslateResultView: View {
     let targetLanguage: TargetLanguage
     /// Called when the user taps a "did you mean" word.
     var onSuggestionTap: (String) -> Void = { _ in }
+    /// Gets the full word card for a word the user tapped in a sentence result.
+    var loadWordEntry: (SentenceWordInfo) async throws -> WordEntry = { word in
+        guard let entry = word.entry else { throw WordLookupError.notOneWord }
+        return entry
+    }
 
     var body: some View {
         switch state {
@@ -20,8 +25,8 @@ struct TranslateResultView: View {
         case .loading:
             ProgressView()
         case let .loaded(result):
-            // The heading uses the language the result was made in, not the live picker (TASK-14).
-            TranslateExplanationView(explanation: result.explanation, targetLanguage: result.language.title)
+            // The language comes from the result, not the live picker (TASK-14).
+            SentenceResultView(result: result, loadWordEntry: loadWordEntry)
         case let .loadedWord(entry):
             WordCardView(entry: entry, targetLanguage: targetLanguage)
         case let .failed(message, spelling):

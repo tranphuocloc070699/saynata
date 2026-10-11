@@ -76,6 +76,9 @@ color at 14% opacity. Never color alone: the label also has the word ("easy", "m
 | `ExampleLevelLabel` | Small tinted label (easy, medium, harder) before an example sentence |
 | `MeaningBlock` | Tinted box with the "Meaning" label, serif meaning, and one optional example |
 | `FoldedRow` | Row that opens and closes (the word card uses no counts); the parent decides which row is open |
+| `cardSurface()` | View modifier: padding, surface color, hairline border, card radius. The sentence cards use it |
+| `SentenceHeader`, `MeaningCard`, `SentenceWordCard` | The sentence result (TASK-41): the quoted sentence with Listen and Copy; the Meaning card with the target language folded and closed; one small card per word (word, `FormPill`, `LevelChip`, short explanation). They live in `Views/Sentence/` and are in the gallery |
+| `CharacterCounter` | "41 / 500" under the input. Over the limit it is red and says "Make it shorter." (words too, not only color) |
 | `HairlineDivider` | One-pixel line in the hairline color. Use it, not `Divider().overlay(...)`, which flickers while scrolling |
 
 Add a new component only when two screens need the same thing. Add it to the gallery in the same change.

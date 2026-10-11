@@ -3,15 +3,15 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 15:10'
+updated_date: '2026-10-11 15:50'
 ---
-> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11 (TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`).
+> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11 (TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
 
 The user types an English sentence, picks a target language, and taps **Explain**. (A single word is not a sentence: it goes to the dictionary path in [Word lookup](doc-5%20-%20Word-lookup.md).) The app shows
-three parts, in this order: **Meaning** (simple English, B1-B2), **Words** (hard words for a B1 learner), and last
+the sentence in quotes, then three parts, in this order: **Meaning** (simple English, B1-B2), **Words** (hard words for a B1 learner), and last
 the **translation** in the target language, a small helper line. The backend JSON has the same order:
 `meaning`, `words`, `translation` (pinned with `@JsonPropertyOrder` in [Explanation.java](../../../backend/src/main/java/com/englishtranslation/backend/translation/Explanation.java)). The app only talks to our backend, which caches every
 answer in Postgres, so the same sentence + language is only sent to Claude once, for all users.
@@ -51,7 +51,7 @@ sequenceDiagram
     participant CS as ClaudeService
     participant CL as Claude API
 
-    U->>IV: types text, taps "Explain"
+    U->>IV: types text (counter 0-500), taps "Explain"
     IV->>ST: Task { await translate() }
     ST->>ST: guard canTranslate, state = .loading
     ST->>TF: makeTranslator()
@@ -79,8 +79,8 @@ sequenceDiagram
     end
     TC-->>BC: 200 {text, targetLang, explanation, cached}
     BC-->>ST: Explanation
-    ST->>ST: state = .loaded(explanation)
-    ST-->>U: TranslateResultView shows Meaning, Words, translation
+    ST->>ST: state = .loaded(SentenceResult: sentence, explanation, language, word infos)
+    ST-->>U: SentenceResultView shows the sentence, Meaning card (translation folded), Words cards
 ```
 
 ### 1. UI and state (iOS)
@@ -88,14 +88,17 @@ sequenceDiagram
 | Step | File | What happens |
 |---|---|---|
 | App start | [EnglishTranslationApp.swift:10](../../../EnglishTranslation/EnglishTranslation/EnglishTranslationApp.swift#L10) | Creates **one** `TranslationStore` and shares it with `.environment(store)`. |
-| Screen | [TranslateView.swift:17-19](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift#L17-L19) | Puts three subviews together: options, input, result. |
+| Screen | [TranslateView.swift:17-22](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift#L17-L22) | Puts three subviews together: options, input, result. The result gets the state and a `loadWordEntry` closure (`store.wordEntry(for:)`). |
 | Picker | [TranslateOptionsView.swift:14-19](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateOptionsView.swift#L14-L19) | Menu **language** picker, bound to `store.targetLanguage`. There is no provider picker any more. |
-| Button | [TranslateInputView.swift:21-25](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateInputView.swift#L21-L25) | "Explain" starts `Task { await store.translate() }`. Disabled when `!store.canTranslate`. |
-| Guard | [TranslationStore.swift:33-36](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L33-L36) | `canTranslate` is false while loading or when the trimmed text is empty. This stops double taps. |
-| Request | [TranslationStore.swift:44-92](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L44-L92) | Sets `.loading`. If `CacheKeys.isSingleToken` is true the input is a word and goes to the word path (doc-5). Otherwise `explainSentence` builds the translator **on each request**, calls `explain`, then sets `.loaded` or `.failed(message)`. |
-| States | [TranslationState.swift:10-22](../../../EnglishTranslation/EnglishTranslation/Translation/TranslationState.swift#L10-L22) | `idle`, `loading`, `loaded(Explanation)`, `loadedWord(WordEntry)` (doc-5), `failed(String)`. |
-| Result | [TranslateResultView.swift:14-27](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateResultView.swift#L14-L27) | One `switch` over the state: hint text, spinner, explanation, word card, or red error. |
-| Explanation | [TranslateExplanationView.swift:14-30](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateExplanationView.swift#L14-L30) | Meaning → Words (hidden when empty) → translation. Text is selectable. |
+| Button and counter | [TranslateInputView.swift:23-28](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateInputView.swift#L23-L28) | `CharacterCounter` "41 / 500" ([line 35](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateInputView.swift#L35)), then the icon-only **Explain** button (label "Explain", dimmed when disabled) starts `Task { await store.translate() }`. Over 500 the counter turns red and says "Make it shorter." (TASK-22). |
+| Guard and limit | [TranslationStore.swift:32-50](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L32-L50) | `maxInputLength = 500`. `inputLength` is the trimmed text counted in UTF-16 units, like Java (an emoji is 2). `canTranslate` is false while loading, when the trimmed text is empty, or when `isOverLimit`. This stops double taps and too-long text. |
+| Request | [TranslationStore.swift:56-122](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L56-L122) | Sets `.loading`. If `CacheKeys.isSingleToken` is true the input is a word and goes to the word path (doc-5). Otherwise `explainSentence` copies the trimmed sentence and the picked language **first** (the user can change them while waiting), builds the translator **on each request**, calls `explain`, then builds a `SentenceResult` (with the bundled dictionary entry for each word) and sets `.loaded`, or `.failed(message)`. |
+| States | [TranslationState.swift:10-22](../../../EnglishTranslation/EnglishTranslation/Translation/TranslationState.swift#L10-L22) | `idle`, `loading`, `loaded(SentenceResult)`, `loadedWord(WordEntry)` (doc-5), `failed(String)`. |
+| Result data | [SentenceResult.swift:11-34](../../../EnglishTranslation/EnglishTranslation/Translation/SentenceResult.swift#L11-L34) | Sentence, `Explanation`, the **language the result was made in** (TASK-14: the heading never follows the live picker), and one `SentenceWordInfo` per word. |
+| Result | [TranslateResultView.swift:14-41](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateResultView.swift#L14-L41) | One `switch` over the state: hint text, spinner, `SentenceResultView`, word card, or red error. |
+| Sentence cards | [SentenceResultView.swift:10-45](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceResultView.swift#L10-L45) | `SentenceHeader` (the sentence in quotes, serif, icon-only Listen (placeholder, F3) and Copy), `MeaningCard` (simple English, then the folded target-language row, closed; the text is the backend's `translation`), then the "Words" list of `SentenceWordCard`. Words are hidden when empty. |
+| Word card (small) | [SentenceWordCard.swift:10-50](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceWordCard.swift#L10-L50), [SentenceWordInfo.swift:12-67](../../../EnglishTranslation/EnglishTranslation/Translation/SentenceWordInfo.swift#L12-L67) | Word, `FormPill`, `LevelChip`, short explanation. **Pill and chip come from the bundled dictionary** (`WordLooking.bundledEntry(for:)`: `matchedForm` as "past tense of blur", first sense `pos · cefr`). If the word is not bundled, the backend's "base form: X" note becomes the pill and there is **no chip**. The note is removed from the explanation text. |
+| Open the full word | [SentenceWordSheet.swift:10-49](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceWordSheet.swift#L10-L49) | Tapping a single word opens `WordCardView` in a sheet (`store.wordEntry(for:)`: the bundled entry, otherwise cache then backend). A phrase like "drew out" is not tappable. The sentence result stays under the sheet. |
 
 **Why the translator is built per request:** a missing `BackendBaseURL` becomes a `.failed` message on screen
 instead of a crash at launch ([TranslationStore.swift:22-23](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L22-L23)).
@@ -118,7 +121,7 @@ Tests also inject a fake through the same `makeTranslator` closure.
 | Step | File | What happens |
 |---|---|---|
 | Endpoint | [TranslationController.java:19-22](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationController.java#L19-L22) | `POST /api/translations` with `@Valid @RequestBody`. |
-| Validation | [TranslationRequest.java:8-10](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationRequest.java#L8-L10) | `text`: `@NotBlank @Size(max = 500)`. `targetLang`: `@NotNull`. Unknown code fails JSON parsing → 400. |
+| Validation | [TranslationRequest.java:8-10](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationRequest.java#L8-L10) | `text`: `@NotBlank @Size(max = 500)`. `targetLang`: `@NotNull`. Unknown code fails JSON parsing → 400. [ApiExceptionHandler.java:29-39](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L29-L39) turns a failed field into a clear detail: `text` → "Text must be 1-500 characters.", `targetLang` → "Choose a target language." The handler has `@Order(-1)` because Spring's own problem-details advice (order 0) would answer first with "Invalid request content." (TASK-22). |
 | Normalise | [CacheKeys.java:19-21](../../../backend/src/main/java/com/englishtranslation/backend/cache/CacheKeys.java#L19-L21) | `strip()` + collapse whitespace to one space. **Case is kept** ("US" ≠ "us"). |
 | Cache key | [TranslationService.java:39-40](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationService.java#L39-L40) | `sha256("sentence" \| sentencePromptVersion \| targetLang \| normalizedText)`, 64 hex chars ([CacheKeys.java:32-40](../../../backend/src/main/java/com/englishtranslation/backend/cache/CacheKeys.java#L32-L40)). |
 | Hit | [TranslationService.java:42-45](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationService.java#L42-L45) | Row found → rebuild `Explanation` from columns, `cached: true`. No Claude call. |
@@ -157,22 +160,24 @@ cache instead (spec, Decisions).
 
 | Cause | Where it starts | HTTP | Message on screen |
 |---|---|---|---|
-| Empty text | `canTranslate` | — | Button disabled |
+| Empty text | `canTranslate` | — | Explain is dimmed and disabled |
+| Text over 500 characters | `isOverLimit` | — | Red "Make it shorter." next to the counter ("538 / 500"). Explain is disabled, so nothing is sent (TASK-22) |
 | `BackendBaseURL` missing | `AppConfig` | — | "Missing BackendBaseURL. Check the Info tab." |
-| Text > 500 or blank, bad `targetLang` | Spring validation | 400 | ProblemDetail `detail` + "(status 400)" |
-| Claude refused | [ClaudeService.java:193](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L193) → [ApiExceptionHandler.java:18-21](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L18-L21) | 422 | "Claude declined to answer this text. (status 422)" |
+| Text > 500 or blank (a client other than the app), bad `targetLang` | Spring validation + `ApiExceptionHandler` | 400 | "Text must be 1-500 characters." or "Choose a target language." + "(status 400)" |
+| Claude refused | [ClaudeService.java:193](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L193) → [ApiExceptionHandler.java:41-44](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L41-L44) | 422 | "Claude declined to answer this text. (status 422)" |
 | Text is not English (code, gibberish, another language) | [ClaudeService.java:153-159](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L153-L159) → [ApiExceptionHandler.java](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java) | 422 | "This doesn't look like English. Type an English word or sentence. (status 422)" |
-| Claude API down / bad key | [ApiExceptionHandler.java:23-27](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L23-L27) | 502 | "The translation service is not available. Try again later. (status 502)" |
+| Claude API down / bad key | [ApiExceptionHandler.java:51-55](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L51-L55) | 502 | "The translation service is not available. Try again later. (status 502)" |
 | Backend not running | `URLSession` | — | `URLError` text, e.g. "Could not connect to the server." |
 
 ## Tests
 
 | Test | Covers |
 |---|---|
-| [TranslationStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStoreTests.swift) | Empty input, success, errors, missing base URL, picked language, defaults, trimming, word vs sentence routing |
+| [TranslationStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStoreTests.swift) | Empty input, success, errors, missing base URL, picked language, defaults, trimming, word vs sentence routing, **500-character limit (exact, over, spaces, emoji counts 2, nothing sent)**, **result keeps its language when the picker changes (also while waiting)**, word infos from the bundle, tapped word uses the bundle or a lookup |
+| [SentenceWordInfoTests.swift](../../../EnglishTranslation/EnglishTranslationTests/SentenceWordInfoTests.swift) | Pill and chip: dictionary wins, base form has no pill, backend note used when not bundled (no chip), reading the "base form" note, only single words open the word card |
 | [BackendClientTests.swift](../../../EnglishTranslation/EnglishTranslationTests/BackendClientTests.swift) | Request body, decode, error detail, error without body, bad JSON, **language codes match the backend**, repeat request served from the cache with no network call, other language not shared, errors not cached |
 | [CacheTests.swift](../../../EnglishTranslation/EnglishTranslationTests/CacheTests.swift) | Swift cache keys equal known sha256 values from the backend rule, normalising matches Java, prompt versions equal `application.properties`, SQLite cache round trip and reopen |
-| [TranslationControllerTest.java](../../../backend/src/test/java/com/englishtranslation/backend/translation/TranslationControllerTest.java) | Blank text, unknown or missing language → 400, code read and returned |
+| [TranslationControllerTest.java](../../../backend/src/test/java/com/englishtranslation/backend/translation/TranslationControllerTest.java) | Blank text, unknown or missing language → 400, **clear 400 messages for blank, 501 characters and missing language, 500 characters accepted**, code read and returned |
 | [TranslationServiceTest.java](../../../backend/src/test/java/com/englishtranslation/backend/translation/TranslationServiceTest.java) | Second request cached without Claude, cached explanation reads back the same, each language cached separately |
 | [ClaudeServiceTest.java](../../../backend/src/test/java/com/englishtranslation/backend/claude/ClaudeServiceTest.java) | `</text>` and `<text>` in the input are escaped, plain text unchanged, `&` escaped first, the prompt lists meaning, then words, then translation |
 | [NotEnglishException](../../../backend/src/main/java/com/englishtranslation/backend/claude/NotEnglishException.java) tests in `TranslationServiceTest` and `TranslationControllerTest` | Not English → 422 with the message, nothing saved, Claude asked again next time |
@@ -190,7 +195,6 @@ Run: `./mvnw test` in `backend/`, and the iOS tests in Xcode (⌘U).
 ## Known gaps
 
 - **No local cache on the phone yet** (spec R2 step 2). Every tap goes to the network. See TASK-5.
-- **The result label follows the picker, not the request.** `TranslateResultView` gets `store.targetLanguage.title` ([TranslateView.swift:19](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift#L19)). Translate into Japanese, then switch the picker to French: the heading says "French" over Japanese text.
 
 ## Probe results (2026-10-10)
 
@@ -212,6 +216,6 @@ Run `python3 backend/scripts/probe_sentences.py` against a running backend (`BAS
 | Gibberish ("asdkj qwe zzxq") | Translation field says "this is not a real sentence", cached | ❌ TASK-21 | **422**, nothing cached |
 | A question ("What is the capital of France?") | Translated, not answered | ✅ | same |
 | Profanity | Translated with matching tone, no refusal | ✅ | same |
-| 520 characters | 400 "Invalid request content." | ⚠️ TASK-22 | same |
+| 520 characters | 400 "Invalid request content." | ⚠️ TASK-22 | 400 "Text must be 1-500 characters." (and the app blocks it first) |
 | Phone, time, date → `ja` | Kept, but picks 3 December while the meaning says the date is unclear | ⚠️ Minor | same |
 | `words[].meaning` | "base form: X" added to words that aren't inflected | ❌ TASK-21 | base form only for inflected words (prompt rule) |
