@@ -12,6 +12,10 @@ learning Swift and English at the same time.
 
 Read before working:
 - Goal, requirements, decisions: `backlog/docs/doc-1 - Vision-and-spec.md`
+- Why each choice was made, the strategy, and the progress story: `backlog/docs/story/` (doc-7, doc-8, doc-9).
+  When the developer makes a decision, add a row to doc-7 the same day with the reason in their words and the
+  options that lost. No reason given? Write "Reason: not recorded" and add it to the questions list.
+  Add a line to doc-9 at the end of each working day.
 - How each flow works (files, lines, diagrams): `backlog/docs/features/`
 - Daily workflow: `backlog/docs/doc-2 - Daily-workflow.md`
 - UI work (colors, text styles, components, HIG rules): `docs/design/design-system.md`
