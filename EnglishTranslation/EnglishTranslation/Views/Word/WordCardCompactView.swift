@@ -6,8 +6,8 @@
 import SwiftUI
 
 /// The small word card for the word list in a sentence result.
-/// Shows the first sense only: word, IPA, level chip and the simple meaning.
-/// Vietnamese is a closed row at the bottom.
+/// Shows the first sense only: word, IPA, the listen button, then the numbered title
+/// (number, simple meaning, level chip). Vietnamese is a closed row at the bottom.
 struct WordCardCompactView: View {
     let entry: WordEntry
     var onListen: () -> Void = {}
@@ -17,19 +17,14 @@ struct WordCardCompactView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             HStack(alignment: .center, spacing: Theme.Spacing.small) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
-                    HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.small) {
-                        Text(entry.word)
-                            .font(.headline)
-                            .foregroundStyle(Theme.Colors.textPrimary)
-                        if let ipa = entry.ipa {
-                            Text(ipa)
-                                .font(.subheadline)
-                                .foregroundStyle(Theme.Colors.textSecondary)
-                        }
-                    }
-                    if let sense = entry.senses.first {
-                        LevelChip(text: sense.chipText)
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.small) {
+                    Text(entry.word)
+                        .font(.headline)
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                    if let ipa = entry.ipa {
+                        Text(ipa)
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                 }
                 Spacer()
@@ -37,9 +32,7 @@ struct WordCardCompactView: View {
             }
 
             if let sense = entry.senses.first {
-                Text(sense.simpleDefinition)
-                    .font(.system(.body, design: .serif))
-                    .foregroundStyle(Theme.Colors.textPrimary)
+                SenseTitleRow(number: 1, sense: sense)
 
                 if !sense.vietnamese.isEmpty {
                     FoldedRow(title: "Vietnamese", isExpanded: $isVietnameseOpen) {
@@ -53,6 +46,9 @@ struct WordCardCompactView: View {
         }
         .padding(Theme.Spacing.large)
         .background(Theme.Colors.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.Colors.hairline, lineWidth: 1)
+        }
     }
 }
 
