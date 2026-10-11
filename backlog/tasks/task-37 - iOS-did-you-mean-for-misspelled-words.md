@@ -42,4 +42,6 @@ Developer request 2026-10-11: typing 'runj' should suggest 'run'. The bundled di
 
 <!-- SECTION:NOTES:BEGIN -->
 Done in a PR into feature/f1-word-lookup. 75 unit tests pass. Test it: type runj, Explain -> 'No word runj. Did you mean:' with chips run, ring; tap run -> word card. zzzzqq -> no chips. serendipity (backend on) -> card, no chips. Chip tap not checked on screen (another worker shared the simulator); covered by test tappingASuggestionLooksItUp.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/17
 <!-- SECTION:NOTES:END -->
