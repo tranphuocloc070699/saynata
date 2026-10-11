@@ -115,6 +115,19 @@ Expected shape (the words differ from run to run, the keys do not; first call `"
 
 Tests: [DictionaryStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/DictionaryStoreTests.swift) (hit, miss, form, usage kind default, usage JSON decode, a tiny file with a `usage` column; normalising is tested in [CacheTests.swift](../../../EnglishTranslation/EnglishTranslationTests/CacheTests.swift)).
 
+## iOS word card (sample data only)
+
+Built in TASK-27 with sample data. Not wired to lookup yet (TASK-19). Uses the model from the TASK-4 section above. An empty `cefr` or `vietnamese` (what the store gives for a missing value) hides the chip level or the Vietnamese row. Last traced: 2026-10-11.
+
+| Part | File |
+|---|---|
+| Sample words for previews | [WordEntry+Samples.swift](../../../EnglishTranslation/EnglishTranslation/Models/WordEntry+Samples.swift) |
+| Full card | [WordCardView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift) |
+| Compact card (word list in a sentence) | [WordCardCompactView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardCompactView.swift) |
+| "How to use it" content | [WordUsageSection.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordUsageSection.swift) |
+
+Order per sense: level chip, meaning block, More examples, How to use it, Vietnamese (last, closed). One folded row is open at a time.
+
 ## Errors
 
 Same handler as sentences ([ApiExceptionHandler.java](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java)):
