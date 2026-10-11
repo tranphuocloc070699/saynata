@@ -44,4 +44,6 @@ Developer chose option A (doc-7, 2026-10-11) and approved the mockup: when the p
 
 <!-- SECTION:NOTES:BEGIN -->
 Implemented. PR Test it card: pick Korean, look up 'ran', open the 'Korean' row on a real iPhone (iOS 18): spinner, then Korean text + 'Translated on this iPhone'; reopen is instant; Vietnamese still shows dictionary text; declining the download shows 'Could not translate...'. Simulator (iPhone 16 Pro 18.5) reports en-ko unsupported, so only the error message path was seen there. Tests: 92 pass.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/23
 <!-- SECTION:NOTES:END -->
