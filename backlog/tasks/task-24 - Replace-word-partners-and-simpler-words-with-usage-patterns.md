@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-10 08:21'
-updated_date: '2026-10-11 09:58'
+updated_date: '2026-10-11 10:00'
 labels:
   - pipeline
   - backend
@@ -52,4 +52,6 @@ User decision 2026-10-10: the word card drops the 'Word partners' (collocations)
 Implemented. Test it: (1) cd pipeline && uv run pytest (26 pass); (2) uv run pipeline usage --dry-run --words get make depend (3 calls, ~$0.01, saves nothing); (3) cd backend && ./mvnw -B test (24 pass); (4) ./mvnw spring-boot:run then curl -s localhost:8081/api/words/depend -> senses[].usage[{kind,pattern,example}], no collocations/synonyms. Developer must run the real pass (2,750 done words, ~$8-9): cd pipeline && uv run pipeline usage; then uv run pipeline export. AC #2 is finished after that run. Word prompt version is v4: iOS PromptVersions.word (PR #8) must become v4 when it lands.
 
 Follow-up (idioms + no duplicates): USAGE_RULES and WORD_PROMPT now ask for at least one fitting idiom (B2-C1 ok), no repeated phrase or meaning across all senses, placeholder must match the example. 3 new idiom few-shots (make ends meet, take with a pinch of salt, get the hang of). usage.py drops a pattern that equals/sits inside another kept pattern of the same word across senses (placeholders, punctuation, trailing s removed; one-word patterns do not count as contained). Hard-word check stays on the example only. Word prompt version v5 (backend + iOS PromptVersions.word + CacheTests hash).
+
+PR #12 (idioms + no duplicates, prompt v5): https://github.com/tranphuocloc070699/saynata/pull/12. Test it: cd pipeline && uv run pytest (26 pass); optional dry run uv run pipeline usage --dry-run --words depend make take (~$0.01); then the real pass uv run pipeline usage (~$8-9) and uv run pipeline export. Backend 24 pass, iOS unit tests pass.
 <!-- SECTION:NOTES:END -->
