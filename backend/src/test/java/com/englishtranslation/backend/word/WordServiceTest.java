@@ -1,6 +1,7 @@
 package com.englishtranslation.backend.word;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import com.englishtranslation.backend.claude.ClaudeService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -31,6 +33,9 @@ class WordServiceTest {
 
     @Autowired
     IpaDictionary ipaDictionary;
+
+    @Autowired
+    SimpleWords simpleWords;
 
     @Autowired
     ClaudeProperties properties;
@@ -157,5 +162,93 @@ class WordServiceTest {
         assertThat(ipaDictionary.ipaFor("HELLO")).isEqualTo("/həˈɫoʊ/");
         assertThat(ipaDictionary.ipaFor("qwzxv")).isNull();
         assertThat(ipaDictionary.size()).isGreaterThan(100_000);
+    }
+
+    private static WordEntry entryWith(String definition, String easyExample) {
+        return new WordEntry(List.of(new WordEntry.Sense(
+                "adjective", "C1", definition, "miễn cưỡng",
+                List.of(new WordEntry.Example("easy", easyExample),
+                        new WordEntry.Example("medium", "He gave a reluctant smile."),
+                        new WordEntry.Example("harder", "They were reluctant to accept the offer.")),
+                List.of())));
+    }
+
+    private boolean savedNeedsReview(String word) {
+        String key = CacheKeys.key("word", properties.wordPromptVersion(), word);
+        return repository.findByCacheKey(key).orElseThrow().isNeedsReview();
+    }
+
+    @Test
+    void simpleEntryIsSavedWithoutRetry() {
+        when(claude.describeWord("reluctant")).thenReturn(entryWith("not wanting to do something", "She was reluctant to leave."));
+
+        service.lookUp("reluctant");
+
+        verify(claude, never()).describeWordAgain(anyString(), anyString());
+        assertThat(savedNeedsReview("reluctant")).isFalse();
+    }
+
+    @Test
+    void hardDefinitionTriggersExactlyOneRetryWithFeedbackAndTheBetterEntryIsSaved() {
+        WordEntry hard = entryWith("unwilling and hesitant", "She was reluctant to leave.");
+        WordEntry simple = entryWith("not wanting to do something", "She was reluctant to leave.");
+        when(claude.describeWord("reluctant")).thenReturn(hard);
+        when(claude.describeWordAgain(anyString(), anyString())).thenReturn(simple);
+
+        WordResponse response = service.lookUp("reluctant");
+
+        verify(claude, times(1)).describeWord("reluctant");
+        verify(claude, times(1)).describeWordAgain(Mockito.eq("reluctant"), contains("hesitant"));
+        assertThat(response.entry()).isEqualTo(simple);
+        assertThat(savedNeedsReview("reluctant")).isFalse();
+    }
+
+    @Test
+    void secondFailureIsSavedAndFlaggedWithoutAThirdCall() {
+        WordEntry hard = entryWith("unwilling and hesitant", "She was reluctant to leave.");
+        when(claude.describeWord("reluctant")).thenReturn(hard);
+        when(claude.describeWordAgain(anyString(), anyString())).thenReturn(hard);
+
+        WordResponse response = service.lookUp("reluctant");
+
+        verify(claude, times(1)).describeWord("reluctant");
+        verify(claude, times(1)).describeWordAgain(anyString(), anyString());
+        assertThat(response.entry()).isEqualTo(hard);
+        assertThat(savedNeedsReview("reluctant")).isTrue();
+    }
+
+    @Test
+    void failedRetryKeepsTheFirstEntryAndFlagsIt() {
+        WordEntry hard = entryWith("unwilling and hesitant", "She was reluctant to leave.");
+        when(claude.describeWord("reluctant")).thenReturn(hard);
+        when(claude.describeWordAgain(anyString(), anyString())).thenThrow(new IllegalStateException("down"));
+
+        WordResponse response = service.lookUp("reluctant");
+
+        assertThat(response.entry()).isEqualTo(hard);
+        assertThat(savedNeedsReview("reluctant")).isTrue();
+    }
+
+    @Test
+    void possessivesAndContractionsAreNotHardWords() {
+        assertThat(simpleWords.hardWordsInDefinition("a person's name, or something you don't know")).isEmpty();
+        assertThat(simpleWords.hardWordsInExample("I'm sure they've said it isn't hers. We can't go, oh my.", "x")).isEmpty();
+        assertThat(simpleWords.hardWordsInDefinition("unwilling and hesitant")).containsExactly("hesitant", "unwilling");
+    }
+
+    @Test
+    void exampleLimitsDependOnTheLevelAndTheHeadwordIsAllowed() {
+        // easy: 0 hard words allowed, medium: 1, harder: 2. The headword does not count.
+        WordEntry.Sense sense = new WordEntry.Sense("noun", "B1", "a place to sit", "ghế",
+                List.of(new WordEntry.Example("easy", "The bench is old."),
+                        new WordEntry.Example("medium", "The bench is dilapidated."),
+                        new WordEntry.Example("harder", "The dilapidated bench was unstable.")),
+                List.of());
+
+        assertThat(simpleWords.problems(new WordEntry(List.of(sense)), "bench")).isEmpty();
+
+        WordEntry.Sense tooHard = new WordEntry.Sense("noun", "B1", "a place to sit", "ghế",
+                List.of(new WordEntry.Example("easy", "The bench is dilapidated.")), List.of());
+        assertThat(simpleWords.problems(new WordEntry(List.of(tooHard)), "bench")).hasSize(1);
     }
 }

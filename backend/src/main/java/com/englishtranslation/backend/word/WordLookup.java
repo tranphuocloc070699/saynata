@@ -32,6 +32,9 @@ public class WordLookup {
     @Column(name = "prompt_version", nullable = false, length = 16)
     private String promptVersion;
 
+    @Column(name = "needs_review", nullable = false)
+    private boolean needsReview;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -39,12 +42,23 @@ public class WordLookup {
     }
 
     public WordLookup(String cacheKey, String word, String entryJson, String model, String promptVersion) {
+        this(cacheKey, word, entryJson, model, promptVersion, false);
+    }
+
+    /** needsReview is true when the entry still had hard words after the retry (TASK-16). */
+    public WordLookup(String cacheKey, String word, String entryJson, String model, String promptVersion,
+            boolean needsReview) {
+        this.needsReview = needsReview;
         this.cacheKey = cacheKey;
         this.word = word;
         this.entryJson = entryJson;
         this.model = model;
         this.promptVersion = promptVersion;
         this.createdAt = Instant.now();
+    }
+
+    public boolean isNeedsReview() {
+        return needsReview;
     }
 
     public String getEntryJson() {

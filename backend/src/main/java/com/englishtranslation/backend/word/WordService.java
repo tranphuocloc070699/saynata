@@ -24,10 +24,12 @@ public class WordService {
 
     private final EnglishWords englishWords;
     private final IpaDictionary ipaDictionary;
+    private final SimpleWords simpleWords;
 
     public WordService(WordLookupRepository repository, ClaudeService claude, ClaudeProperties properties,
             JsonMapper jsonMapper, EnglishWords englishWords,
-            IpaDictionary ipaDictionary) {
+            IpaDictionary ipaDictionary, SimpleWords simpleWords) {
+        this.simpleWords = simpleWords;
         this.repository = repository;
         this.claude = claude;
         this.properties = properties;
@@ -54,14 +56,39 @@ public class WordService {
         }
 
         WordEntry entry = claude.describeWord(normalized);
+        boolean needsReview = false;
+        List<String> problems = simpleWords.problems(entry, normalized);
+        if (!problems.isEmpty()) {
+            // One retry with feedback, never more. If it still fails, we save it and mark it (TASK-16).
+            entry = retryWithFeedback(normalized, entry, problems);
+            problems = simpleWords.problems(entry, normalized);
+            needsReview = !problems.isEmpty();
+            if (needsReview) {
+                log.warn("'{}' saved with needsReview, still hard after the retry: {}", normalized, problems);
+            }
+        }
         try {
             repository.saveAndFlush(new WordLookup(
-                    cacheKey, normalized, jsonMapper.writeValueAsString(entry), properties.model(), properties.wordPromptVersion()));
+                    cacheKey, normalized, jsonMapper.writeValueAsString(entry), properties.model(),
+                    properties.wordPromptVersion(), needsReview));
             return response(normalized, entry, false);
         } catch (DataIntegrityViolationException e) {
             // Another request saved the same key while we waited for Claude. Keep the first answer.
             WordLookup first = repository.findByCacheKey(cacheKey).orElseThrow(() -> e);
             return response(normalized, readEntry(first), true);
+        }
+    }
+
+    /** Asks Claude once more, naming the problems. If that call fails, we keep the first entry. */
+    private WordEntry retryWithFeedback(String word, WordEntry first, List<String> problems) {
+        String feedback = "Your last answer used words that are too hard. Write the whole entry again. "
+                + "Use only very common words in definitions and in easy examples. Problems: "
+                + String.join("; ", problems);
+        try {
+            return claude.describeWordAgain(word, feedback);
+        } catch (RuntimeException e) {
+            log.warn("Retry for '{}' failed, keeping the first entry: {}", word, e.toString());
+            return first;
         }
     }
 

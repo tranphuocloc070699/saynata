@@ -1,10 +1,11 @@
 ---
 id: TASK-16
 title: Check backend word definitions use simple words
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-10 06:22'
-updated_date: '2026-10-10 08:25'
+updated_date: '2026-10-11 16:29'
 labels:
   - backend
 dependencies: []
@@ -29,3 +30,17 @@ The pipeline rejects definitions with words outside NGSL (pipeline/src/pipeline/
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. SimpleWords class: ngsl.txt + simple-extra.txt, rules copied from validate.py. 2. WordService: check, one retry with feedback (describeWordAgain), else save with needs_review (V4). 3. Mocked tests. 4. Update doc-5.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented SimpleWords + one retry + needs_review flag (V4). Backend tests: 41 pass. Test it: run ./mvnw -B test; flagged rows: SELECT word FROM word_lookup WHERE needs_review. See PR.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/31
+<!-- SECTION:NOTES:END -->

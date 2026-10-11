@@ -13,6 +13,7 @@ import com.englishtranslation.backend.translation.TargetLanguage;
 import com.englishtranslation.backend.translation.TranslationService;
 import com.englishtranslation.backend.word.EnglishWords;
 import com.englishtranslation.backend.word.IpaDictionary;
+import com.englishtranslation.backend.word.SimpleWords;
 import com.englishtranslation.backend.word.WordEntry;
 import com.englishtranslation.backend.word.WordLookupRepository;
 import com.englishtranslation.backend.word.WordService;
@@ -60,7 +61,8 @@ class PromptVersionCacheTest {
     }
 
     private WordService wordService(ClaudeProperties properties) {
-        return new WordService(words, claude, properties, jsonMapper, new EnglishWords(), new IpaDictionary());
+        return new WordService(words, claude, properties, jsonMapper, new EnglishWords(), new IpaDictionary(),
+                new SimpleWords());
     }
 
     @Test
