@@ -27,6 +27,9 @@ force-push and pushes to main in every permission mode.
 
 Tests: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` · iOS in Xcode (⌘U).
 
+**Simulator: always iPhone 16 Pro (iOS 18.5)** for iOS tests, builds and screenshots, by agents and in Test it cards:
+`-destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5'`. It is the developer's device, so results match what they see.
+
 ## Product rule: explain first, translate last
 
 Saynata teaches English. It is not a translator. For every word and sentence, the main result is a **simple
