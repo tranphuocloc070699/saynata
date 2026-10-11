@@ -9,6 +9,8 @@ import SwiftUI
 struct TranslateResultView: View {
     let state: TranslationState
     let targetLanguage: String
+    /// Called when the user taps a "did you mean" word.
+    var onSuggestionTap: (String) -> Void = { _ in }
 
     var body: some View {
         switch state {
@@ -21,8 +23,13 @@ struct TranslateResultView: View {
             TranslateExplanationView(explanation: explanation, targetLanguage: targetLanguage)
         case let .loadedWord(entry):
             WordCardView(entry: entry)
-        case let .failed(message):
-            Text(message).foregroundStyle(.red)
+        case let .failed(message, spelling):
+            VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+                Text(message).foregroundStyle(.red)
+                if let spelling {
+                    SpellingSuggestionsView(help: spelling, onTap: onSuggestionTap)
+                }
+            }
         }
     }
 }
