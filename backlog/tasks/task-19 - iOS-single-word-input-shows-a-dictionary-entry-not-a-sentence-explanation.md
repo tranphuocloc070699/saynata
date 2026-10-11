@@ -1,11 +1,11 @@
 ---
 id: TASK-19
 title: 'iOS: single-word input shows a dictionary entry, not a sentence explanation'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-10 06:36'
-updated_date: '2026-10-11 09:57'
+updated_date: '2026-10-11 15:24'
 labels:
   - ios
 dependencies:
@@ -24,16 +24,16 @@ Today every input goes to POST /api/translations, so one word like 'Graveyard' g
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Input with one token goes to the word lookup path; more than one token goes to /api/translations
-- [ ] #2 Token rule matches backend CacheKeys normalising (unit tests)
-- [ ] #3 Word result shows each sense: pos, CEFR, simple definition, examples, and How to use it (usage patterns, decision-2); the Vietnamese line comes last
+- [x] #1 Input with one token goes to the word lookup path; more than one token goes to /api/translations
+- [x] #2 Token rule matches backend CacheKeys normalising (unit tests)
+- [x] #3 Word result shows each sense: pos, CEFR, simple definition, examples, and How to use it (usage patterns, decision-2); the Vietnamese line comes last
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #2 Tests pass
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #2 Tests pass
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -81,3 +81,9 @@ Other failures: a first-time word with the backend off shows the system offline 
 
 Review fix: word path trims leading/trailing punctuation and symbols (CacheKeys.trimmingWordPunctuation, called first in WordLookup.lookUp) so Run!, (run), curly-quoted words share the cache entry and the backend never gets punctuation. Only punctuation gives the notOneWord message. Sentences unchanged. 59 unit tests pass.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+One token goes to the word card, more goes to the sentence path; punctuation trimmed (PR #11). Verified: unit tests and simulator.
+<!-- SECTION:FINAL_SUMMARY:END -->
