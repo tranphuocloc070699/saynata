@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-11 08:36'
-updated_date: '2026-10-11 15:54'
+updated_date: '2026-10-11 16:02'
 labels:
   - ios
 dependencies: []
@@ -38,3 +38,9 @@ CLAUDE.md product rule: the target-language line is collapsed by default, and Se
 <!-- SECTION:PLAN:BEGIN -->
 1. TranslationRowPreference (mode + last-open, UserDefaults) with unit tests. 2. SettingsView sheet, gear IconButton beside language picker. 3. MeaningCard, WordCardView, WordCardCompactView read startsOpen and record changes. 4. Update doc-4, doc-5, design-system.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/28. Test it: run app, tap gear (top right), choose Always open, look up 'depend' -> Vietnamese row open on each sense; Remember last choice -> next result follows last row state; setting survives relaunch. Tests: TranslationRowPreferenceTests, full run 119 passed. Sentence screenshot not taken (needs paid backend call).
+<!-- SECTION:NOTES:END -->
