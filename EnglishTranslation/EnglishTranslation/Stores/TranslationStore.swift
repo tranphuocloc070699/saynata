@@ -96,10 +96,13 @@ final class TranslationStore {
     }
 
     private func explainSentence() async {
+        // Copy these first. The user can change the picker or the text while we wait.
+        let sentence = trimmedInput
+        let language = targetLanguage
         do {
             let translator = try makeTranslator()
-            let explanation = try await translator.explain(trimmedInput, translatingTo: targetLanguage)
-            state = .loaded(explanation)
+            let explanation = try await translator.explain(sentence, translatingTo: language)
+            state = .loaded(SentenceResult(sentence: sentence, explanation: explanation, language: language))
         } catch {
             state = .failed(error.localizedDescription)
         }

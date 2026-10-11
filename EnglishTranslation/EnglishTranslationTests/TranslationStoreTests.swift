@@ -98,11 +98,53 @@ struct TranslationStoreTests {
         let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("Xin chào"))) })
         store.inputText = "Hello there"
         await store.translate()
-        guard case let .loaded(explanation) = store.state else {
+        guard case let .loaded(result) = store.state else {
             Issue.record("Expected .loaded, got \(store.state)")
             return
         }
-        #expect(explanation.translation == "Xin chào")
+        #expect(result.explanation.translation == "Xin chào")
+        #expect(result.sentence == "Hello there")
+    }
+
+    // MARK: - The result keeps its language (TASK-14)
+
+    @Test func loadedResultKeepsItsLanguageWhenThePickerChanges() async {
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(sample("こんにちは"))) })
+        store.targetLanguage = .japanese
+        store.inputText = "Hello there"
+        await store.translate()
+
+        store.targetLanguage = .french
+        store.inputText = "Something else"
+
+        guard case let .loaded(result) = store.state else {
+            Issue.record("Expected .loaded, got \(store.state)")
+            return
+        }
+        #expect(result.language == .japanese)
+        #expect(result.sentence == "Hello there")
+    }
+
+    @Test func pickerChangedWhileWaitingDoesNotChangeTheResultLanguage() async {
+        /// Changes the picker while the "request" is in flight.
+        struct PickerChangingTranslator: Translating {
+            let store: TranslationStore
+            func explain(_ text: String, translatingTo language: TargetLanguage) async throws -> Explanation {
+                await MainActor.run { store.targetLanguage = .french }
+                return sample("こんにちは")
+            }
+        }
+        var store: TranslationStore!
+        store = TranslationStore(makeTranslator: { PickerChangingTranslator(store: store) })
+        store.targetLanguage = .japanese
+        store.inputText = "Hello there"
+        await store.translate()
+
+        guard case let .loaded(result) = store.state else {
+            Issue.record("Expected .loaded, got \(store.state)")
+            return
+        }
+        #expect(result.language == .japanese)
     }
 
     @Test func translatorErrorShowsFailedMessage() async {

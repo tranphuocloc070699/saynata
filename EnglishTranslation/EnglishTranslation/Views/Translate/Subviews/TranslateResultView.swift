@@ -19,8 +19,9 @@ struct TranslateResultView: View {
                 .foregroundStyle(.secondary)
         case .loading:
             ProgressView()
-        case let .loaded(explanation):
-            TranslateExplanationView(explanation: explanation, targetLanguage: targetLanguage.title)
+        case let .loaded(result):
+            // The heading uses the language the result was made in, not the live picker (TASK-14).
+            TranslateExplanationView(explanation: result.explanation, targetLanguage: result.language.title)
         case let .loadedWord(entry):
             WordCardView(entry: entry, targetLanguage: targetLanguage)
         case let .failed(message, spelling):
