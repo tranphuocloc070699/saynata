@@ -1,9 +1,11 @@
 ---
 id: TASK-38
 title: 'Backend: reject non-words before calling Claude (runk became drunk)'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-11 14:51'
+updated_date: '2026-10-11 14:56'
 labels:
   - backend
   - ios
@@ -32,3 +34,9 @@ Developer test 2026-10-11: typing 'runk' showed a card for 'drunk' under the hea
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. EnglishWords (SCOWL 70 + NGSL from the bundle) loaded at startup. 2. WordService rejects unlisted words before Claude, no save. 3. WORD_PROMPT rule. 4. Bump v7 backend + iOS. 5. Tests, docs.
+<!-- SECTION:PLAN:END -->

@@ -51,6 +51,13 @@ class ClaudeServiceTest {
     }
 
     @Test
+    void wordPromptForbidsSpellingCorrection() {
+        assertThat(ClaudeService.WORD_PROMPT)
+                .contains("Never correct spelling. Never describe a different word.")
+                .contains("return an empty list of senses");
+    }
+
+    @Test
     void wordPromptAsksForThreeLevelledExamples() {
         assertThat(ClaudeService.WORD_PROMPT)
                 .contains("- examples: exactly 3 example sentences")
