@@ -4,6 +4,7 @@ title: F1 Look up a word
 status: To Do
 assignee: []
 created_date: '2026-10-11 08:36'
+updated_date: '2026-10-11 11:31'
 labels:
   - feature
   - ios
@@ -14,6 +15,9 @@ dependencies:
   - TASK-24
   - TASK-27
   - TASK-19
+  - TASK-35
+  - TASK-36
+  - TASK-37
 priority: high
 type: feature
 ordinal: 31000
