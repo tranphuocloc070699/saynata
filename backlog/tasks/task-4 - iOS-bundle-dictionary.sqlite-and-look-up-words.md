@@ -45,4 +45,6 @@ Words should be answered offline from the bundled dictionary first (spec R1, R2 
 
 <!-- SECTION:NOTES:BEGIN -->
 Test it: run DictionaryStoreTests (hit run, form ran, miss zzzzqq). Command: xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 16 Pro' -only-testing:EnglishTranslationTests. Refresh bundle: cp pipeline/data/out/dictionary.sqlite EnglishTranslation/EnglishTranslation/Resources/. PR link in PR list for f1/task-4.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/7
 <!-- SECTION:NOTES:END -->
