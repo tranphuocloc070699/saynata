@@ -25,6 +25,14 @@ jobs:
       # Tests use H2 and a mocked ClaudeService: no Docker or API key needed.
       - run: ./mvnw -B test
 
+  docker:
+    name: Backend Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Build only: nothing is pushed to a registry. Catches a broken Dockerfile before the VPS does.
+      - run: docker build -t saynata-backend:ci backend
+
   pipeline:
     name: Pipeline tests
     runs-on: ubuntu-latest

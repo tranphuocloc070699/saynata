@@ -54,3 +54,15 @@ Run the same request twice: the second answer has `"cached": true` and makes no 
 ```
 
 Tests use H2 and a mocked `ClaudeService`, so they need neither Docker nor an API key.
+
+## Deploy (Docker, VPS)
+
+`Dockerfile` builds a small image (JDK to build, JRE 17 to run, non-root user). `docker-compose.prod.yml` runs the backend and
+Postgres with a named volume. Health check: `GET /actuator/health`.
+
+```bash
+cp .env.example .env    # set CLAUDE_API_KEY and DB_PASSWORD
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Full steps (HTTPS with Caddy, firewall, iPhone setup): `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`.
