@@ -23,7 +23,7 @@ struct DictionaryStoreTests {
         #expect(!first.simpleDefinition.isEmpty)
         #expect(!first.vietnamese.isEmpty)
         #expect(first.examples.count == 2)
-        #expect(first.usage.isEmpty)
+        #expect(!first.usage.isEmpty)  // filled by the TASK-24 usage pass
     }
 
     @Test func wordFormFindsTheBaseWord() throws {
