@@ -1,11 +1,11 @@
 ---
 id: TASK-36
 title: 'iOS: word card v2 (meaning cards, folded Examples and Grammar, form line)'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-11 11:31'
-updated_date: '2026-10-11 11:43'
+updated_date: '2026-10-11 15:24'
 labels:
   - ios
 dependencies: []
@@ -21,17 +21,17 @@ Developer picked option B from the 2026-10-11 mockups with changes: each meaning
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Each sense is a card titled with its number and simple explanation, plus the level chip
-- [ ] #2 Examples is a folded row listing examples with easy / medium / harder labels
-- [ ] #3 Grammar is a folded row grouping usage by kind (Patterns, Collocations, Phrases and idioms) as bullet lists
-- [ ] #4 Typing a form ('ran') shows the form line ('past tense of run') under the word; Vietnamese stays last and collapsed
+- [x] #1 Each sense is a card titled with its number and simple explanation, plus the level chip
+- [x] #2 Examples is a folded row listing examples with easy / medium / harder labels
+- [x] #3 Grammar is a folded row grouping usage by kind (Patterns, Collocations, Phrases and idioms) as bullet lists
+- [x] #4 Typing a form ('ran') shows the form line ('past tense of run') under the word; Vietnamese stays last and collapsed
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
-- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Tests pass
+- [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -45,3 +45,9 @@ Developer picked option B from the 2026-10-11 mockups with changes: each meaning
 <!-- SECTION:NOTES:BEGIN -->
 PR: https://github.com/tranphuocloc070699/saynata/pull/18. Test it: Goal: numbered meaning cards with closed Examples, Grammar, Vietnamese rows; a form shows 'past tense of run'. Steps: run on iPhone 16 Pro, type 'apple', Explain, open Examples then Grammar then Vietnamese; check the previews in WordCardView.swift (Form: ran, apple, get, no usage, old data). Expected: card per sense (number circle, serif explanation, level chip), no counters, Grammar grouped Patterns / Collocations / Phrases and idioms, example labels easy/medium/harder in previews; the pill for 'ran' shows in the preview now and in the app after TASK-35 (store does not fill matchedForm yet). Automated: 66 iOS unit tests pass (xcodebuild test ... -only-testing:EnglishTranslationTests -parallel-testing-enabled NO).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Word card v2: one card per meaning, folded Examples/Grammar/Vietnamese, form pill (PR #18). Verified: unit tests, simulator screenshots.
+<!-- SECTION:FINAL_SUMMARY:END -->

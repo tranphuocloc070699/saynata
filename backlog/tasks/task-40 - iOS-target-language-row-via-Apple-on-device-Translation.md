@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-11 15:01'
-updated_date: '2026-10-11 15:08'
+updated_date: '2026-10-11 15:23'
 labels:
   - ios
 dependencies: []
@@ -21,10 +21,10 @@ Developer chose option A (doc-7, 2026-10-11) and approved the mockup: when the p
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The row title follows the picked target language
+- [x] #1 The row title follows the picked target language
 - [ ] #2 For non-Vietnamese languages the row shows Apple Translation (iOS 18 Translation framework) of the simple explanation, translated on device; iOS handles the one-time language download
-- [ ] #3 Vietnamese shows the dictionary meaning as today; translations are cached in memory per sense and language
-- [ ] #4 Errors (pack not downloaded and declined, unsupported language) show a short message in the row
+- [x] #3 Vietnamese shows the dictionary meaning as today; translations are cached in memory per sense and language
+- [x] #4 Errors (pack not downloaded and declined, unsupported language) show a short message in the row
 <!-- AC:END -->
 
 ## Definition of Done
@@ -46,4 +46,6 @@ Developer chose option A (doc-7, 2026-10-11) and approved the mockup: when the p
 Implemented. PR Test it card: pick Korean, look up 'ran', open the 'Korean' row on a real iPhone (iOS 18): spinner, then Korean text + 'Translated on this iPhone'; reopen is instant; Vietnamese still shows dictionary text; declining the download shows 'Could not translate...'. Simulator (iPhone 16 Pro 18.5) reports en-ko unsupported, so only the error message path was seen there. Tests: 92 pass.
 
 PR: https://github.com/tranphuocloc070699/saynata/pull/23
+
+AC #2 needs a real iPhone: the simulator reports the English-Korean pair as unsupported. Merged in PR #23 / F1 #14.
 <!-- SECTION:NOTES:END -->

@@ -1,10 +1,10 @@
 ---
 id: TASK-31
 title: F1 Look up a word
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-11 08:36'
-updated_date: '2026-10-11 11:31'
+updated_date: '2026-10-11 15:24'
 labels:
   - feature
   - ios
@@ -31,15 +31,21 @@ A learner types one word and gets a simple English word card: offline from the b
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Test it on the simulator: a bundled word shows its card with the network off
-- [ ] #2 Test it: a word missing from the bundle loads from the backend, and the second lookup works offline
-- [ ] #3 Test it: an error (offline, unknown word) shows a clear message
-- [ ] #4 Feature PR into main has a Test it card and is merged after the developer approves
+- [x] #1 Test it on the simulator: a bundled word shows its card with the network off
+- [x] #2 Test it: a word missing from the bundle loads from the backend, and the second lookup works offline
+- [x] #3 Test it: an error (offline, unknown word) shows a clear message
+- [x] #4 Feature PR into main has a Test it card and is merged after the developer approves
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
-- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Tests pass
+- [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+F1 Look up a word merged into main (PR #14) after the developer's approval. 94 iOS tests, CI green. Open follow-ups: TASK-38 AC #2, TASK-40 device check.
+<!-- SECTION:FINAL_SUMMARY:END -->
