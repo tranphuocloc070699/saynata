@@ -5,6 +5,7 @@
     uv run pipeline generate --limit 200 # generate the 200 most common NGSL words
     uv run pipeline generate --retry-review  # also redo words that failed the checks
     uv run pipeline generate --workers 8     # LLM calls in parallel (default 8)
+    uv run pipeline revalidate           # re-check needs_review words after the checks change (no LLM)
     uv run pipeline report               # counts + entries that need review
     uv run pipeline export               # build data/out/dictionary.sqlite
 """
@@ -86,6 +87,25 @@ def generate(limit: int, retry_review: bool, workers: int) -> None:
             print(f"[{number}/{len(rows)}] {lemma}: {result['status']}", flush=True)
 
 
+def revalidate() -> None:
+    """Re-runs the checks on stored needs_review entries. Words that now pass become done; no LLM calls."""
+    from pipeline.models import WordEntry
+
+    vocabulary = build_vocabulary(sources.load_ngsl())
+    db = store.connect()
+    rows = db.execute("SELECT lemma, rank, entry FROM words WHERE status = 'needs_review' AND entry IS NOT NULL").fetchall()
+    passed = 0
+    for row in rows:
+        problems = find_problems(row["lemma"], WordEntry.model_validate_json(row["entry"]), vocabulary, rank=row["rank"])
+        if problems:
+            db.execute("UPDATE words SET problems = ? WHERE lemma = ?", (json.dumps(problems), row["lemma"]))
+        else:
+            db.execute("UPDATE words SET status = 'done', problems = '[]', updated_at = CURRENT_TIMESTAMP WHERE lemma = ?", (row["lemma"],))
+            passed += 1
+    db.commit()
+    print(f"{passed} of {len(rows)} needs_review words now pass")
+
+
 def report() -> None:
     db = store.connect()
     for row in db.execute("SELECT status, COUNT(*) AS n, SUM(attempts) AS calls FROM words GROUP BY status"):
@@ -105,6 +125,7 @@ def main() -> None:
     generate_parser.add_argument("--limit", type=int, default=200)
     generate_parser.add_argument("--retry-review", action="store_true", help="also redo needs_review words")
     generate_parser.add_argument("--workers", type=int, default=8, help="LLM calls in parallel")
+    commands.add_parser("revalidate")
     commands.add_parser("report")
     commands.add_parser("export")
     args = parser.parse_args()
@@ -115,6 +136,8 @@ def main() -> None:
         try_word(args.word)
     elif args.command == "generate":
         generate(args.limit, args.retry_review, args.workers)
+    elif args.command == "revalidate":
+        revalidate()
     elif args.command == "report":
         report()
     elif args.command == "export":
