@@ -3,7 +3,7 @@ id: doc-1
 title: Vision and spec
 type: specification
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-11 15:06'
+updated_date: '2026-10-11 15:08'
 ---
 # Spec: EnglishTranslation — translator for a Vietnamese English learner
 
@@ -102,6 +102,8 @@ the pipeline shape in camelCase, without the image fields.
 Rules:
 - `text`: 1–500 characters. `word`: 1–64 characters, one token.
 - `targetLang`: required, one of the codes above. Unknown or missing → 400.
+- Not English (code, gibberish like "asdkj qwe zzxq", another language) → **422** with detail "This doesn't look like English. Type an English word or sentence." Nothing is cached (TASK-21). The model returns an `isEnglish` flag; the backend turns `false` into the 422 and never stores or returns the flag.
+- `translation` is always a translation of the input, never an explanation. "base form: X" appears only for inflected words.
 - Each language is cached on its own: the same sentence in `vi` and `ja` is two rows and two LLM calls.
 - `cached: true` when the result came from the DB.
 - Two users asking for the same new key at the same moment: one LLM call may be wasted, but only

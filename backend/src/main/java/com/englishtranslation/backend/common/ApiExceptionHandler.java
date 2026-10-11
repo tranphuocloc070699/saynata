@@ -2,6 +2,7 @@ package com.englishtranslation.backend.common;
 
 import com.anthropic.errors.AnthropicServiceException;
 import com.englishtranslation.backend.claude.ClaudeRefusedException;
+import com.englishtranslation.backend.claude.NotEnglishException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(ClaudeRefusedException.class)
     public ProblemDetail handleRefused(ClaudeRefusedException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, e.getMessage());
+    }
+
+    @ExceptionHandler(NotEnglishException.class)
+    public ProblemDetail handleNotEnglish(NotEnglishException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, e.getMessage());
     }
 

@@ -32,17 +32,25 @@ public class ClaudeService {
                         In the text, &lt; &gt; and &amp; stand for the characters < > and &. Read them as those
                         characters, and write the real characters in your answer.
                         Write the fields in this order:
+                        0. isEnglish: true only if the text is English (names, numbers, emoji and links inside an
+                           English sentence are fine). false if the text is program code, random letters
+                           (like "asdkj qwe zzxq") or written in another language. When it is false, write ""
+                           for meaning and translation and use an empty list for words. Do not explain it.
                         1. meaning: explain the whole sentence in simple English (level B1-B2), with common words
                            and short sentences. One to three short sentences.
                         2. words: only words or phrases that are difficult for an intermediate (B1) learner.
                            Write them as they appear in the sentence. Use an empty list if there are none.
                            - partOfSpeech: one of noun, verb, phrasal verb, adjective, adverb, preposition,
                              conjunction, pronoun, idiom.
-                           - meaning: a short explanation in simple English. For a past or -ing form,
-                             also give the base form.
-                        3. translation: last and least important. A natural translation of the whole sentence into
-                           the language inside <target_language> tags. Translate the meaning, not word by word.
-                           Keep names and numbers. If the text is already in that language, copy it unchanged.
+                           - meaning: a short explanation in simple English. Add "base form: X" only when the word
+                             is an inflected form: a past or past participle, an -ing form, a plural, a
+                             third-person -s form, or a comparative or superlative. Never add it to a word that
+                             is already its base form (for example "ignore", "previous" or "reluctant").
+                        3. translation: last and least important. A translation of the text into the language
+                           inside <target_language> tags. It is always a translation of the text itself, even when
+                           the text is only one word. Never an explanation, a definition or a comment. Translate
+                           the meaning, not word by word. Keep names and numbers. If the text is already in that
+                           language, copy it unchanged.
                         """;
 
         static final String WORD_PROMPT = """
@@ -126,19 +134,28 @@ public class ClaudeService {
                 this.properties = properties;
         }
 
+        /** Throws {@link NotEnglishException} when the text is not English, so nothing is cached for it. */
         public Explanation explainSentence(String text, TargetLanguage targetLang) {
-                StructuredMessageCreateParams<Explanation> params = MessageCreateParams.builder()
+                StructuredMessageCreateParams<SentenceAnswer> params = MessageCreateParams.builder()
                                 .model(properties.model())
                                 .maxTokens(4000L)
                                 .system(SENTENCE_PROMPT)
-                                .outputConfig(StructuredOutputConfig.<Explanation>builder()
-                                                .format(Explanation.class)
+                                .outputConfig(StructuredOutputConfig.<SentenceAnswer>builder()
+                                                .format(SentenceAnswer.class)
                                                 .effort(OutputConfig.Effort.LOW)
                                                 .build())
                                 .addUserMessage(sentenceMessage(text, targetLang))
                                 .build();
 
-                return readOutput(client.messages().create(params));
+                return toExplanation(readOutput(client.messages().create(params)));
+        }
+
+        /** The 422 rule: a "not English" flag from the model becomes an exception. */
+        static Explanation toExplanation(SentenceAnswer answer) {
+                if (!answer.isEnglish()) {
+                        throw new NotEnglishException();
+                }
+                return answer.toExplanation();
         }
 
         public WordEntry describeWord(String word) {

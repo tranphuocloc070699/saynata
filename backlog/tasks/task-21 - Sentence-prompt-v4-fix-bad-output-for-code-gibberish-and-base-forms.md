@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-10 06:37'
-updated_date: '2026-10-11 15:03'
+updated_date: '2026-10-11 15:08'
 labels:
   - backend
 dependencies:
@@ -39,3 +39,9 @@ Probe 2026-10-10 found: (1) code ('for (int i = 0; ...') and gibberish ('asdkj q
 <!-- SECTION:PLAN:BEGIN -->
 1. Model returns isEnglish first; service turns false into HTTP 422 (NotEnglishException) and caches nothing. 2. Prompt: translation is always a translation of the input, never an explanation; base form only for inflected words (past, -ing, plural, comparative...). 3. Bump version v5 -> v6 (backend + iOS + CacheTests hash). 4. Unit tests with mocked ClaudeService for 422 path; schema test. 5. probe script takes a URL; run a few real calls on port 8082. 6. Update doc-4, doc-1.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Decision AC#1 (orchestrator default, developer may change): not-English input (code, gibberish, another language) -> HTTP 422, detail "This doesn't look like English. Type an English word or sentence.", nothing cached. Model returns isEnglish (SentenceAnswer); ClaudeService.toExplanation throws NotEnglishException; handler maps to 422. Prompt v6: translation is always a translation of the input; base form only for inflected words. Vietnamese input now also gets 422 (the old 'copy unchanged' probe rows change). Backend and iOS PromptVersions.sentence = v6, CacheTests hashes updated.
+<!-- SECTION:NOTES:END -->
