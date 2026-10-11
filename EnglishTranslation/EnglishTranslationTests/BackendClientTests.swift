@@ -178,6 +178,29 @@ struct BackendClientTests {
         #expect(entry.senses.first?.usage == [Usage(kind: .phrase, pattern: "by serendipity", example: "We met by serendipity.")])
     }
 
+    @Test func wordReplyWithIpaPutsItOnTheEntry() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = Data(#"{"word":"graveyard","cached":true,"ipa":"/ˈɡɹeɪvˌjɑɹd/","entry":{"senses":[]}}"#.utf8)
+
+        let entry = try await client.entry(forWord: "graveyard")
+
+        #expect(entry.ipa == "/ˈɡɹeɪvˌjɑɹd/")
+    }
+
+    @Test func wordReplyWithNullOrMissingIpaHasNoIpa() async throws {
+        StubURLProtocol.status = 200
+        // Null: the backend does not know the IPA of this word.
+        StubURLProtocol.body = Data(#"{"word":"aardwolf","cached":false,"ipa":null,"entry":{"senses":[]}}"#.utf8)
+        let withNull = try await client.entry(forWord: "aardwolf")
+
+        // Missing: JSON saved on the phone before the backend sent `ipa` (this is `wordBody`).
+        StubURLProtocol.body = wordBody
+        let withoutField = try await client.entry(forWord: "serendipity")
+
+        #expect(withNull.ipa == nil)
+        #expect(withoutField.ipa == nil)
+    }
+
     @Test func wordIsSavedAndThenServedFromTheCacheWithoutNetwork() async throws {
         StubURLProtocol.status = 200
         StubURLProtocol.body = wordBody
