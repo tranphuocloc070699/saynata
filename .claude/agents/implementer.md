@@ -48,7 +48,8 @@ normally. Never rebase a branch you already pushed: that needs a force-push, whi
 - Write tests with the code. Run the tests for every part you changed:
   - Backend: `cd backend && ./mvnw -B test`
   - Pipeline: `cd pipeline && uv run pytest`
-  - iOS: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 16 Pro'`
+  - iOS: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' -only-testing:EnglishTranslationTests -parallel-testing-enabled NO`
+    Always iPhone 16 Pro (iOS 18.5), for tests, app runs and screenshots (CLAUDE.md). Read the final "Test run with N tests" line.
 - Do not run paid API jobs (pipeline passes, live Claude calls). Write the code and tests; say in the PR
   which command the developer should run and its rough cost.
 - When a flow changes, update its page in `backlog/docs/features/` (line numbers, "Last traced" date) with
@@ -85,6 +86,9 @@ normally. Never rebase a branch you already pushed: that needs a force-push, whi
    open questions. Keep it short.
 
 ## Never
+
+- Never stop a process you did not start. No `pkill`/`killall` by name: the developer's backend may be running.
+  If you start a server, use another port (8082), note its PID (`$!`), and stop only that PID.
 
 - Never mark a task Done or check its acceptance criteria. The orchestrator does that after review.
 - Never merge a PR, push to `main`, force-push, or delete a remote branch. A guard hook blocks these;

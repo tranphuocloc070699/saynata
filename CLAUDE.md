@@ -27,6 +27,9 @@ force-push and pushes to main in every permission mode.
 
 Tests: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` · iOS in Xcode (⌘U).
 
+**Simulator: always iPhone 16 Pro (iOS 18.5)** for iOS tests, builds and screenshots, by agents and in Test it cards:
+`-destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5'`. It is the developer's device, so results match what they see.
+
 ## Product rule: explain first, translate last
 
 Saynata teaches English. It is not a translator. For every word and sentence, the main result is a **simple
@@ -34,7 +37,8 @@ English explanation** of the meaning (short, plain words, B1-B2 level), so the l
 The target language (Vietnamese, etc.) is a small helper line at the **bottom** of the result, never the headline.
 
 - UI order: simple English explanation, then words (IPA, type, level, meaning), then the target-language line last.
-- The target-language line is **collapsed by default** (a "Vietnamese" row the user taps to open, per result).
+- The target-language line is **collapsed by default** (a row titled with the picked language, for example "Vietnamese" or "Korean", that the user taps to open, per result).
+  Vietnamese shows the dictionary text; other languages show the simple explanation translated on the device (Apple Translation).
   Settings has a "Show translation" option to change this: Collapsed (default), Always open, or Remember last choice.
 - Words in a sentence use the same word card as a word search, in compact form.
 - Prompts and response models: ask the LLM for the English explanation first; the target-language text is a
