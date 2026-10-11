@@ -14,6 +14,7 @@ Read before working:
 - Goal, requirements, decisions: `backlog/docs/doc-1 - Vision-and-spec.md`
 - How each flow works (files, lines, diagrams): `backlog/docs/features/`
 - Daily workflow: `backlog/docs/doc-2 - Daily-workflow.md`
+- UI work (colors, text styles, components, HIG rules): `docs/design/design-system.md`
 - What's done and what's next: `backlog task list --plain`, and any In Progress task's notes
 
 Tests: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` · iOS in Xcode (⌘U).
