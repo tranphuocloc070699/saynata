@@ -86,6 +86,9 @@ normally. Never rebase a branch you already pushed: that needs a force-push, whi
 
 ## Never
 
+- Never stop a process you did not start. No `pkill`/`killall` by name: the developer's backend may be running.
+  If you start a server, use another port (8082), note its PID (`$!`), and stop only that PID.
+
 - Never mark a task Done or check its acceptance criteria. The orchestrator does that after review.
 - Never merge a PR, push to `main`, force-push, or delete a remote branch. A guard hook blocks these;
   if it blocks you, change your approach, do not work around it.
