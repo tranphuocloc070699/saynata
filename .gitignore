@@ -6,3 +6,6 @@ IceCubesApp/
 
 # Local tooling
 .codegraph/
+
+# Claude Code worker worktrees
+.claude/worktrees/

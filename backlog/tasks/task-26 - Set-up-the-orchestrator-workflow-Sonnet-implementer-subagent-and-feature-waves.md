@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-11 08:21'
-updated_date: '2026-10-11 08:37'
+updated_date: '2026-10-11 09:18'
 labels:
   - workflow
 dependencies: []
@@ -67,4 +67,6 @@ Done so far (2026-10-11):
 - .worktreeinclude copies EnglishTranslation/Secrets.xcconfig into worktrees so iOS builds.
 - New tasks: TASK-27 word card screen, TASK-28 explain-first backend, TASK-29 Settings, TASK-30 share extension. Features: TASK-31 F1, TASK-32 F2, TASK-33 F3, TASK-34 F4. TASK-19 AC now says usage patterns, depends on TASK-24 and TASK-27.
 - Branch model: feature/fN-* branch per feature; task PRs into it; one feature PR into main.
+
+2026-10-11: F1 wave 1 started. Branch feature/f1-word-lookup pushed. 3 implementer workers: TASK-4, TASK-5, TASK-27. TASK-24 held for a brainstorm with the developer (how usage patterns look) before a worker starts it.
 <!-- SECTION:NOTES:END -->
