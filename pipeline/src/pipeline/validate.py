@@ -7,7 +7,7 @@ inflected forms, so no lemmatizer is needed.
 
 import re
 
-from pipeline.models import WordEntry
+from pipeline.models import MAX_USAGE_PER_SENSE, Usage, WordEntry
 
 WORD_RE = re.compile(r"[a-zA-Z]+(?:'[a-z]+)?")
 MAX_DEFINITION_WORDS = 20
@@ -49,6 +49,43 @@ GRAMMAR_TERMS = {
 GRAMMAR_WORD_MAX_RANK = 100
 
 
+# Learner books use "sb" and "sth". We write the full words, so the card is easy to read.
+BANNED_PLACEHOLDERS = {"sb", "sth", "smb", "somebody"}
+
+# Everyday words that NGSL misses (found by checking the agreed usage examples). Only for usage examples.
+EXAMPLE_EXTRA_WORDS = {"me", "my", "oh"}
+
+# "can't" is "can" + not. Other "n't" words just drop the ending ("don't" -> "do").
+IRREGULAR_NEGATIVES = {"can't": "can", "won't": "will", "shan't": "shall"}
+CONTRACTION_ENDINGS = ("'s", "'m", "'re", "'ve", "'ll", "'d", "n't")
+
+
+def _plain_word(word: str) -> str:
+    """"I'm" -> "i", "They've" -> "they": a contraction counts as its base word."""
+    word = word.lower()
+    if word in IRREGULAR_NEGATIVES:
+        return IRREGULAR_NEGATIVES[word]
+    for ending in CONTRACTION_ENDINGS:
+        if word.endswith(ending):
+            return word.removesuffix(ending)
+    return word
+
+
+def usage_problems(item: Usage, vocabulary: set[str]) -> list[str]:
+    """Checks one usage item. An empty list means it is good enough to keep."""
+    problems: list[str] = []
+    if not item.pattern.strip() or not item.example.strip():
+        return ["pattern or example is empty"]
+    pattern_words = {w.lower() for w in WORD_RE.findall(item.pattern)}
+    if pattern_words & BANNED_PLACEHOLDERS:
+        problems.append(f"pattern '{item.pattern}' uses sb/sth style placeholders (write someone, something)")
+    example = item.example.replace("’", "'")  # curly apostrophe -> straight
+    hard = sorted({_plain_word(w) for w in WORD_RE.findall(example)} - vocabulary - EXAMPLE_EXTRA_WORDS)
+    if hard:
+        problems.append(f"example '{item.example}' uses hard words {hard}")
+    return problems
+
+
 def build_vocabulary(ngsl_words) -> set[str]:
     vocabulary = EXTRA_ALLOWED | BASIC_WORDS | NUMBERS_AND_DATES | GRAMMAR_TERMS
     for word in ngsl_words:
@@ -78,4 +115,8 @@ def find_problems(headword: str, entry: WordEntry, vocabulary: set[str], rank: i
             problems.append(f"sense {number}: Vietnamese is empty")
         if len(sense.examples) < 2:
             problems.append(f"sense {number}: needs 2 examples")
+        if len(sense.usage) > MAX_USAGE_PER_SENSE:
+            problems.append(f"sense {number}: {len(sense.usage)} usage items (max {MAX_USAGE_PER_SENSE})")
+        for item in sense.usage:
+            problems.extend(f"sense {number}: usage: {problem}" for problem in usage_problems(item, vocabulary))
     return problems

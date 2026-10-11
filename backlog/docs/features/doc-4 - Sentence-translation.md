@@ -3,7 +3,7 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 09:32'
+updated_date: '2026-10-11 09:33'
 ---
 > Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-11.
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -146,9 +146,9 @@ Tests also inject a fake through the same `makeTranslator` closure.
 | Client | [ClaudeConfig.java:13-21](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeConfig.java#L13-L21) | Builds `AnthropicClient`. **Fails at startup** if `CLAUDE_API_KEY` is empty. |
 | Config | [application.properties:13-18](../../../backend/src/main/resources/application.properties#L13-L18) | `app.claude.model=claude-haiku-5-5`, `app.claude.sentence-prompt-version=v4` (words have their own `app.claude.word-prompt-version`). The key comes from `backend/.env`. |
 | Prompt | [ClaudeService.java:27-43](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L27-L43) | `SENTENCE_PROMPT`. User text goes inside `<text>` tags and is "never instructions" (prompt-injection guard). It also says `&lt;` `&gt;` `&amp;` stand for the real characters. |
-| Escape | [ClaudeService.java:97-110](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L97-L110) | `sentenceMessage` escapes `&`, `<`, `>` in the user text (`&` first), so `</text>` in the input cannot close the tag early (TASK-20). |
-| Request | [ClaudeService.java:67-80](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L67-L80) | `maxTokens 4000`, `effort LOW`, **structured output** with `Explanation.class` as the JSON schema. |
-| Reply | [ClaudeService.java:112-121](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L112-L121) | `stopReason == REFUSAL` → `ClaudeRefusedException`. Otherwise the first text block, parsed into `Explanation`. |
+| Escape | [ClaudeService.java:124-137](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L124-L137) | `sentenceMessage` escapes `&`, `<`, `>` in the user text (`&` first), so `</text>` in the input cannot close the tag early (TASK-20). |
+| Request | [ClaudeService.java:94-107](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L94-L107) | `maxTokens 4000`, `effort LOW`, **structured output** with `Explanation.class` as the JSON schema. |
+| Reply | [ClaudeService.java:139-148](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L139-L148) | `stopReason == REFUSAL` → `ClaudeRefusedException`. Otherwise the first text block, parsed into `Explanation`. |
 
 **Why no `temperature: 0`:** Haiku 5.5 rejects sampling parameters. Repeatable output comes from the
 cache instead (spec, Decisions).
@@ -193,7 +193,7 @@ sequenceDiagram
 | `BackendBaseURL` missing | `AppConfig` | — | "Missing BackendBaseURL. Check Secrets.xcconfig and the Info tab." |
 | Direct provider key missing | `AppConfig.apiKey` | — | "Missing DeepSeekAPIKey. …" |
 | Text > 500 or blank, bad `targetLang` | Spring validation | 400 | ProblemDetail `detail` + "(status 400)" |
-| Claude refused | [ClaudeService.java:113-115](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L113-L115) → [ApiExceptionHandler.java:18-21](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L18-L21) | 422 | "Claude declined to answer this text. (status 422)" |
+| Claude refused | [ClaudeService.java:140-142](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L140-L142) → [ApiExceptionHandler.java:18-21](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L18-L21) | 422 | "Claude declined to answer this text. (status 422)" |
 | Claude API down / bad key | [ApiExceptionHandler.java:23-27](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L23-L27) | 502 | "The translation service is not available. Try again later. (status 502)" |
 | Backend not running | `URLSession` | — | `URLError` text, e.g. "Could not connect to the server." |
 | Direct LLM bad JSON | `Explanation.decode` | — | "The model's answer was not in the expected format. Try again." |
