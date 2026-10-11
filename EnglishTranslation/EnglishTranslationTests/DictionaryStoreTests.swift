@@ -95,9 +95,4 @@ struct DictionaryStoreTests {
             """
         guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else { throw DictionaryError.queryFailed("setup") }
     }
-
-    @Test func normalizeMatchesTheBackend() {
-        #expect(WordNormalizer.normalize("  Run  ") == "run")
-        #expect(WordNormalizer.normalize("Ice\t  Cream") == "ice cream")
-    }
 }

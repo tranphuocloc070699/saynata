@@ -19,7 +19,7 @@ enum TranslatorFactory {
 
     /// Our Java backend. The URL comes from `BackendBaseURL` in Info.plist.
     static func makeBackendClient() throws -> any Translating {
-        BackendClient(baseURL: try AppConfig.backendBaseURL())
+        BackendClient(baseURL: try AppConfig.backendBaseURL(), cache: ResultCache.shared)
     }
 
     /// DeepSeek, OpenAI-compatible. Models: https://api-docs.deepseek.com

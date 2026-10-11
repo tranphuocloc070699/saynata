@@ -49,7 +49,7 @@ final class DictionaryStore: @unchecked Sendable {
     /// Finds a word by its base form or by a form ("ran" finds "run").
     /// Returns nil when the dictionary does not have it.
     func lookUp(_ word: String) throws -> WordEntry? {
-        let key = WordNormalizer.normalize(word)
+        let key = CacheKeys.normalizeWord(word)
         guard !key.isEmpty, let match = try findWord(key) else { return nil }
         let senses = try loadSenses(wordID: match.id)
         return WordEntry(word: match.lemma, ipa: match.ipa, senses: senses)
