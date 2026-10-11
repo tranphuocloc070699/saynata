@@ -4,6 +4,7 @@ title: 'Backend: Docker deploy setup for a small VPS'
 status: To Do
 assignee: []
 created_date: '2026-10-11 16:25'
+updated_date: '2026-10-11 16:37'
 labels:
   - backend
   - devops
@@ -19,10 +20,10 @@ To use the app on the developer's iPhone anywhere, the backend must run on a ser
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 backend/Dockerfile (multi-stage, Java 17) builds a small image; docker-compose.yml runs the backend + Postgres with env vars from a .env file that is never committed
-- [ ] #2 A healthcheck endpoint or Actuator health is used by compose
-- [ ] #3 A short deploy guide (doc page) explains: copy files to the VPS, set .env, docker compose up, open the port or put it behind HTTPS, and set the app's BackendBaseURL
-- [ ] #4 CI builds the Docker image on pull requests
+- [x] #1 backend/Dockerfile (multi-stage, Java 17) builds a small image; docker-compose.yml runs the backend + Postgres with env vars from a .env file that is never committed
+- [x] #2 A healthcheck endpoint or Actuator health is used by compose
+- [x] #3 A short deploy guide (doc page) explains: copy files to the VPS, set .env, docker compose up, open the port or put it behind HTTPS, and set the app's BackendBaseURL
+- [x] #4 CI builds the Docker image on pull requests
 <!-- AC:END -->
 
 ## Definition of Done
@@ -31,3 +32,9 @@ To use the app on the developer's iPhone anywhere, the backend must run on a ser
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Merged in PR #32. CI builds the image (job 'Backend Docker image'). Not yet run end to end: Docker Desktop on the Mac was hung during the worker's run. To finish: follow the PR #32 Test it card once (prod compose on port 18081, project saynata-test), then mark Done. Deploy guide: backlog/docs/guides doc-11.
+<!-- SECTION:NOTES:END -->
