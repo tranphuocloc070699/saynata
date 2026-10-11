@@ -6,12 +6,14 @@
 import SwiftUI
 
 /// The full word card (word card v2, TASK-36): the headword, then one card per sense.
-/// A sense card has a numbered title and three folded rows: Examples, Grammar, Vietnamese.
-/// Vietnamese is last and closed by default (CLAUDE.md "Product rule").
+/// A sense card has a numbered title and three folded rows: Examples, Grammar, and the picked language
+/// (Vietnamese by default). The language row is last and closed by default (CLAUDE.md "Product rule").
 /// Shown for a single-word input (TASK-19); previews use the sample words.
 struct WordCardView: View {
     let entry: WordEntry
     /// Called when the listen button is tapped. Speech is not built yet.
+    /// The picked language. It titles the last row (TASK-40).
+    var targetLanguage: TargetLanguage = .vietnamese
     var onListen: () -> Void = {}
 
     /// Which folded row is open, for example "0-Vietnamese". Only one at a time per card (design rule 8).
@@ -64,12 +66,9 @@ struct WordCardView: View {
                         WordUsageSection(groups: sense.usageGroups)
                     }
                 }
-                if !sense.vietnamese.isEmpty {
-                    foldedRow("Vietnamese", index: index) {
-                        Text(sense.vietnamese)
-                            .font(.body)
-                            .foregroundStyle(Theme.Colors.textPrimary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                if sense.hasTargetLanguageRow(for: targetLanguage) {
+                    foldedRow(targetLanguage.title, index: index) {
+                        TargetLanguageRowContent(sense: sense, language: targetLanguage)
                     }
                 }
             }
