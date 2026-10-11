@@ -7,7 +7,7 @@ inflected forms, so no lemmatizer is needed.
 
 import re
 
-from pipeline.models import MAX_USAGE_PER_SENSE, Usage, WordEntry
+from pipeline.models import EXAMPLE_LEVELS, MAX_USAGE_PER_SENSE, Example, ExampleLevel, Usage, WordEntry
 
 WORD_RE = re.compile(r"[a-zA-Z]+(?:'[a-z]+)?")
 MAX_DEFINITION_WORDS = 20
@@ -83,6 +83,32 @@ def usage_problems(item: Usage, vocabulary: set[str]) -> list[str]:
     hard = sorted({_plain_word(w) for w in WORD_RE.findall(example)} - vocabulary - EXAMPLE_EXTRA_WORDS)
     if hard:
         problems.append(f"example '{item.example}' uses hard words {hard}")
+    return problems
+
+
+# A "harder" example may use a few words outside the vocabulary (B2 words), but not many.
+# Words outside the vocabulary that an example may have: easy none, medium 1, harder 2.
+MAX_OUTSIDE_WORDS = {ExampleLevel.EASY: 0, ExampleLevel.MEDIUM: 1, ExampleLevel.HARDER: 2}
+
+
+def example_problems(example: Example, headword: str, headword_forms: set[str], vocabulary: set[str]) -> list[str]:
+    """Checks one example. An empty list means it is good enough to keep.
+
+    Easy: every word must be in the vocabulary (the same check as usage examples).
+    Medium: up to 1 word may be outside it. Harder: up to 2. Every level must contain the headword or one of its forms.
+    `headword_forms` holds the lemma and its inflected forms, lowercase.
+    """
+    text = example.text.strip()
+    if not text:
+        return ["example is empty"]
+    words = {_plain_word(w) for w in WORD_RE.findall(text.replace("’", "'"))}
+    problems: list[str] = []
+    outside = sorted(words - vocabulary - EXAMPLE_EXTRA_WORDS)
+    allowed = MAX_OUTSIDE_WORDS[example.level]
+    if len(outside) > allowed:
+        problems.append(f"{example.level.value} example '{text}' uses hard words {outside}")
+    if not words & (headword_forms | {headword.lower()}):
+        problems.append(f"{example.level.value} example '{text}' does not use '{headword}'")
     return problems
 
 

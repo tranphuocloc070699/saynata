@@ -20,6 +20,8 @@ NGSL word list ─► Kaikki (Wiktionary JSON) ─► filter senses ─► LLM �
 | `validate.py` | Definition may only use NGSL words, no headword, max 20 words |
 | `store.py` | Progress table (`data/pipeline.db`) so runs can stop and resume |
 | `usage.py` | The usage pass: adds `usage` (pattern + example) to done entries |
+| `examples.py` | The examples pass: gives each sense 3 examples (easy, medium, harder) |
+| `forms.py` | Labels each word form (past tense, plural, ...) with lemminflect |
 | `export.py` | Builds `dictionary.sqlite` for the iOS app + `dictionary.jsonl` |
 
 ## Run
@@ -33,11 +35,14 @@ uv run pipeline report
 uv run pipeline revalidate          # after changing the checks: re-check needs_review words, no LLM
 uv run pipeline usage --dry-run --words get make depend  # 3 calls (~$0.01), saves nothing
 uv run pipeline usage               # add usage to every done word that has none (1 call per word, ~$8)
+uv run pipeline examples --dry-run --words run make get  # 3 calls (~$0.01), saves nothing
+uv run pipeline examples            # 3 levelled examples per sense for every done word (1 call per word, ~$8)
 uv run pipeline export
 ```
 
 `usage` only adds the `usage` list to entries that are already `done`. It never changes definitions,
 makes one call per word with no retries, and can be stopped and run again.
+`examples` works the same way, but only for the `examples` list.
 
 ## Test
 

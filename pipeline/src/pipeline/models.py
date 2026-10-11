@@ -2,8 +2,9 @@
 
 import json
 from enum import Enum
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 
 class ImageType(str, Enum):
@@ -28,12 +29,39 @@ class Usage(BaseModel):
 MAX_USAGE_PER_SENSE = 3
 
 
+class ExampleLevel(str, Enum):
+    EASY = "easy"  # only the most common words
+    MEDIUM = "medium"  # still simple words, a longer or less obvious sentence
+    HARDER = "harder"  # may use some B2 words
+
+
+# The order a learner reads them in.
+EXAMPLE_LEVELS = [ExampleLevel.EASY, ExampleLevel.MEDIUM, ExampleLevel.HARDER]
+
+
+class Example(BaseModel):
+    level: ExampleLevel
+    text: str = Field(description="One short natural sentence that uses the headword in this sense")
+
+
+def _examples_from_old_or_new(value):
+    """Old entries stored examples as plain strings. They become easy, medium (the old pair was never sorted)."""
+    if not isinstance(value, list):
+        return value
+    return [
+        {"level": EXAMPLE_LEVELS[min(index, 1)].value, "text": item} if isinstance(item, str) else item
+        for index, item in enumerate(value)
+    ]
+
+
 class Sense(BaseModel):
     source_index: int = Field(description="Index of the Wiktionary sense this is based on")
     pos: str = Field(description="Part of speech: noun, verb, adjective, ...")
     cefr: str = Field(description="CEFR level of this sense: A1, A2, B1, B2, C1 or C2")
     simple_definition: str = Field(description="Max 20 words, only very common simple words")
-    examples: list[str] = Field(description="Exactly 2 short, natural example sentences")
+    examples: Annotated[list[Example], BeforeValidator(_examples_from_old_or_new)] = Field(
+        description="Exactly 3 examples of this sense, ordered easy, medium, harder",
+    )
     vietnamese: str = Field(description="Short Vietnamese meaning, like a bilingual dictionary")
     usage: list[Usage] = Field(
         description="0-3 common, natural ways to use this sense. Fewer (or none) when there are no good ones",
@@ -47,7 +75,7 @@ class WordEntry(BaseModel):
 
     @classmethod
     def from_stored(cls, text: str) -> "WordEntry":
-        """Reads an entry saved in pipeline.db. Old rows have no usage yet (and still carry collocations/synonyms)."""
+        """Reads an entry saved in pipeline.db. Old rows have no usage yet (and still carry collocations/synonyms), and plain-string examples."""
         data = json.loads(text)
         for sense in data["senses"]:
             sense.setdefault("usage", [])

@@ -63,6 +63,35 @@ USAGE_RULES = """usage: 0-3 items that show how to use THIS sense. Give fewer, o
     pattern "depend on + something" -> "It depends on the weather."
     phrase "It depends." -> "\"Are you coming?\" \"It depends.\"" """
 
+# Used by this file and by examples.py (the examples pass), so both ask for the same thing.
+EXAMPLE_RULES = """examples: exactly 3 example sentences for THIS sense, ordered from easy to hard.
+  Each example has a level and a text. The three must differ in STRUCTURE and SITUATION, not just in length.
+  - level "easy" (A1-A2): short present simple (about 4-8 words), the most common words, a very clear picture.
+  - level "medium" (B1): a DIFFERENT situation and a DIFFERENT structure from the easy one: past tense, a
+    question, an imperative, or two clauses (about 8-12 words). Simple words only.
+  - level "harder" (B2): a more complex structure, such as present perfect, a conditional, a relative clause,
+    the passive or reported speech, and/or a B2 collocation. Under about 16 words. No rare, technical or
+    literary words.
+  Rules for examples:
+  - Easy uses ONLY very common words (the 2,800 most common words). Medium may use at most 1 word outside
+    that list. Harder may use at most 2.
+  - Every example must use the headword (or a form of it, like "ran" for "run") in THIS sense, not in
+    another sense of the word.
+  - Natural sentences a native speaker would really say.
+  - The three examples must show three different situations and must not reuse the same phrase.
+    Bad: "I went for a run today." / "I went for a run before breakfast this morning." (same phrase, same
+    situation, only longer). Longer is not harder.
+  - Put them in this order: easy, medium, harder.
+  Examples of good sets:
+    get (to buy):
+      easy "I get milk every day."
+      medium "Can you get some bread on your way home?"
+      harder "If you get a chance, I'd like you to get tickets before they sell out."
+    run (to move fast on foot):
+      easy "I run in the park."
+      medium "Don't run in the house!"
+      harder "She has been running every morning since she decided to run a marathon." """
+
 SYSTEM_PROMPT = f"""You write entries for a learner's dictionary for Vietnamese students of English,
 in the style of the Cambridge Learner's Dictionary.
 
@@ -71,7 +100,7 @@ Rules:
 - simple_definition: max 20 words. Use ONLY very common, simple English words (the 2,800 most common words).
   Never use the headword itself. Start like Cambridge does: a noun sense starts with "a/an/the ...",
   a verb sense starts with "to ...", an adjective sense describes the quality.
-- examples: exactly 2 short, natural sentences a learner might hear in daily life.
+- {EXAMPLE_RULES}
 - vietnamese: a short, natural Vietnamese meaning (1-6 words), like a good bilingual dictionary.
 - {USAGE_RULES}
 - image_type: "photo" if a stock photo clearly shows it, "icon" if a simple icon can show it,

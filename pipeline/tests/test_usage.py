@@ -208,7 +208,7 @@ def test_export_stores_usage_as_json_and_counts_missing(db, tmp_path, monkeypatc
     add_done_word(db, "make", 2, old_entry())
     usage.run_pass(db, VOCABULARY, fake_fetch([]), limit=10, workers=1, words=["get"])
 
-    path, count, without_usage = export.export(db)
+    path, count, without_usage, _ = export.export(db)
 
     import sqlite3
 

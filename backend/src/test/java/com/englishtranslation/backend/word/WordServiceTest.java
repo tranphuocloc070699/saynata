@@ -46,7 +46,9 @@ class WordServiceTest {
     void savedEntryIsReadBackTheSame() {
         WordEntry entry = new WordEntry(List.of(new WordEntry.Sense(
                 "adjective", "C1", "not wanting to do something", "miễn cưỡng",
-                List.of("She was reluctant to leave.", "He gave a reluctant smile."),
+                List.of(new WordEntry.Example("easy", "She was reluctant to leave."),
+                        new WordEntry.Example("medium", "He gave a reluctant smile."),
+                        new WordEntry.Example("harder", "They were reluctant to accept the offer.")),
                 List.of(new WordEntry.Usage("pattern", "be reluctant to + verb", "She was reluctant to leave.")))));
         when(claude.describeWord("reluctant")).thenReturn(entry);
 

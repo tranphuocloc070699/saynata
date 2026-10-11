@@ -51,6 +51,23 @@ class ClaudeServiceTest {
     }
 
     @Test
+    void wordPromptAsksForThreeLevelledExamples() {
+        assertThat(ClaudeService.WORD_PROMPT)
+                .contains("- examples: exactly 3 example sentences")
+                .contains("level \"easy\"", "level \"medium\"", "level \"harder\"")
+                .doesNotContain("exactly 2 short");
+    }
+
+    @Test
+    void wordEntrySchemaHasLevelledExamples() {
+        StructuredOutputConfig<WordEntry> config = StructuredOutputConfig.<WordEntry>builder()
+                .format(WordEntry.class)
+                .build();
+
+        assertThat(config.toString()).contains("examples", "level", "text", "easy, medium, harder");
+    }
+
+    @Test
     void wordEntrySchemaHasUsageWithLowercaseKinds() {
         StructuredOutputConfig<WordEntry> config = StructuredOutputConfig.<WordEntry>builder()
                 .format(WordEntry.class)

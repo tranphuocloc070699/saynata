@@ -3,16 +3,16 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 10:00'
+updated_date: '2026-10-11 11:45'
 ---
-> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-11 (usage replaces collocations and synonyms, TASK-24). **The usage pass has not run on the real data yet:** until it does, the 2,750 `done` entries have no usage.
+> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-11 (levelled examples and form types, TASK-35). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
 
 ## What it does
 
 An offline Python job that builds `dictionary.sqlite`, the word data bundled in the iOS app.
 For each of the ~2,800 most common English words (NGSL), it takes the Wiktionary senses, asks an LLM
-to write a **simple definition** + **Vietnamese meaning** + examples + **usage** (patterns with an example), checks that the definition only
+to write a **simple definition** + **Vietnamese meaning** + **3 levelled examples per sense** + **usage** (patterns with an example), checks that the definition only
 uses simple words, and retries with feedback when it doesn't.
 
 ## Big picture
@@ -28,6 +28,9 @@ flowchart LR
     VAL --> ST[(data/pipeline.db progress table)]
     ST -->|"pipeline usage: one call per word"| USE[usage.py adds usage to done entries]
     USE --> ST
+    ST -->|"pipeline examples: one call per word"| EXA[examples.py gives each sense 3 levelled examples]
+    EXA --> ST
+    FOR[forms.py lemminflect labels each form] --> EXP
     ST --> EXP[export.py]
     EXP --> OUT1[data/out/dictionary.sqlite → iOS app]
     EXP --> OUT2[data/out/dictionary.jsonl]
@@ -102,12 +105,14 @@ sequenceDiagram
 | Client | [70-73](../../../pipeline/src/pipeline/generate.py#L70-L73) | Anthropic SDK, created once (`@cache`). `max_retries=5` for 429, 5xx and connection errors. Key: `ANTHROPIC_API_KEY`. |
 | Pacing | [83-91](../../../pipeline/src/pipeline/generate.py#L83-L91) | Off by default. `LLM_MAX_PER_MINUTE` spaces calls if you hit rate limits. |
 | System prompt | [54-67](../../../pipeline/src/pipeline/generate.py#L54-L67) | Cambridge Learner's style rules. No schema in the prompt: structured output enforces the shape. |
+| Example rules | [67-93](../../../pipeline/src/pipeline/generate.py#L67-L93) | `EXAMPLE_RULES`: 3 examples per sense that differ in **structure and situation**, not just length. Easy (A1-A2): short present simple. Medium (B1): a different situation and structure (past, question, imperative, two clauses). Harder (B2): a more complex structure (present perfect, conditional, relative clause, passive, reported speech) and/or a B2 collocation, under ~16 words. Easy uses only the 2,800 common words, medium may have 1 word outside, harder 2. Every example uses the headword (or a form) in **this** sense. Has a bad example ("Longer is not harder") and two good sets (get, run). Used by the system prompt **and** by the examples pass. |
 | Usage rules | [24-64](../../../pipeline/src/pipeline/generate.py#L24-L64) | `USAGE_RULES`: kinds, placeholders, "natural, not old-fashioned", "at least one idiom when the sense has a real one (B2-C1 is fine)", "no duplicates across all senses", "the placeholder must match the example", "must fit this sense", simple example words, and the agreed few-shot examples. Used by the system prompt **and** by the usage pass. |
 | User prompt | [94-106](../../../pipeline/src/pipeline/generate.py#L94-L106) | Headword + candidate senses + Vietnamese hints + **feedback from the last failed try**. |
 | Call | [109-124](../../../pipeline/src/pipeline/generate.py#L109-L124) | `messages.parse(output_format=WordEntry)`, `effort: low`. A refusal or empty reply raises, and the word becomes `failed`. No `temperature`: the 5.5 models reject it. |
-| Version | [19](../../../pipeline/src/pipeline/generate.py#L19) | `PROMPT_VERSION = 2` (v1 = Gemini). Bump it and `generate` redoes `done` rows with an older version. **Not bumped for TASK-24**: that would redo all 2,750 entries (~$36). The usage pass adds usage instead (~$8). |
+| Version | [19](../../../pipeline/src/pipeline/generate.py#L19) | `PROMPT_VERSION = 2` (v1 = Gemini). TASK-35 did not bump it either (same reason): the examples pass adds the levels instead. Bump it and `generate` redoes `done` rows with an older version. **Not bumped for TASK-24**: that would redo all 2,750 entries (~$36). The usage pass adds usage instead (~$8). |
 
 Output shape: [models.py](../../../pipeline/src/pipeline/models.py): `senses[]` with `source_index, pos, cefr, simple_definition, examples, vietnamese, usage, image_type, image_query`.
+`examples` is 3 items of `{ level: easy|medium|harder, text }` ([models.py:32-55](../../../pipeline/src/pipeline/models.py#L32-L55)). A `BeforeValidator` turns the old list of strings into easy, medium, so old stored rows still load.
 `usage` is 0–3 items of `{ kind: pattern|collocation|phrase|idiom, pattern, example }` ([models.py:15-29](../../../pipeline/src/pipeline/models.py#L15-L29)).
 `WordEntry.from_stored` reads old rows that still have `collocations`/`synonyms` and no `usage`.
 
@@ -121,7 +126,8 @@ The **defining vocabulary** method from learner dictionaries: a definition may o
 | Hard words | [105-108](../../../pipeline/src/pipeline/validate.py#L105-L108) | Any word outside the vocabulary → problem. A possessive `'s` is removed first, so "person's" is checked as "person". |
 | Headword | [109-111](../../../pipeline/src/pipeline/validate.py#L109-L111) | Can't use the word itself, **except** the top 100 grammar words ("a", "the"). |
 | Length | [112-113](../../../pipeline/src/pipeline/validate.py#L112-L113) | Max 20 words. |
-| Vietnamese / examples | [114-117](../../../pipeline/src/pipeline/validate.py#L114-L117) | Vietnamese not empty, at least 2 examples. |
+| Vietnamese / examples | [validate.py:122-147](../../../pipeline/src/pipeline/validate.py#L122-L147) | Vietnamese not empty, at least 2 examples. |
+| Example levels | [example_problems:93-111](../../../pipeline/src/pipeline/validate.py#L93-L111) | Used by the examples pass. Easy: every word must be in the vocabulary (same check as usage examples). Medium: up to 1 word outside it. Harder: up to 2. All levels: the sentence must contain the headword or one of its forms. |
 | Usage | [118-121](../../../pipeline/src/pipeline/validate.py#L118-L121), [74-86](../../../pipeline/src/pipeline/validate.py#L74-L86) | At most 3 items. Each example may only use NGSL words (contractions like "I'm" and "can't" count as their base word; `me`, `my`, `oh` are allowed too). The pattern must not use `sb`/`sth`. |
 
 ### 5. Progress table: [store.py](../../../pipeline/src/pipeline/store.py)
@@ -175,15 +181,39 @@ sequenceDiagram
 | Save | [usage.py:144-157](../../../pipeline/src/pipeline/usage.py#L144-L157) | Copies the sense as it was, adds `usage`, and removes the old `collocations` and `synonyms`. |
 | Errors | [usage.py:159-166](../../../pipeline/src/pipeline/usage.py#L159-L166) | Any error (network, refusal) leaves the row as it is. The next run picks it up again. |
 
-### 7. Export: [export.py](../../../pipeline/src/pipeline/export.py)
+### 7. Examples pass: [examples.py](../../../pipeline/src/pipeline/examples.py) (TASK-35)
+
+Same shape as the usage pass. Gives every sense 3 examples `{ level, text }`, easy first. Never changes the definition, Vietnamese or usage.
+
+| Part | Line | Rule |
+|---|---|---|
+| Finished test | [examples.py:35-37](../../../pipeline/src/pipeline/examples.py#L35-L37) | A word is done when no example is a plain string any more. A second run makes no calls. |
+| The call | [examples.py:44-79](../../../pipeline/src/pipeline/examples.py#L44-L79) | One call per word. The prompt lists each sense with its definition and its **old examples**; the system prompt tells the model it may reuse a good one. `effort: low`. `fetch` is a parameter, so tests pass a fake. |
+| Clean up | [examples.py:104-132](../../../pipeline/src/pipeline/examples.py#L104-L132) | One call, no retries. An example that fails the checks is **dropped**. At most one example per level, saved in the order easy, medium, harder (even if the model mixes them up). An example is also dropped when more than 60% of its content words (no headword forms, no stop words like "the", "I", "was") are shared with an earlier kept example of the sense ([content_words](../../../pipeline/src/pipeline/examples.py#L92-L101)). A sense may end with fewer than 3. |
+| No good example | [examples.py:143-158](../../../pipeline/src/pipeline/examples.py#L143-L158) | If none of a sense's new examples is good, it keeps its old two (as easy, medium), so it is never empty. |
+| Errors | [examples.py:161-170](../../../pipeline/src/pipeline/examples.py#L161-L170) | Any error leaves the row as it is; the next run tries again. |
+
+### 8. Form types: [forms.py](../../../pipeline/src/pipeline/forms.py) (TASK-35)
+
+Uses the free library **lemminflect** to say what each form is, so the app can show "past tense of run" for "ran".
+
+| Tag | Label | Note |
+|---|---|---|
+| VBD / VBN / VBG / VBZ | past tense / past participle / -ing form / third person | The first one that fits wins: "walked" is both VBD and VBN, so it is "past tense". |
+| NNS | plural | |
+| JJR / JJS (RBR / RBS) | comparative / superlative | |
+
+[form_type:40-56](../../../pipeline/src/pipeline/forms.py#L40-L56) only looks at the parts of speech the word has senses for. The answer is `"form"` when lemminflect does not know the form, when two kinds of word fit ("runs" = plural noun or third person verb), or when the form is the word itself. [word_forms:59-64](../../../pipeline/src/pipeline/forms.py#L59-L64) lists every form of a word; the examples check uses it to see that a sentence contains the headword.
+
+### 9. Export: [export.py](../../../pipeline/src/pipeline/export.py)
 
 | Part | Line | Note |
 |---|---|---|
-| App schema | [10-31](../../../pipeline/src/pipeline/export.py#L10-L31) | `meta`, `words`, `forms` ("ran" → run), `senses`. `senses.usage` is a JSON list of `{kind, pattern, example}`; there are no `collocations` or `synonyms` columns. Case-insensitive indexes on lemma and form. |
+| App schema | [10-31](../../../pipeline/src/pipeline/export.py#L10-L31) | `meta`, `words`, `forms` ("ran" → run, with a `type` column: "past tense", "plural", … or "form"), `senses`. `senses.examples` is a JSON list of `{level, text}` (a word the examples pass has not reached yet is exported with its old examples as easy, medium). `senses.usage` is a JSON list of `{kind, pattern, example}`; there are no `collocations` or `synonyms` columns. Case-insensitive indexes on lemma and form. |
 | Only `done` | [42](../../../pipeline/src/pipeline/export.py#L42) | `needs_review` and `failed` words are **not** exported. |
 | Rebuild | [36-40](../../../pipeline/src/pipeline/export.py#L36-L40) | Deletes and recreates the file each time. |
 | Version | [73-76](../../../pipeline/src/pipeline/export.py#L73-L76) | `meta.dictionary_version` = UTC timestamp, so the app can tell versions apart. |
-| Missing usage | [43-47](../../../pipeline/src/pipeline/export.py#L43-L47) | `export` also returns how many words still have no usage; the `export` command prints a warning if it is not 0. |
+| Missing usage / levels | [export.py:41-90](../../../pipeline/src/pipeline/export.py#L41-L90) | `export` also returns how many words still have no usage and how many still have no example levels; the `export` command prints a warning for each if it is not 0. |
 
 ## Commands ([cli.py](../../../pipeline/src/pipeline/cli.py))
 
@@ -194,6 +224,8 @@ sequenceDiagram
 | `uv run pipeline generate --limit 200` | Yes | Next 200 words by rank, 8 in parallel (`--workers`) |
 | `uv run pipeline generate --retry-review` | Yes | Also redo `needs_review` |
 | `uv run pipeline usage --dry-run --words get make depend` | 3 calls (~$0.01) | Try the usage pass on 3 done words, print the result, save nothing |
+| `uv run pipeline examples --dry-run --words run make get` | 3 calls (~$0.01) | Try the examples pass on 3 done words, print the result, save nothing |
+| `uv run pipeline examples` | Yes, 1 call per word (about $8 for 2,750 words, like the usage pass) | Give every done word 3 levelled examples per sense. Resume-safe; run it again to retry failed words |
 | `uv run pipeline usage` | Yes, 1 call per word (~$8 for 2,750 words) | Add usage to every done word that has none. Resume-safe; run it again to retry failed words ([cli.py:111-122](../../../pipeline/src/pipeline/cli.py#L111-L122)) |
 | `uv run pipeline revalidate` | No | Re-check stored `needs_review` entries after the checks change; passing ones become `done` ([cli.py:92-108](../../../pipeline/src/pipeline/cli.py#L92-L108)) |
 | `uv run pipeline report` | No | Counts per status + the problem list |
@@ -207,6 +239,7 @@ sequenceDiagram
 | [test_validate.py](../../../pipeline/tests/test_validate.py) | Simple definition passes, hard word and headword reported, missing Vietnamese/examples, numbers and grammar terms allowed, grammar words may use themselves, possessive `'s`, basic words outside NGSL |
 
 | [test_usage.py](../../../pipeline/tests/test_usage.py) | Usage checks (contractions, hard words, `sb`/`sth`), the pass with a fake LLM (definitions untouched, resume, no retry on error, bad items dropped, max 3, dry run), the prompt has the agreed examples, export stores usage as JSON |
+| [test_examples.py](../../../pipeline/tests/test_examples.py) | Example checks (levels, 2 words outside the list for harder, headword or a form), an example that repeats another one is dropped, the examples pass with a fake LLM (definitions untouched, order, resume, no retry, drops, old examples kept as a fallback, dry run), old string examples load, form types (ran, went, running, apples, runs, …), export stores levels and form types |
 
 Run: `uv run pytest` in `pipeline/` (no API key needed).
 
@@ -217,5 +250,5 @@ Run: `uv run pytest` in `pipeline/` (no API key needed).
 - **No sampling control** on Claude 5.5 models. Fine here: the output is generated once and stored, so R3's "same input, same output" holds through the file.
 - **Image fields are generated but not used yet** (`image_url` is always empty). Images are out of scope for v1.
 - **The usage pass has not run on the real data yet** (TASK-24): until the developer runs `uv run pipeline usage`, `dictionary.sqlite` has an empty `usage` for every word. Words whose call fails keep no usage until the next run.
-- **The iOS app doesn't read the file yet** (TASK-4).
+- **The examples pass has not run on the real data yet** (TASK-35): until the developer runs `uv run pipeline examples` and then `export`, the bundled `dictionary.sqlite` has old examples and no `forms.type`. The app reads both old and new files.
 - **59 words are not in the file** (`needs_review` after allowlist + Sonnet retry on 2026-10-11: 18 use the headword, 3 too long, the rest use rarer words). The backend fills them on demand.
