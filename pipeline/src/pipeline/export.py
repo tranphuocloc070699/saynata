@@ -5,12 +5,19 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from pipeline.examples import needs_examples, old_examples_as_levels
+from pipeline.forms import form_type
+
 OUT_DIR = Path("data/out")
 
 APP_SCHEMA = """
 CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE words (id INTEGER PRIMARY KEY, lemma TEXT NOT NULL UNIQUE, rank INTEGER NOT NULL, ipa TEXT);
-CREATE TABLE forms (form TEXT NOT NULL, word_id INTEGER NOT NULL REFERENCES words(id));  -- "ran" -> run
+CREATE TABLE forms (
+    form    TEXT NOT NULL,
+    word_id INTEGER NOT NULL REFERENCES words(id),   -- "ran" -> run
+    type    TEXT NOT NULL                            -- "past tense", "plural", ... or "form" when unsure
+);
 CREATE TABLE senses (
     id                INTEGER PRIMARY KEY,
     word_id           INTEGER NOT NULL REFERENCES words(id),
@@ -19,9 +26,8 @@ CREATE TABLE senses (
     cefr              TEXT NOT NULL,
     simple_definition TEXT NOT NULL,
     vietnamese        TEXT NOT NULL,
-    examples          TEXT NOT NULL,  -- JSON list
-    collocations      TEXT NOT NULL,  -- JSON list
-    synonyms          TEXT NOT NULL,  -- JSON list
+    examples          TEXT NOT NULL,  -- JSON list of {level, text}, easy first
+    usage             TEXT NOT NULL,  -- JSON list of {kind, pattern, example}
     image_type        TEXT NOT NULL,
     image_query       TEXT NOT NULL,
     image_url         TEXT            -- filled by the image step
@@ -32,7 +38,8 @@ CREATE INDEX idx_senses_word ON senses(word_id);
 """
 
 
-def export(pipeline_db: sqlite3.Connection) -> tuple[Path, int]:
+def export(pipeline_db: sqlite3.Connection) -> tuple[Path, int, int, int]:
+    """Returns (path, words exported, words without usage yet, words without levelled examples yet)."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     app_path = OUT_DIR / "dictionary.sqlite"
     app_path.unlink(missing_ok=True)
@@ -40,30 +47,38 @@ def export(pipeline_db: sqlite3.Connection) -> tuple[Path, int]:
     app_db.executescript(APP_SCHEMA)
 
     rows = pipeline_db.execute("SELECT * FROM words WHERE status = 'done' ORDER BY rank").fetchall()
+    without_usage = 0
+    without_levels = 0
     with (OUT_DIR / "dictionary.jsonl").open("w") as jsonl:
         for row in rows:
             entry = json.loads(row["entry"])
+            without_usage += any("usage" not in sense for sense in entry["senses"])
+            without_levels += needs_examples(entry)
+            sense_pos = [sense["pos"] for sense in entry["senses"]]
             word_id = app_db.execute(
                 "INSERT INTO words (lemma, rank, ipa) VALUES (?, ?, ?)",
                 (row["lemma"], row["rank"], row["ipa"]),
             ).lastrowid
             app_db.executemany(
-                "INSERT INTO forms (form, word_id) VALUES (?, ?)",
-                [(form, word_id) for form in json.loads(row["forms"])],
+                "INSERT INTO forms (form, word_id, type) VALUES (?, ?, ?)",
+                [(form, word_id, form_type(row["lemma"], form, sense_pos)) for form in json.loads(row["forms"])],
             )
             for position, sense in enumerate(entry["senses"]):
                 app_db.execute(
                     """INSERT INTO senses (word_id, position, pos, cefr, simple_definition, vietnamese,
-                       examples, collocations, synonyms, image_type, image_query)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       examples, usage, image_type, image_query)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         word_id, position, sense["pos"], sense["cefr"], sense["simple_definition"],
-                        sense["vietnamese"], json.dumps(sense["examples"], ensure_ascii=False),
-                        json.dumps(sense["collocations"], ensure_ascii=False),
-                        json.dumps(sense["synonyms"], ensure_ascii=False),
+                        sense["vietnamese"], json.dumps(old_examples_as_levels(sense), ensure_ascii=False),
+                        json.dumps(sense.get("usage", []), ensure_ascii=False),
                         sense["image_type"], sense["image_query"],
                     ),
                 )
+            for sense in entry["senses"]:  # old fields stay out of the files; plain-string examples get levels
+                sense.pop("collocations", None)
+                sense.pop("synonyms", None)
+                sense["examples"] = old_examples_as_levels(sense)
             jsonl.write(json.dumps({"lemma": row["lemma"], "ipa": row["ipa"], **entry}, ensure_ascii=False) + "\n")
 
     app_db.execute(
@@ -72,4 +87,4 @@ def export(pipeline_db: sqlite3.Connection) -> tuple[Path, int]:
     )
     app_db.commit()
     app_db.close()
-    return app_path, len(rows)
+    return app_path, len(rows), without_usage, without_levels

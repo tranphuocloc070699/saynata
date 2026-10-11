@@ -34,6 +34,12 @@ enum Theme {
         static let success = Color("Theme/Success")
         /// Wrong word or failed request. Never the only signal: add an icon or underline.
         static let error = Color("Theme/Error")
+        /// Example label "easy". Text color; the label background is this color at 14% opacity.
+        static let levelEasy = Color("Theme/LevelEasy")
+        /// Example label "medium" (amber). Same use as `levelEasy`.
+        static let levelMedium = Color("Theme/LevelMedium")
+        /// Example label "harder" (coral). Same use as `levelEasy`.
+        static let levelHarder = Color("Theme/LevelHarder")
     }
 
     /// Spacing on a 4 pt grid.

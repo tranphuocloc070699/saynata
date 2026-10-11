@@ -7,8 +7,8 @@ learning Swift and English at the same time.
 | Part | Stack | Job |
 |---|---|---|
 | `EnglishTranslation/` | SwiftUI, iOS 18 | The app. Talks only to our backend (direct LLM clients are being removed, TASK-18). |
-| `backend/` | Spring Boot 4, Java 17, Postgres, Flyway, Claude Haiku 5.5 | `POST /api/translations`, `GET /api/words/{word}`, with a shared cache-first DB. |
-| `pipeline/` | Python 3.12, uv, Claude Sonnet 5.5 | Builds `dictionary.sqlite` (NGSL words) bundled in the app. |
+| `backend/` | Spring Boot 4, Java 17, Postgres, Flyway, Claude Haiku 5.5 | `POST /api/translations`, `GET /api/words/{word}`, with a shared cache-first DB. Words not on the bundled SCOWL/NGSL word list are rejected before Claude is called. |
+| `pipeline/` | Python 3.12, uv, Claude Sonnet 5.5 | Builds `dictionary.sqlite` (NGSL words, 3 levelled examples per sense, form types via lemminflect) bundled in the app. |
 
 Read before working:
 - Goal, requirements, decisions: `backlog/docs/doc-1 - Vision-and-spec.md`
@@ -27,6 +27,9 @@ force-push and pushes to main in every permission mode.
 
 Tests: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` · iOS in Xcode (⌘U).
 
+**Simulator: always iPhone 16 Pro (iOS 18.5)** for iOS tests, builds and screenshots, by agents and in Test it cards:
+`-destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5'`. It is the developer's device, so results match what they see.
+
 ## Product rule: explain first, translate last
 
 Saynata teaches English. It is not a translator. For every word and sentence, the main result is a **simple
@@ -34,7 +37,8 @@ English explanation** of the meaning (short, plain words, B1-B2 level), so the l
 The target language (Vietnamese, etc.) is a small helper line at the **bottom** of the result, never the headline.
 
 - UI order: simple English explanation, then words (IPA, type, level, meaning), then the target-language line last.
-- The target-language line is **collapsed by default** (a "Vietnamese" row the user taps to open, per result).
+- The target-language line is **collapsed by default** (a row titled with the picked language, for example "Vietnamese" or "Korean", that the user taps to open, per result).
+  Vietnamese shows the dictionary text; other languages show the simple explanation translated on the device (Apple Translation).
   Settings has a "Show translation" option to change this: Collapsed (default), Always open, or Remember last choice.
 - Words in a sentence use the same word card as a word search, in compact form.
 - Prompts and response models: ask the LLM for the English explanation first; the target-language text is a
@@ -71,6 +75,16 @@ Do not edit Backlog task, draft, document, decision, or milestone markdown files
 
 </CRITICAL_INSTRUCTION>
 <!-- BACKLOG.MD GUIDELINES END -->
+
+## Working with the developer
+
+- **Feature status with every "please test".** When you ask the developer to test, start with a short status
+  table of all features (F1-F4 and other user-facing tasks): done and merged, ready to test now, in progress,
+  not started. Say exactly which ones this build contains, so they do not test something that is not built.
+  Give branch-switch commands as `git fetch origin && git switch <branch> && git pull`.
+- **Mockup before UI code.** Any change to how a screen looks (layout, new section, separators, labels, order)
+  starts with a mockup (an inline visual or a page) and waits for the developer's choice. Only then change
+  SwiftUI code. Bug fixes that keep the agreed design (flicker, wrong colour token) do not need a mockup.
 
 ## Feature docs
 

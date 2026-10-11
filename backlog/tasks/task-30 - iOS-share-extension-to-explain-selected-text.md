@@ -4,7 +4,7 @@ title: 'iOS: share extension to explain selected text'
 status: To Do
 assignee: []
 created_date: '2026-10-11 08:36'
-updated_date: '2026-10-11 08:36'
+updated_date: '2026-10-11 15:22'
 labels:
   - ios
 dependencies:
@@ -33,3 +33,9 @@ From the UX report (docs/design/translate-ux-2026-10-10.md, item 11): selecting 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-11: developer chose to build the share extension before images. Design approved from mockup: a sheet over the host app with the headword, IPA, icon-only Listen / Open in Saynata / Close, and the same meaning cards (compact). Branch feature/f6-share-extension, cut from feature/f1-word-lookup (F1 not merged to main yet).
+<!-- SECTION:NOTES:END -->

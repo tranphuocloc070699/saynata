@@ -5,7 +5,11 @@
     uv run pipeline generate --limit 200 # generate the 200 most common NGSL words
     uv run pipeline generate --retry-review  # also redo words that failed the checks
     uv run pipeline generate --workers 8     # LLM calls in parallel (default 8)
-    uv run pipeline revalidate           # re-check needs_review words after the checks change (no LLM)
+    uv run pipeline usage --dry-run --words get make   # try the usage pass on 2 done words, save nothing
+    uv run pipeline examples --dry-run --words run apple make   # try the examples pass on 3 done words
+    uv run pipeline examples             # give every done word 3 levelled examples (about $0.002 a word)
+    uv run pipeline usage                # add usage to every done word that has none (about $8 for 2,578 words)
+    uv run pipeline revalidate         # re-check needs_review words after the checks change (no LLM)
     uv run pipeline report               # counts + entries that need review
     uv run pipeline export               # build data/out/dictionary.sqlite
 """
@@ -96,7 +100,7 @@ def revalidate() -> None:
     rows = db.execute("SELECT lemma, rank, entry FROM words WHERE status = 'needs_review' AND entry IS NOT NULL").fetchall()
     passed = 0
     for row in rows:
-        problems = find_problems(row["lemma"], WordEntry.model_validate_json(row["entry"]), vocabulary, rank=row["rank"])
+        problems = find_problems(row["lemma"], WordEntry.from_stored(row["entry"]), vocabulary, rank=row["rank"])
         if problems:
             db.execute("UPDATE words SET problems = ? WHERE lemma = ?", (json.dumps(problems), row["lemma"]))
         else:
@@ -104,6 +108,32 @@ def revalidate() -> None:
             passed += 1
     db.commit()
     print(f"{passed} of {len(rows)} needs_review words now pass")
+
+
+def add_usage(limit: int, workers: int, words: list[str] | None, dry_run: bool) -> None:
+    """The usage pass: one Claude call per done word that has no usage yet. See usage.py."""
+    from pipeline import usage
+    from pipeline.generate import model_name
+
+    vocabulary = build_vocabulary(sources.load_ngsl())
+    db = store.connect()
+    print(f"Model: {model_name()}, {workers} workers{', dry run: nothing is saved' if dry_run else ''}")
+    counts = usage.run_pass(db, vocabulary, usage.fetch_from_claude, limit=limit, workers=workers, words=words, dry_run=dry_run)
+    print(f"Done: {counts['saved']} saved, {counts['failed']} failed (run again to retry), "
+          f"{counts['items']} usage items kept, {counts['dropped']} dropped by the checks")
+
+
+def add_examples(limit: int, workers: int, words: list[str] | None, dry_run: bool) -> None:
+    """The examples pass: one Claude call per done word whose examples have no level yet. See examples.py."""
+    from pipeline import examples
+    from pipeline.generate import model_name
+
+    vocabulary = build_vocabulary(sources.load_ngsl())
+    db = store.connect()
+    print(f"Model: {model_name()}, {workers} workers{', dry run: nothing is saved' if dry_run else ''}")
+    counts = examples.run_pass(db, vocabulary, examples.fetch_from_claude, limit=limit, workers=workers, words=words, dry_run=dry_run)
+    print(f"Done: {counts['saved']} saved, {counts['failed']} failed (run again to retry), "
+          f"{counts['items']} examples kept, {counts['dropped']} dropped by the checks")
 
 
 def report() -> None:
@@ -125,6 +155,16 @@ def main() -> None:
     generate_parser.add_argument("--limit", type=int, default=200)
     generate_parser.add_argument("--retry-review", action="store_true", help="also redo needs_review words")
     generate_parser.add_argument("--workers", type=int, default=8, help="LLM calls in parallel")
+    usage_parser = commands.add_parser("usage")
+    usage_parser.add_argument("--limit", type=int, default=100000)
+    usage_parser.add_argument("--workers", type=int, default=8, help="LLM calls in parallel")
+    usage_parser.add_argument("--words", nargs="+", help="only these words (to try it on a few)")
+    usage_parser.add_argument("--dry-run", action="store_true", help="call Claude and print the result, save nothing")
+    examples_parser = commands.add_parser("examples")
+    examples_parser.add_argument("--limit", type=int, default=100000)
+    examples_parser.add_argument("--workers", type=int, default=8, help="LLM calls in parallel")
+    examples_parser.add_argument("--words", nargs="+", help="only these words (to try it on a few)")
+    examples_parser.add_argument("--dry-run", action="store_true", help="call Claude and print the result, save nothing")
     commands.add_parser("revalidate")
     commands.add_parser("report")
     commands.add_parser("export")
@@ -136,10 +176,19 @@ def main() -> None:
         try_word(args.word)
     elif args.command == "generate":
         generate(args.limit, args.retry_review, args.workers)
+    elif args.command == "usage":
+        add_usage(args.limit, args.workers, args.words, args.dry_run)
+    elif args.command == "examples":
+        add_examples(args.limit, args.workers, args.words, args.dry_run)
     elif args.command == "revalidate":
         revalidate()
     elif args.command == "report":
         report()
     elif args.command == "export":
-        path, count = export.export(store.connect())
+        path, count, without_usage, without_levels = export.export(store.connect())
         print(f"Exported {count} words to {path}")
+        if without_usage:
+            print(f"Warning: {without_usage} words have no usage yet. Run `uv run pipeline usage` first.")
+        if without_levels:
+            print(f"Warning: {without_levels} words have no example levels yet (old examples are exported as easy, medium). "
+                  "Run `uv run pipeline examples` first.")

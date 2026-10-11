@@ -14,12 +14,14 @@ private final class StubURLProtocol: URLProtocol {
     nonisolated(unsafe) static var body = Data()
     nonisolated(unsafe) static var lastRequest: URLRequest?
     nonisolated(unsafe) static var lastBody: Data?
+    nonisolated(unsafe) static var requestCount = 0
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         Self.lastRequest = request
+        Self.requestCount += 1
         // URLSession moves httpBody into a stream before it reaches a URLProtocol.
         Self.lastBody = request.httpBody ?? request.httpBodyStream.map(Self.readAll)
         let response = HTTPURLResponse(url: request.url!, statusCode: Self.status, httpVersion: nil, headerFields: nil)!
@@ -88,6 +90,49 @@ struct BackendClientTests {
         #expect(explanation.translation == "帰るのは気が進まなかった。")
     }
 
+    @Test func repeatRequestIsServedFromTheCacheWithoutNetwork() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = successBody
+        StubURLProtocol.requestCount = 0
+        var cachedClient = client
+        cachedClient.cache = try ResultCache(fileURL: nil)
+
+        let first = try await cachedClient.explain("I was reluctant to leave.", translatingTo: .japanese)
+        // The same sentence with other spaces gives the same key.
+        let second = try await cachedClient.explain("  I was   reluctant to leave. ", translatingTo: .japanese)
+
+        #expect(StubURLProtocol.requestCount == 1)
+        #expect(second == first)
+    }
+
+    @Test func otherLanguageIsNotServedFromTheCache() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = successBody
+        StubURLProtocol.requestCount = 0
+        var cachedClient = client
+        cachedClient.cache = try ResultCache(fileURL: nil)
+
+        _ = try await cachedClient.explain("Hello", translatingTo: .japanese)
+        _ = try await cachedClient.explain("Hello", translatingTo: .korean)
+
+        #expect(StubURLProtocol.requestCount == 2)
+    }
+
+    @Test func failedRequestIsNotCached() async throws {
+        StubURLProtocol.status = 502
+        StubURLProtocol.body = Data()
+        StubURLProtocol.requestCount = 0
+        var cachedClient = client
+        cachedClient.cache = try ResultCache(fileURL: nil)
+
+        _ = try? await cachedClient.explain("Hello", translatingTo: .vietnamese)
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = successBody
+        _ = try await cachedClient.explain("Hello", translatingTo: .vietnamese)
+
+        #expect(StubURLProtocol.requestCount == 2)
+    }
+
     @Test func serverErrorShowsItsDetail() async {
         StubURLProtocol.status = 502
         StubURLProtocol.body = Data(#"{"title":"Bad Gateway","status":502,"detail":"The translation service is not available. Try again later."}"#.utf8)
@@ -107,6 +152,89 @@ struct BackendClientTests {
         } catch {
             #expect(error.localizedDescription == "The server answered with status 500.")
         }
+    }
+
+    // MARK: - Words (GET /api/words/{word})
+
+    /// A real reply shape from the backend, shortened. The entry has no `word` or `ipa`.
+    private let wordBody = Data("""
+        {"word":"serendipity","cached":false,
+         "entry":{"senses":[{"pos":"noun","cefr":"C2","simpleDefinition":"a lucky thing you find by chance",
+                             "vietnamese":"sự tình cờ may mắn","examples":["Meeting her was pure serendipity."],
+                             "usage":[{"kind":"phrase","pattern":"by serendipity","example":"We met by serendipity."}]}]}}
+        """.utf8)
+
+    @Test func getsTheWordFromTheBackendAndDecodesIt() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = wordBody
+
+        let entry = try await client.entry(forWord: "  Serendipity ")
+
+        let request = try #require(StubURLProtocol.lastRequest)
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.absoluteString == "http://localhost:8081/api/words/serendipity")
+        #expect(entry.word == "serendipity")
+        #expect(entry.senses.first?.pos == "noun")
+        #expect(entry.senses.first?.usage == [Usage(kind: .phrase, pattern: "by serendipity", example: "We met by serendipity.")])
+    }
+
+    @Test func wordReplyWithIpaPutsItOnTheEntry() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = Data(#"{"word":"graveyard","cached":true,"ipa":"/ˈɡɹeɪvˌjɑɹd/","entry":{"senses":[]}}"#.utf8)
+
+        let entry = try await client.entry(forWord: "graveyard")
+
+        #expect(entry.ipa == "/ˈɡɹeɪvˌjɑɹd/")
+    }
+
+    @Test func wordReplyWithNullOrMissingIpaHasNoIpa() async throws {
+        StubURLProtocol.status = 200
+        // Null: the backend does not know the IPA of this word.
+        StubURLProtocol.body = Data(#"{"word":"aardwolf","cached":false,"ipa":null,"entry":{"senses":[]}}"#.utf8)
+        let withNull = try await client.entry(forWord: "aardwolf")
+
+        // Missing: JSON saved on the phone before the backend sent `ipa` (this is `wordBody`).
+        StubURLProtocol.body = wordBody
+        let withoutField = try await client.entry(forWord: "serendipity")
+
+        #expect(withNull.ipa == nil)
+        #expect(withoutField.ipa == nil)
+    }
+
+    @Test func wordIsSavedAndThenServedFromTheCacheWithoutNetwork() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = wordBody
+        StubURLProtocol.requestCount = 0
+        var cachedClient = client
+        let cache = try ResultCache(fileURL: nil)
+        cachedClient.cache = cache
+
+        let first = try await cachedClient.entry(forWord: "serendipity")
+        // The network is gone now: the answer must come from the cache.
+        StubURLProtocol.status = 500
+        let second = try await cachedClient.entry(forWord: "Serendipity")
+
+        #expect(StubURLProtocol.requestCount == 1)
+        #expect(second == first)
+        // The backend JSON is saved as it came, under the same key the backend uses.
+        #expect(await cache.data(forKey: CacheKeys.wordKey("serendipity")) == wordBody)
+    }
+
+    @Test func failedWordRequestIsNotCached() async throws {
+        StubURLProtocol.status = 502
+        StubURLProtocol.body = Data(#"{"detail":"The translation service is not available. Try again later."}"#.utf8)
+        StubURLProtocol.requestCount = 0
+        var cachedClient = client
+        cachedClient.cache = try ResultCache(fileURL: nil)
+
+        await #expect(throws: BackendError.badStatus(502, detail: "The translation service is not available. Try again later.")) {
+            try await cachedClient.entry(forWord: "serendipity")
+        }
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = wordBody
+        _ = try await cachedClient.entry(forWord: "serendipity")
+
+        #expect(StubURLProtocol.requestCount == 2)
     }
 
     @Test func unexpectedJSONThrowsDecodingError() async {

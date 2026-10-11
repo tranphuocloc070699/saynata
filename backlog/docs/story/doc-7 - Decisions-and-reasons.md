@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-11 09:24'
+updated_date: '2026-10-11 15:01'
 ---
 # Decisions and reasons
 
@@ -26,6 +26,9 @@ Quotes are the developer's words, with spelling fixed.
 | 10-10 | Vietnamese line collapsed by default; Settings can change it | "Default is collapsed, and in Settings there is a place to change it." | — | Developer |
 | 10-10 | **decision-2:** "How to use it" (sentence patterns) replaces word partners and simpler words | Chips show word groups but not how to build a sentence. 19% of "simpler words" were harder than the headword (get → obtain). A usage pass costs ~$8 instead of ~$36 to regenerate. | Fix the chips; remove them; rename only | Developer chose from Claude's options |
 | 10-11 | "How to use it" = option A: up to 3 lines per sense, each a pattern, collocation, phrase or idiom with one example and a small kind label; placeholders someone / something / + noun | The developer wants natural collocations and idioms, not only grammar. One line + one example is the simplest, and a kind tag lets the future mini game pick, e.g., idioms only. `sb`/`sth` are unclear to B1 learners. | B: pattern + note; C: + common mistake; D: + practice gap | Developer chose A from Claude's options, added the collocation/idiom focus |
+| 10-11 | Usage lines: include at least one idiom when the sense has one (less common idioms are OK), and no duplicates across a word's senses | After the first dry run: "I want more idioms, not only common ones, and no duplicates." The dry run had few idioms and pairs like "depend on + something" / "It depends on + noun". | "Common items only" (the first rule) | Developer |
+| 10-11 | Word card v2: each meaning in its own card, titled "number + simple explanation"; Examples (3, easy to harder) and Grammar (usage grouped by kind, bullets) as folded rows; "past tense of run" line for forms; "Did you mean" for typos | After testing F1: meanings looked the same and were hard to tell apart; "ran" mixed with "run"; the usage block was too flat. Did you mean is free and offline. | Option A (numbered list with dividers); "Meaning 1 of 3" titles; a short 1-3 word label | Developer chose from mockups v1-v3 |
+| 10-11 | Other target languages on word cards: Apple on-device Translation of the English explanation; Vietnamese stays from the dictionary; add backend short meanings (Haiku, cached) later only if quality is not good enough | "I don't want to spend a lot of money." Only one line per meaning changes with the language; on-device translation is $0 and offline. | B: Haiku on demand (~$0.0002/word); C: pre-build 8 languages (~$7, bigger app) | Developer chose A |
 | 10-10 | Icon-only buttons with VoiceOver labels | "I think they look clean, and I've seen a lot of apps do it that way." It came after "too much text, users don't know where to focus." | Labelled Listen / Speak buttons | Developer |
 
 ## Design

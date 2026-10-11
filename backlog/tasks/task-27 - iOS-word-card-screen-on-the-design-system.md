@@ -1,9 +1,11 @@
 ---
 id: TASK-27
 title: 'iOS: word card screen on the design system'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-11 08:36'
+updated_date: '2026-10-11 09:35'
 labels:
   - ios
 dependencies: []
@@ -37,3 +39,15 @@ The word card is the main thing a learner sees for a word, and the same card (co
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Models WordEntry/Sense/Usage in Models/WordEntry.swift (Codable-free, Identifiable). 2. Samples in WordEntry+Samples.swift. 3. Views/Word: WordCardView (full), WordCardCompactView, WordUsageSection (separate subview). 4. Previews: normal, many senses, missing optional fields. 5. Add to gallery, update docs, tests for model/sample.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Built WordCardView, WordCardCompactView, WordUsageSection with sample data. Test it: open previews in WordCardView.swift / WordCardCompactView.swift and DesignSystemGallery; Vietnamese row last and closed. Unit tests pass.
+<!-- SECTION:NOTES:END -->
