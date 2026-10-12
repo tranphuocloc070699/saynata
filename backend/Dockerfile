@@ -1,5 +1,6 @@
 # Stage 1: build the jar with the Maven wrapper (needs a JDK).
-FROM eclipse-temurin:17-jdk-alpine AS build
+# Not the -alpine tags: they have no arm64 build, so they fail on Apple Silicon and ARM servers.
+FROM eclipse-temurin:17-jdk AS build
 WORKDIR /build
 
 # Copy only what Maven needs to download dependencies first, so this layer is cached
@@ -13,11 +14,13 @@ COPY src src
 RUN ./mvnw -B -q package -DskipTests && mv target/backend-*.jar app.jar
 
 # Stage 2: a small runtime with only a JRE.
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 # Run as a normal user, not root.
-RUN addgroup -S app && adduser -S app -G app
+# curl is for the compose healthcheck.
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app && useradd --system --gid app app
 COPY --from=build --chown=app:app /build/app.jar app.jar
 USER app
 
