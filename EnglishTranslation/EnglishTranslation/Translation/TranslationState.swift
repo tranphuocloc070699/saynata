@@ -12,8 +12,8 @@ enum TranslationState {
     case idle
     ///The request is in flight
     case loading
-    ///The request worked. Holds the explanation and the translation
-    case loaded(Explanation)
+    ///The request worked. Holds the sentence, its explanation and the language it was made in
+    case loaded(SentenceResult)
     ///A single word was looked up. Holds the dictionary entry
     case loadedWord(WordEntry)
     ///The request failed. Holds a message the user can read, and "did you mean" words for a misspelled word

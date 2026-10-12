@@ -14,27 +14,39 @@ final class TranslationStore {
     var inputText = ""
     /// The language of the translation at the bottom of the result.
     var targetLanguage: TargetLanguage = .vietnamese
-    /// The service used on the next request.
-    var provider: Provider = .server
     private(set) var state: TranslationState = .idle
 
-    private let makeTranslator: @MainActor (Provider) throws -> any Translating
+    private let makeTranslator: @MainActor () throws -> any Translating
     private let makeWordLookup: @MainActor () throws -> any WordLooking
 
-    /// - Parameter makeTranslator: Builds the translator for a provider on each request, so a
-    ///   missing key shows as a `.failed` state instead of crashing at launch.
+    /// - Parameter makeTranslator: Builds the translator on each request, so a
+    ///   missing setting shows as a `.failed` state instead of crashing at launch.
     init(
-        makeTranslator: @escaping @MainActor (Provider) throws -> any Translating = TranslatorFactory.makeTranslator(for:),
+        makeTranslator: @escaping @MainActor () throws -> any Translating = TranslatorFactory.makeTranslator,
         makeWordLookup: @escaping @MainActor () throws -> any WordLooking = TranslatorFactory.makeWordLookup
     ) {
         self.makeTranslator = makeTranslator
         self.makeWordLookup = makeWordLookup
     }
 
+    /// The backend accepts 1 to 500 characters (`TranslationRequest.java`).
+    static let maxInputLength = 500
+
+    /// How many characters the backend will count. Java counts UTF-16 units, so an emoji is 2.
+    /// Counting the same way means the app never allows text the backend would reject.
+    var inputLength: Int {
+        trimmedInput.utf16.count
+    }
+
+    /// True when the text is too long to send. The input shows "Make it shorter."
+    var isOverLimit: Bool {
+        inputLength > Self.maxInputLength
+    }
+
     /// True when the button should be enabled.
     var canTranslate: Bool {
         if case .loading = state { return false }
-        return !trimmedInput.isEmpty
+        return !trimmedInput.isEmpty && !isOverLimit
     }
 
     private var trimmedInput: String {
@@ -42,7 +54,7 @@ final class TranslationStore {
     }
 
     /// Handles `inputText` and updates `state`. One token goes to the word lookup (a dictionary entry);
-    /// more than one goes to `provider` as a sentence. Does nothing if `canTranslate` is false.
+    /// more than one goes to the backend as a sentence. Does nothing if `canTranslate` is false.
     func translate() async {
         guard canTranslate else { return }
         state = .loading
@@ -83,11 +95,27 @@ final class TranslationStore {
         await translate()
     }
 
+    /// The full word card for a word in a sentence result. Uses the bundled entry when there is one,
+    /// otherwise the normal lookup (local cache, then backend). The sentence result stays on screen.
+    func wordEntry(for word: SentenceWordInfo) async throws -> WordEntry {
+        if let entry = word.entry { return entry }
+        return try await makeWordLookup().lookUp(word.word)
+    }
+
     private func explainSentence() async {
+        // Copy these first. The user can change the picker or the text while we wait.
+        let sentence = trimmedInput
+        let language = targetLanguage
         do {
-            let translator = try makeTranslator(provider)
-            let explanation = try await translator.explain(trimmedInput, translatingTo: targetLanguage)
-            state = .loaded(explanation)
+            let translator = try makeTranslator()
+            let explanation = try await translator.explain(sentence, translatingTo: language)
+            // The bundled dictionary gives each word card its pill and chip. No dictionary is fine.
+            let lookup = try? makeWordLookup()
+            state = .loaded(SentenceResult(
+                sentence: sentence,
+                explanation: explanation,
+                language: language,
+                bundledEntry: { lookup?.bundledEntry(for: $0) }))
         } catch {
             state = .failed(error.localizedDescription)
         }

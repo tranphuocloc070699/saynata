@@ -12,11 +12,18 @@ protocol WordLooking: Sendable {
 
     /// Close bundled words for a word that was not found ("did you mean"). Works offline.
     func suggestions(for word: String) -> [String]
+
+    /// The entry from the bundled dictionary only: no cache, no network. Nil when the word is not there.
+    /// A sentence result uses it for the form pill and level chip on each word card.
+    func bundledEntry(for word: String) -> WordEntry?
 }
 
 extension WordLooking {
     /// Most lookups have no suggestions (tests use this default).
     func suggestions(for word: String) -> [String] { [] }
+
+    /// Tests use this default: nothing is in the bundle.
+    func bundledEntry(for word: String) -> WordEntry? { nil }
 }
 
 /// The second step of a word lookup: the local cache and our backend. `BackendClient` is the real one.
@@ -49,6 +56,12 @@ struct WordLookup: WordLooking {
 
     func suggestions(for word: String) -> [String] {
         suggester?.suggestions(for: CacheKeys.trimmingWordPunctuation(word)) ?? []
+    }
+
+    func bundledEntry(for word: String) -> WordEntry? {
+        let cleaned = CacheKeys.trimmingWordPunctuation(word)
+        guard !cleaned.isEmpty else { return nil }
+        return try? dictionary?.lookUp(cleaned)
     }
 
     func lookUp(_ input: String) async throws -> WordEntry {

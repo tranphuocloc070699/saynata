@@ -13,7 +13,8 @@ struct WordCardCompactView: View {
     var targetLanguage: TargetLanguage = .vietnamese
     var onListen: () -> Void = {}
 
-    @State private var isLanguageRowOpen = false
+    /// Starts the way "Show translation" in Settings says.
+    @State private var isLanguageRowOpen = TranslationRowPreference().startsOpen
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
@@ -38,6 +39,9 @@ struct WordCardCompactView: View {
                 if sense.hasTargetLanguageRow(for: targetLanguage) {
                     FoldedRow(title: targetLanguage.title, isExpanded: $isLanguageRowOpen) {
                         TargetLanguageRowContent(sense: sense, language: targetLanguage)
+                    }
+                    .onChange(of: isLanguageRowOpen) { _, isOpen in
+                        TranslationRowPreference().rowChanged(isOpen: isOpen)
                     }
                 }
             }
