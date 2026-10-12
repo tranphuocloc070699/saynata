@@ -45,4 +45,6 @@ The developer typed 'an apple' and got a sentence explanation, not the word card
 
 <!-- SECTION:NOTES:BEGIN -->
 Implemented CacheKeys.wordQuery + TranslationStore routing; 128 tests pass (9 new). AC #4 open: TextRoute is on feature/f6-share-extension; it must call CacheKeys.wordQuery after the merge. Test it (iPhone 16 Pro, iOS 18.5): type 'an apple' -> word card 'apple'; 'The apple!' -> same; 'the red apple' -> sentence result; 'an aple' -> not-a-word with did-you-mean 'apple'. Automated: CacheTests, TranslationStoreTests (xcodebuild test, -only-testing:EnglishTranslationTests).
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/34
 <!-- SECTION:NOTES:END -->
