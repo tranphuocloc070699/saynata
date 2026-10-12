@@ -43,8 +43,7 @@ services:
       # With a reverse proxy (Caddy) set BACKEND_BIND=127.0.0.1 so only the proxy can reach it.
       - "${BACKEND_BIND:-0.0.0.0}:${BACKEND_PORT:-8081}:8081"
     healthcheck:
-      # busybox wget is in the Alpine image; curl is not.
-      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
       interval: 30s
       timeout: 5s
       retries: 3
