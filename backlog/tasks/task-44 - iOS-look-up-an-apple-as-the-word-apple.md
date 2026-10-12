@@ -1,9 +1,11 @@
 ---
 id: TASK-44
 title: 'iOS: look up ''an apple'' as the word ''apple'''
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-12 03:06'
+updated_date: '2026-10-12 03:12'
 labels:
   - ios
 dependencies: []
@@ -32,3 +34,15 @@ The developer typed 'an apple' and got a sentence explanation, not the word card
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Add CacheKeys.wordQuery(_:) -> String? (one token, or article a/an/the + exactly one word; nil = sentence). 2. TranslationStore.translate routes with it and passes the bare word to lookUpWord and spelling help. 3. Tests in CacheTests and TranslationStoreTests. 4. Update doc-5. 5. PR into main.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented CacheKeys.wordQuery + TranslationStore routing; 128 tests pass (9 new). AC #4 open: TextRoute is on feature/f6-share-extension; it must call CacheKeys.wordQuery after the merge. Test it (iPhone 16 Pro, iOS 18.5): type 'an apple' -> word card 'apple'; 'The apple!' -> same; 'the red apple' -> sentence result; 'an aple' -> not-a-word with did-you-mean 'apple'. Automated: CacheTests, TranslationStoreTests (xcodebuild test, -only-testing:EnglishTranslationTests).
+<!-- SECTION:NOTES:END -->

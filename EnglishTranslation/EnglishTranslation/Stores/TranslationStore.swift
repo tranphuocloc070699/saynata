@@ -53,38 +53,38 @@ final class TranslationStore {
         inputText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Handles `inputText` and updates `state`. One token goes to the word lookup (a dictionary entry);
-    /// more than one goes to the backend as a sentence. Does nothing if `canTranslate` is false.
+    /// Handles `inputText` and updates `state`. One word (with or without an article, like "an apple") goes to the word lookup (a dictionary entry);
+    /// anything longer goes to the backend as a sentence. Does nothing if `canTranslate` is false.
     func translate() async {
         guard canTranslate else { return }
         state = .loading
-        if CacheKeys.isSingleToken(trimmedInput) {
-            await lookUpWord()
+        if let word = CacheKeys.wordQuery(trimmedInput) {
+            await lookUpWord(word)
         } else {
             await explainSentence()
         }
     }
 
-    private func lookUpWord() async {
+    private func lookUpWord(_ word: String) async {
         var lookup: (any WordLooking)?
         do {
             let wordLookup = try makeWordLookup()
             lookup = wordLookup
-            state = .loadedWord(try await wordLookup.lookUp(trimmedInput))
+            state = .loadedWord(try await wordLookup.lookUp(word))
         } catch {
-            state = .failed(error.localizedDescription, spelling: spellingHelp(after: error, lookup: lookup))
+            state = .failed(error.localizedDescription, spelling: spellingHelp(for: word, after: error, lookup: lookup))
         }
     }
 
     /// Close words to show under the error. Only when the backend says it is not an English word,
     /// or cannot be reached (`URLError`). The bundle was already checked before both.
-    private func spellingHelp(after error: Error, lookup: (any WordLooking)?) -> SpellingHelp? {
+    private func spellingHelp(for word: String, after error: Error, lookup: (any WordLooking)?) -> SpellingHelp? {
         guard let lookup else { return nil }
         var mayBeMisspelled = error is URLError
         if case .notAnEnglishWord = error as? WordLookupError { mayBeMisspelled = true }
         guard mayBeMisspelled else { return nil }
 
-        let typedWord = CacheKeys.normalizeWord(CacheKeys.trimmingWordPunctuation(trimmedInput))
+        let typedWord = CacheKeys.normalizeWord(word)
         let words = lookup.suggestions(for: typedWord)
         return words.isEmpty ? nil : SpellingHelp(typedWord: typedWord, suggestions: words)
     }
