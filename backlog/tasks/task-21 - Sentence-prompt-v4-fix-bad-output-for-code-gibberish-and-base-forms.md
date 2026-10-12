@@ -1,10 +1,11 @@
 ---
 id: TASK-21
 title: 'Sentence prompt v4: fix bad output for code, gibberish and base forms'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-10 06:37'
-updated_date: '2026-10-10 08:25'
+updated_date: '2026-10-11 15:11'
 labels:
   - backend
 dependencies:
@@ -32,3 +33,17 @@ Probe 2026-10-10 found: (1) code ('for (int i = 0; ...') and gibberish ('asdkj q
 - [ ] #2 Tests pass
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Model returns isEnglish first; service turns false into HTTP 422 (NotEnglishException) and caches nothing. 2. Prompt: translation is always a translation of the input, never an explanation; base form only for inflected words (past, -ing, plural, comparative...). 3. Bump version v5 -> v6 (backend + iOS + CacheTests hash). 4. Unit tests with mocked ClaudeService for 422 path; schema test. 5. probe script takes a URL; run a few real calls on port 8082. 6. Update doc-4, doc-1.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Decision AC#1 (orchestrator default, developer may change): not-English input (code, gibberish, another language) -> HTTP 422, detail "This doesn't look like English. Type an English word or sentence.", nothing cached. Model returns isEnglish (SentenceAnswer); ClaudeService.toExplanation throws NotEnglishException; handler maps to 422. Prompt v6: translation is always a translation of the input; base form only for inflected words. Vietnamese input now also gets 422 (the old 'copy unchanged' probe rows change). Backend and iOS PromptVersions.sentence = v6, CacheTests hashes updated.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/24 . Test it. Goal: explain-first sentence; non-English gives a clear 422. Steps: run backend + app; (1) 'I was reluctant to leave.' (2) 'asdkj qwe zzxq' (3) code line (4) Vietnamese sentence. Expected: (1) meaning, words, translation last, no wrong base form; (2-4) 'This doesn't look like English. Type an English word or sentence. (status 422)', nothing cached. Automated: cd backend && ./mvnw -B test; iOS xcodebuild test -only-testing:EnglishTranslationTests (both pass).
+<!-- SECTION:NOTES:END -->

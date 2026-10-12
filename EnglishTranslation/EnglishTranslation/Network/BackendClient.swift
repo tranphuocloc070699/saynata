@@ -50,7 +50,7 @@ enum BackendError: LocalizedError, Equatable {
 }
 
 /// Talks to the Java backend in `backend/`. The backend calls Claude and caches every answer,
-/// so the app needs no API key for this provider.
+/// so the app needs no API key.
 struct BackendClient: Translating, WordFetching {
     /// The API root, for example `http://localhost:8081`.
     let baseURL: URL

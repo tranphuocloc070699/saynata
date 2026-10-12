@@ -1,10 +1,13 @@
 package com.englishtranslation.backend.claude;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.anthropic.models.messages.StructuredOutputConfig;
+import com.englishtranslation.backend.translation.Explanation;
 import com.englishtranslation.backend.translation.TargetLanguage;
 import com.englishtranslation.backend.word.WordEntry;
+import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -28,6 +31,70 @@ class ClaudeServiceTest {
     void plainTextIsSentUnchanged() {
         assertThat(ClaudeService.sentenceMessage("I love you", TargetLanguage.VI))
                 .isEqualTo("<target_language>Vietnamese</target_language>\n<text>I love you</text>");
+    }
+
+    @Test
+    void sentencePromptAsksForTheExplanationFirstAndTheTranslationLast() {
+        String prompt = ClaudeService.SENTENCE_PROMPT;
+
+        assertThat(prompt.indexOf("1. meaning")).isPositive().isLessThan(prompt.indexOf("2. words"));
+        assertThat(prompt.indexOf("2. words")).isLessThan(prompt.indexOf("3. translation"));
+        assertThat(prompt).contains("main answer is a simple English explanation", "small helper");
+    }
+
+    @Test
+    void sentencePromptOnlyAllowsBaseFormForInflectedWords() {
+        assertThat(onOneLine(ClaudeService.SENTENCE_PROMPT))
+                .contains("Add \"base form: X\" only when the word is an inflected form")
+                .contains("Never add it to a word that is already its base form");
+    }
+
+    @Test
+    void sentencePromptSaysTranslationIsNeverAnExplanation() {
+        assertThat(onOneLine(ClaudeService.SENTENCE_PROMPT))
+                .contains("always a translation of the text itself")
+                .contains("Never an explanation, a definition or a comment");
+    }
+
+    @Test
+    void sentencePromptTellsClaudeToFlagCodeGibberishAndOtherLanguages() {
+        assertThat(ClaudeService.SENTENCE_PROMPT)
+                .contains("0. isEnglish")
+                .contains("program code", "random letters", "another language");
+    }
+
+    @Test
+    void sentenceSchemaHasTheIsEnglishFlag() {
+        String schema = StructuredOutputConfig.<SentenceAnswer>builder().format(SentenceAnswer.class).build().toString();
+
+        assertThat(schema).contains("isEnglish", "meaning", "words", "translation");
+    }
+
+    @Test
+    void answerNotEnglishBecomesAnException() {
+        SentenceAnswer notEnglish = new SentenceAnswer(false, "", List.of(), "");
+
+        assertThatThrownBy(() -> ClaudeService.toExplanation(notEnglish))
+                .isInstanceOf(NotEnglishException.class)
+                .hasMessage("This doesn't look like English. Type an English word or sentence.");
+    }
+
+    @Test
+    void answerEnglishBecomesTheExplanation() {
+        SentenceAnswer english = new SentenceAnswer(true, "A greeting.", List.of(), "Xin chào");
+
+        assertThat(ClaudeService.toExplanation(english))
+                .isEqualTo(new Explanation("A greeting.", List.of(), "Xin chào"));
+    }
+
+    @Test
+    void modelJsonWithTheFlagIsRead() {
+        JsonMapper mapper = JsonMapper.builder().build();
+
+        SentenceAnswer answer = mapper.readValue(
+                "{\"isEnglish\":false,\"meaning\":\"\",\"words\":[],\"translation\":\"\"}", SentenceAnswer.class);
+
+        assertThat(answer.isEnglish()).isFalse();
     }
 
     @Test
@@ -94,6 +161,11 @@ class ClaudeServiceTest {
 
         assertThat(json).contains("\"kind\":\"phrase\"");
         assertThat(mapper.readValue(json, WordEntry.Usage.class)).isEqualTo(usage);
+    }
+
+    /** The prompt wraps lines, so join them before looking for a phrase. */
+    private static String onOneLine(String text) {
+        return text.replaceAll("\\s+", " ");
     }
 
     private static int countOf(String text, String part) {

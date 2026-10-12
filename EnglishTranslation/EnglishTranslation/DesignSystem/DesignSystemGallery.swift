@@ -15,6 +15,7 @@ struct DesignSystemGallery: View {
                 textStylesSection
                 componentsSection
                 wordCardSample
+                sentenceCardsSample
             }
             .padding(Theme.Spacing.large)
         }
@@ -106,6 +107,26 @@ struct DesignSystemGallery: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.large) {
                 WordCardView(entry: .depend)
                 WordCardCompactView(entry: .depend)
+            }
+        }
+    }
+
+    // MARK: - Sentence cards
+
+    /// The sentence result cards (TASK-41): header, Meaning card, word cards, and the character counter.
+    private var sentenceCardsSample: some View {
+        TitledSection(title: "Sentence cards") {
+            VStack(alignment: .leading, spacing: Theme.Spacing.large) {
+                SentenceHeader(sentence: "The mist blurred the edges of the world.")
+                MeaningCard(
+                    meaning: "Thick mist made the shapes of things look unclear.",
+                    translation: "Sương mù làm mờ đi các đường nét của thế giới.",
+                    language: .vietnamese)
+                SentenceWordCard(info: SentenceWordInfo(
+                    word: .init(word: "edges", partOfSpeech: "noun", meaning: "the outer part (base form: edge)"),
+                    entry: nil))
+                CharacterCounter(count: 41, limit: 500)
+                CharacterCounter(count: 512, limit: 500)
             }
         }
     }
