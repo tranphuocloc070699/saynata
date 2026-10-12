@@ -1,0 +1,31 @@
+# Stage 1: build the jar with the Maven wrapper (needs a JDK).
+# Not the -alpine tags: they have no arm64 build, so they fail on Apple Silicon and ARM servers.
+FROM eclipse-temurin:17-jdk AS build
+WORKDIR /build
+
+# Copy only what Maven needs to download dependencies first, so this layer is cached
+# until pom.xml changes.
+COPY .mvn .mvn
+COPY mvnw pom.xml ./
+RUN ./mvnw -B -q dependency:go-offline
+
+COPY src src
+# Tests run in CI. The image build only packages the jar.
+RUN ./mvnw -B -q package -DskipTests && mv target/backend-*.jar app.jar
+
+# Stage 2: a small runtime with only a JRE.
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+
+# Run as a normal user, not root.
+# curl is for the compose healthcheck.
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app && useradd --system --gid app app
+COPY --from=build --chown=app:app /build/app.jar app.jar
+USER app
+
+ENV PORT=8081
+EXPOSE 8081
+
+# Keep the heap small for a 1-2 GB VPS.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=60", "-jar", "app.jar"]

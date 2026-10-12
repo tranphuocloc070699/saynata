@@ -1,11 +1,13 @@
 package com.englishtranslation.backend.translation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.claude.NotEnglishException;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +60,21 @@ class TranslationServiceTest {
         TranslationResponse cached = service.translate("I love you", TargetLanguage.VI);
 
         assertThat(cached.explanation()).isEqualTo(explanation);
+    }
+
+    @Test
+    void textThatIsNotEnglishIsNotCachedAndAsksClaudeAgainNextTime() {
+        when(claude.explainSentence("for (int i = 0; i < n; i++) {}", TargetLanguage.VI))
+                .thenThrow(new NotEnglishException());
+
+        assertThatThrownBy(() -> service.translate("for (int i = 0; i < n; i++) {}", TargetLanguage.VI))
+                .isInstanceOf(NotEnglishException.class)
+                .hasMessage("This doesn't look like English. Type an English word or sentence.");
+        assertThatThrownBy(() -> service.translate("for (int i = 0; i < n; i++) {}", TargetLanguage.VI))
+                .isInstanceOf(NotEnglishException.class);
+
+        assertThat(repository.count()).isZero();
+        verify(claude, times(2)).explainSentence("for (int i = 0; i < n; i++) {}", TargetLanguage.VI);
     }
 
     @Test

@@ -1,0 +1,53 @@
+# Production compose file: backend + Postgres. The dev file is compose.yaml (Postgres only).
+#
+#   cp .env.example .env     # then fill in CLAUDE_API_KEY and DB_PASSWORD
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Docker Compose reads .env in this folder for the ${...} values below.
+# See the guide "Deploy to a VPS" in backlog/docs/guides/.
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: english_translation
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # No "ports": Postgres is only reachable from the backend, not from the internet.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d english_translation"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY:?Set CLAUDE_API_KEY in .env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/english_translation
+      SPRING_DATASOURCE_USERNAME: app
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      # Spring would try to start the dev compose.yaml otherwise.
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      # Optional override for the model in application.properties.
+      APP_CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-haiku-5-5}
+    ports:
+      # Port on the server: BACKEND_PORT in .env (default 8081).
+      # With a reverse proxy (Caddy) set BACKEND_BIND=127.0.0.1 so only the proxy can reach it.
+      - "${BACKEND_BIND:-0.0.0.0}:${BACKEND_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  pgdata:

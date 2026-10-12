@@ -1,10 +1,11 @@
 ---
 id: TASK-18
 title: 'iOS: remove direct LLM clients and the provider picker'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-10 06:36'
-updated_date: '2026-10-10 08:25'
+updated_date: '2026-10-11 15:06'
 labels:
   - ios
 dependencies: []
@@ -32,3 +33,15 @@ The app can call DeepSeek, OpenAI and Claude directly with keys from Secrets.xcc
 - [ ] #2 Tests pass
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Delete LLMClient, ClaudeClient, Provider, ChatCompleting, TranslationPrompt, Explanation.decode(fromModelReply). 2. Factory/AppConfig/Store build only BackendClient. 3. Remove picker and plist keys; empty Secrets.xcconfig stays (project references it). 4. Update tests and docs.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR for TASK-18. Test it: open the app, no provider picker, type a sentence -> explanation from backend; type a word -> word card; stop backend -> error text. Tests: 81 passed (EnglishTranslationTests). Secrets.xcconfig is now comment-only but must exist (project references it; build fails without it).
+<!-- SECTION:NOTES:END -->

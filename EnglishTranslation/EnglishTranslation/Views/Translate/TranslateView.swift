@@ -14,11 +14,13 @@ struct TranslateView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                TranslateOptionsView(provider: $store.provider, targetLanguage: $store.targetLanguage)
+                TranslateOptionsView(targetLanguage: $store.targetLanguage)
                 TranslateInputView()
-                TranslateResultView(state: store.state, targetLanguage: store.targetLanguage) { word in
-                    Task { await store.lookUp(suggestion: word) }
-                }
+                TranslateResultView(
+                    state: store.state,
+                    targetLanguage: store.targetLanguage,
+                    onSuggestionTap: { word in Task { await store.lookUp(suggestion: word) } },
+                    loadWordEntry: { word in try await store.wordEntry(for: word) })
             }
             .padding()
         }
