@@ -1,11 +1,11 @@
 ---
 id: TASK-41
 title: 'iOS: sentence result as cards (like the word card)'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-11 15:36'
-updated_date: '2026-10-11 15:51'
+updated_date: '2026-10-12 03:08'
 labels:
   - ios
 dependencies: []
@@ -21,17 +21,17 @@ Developer approved the 2026-10-11 mockup: the sentence result uses the word-card
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Sentence header, Meaning card with folded target-language row, and word cards match the approved mockup
-- [ ] #2 Form pill and level chip come from the bundled dictionary when the word is there; otherwise the backend base-form note is used and no chip is shown
-- [ ] #3 Tapping a word card opens its full word card
-- [ ] #4 Icon-only buttons with accessibility labels; Vietnamese/target row last and closed
+- [x] #1 Sentence header, Meaning card with folded target-language row, and word cards match the approved mockup
+- [x] #2 Form pill and level chip come from the bundled dictionary when the word is there; otherwise the backend base-form note is used and no chip is shown
+- [x] #3 Tapping a word card opens its full word card
+- [x] #4 Icon-only buttons with accessibility labels; Vietnamese/target row last and closed
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
-- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Tests pass
+- [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -44,4 +44,12 @@ Developer approved the 2026-10-11 mockup: the sentence result uses the word-card
 
 <!-- SECTION:NOTES:BEGIN -->
 PR: https://github.com/tranphuocloc070699/saynata/pull/26 (also TASK-22, TASK-14). Test it: backend on 8081, run app on iPhone 16 Pro. Type 'The mist blurred the edges of the world', tap Explain. Expected: quoted sentence with Listen and Copy icons, Meaning card with closed Vietnamese row, Words cards (edges shows 'form of edge' pill and 'noun · B1' chip from the bundle; blurred and mist have none). Tap edges: full word card sheet. Automated: xcodebuild test (112 tests passed); SentenceWordInfoTests, TranslationStoreTests.
+
+2026-10-12: merged into main with F2 (PR #29). Developer tested F2 on the simulator and approved; 119 iOS unit tests pass (iPhone 16 Pro, iOS 18.5); CI backend, pipeline and doc links pass.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Sentence result shown as cards like the word card. Shipped with F2 (PR #29), developer-tested.
+<!-- SECTION:FINAL_SUMMARY:END -->
