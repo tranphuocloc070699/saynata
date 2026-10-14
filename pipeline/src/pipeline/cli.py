@@ -136,6 +136,16 @@ def add_examples(limit: int, workers: int, words: list[str] | None, dry_run: boo
           f"{counts['items']} examples kept, {counts['dropped']} dropped by the checks")
 
 
+def add_media(limit: int, workers: int, words: list[str] | None, dry_run: bool) -> None:
+    """The media pass: downloads and resizes Pixabay media for senses that need it. See media.py."""
+    from pipeline import media
+
+    db = store.connect()
+    print(f"Pixabay Media Pass, {workers} workers{', dry run: nothing is saved' if dry_run else ''}")
+    counts = media.run_pass(db, limit=limit, workers=workers, words=words, dry_run=dry_run)
+    print(f"Done: {counts['saved']} saved, {counts['failed']} failed, {counts['media_found']} media files matched")
+
+
 def report() -> None:
     db = store.connect()
     for row in db.execute("SELECT status, COUNT(*) AS n, SUM(attempts) AS calls FROM words GROUP BY status"):
@@ -165,6 +175,11 @@ def main() -> None:
     examples_parser.add_argument("--workers", type=int, default=8, help="LLM calls in parallel")
     examples_parser.add_argument("--words", nargs="+", help="only these words (to try it on a few)")
     examples_parser.add_argument("--dry-run", action="store_true", help="call Claude and print the result, save nothing")
+    media_parser = commands.add_parser("media")
+    media_parser.add_argument("--limit", type=int, default=100000)
+    media_parser.add_argument("--workers", type=int, default=4, help="concurrent media downloads (default 4)")
+    media_parser.add_argument("--words", nargs="+", help="only these words (to try it on a few)")
+    media_parser.add_argument("--dry-run", action="store_true", help="query Pixabay and print matches, save nothing")
     commands.add_parser("revalidate")
     commands.add_parser("report")
     commands.add_parser("export")
@@ -180,6 +195,8 @@ def main() -> None:
         add_usage(args.limit, args.workers, args.words, args.dry_run)
     elif args.command == "examples":
         add_examples(args.limit, args.workers, args.words, args.dry_run)
+    elif args.command == "media":
+        add_media(args.limit, args.workers, args.words, args.dry_run)
     elif args.command == "revalidate":
         revalidate()
     elif args.command == "report":
