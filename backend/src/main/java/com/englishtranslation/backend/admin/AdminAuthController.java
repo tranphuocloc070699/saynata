@@ -1,5 +1,7 @@
 package com.englishtranslation.backend.admin;
 
+import java.util.List;
+
 import com.englishtranslation.backend.user.User;
 import com.englishtranslation.backend.user.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,7 +49,12 @@ public class AdminAuthController {
     }
 
     /** What the admin web app needs to show who is logged in. */
-    public record AdminInfo(String email, String displayName) {
+    public record AdminInfo(Long id, String email, String displayName, List<String> roles) {
+        /** The fields the admin web app reads: id, email, name and roles ("ADMIN"). */
+        static AdminInfo of(User user) {
+            return new AdminInfo(user.getId(), user.getEmail(), user.getDisplayName(),
+                    user.getRoles().stream().map(Enum::name).sorted().toList());
+        }
     }
 
     @PostMapping("/login")
@@ -70,13 +77,13 @@ public class AdminAuthController {
         String token = tokens.createToken(user.getId());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie(token, AdminTokenService.LIFETIME.toSeconds()).toString())
-                .body(new AdminInfo(user.getEmail(), user.getDisplayName()));
+                .body(AdminInfo.of(user));
     }
 
     @GetMapping("/me")
     public AdminInfo me(Authentication authentication) {
         User user = users.findByEmail(authentication.getName()).orElseThrow();
-        return new AdminInfo(user.getEmail(), user.getDisplayName());
+        return AdminInfo.of(user);
     }
 
     /** Clears the cookie. Open to everyone: logging out when already logged out is fine. */

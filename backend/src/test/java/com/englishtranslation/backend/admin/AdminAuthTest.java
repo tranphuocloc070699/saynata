@@ -86,7 +86,9 @@ class AdminAuthTest {
         mockMvc.perform(get("/api/admin/auth/me").cookie(cookie))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value(ADMIN_EMAIL))
-                .andExpect(jsonPath("$.displayName").value("Admin"));
+                .andExpect(jsonPath("$.displayName").value("Admin"))
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.roles[0]").value("ADMIN"));
     }
 
     @Test
