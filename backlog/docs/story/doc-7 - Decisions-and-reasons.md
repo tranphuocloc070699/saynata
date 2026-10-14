@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-12 03:12'
+updated_date: '2026-10-14 03:56'
 ---
 # Decisions and reasons
 
@@ -57,6 +57,8 @@ Quotes are the developer's words, with spelling fixed.
 | 10-03 | Pipeline in **Python** (uv) | Reason: not recorded (Claude's choice in the first brainstorm). | — | Claude |
 | 10-10 | App talks only to our backend; remove direct LLM clients | "Remove the LLM client in the app, always call the API." Also: API keys in the app bundle can be pulled out of the .ipa. | DeepSeek / OpenAI / Claude in the app | Developer |
 | 10-09 | On-device text to speech and speech to text | Free and works offline. | Cloud voices | Developer |
+| 10-14 | Host the backend on a **VPS** (`vps_sieutoc`), keep Spring Boot | "I want to ship my app fast, I want to use it on my phone." Workers would need a TypeScript rewrite and no Postgres; the VPS guide already existed. | Cloudflare Workers (ChatGPT's idea), Cloudflare Containers | Developer, after Claude's comparison |
+| 10-14 | **Auto deploy**: GitHub Action SSHes into the VPS after CI passes on main | Developer asked for auto deploy. A deploy key in GitHub secrets means no Claude session needs SSH access to the server. | Claude sessions SSH in directly; manual deploys | Claude, accepted |
 
 ## Workflow
 

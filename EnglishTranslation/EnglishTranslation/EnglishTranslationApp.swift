@@ -13,6 +13,12 @@ struct EnglishTranslationApp: App {
         WindowGroup {
             ContentView()
                 .environment(store)
+                .onOpenURL { url in
+                    // The share extension sends `saynata://lookup?text=...`. Put the text in the input and explain it.
+                    guard let text = DeepLink.text(from: url) else { return }
+                    store.inputText = text
+                    Task { await store.translate() }
+                }
         }
     }
 }

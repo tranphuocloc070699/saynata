@@ -1,0 +1,46 @@
+name: Deploy
+
+# Deploys the backend to the VPS after CI passes on main. Can also be started by hand (Actions tab).
+# Setup and secrets: backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md, section "Auto deploy".
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; a newer one waits instead of cancelling a half-done build.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy backend to VPS
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          # The exact commit CI tested (workflow_run), or the latest main (manual run).
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          if [ -z "$VPS_HOST" ] || [ -z "$VPS_SSH_KEY" ]; then
+            echo "::notice::VPS secrets are not set, so nothing was deployed. See doc-11, section Auto deploy."
+            exit 0
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=yes \
+            "${VPS_USER:-root}@$VPS_HOST" \
+            "set -e; cd ${VPS_APP_DIR:-saynata}; git fetch -q origin main; git merge --ff-only $SHA; backend/scripts/deploy.sh"
