@@ -3,6 +3,8 @@ package com.englishtranslation.backend.admin;
 import com.englishtranslation.backend.dictionary.DictionarySense;
 import com.englishtranslation.backend.dictionary.DictionaryWord;
 import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
+import com.englishtranslation.backend.media.SenseMedia;
+import com.englishtranslation.backend.media.SenseMediaReader;
 import com.englishtranslation.backend.word.WordEntry;
 import com.englishtranslation.backend.word.WordLookup;
 import com.englishtranslation.backend.word.WordLookupRepository;
@@ -61,9 +63,11 @@ public class AdminWordService {
     private final WordLookupRepository lookups;
     private final JsonMapper jsonMapper;
     private final EntryParser parser;
+    private final SenseMediaReader mediaReader;
 
     public AdminWordService(JdbcClient jdbc, DictionaryWordRepository dictionary, WordLookupRepository lookups,
-            JsonMapper jsonMapper, EntryParser parser) {
+            JsonMapper jsonMapper, EntryParser parser, SenseMediaReader mediaReader) {
+        this.mediaReader = mediaReader;
         this.jdbc = jdbc;
         this.dictionary = dictionary;
         this.lookups = lookups;
@@ -169,12 +173,15 @@ public class AdminWordService {
                 backendEntries.put(lookup.getId(), readBackendEntry(lookup));
             }
         }
+        Map<Long, Map<Integer, SenseMedia>> bundledMedia = mediaReader.forBundledWords(bundledIds);
+        Map<Long, Map<Integer, SenseMedia>> backendMedia = mediaReader.forBackendWords(backendIds);
         List<AdminWord> words = new ArrayList<>();
         for (ListRow row : rows) {
             AdminWordId id = AdminWordId.parse(row.itemId());
             WordEntry entry = (id.bundled() ? bundledEntries : backendEntries).get(id.number());
+            Map<Integer, SenseMedia> media = (id.bundled() ? bundledMedia : backendMedia).getOrDefault(id.number(), Map.of());
             words.add(new AdminWord(row.itemId(), row.word(), entry, row.ipa(), row.needsReview(), row.source(),
-                    row.model(), row.promptVersion(), row.createdAt()));
+                    row.model(), row.promptVersion(), row.createdAt(), mediaPerSense(entry, media)));
         }
         return words;
     }
@@ -299,14 +306,31 @@ public class AdminWordService {
     }
 
     private AdminWord toAdminWord(DictionaryWord word) {
-        return new AdminWord("b-" + word.getId(), word.getLemma(), readBundledEntry(word), word.getIpa(),
+        WordEntry entry = readBundledEntry(word);
+        List<SenseMedia> media = mediaPerSense(entry, mediaReader.forBundledWords(List.of(word.getId()))
+                .getOrDefault(word.getId(), Map.of()));
+        return new AdminWord("b-" + word.getId(), word.getLemma(), entry, word.getIpa(),
                 word.isNeedsReview(), AdminWordId.BUNDLED, word.getModel(), word.getPromptVersion(),
-                word.getCreatedAt());
+                word.getCreatedAt(), media);
     }
 
     private AdminWord toAdminWord(WordLookup lookup) {
-        return new AdminWord("w-" + lookup.getId(), lookup.getWord(), readBackendEntry(lookup), null,
+        WordEntry entry = readBackendEntry(lookup);
+        List<SenseMedia> media = mediaPerSense(entry, mediaReader.forBackendWords(List.of(lookup.getId()))
+                .getOrDefault(lookup.getId(), Map.of()));
+        return new AdminWord("w-" + lookup.getId(), lookup.getWord(), entry, null,
                 lookup.isNeedsReview(), AdminWordId.BACKEND, lookup.getModel(), lookup.getPromptVersion(),
-                lookup.getCreatedAt());
+                lookup.getCreatedAt(), media);
+    }
+
+    /** One item per sense, in the order of the entry: the media, or null when the sense has none. */
+    private List<SenseMedia> mediaPerSense(WordEntry entry, Map<Integer, SenseMedia> byPosition) {
+        List<SenseMedia> media = new ArrayList<>();
+        if (entry != null) {
+            for (int i = 0; i < entry.senses().size(); i++) {
+                media.add(byPosition.get(i));
+            }
+        }
+        return media;
     }
 }

@@ -13,6 +13,7 @@
     uv run pipeline report               # counts + entries that need review
     uv run pipeline import-to-postgres   # one time: copy the bundled dictionary.sqlite into Postgres (DATABASE_URL)
     uv run pipeline export               # build data/out/dictionary.sqlite (+ media/) from Postgres
+    uv run pipeline link-media           # after the media pass: add its media to senses in Postgres (no text changes)
     uv run pipeline export-local         # old: build dictionary.sqlite from data/pipeline.db
 """
 
@@ -173,6 +174,18 @@ def import_to_postgres(args) -> None:
         print("Skipped words were not changed. Use --overwrite to replace them with the file.")
 
 
+def link_media_to_postgres(args) -> None:
+    sqlite_path = Path(args.sqlite)
+    if not sqlite_path.is_file():
+        raise SystemExit(f"No dictionary file at {sqlite_path}. Use --sqlite to point to it.")
+    media_dir = Path(args.media_dir) if args.media_dir else sqlite_path.parent / "media"
+    pipeline_db = sqlite3.connect(store.DB_PATH) if store.DB_PATH.is_file() else None
+    pg = postgres.connect(postgres.database_url(args.database_url))
+    linked = postgres.link_media(sqlite3.connect(sqlite_path), pg, media_dir=media_dir, pipeline_db=pipeline_db)
+    pg.close()
+    print(f"Senses linked to media: {linked} (senses that already had media were not changed)")
+
+
 def export_from_postgres(args) -> None:
     pg = postgres.connect(postgres.database_url(args.database_url), read_only=True)
     result = export.export_from_postgres(pg, media_dir=Path(args.media_dir))
@@ -226,6 +239,11 @@ def main() -> None:
     import_parser.add_argument("--sqlite", default=str(BUNDLED_SQLITE), help="the dictionary.sqlite to read")
     import_parser.add_argument("--media-dir", help="folder with the media files (default: media/ next to the sqlite file)")
     import_parser.add_argument("--overwrite", action="store_true", help="replace words that are already in Postgres")
+    link_parser = commands.add_parser("link-media")
+    link_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    link_parser.add_argument("--sqlite", default=str(export.OUT_DIR / "dictionary.sqlite"),
+                             help="the dictionary.sqlite whose image_url values to link (default: data/out/, from export-local)")
+    link_parser.add_argument("--media-dir", help="folder with the media files (default: media/ next to the sqlite file)")
     export_parser = commands.add_parser("export")
     export_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     export_parser.add_argument("--media-dir", default=str(export.MEDIA_DIR), help="folder with the media files to copy")
@@ -249,6 +267,8 @@ def main() -> None:
         report()
     elif args.command == "import-to-postgres":
         import_to_postgres(args)
+    elif args.command == "link-media":
+        link_media_to_postgres(args)
     elif args.command == "export":
         export_from_postgres(args)
     elif args.command == "export-local":

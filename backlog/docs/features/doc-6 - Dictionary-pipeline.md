@@ -3,7 +3,7 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-14 11:55'
+updated_date: '2026-10-14 12:19'
 ---
 > Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-14 (Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
 > **Since TASK-49.3 the server Postgres is the source of truth** for the bundled words, senses, forms and media rows. `dictionary.sqlite` is built *from* Postgres by `export`; the generate passes below still fill `data/pipeline.db`.
@@ -221,7 +221,7 @@ The tables are made by the backend (Flyway [V6__create_dictionary_tables.sql](..
 | `dictionary_word` | `lemma` (unique), `word_rank` (NGSL), `ipa`, `needs_review`, `model`, `prompt_version`, timestamps. |
 | `dictionary_sense` | One meaning: `position`, `pos`, `cefr`, `simple_definition`, `vietnamese`, `examples_json`, `usage_json` (the same JSON text the app reads), `image_type`, `image_query`, `media_id`. Unique on (word, position). |
 | `dictionary_form` | `form` and `form_type` ("past tense", "plural", … or "form"). |
-| `media` | One row per file: `file_name` (unique, for example `run_1.mp4`), `kind` (`photo` or `clip`), `width`, `height`, `bytes`, `pixabay_id`, `photographer`, `page_url`, `license_note` (Pixabay attribution). **The files are not in Postgres**: they are on disk (on the VPS a folder, served by Caddy in TASK-49.4). |
+| `media` | One row per file: `file_name` (unique, for example `run_1.mp4`), `kind` (`photo` or `clip`), `width`, `height`, `bytes`, `pixabay_id`, `photographer`, `page_url`, `license_note` (Pixabay attribution). **The files are not in Postgres**: they are on disk (on the VPS the folder `/var/lib/saynata/media`, a bind mount into the backend container and served read-only by Caddy at `https://api.loffy.me/media/<file>`, TASK-49.4). |
 | `word_lookup` | Unchanged: the words the backend asked Claude about. |
 
 `uv run pipeline import-to-postgres` ([cli.py:156](../../../pipeline/src/pipeline/cli.py#L156), [import_dictionary:89](../../../pipeline/src/pipeline/postgres.py#L89)) reads the bundled `dictionary.sqlite` and fills the tables in **one transaction** (an error changes nothing):
@@ -267,6 +267,7 @@ Copy `data/out/dictionary.sqlite` and `data/out/media/` into `EnglishTranslation
 | `uv run pipeline revalidate` | No | Re-check stored `needs_review` entries after the checks change; passing ones become `done` ([cli.py:92-108](../../../pipeline/src/pipeline/cli.py#L92-L108)) |
 | `uv run pipeline report` | No | Counts per status + the problem list |
 | `uv run pipeline import-to-postgres` | No | One time: copy the bundled `dictionary.sqlite` (+ media facts) into Postgres. Re-run safe; `--overwrite`, `--sqlite`, `--media-dir`, `--database-url` |
+| `uv run pipeline link-media` | No | After the media pass: add its media rows and links to senses in Postgres, changing no text and no existing media. `--sqlite` (default `data/out/dictionary.sqlite`, from `export-local`), `--media-dir`, `--database-url`. Then `rsync` the files to the server (doc-11, section 9) |
 | `uv run pipeline export` | No | Build `data/out/dictionary.sqlite`, `.jsonl` and `media/` from Postgres (read-only). `--media-dir`, `--database-url` |
 | `uv run pipeline export-local` | No | Old: build `dictionary.sqlite` from `data/pipeline.db` |
 
@@ -290,7 +291,7 @@ Run: `uv run pytest` in `pipeline/` (no API key needed). The Postgres tests need
 - **3 schema errors in a row → `needs_review` with no entry** ([cli.py:54-62](../../../pipeline/src/pipeline/cli.py#L54-L62)). Harmless for export, but `report` shows the schema error as the problem.
 - **No sampling control** on Claude 5.5 models. Fine here: the output is generated once and stored, so R3's "same input, same output" holds through the file.
 - **Words from a new `generate` run are not imported into Postgres yet.** `import-to-postgres` reads a `dictionary.sqlite`, not `data/pipeline.db`. Until a pipeline.db import exists, use `export-local` for a fresh run (it does not include admin edits).
-- **Media files are not in Postgres and `import-to-postgres` does not upload them.** Only 3 sample files are in the repo (`Resources/media`). The full set comes with the media pass (TASK-23); copying the folder to the VPS and serving it is TASK-49.4.
+- **Media files are not in Postgres and `import-to-postgres` does not upload them.** Only 3 sample files are in the repo (`Resources/media`). The full set comes with the media pass (TASK-23); copying the folder to the VPS is `rsync` (doc-11, section 9; TASK-49.4 added the volume and Caddy).
 - **`needs_review` words from `pipeline.db` (59) are not in Postgres**, because they are not in the bundled file.
 - **Bundled words cannot be deleted in the admin** (a delete would drop the word from the next `dictionary.sqlite`); the admin edits them instead.
 - **The usage pass has not run on the real data yet** (TASK-24): until the developer runs `uv run pipeline usage`, `dictionary.sqlite` has an empty `usage` for every word. Words whose call fails keep no usage until the next run.

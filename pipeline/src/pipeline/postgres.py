@@ -190,3 +190,51 @@ def import_dictionary(
         )
         result.forms = len(form_rows)
     return result
+
+
+def link_media(
+    app_db: sqlite3.Connection,
+    pg: psycopg.Connection,
+    media_dir: Path | None = None,
+    pipeline_db: sqlite3.Connection | None = None,
+) -> int:
+    """Gives senses in Postgres the media of a newer dictionary.sqlite (for example after the media pass).
+
+    import_dictionary skips words that are already in Postgres, so it cannot bring in media for them, and
+    --overwrite would replace edits made in the admin. This only touches the media: it adds the media rows
+    and sets media_id on a sense that has none. A sense that already has media is left alone, and no text changes.
+    Returns how many senses were linked.
+    """
+    attribution, _ = read_media_metadata(pipeline_db)
+    app_db.row_factory = sqlite3.Row
+    now = datetime.now(timezone.utc)
+    linked = 0
+    with pg.transaction(), pg.cursor() as cursor:
+        rows = app_db.execute(
+            """SELECT w.lemma, s.position, s.image_url FROM senses s JOIN words w ON w.id = s.word_id
+               WHERE s.image_url IS NOT NULL ORDER BY w.id, s.position"""
+        ).fetchall()
+        for row in rows:
+            file_name = row["image_url"].removeprefix(MEDIA_PREFIX)
+            width, height, size = file_facts(media_dir, file_name)
+            meta = attribution.get(file_name, {})
+            cursor.execute(
+                """INSERT INTO media (file_name, kind, width, height, bytes, photographer, page_url, license_note,
+                   created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (file_name) DO UPDATE SET
+                   width = COALESCE(EXCLUDED.width, media.width), height = COALESCE(EXCLUDED.height, media.height),
+                   bytes = COALESCE(EXCLUDED.bytes, media.bytes),
+                   photographer = COALESCE(EXCLUDED.photographer, media.photographer),
+                   page_url = COALESCE(EXCLUDED.page_url, media.page_url)
+                   RETURNING id""",
+                (file_name, media_kind(file_name), width, height, size if size is not None else meta.get("size_bytes"),
+                 meta.get("author"), meta.get("page_url"), LICENSE_NOTE, now),
+            )
+            media_id = cursor.fetchone()[0]
+            cursor.execute(
+                """UPDATE dictionary_sense s SET media_id = %s FROM dictionary_word w
+                   WHERE s.word_id = w.id AND w.lemma = %s AND s.position = %s AND s.media_id IS NULL""",
+                (media_id, row["lemma"], row["position"]),
+            )
+            linked += cursor.rowcount
+    return linked

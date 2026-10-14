@@ -165,6 +165,41 @@ def test_import_again_keeps_admin_edits_but_overwrite_replaces_them(app_db, pg, 
             count(pg, "media")) == (3, 4, 3, 2)
 
 
+def test_link_media_adds_media_to_known_words_without_touching_text(app_db, pg, media_dir):
+    postgres.import_dictionary(app_db, pg)   # words are in, but this import had no media facts yet
+    pg.execute("UPDATE dictionary_sense SET media_id = NULL")
+    pg.execute("UPDATE dictionary_sense SET simple_definition = 'edited in the admin' WHERE word_id IN "
+               "(SELECT id FROM dictionary_word WHERE lemma = 'run')")
+    pg.commit()
+
+    linked = postgres.link_media(app_db, pg, media_dir=media_dir)
+
+    assert linked == 2
+    rows = pg.execute("""SELECT w.lemma, s.position, m.file_name, m.kind, m.bytes, s.simple_definition
+                         FROM dictionary_sense s JOIN dictionary_word w ON w.id = s.word_id
+                         LEFT JOIN media m ON m.id = s.media_id ORDER BY w.lemma, s.position""").fetchall()
+    by_sense = {(r[0], r[1]): r for r in rows}
+    assert by_sense[("run", 0)][2:5] == ("run_1.mp4", "clip", len(b"not a real video, only bytes"))
+    assert by_sense[("apple", 0)][2] == "apple_1.webp"
+    assert by_sense[("run", 1)][2] is None        # this sense has no image_url
+    assert by_sense[("run", 0)][5] == "edited in the admin"
+    # running it again changes nothing
+    assert postgres.link_media(app_db, pg, media_dir=media_dir) == 0
+
+
+def test_link_media_does_not_replace_media_a_sense_already_has(app_db, pg, media_dir):
+    postgres.import_dictionary(app_db, pg, media_dir=media_dir)
+    pg.execute("INSERT INTO media (file_name, kind, created_at) VALUES ('other.webp', 'photo', now())")
+    pg.execute("UPDATE dictionary_sense SET media_id = (SELECT id FROM media WHERE file_name = 'other.webp') "
+               "WHERE word_id = (SELECT id FROM dictionary_word WHERE lemma = 'apple')")
+    pg.commit()
+
+    assert postgres.link_media(app_db, pg, media_dir=media_dir) == 0
+    kept = pg.execute("""SELECT m.file_name FROM dictionary_sense s JOIN dictionary_word w ON w.id = s.word_id
+                         JOIN media m ON m.id = s.media_id WHERE w.lemma = 'apple'""").fetchone()
+    assert kept[0] == "other.webp"
+
+
 def test_a_failed_import_changes_nothing(app_db, pg, media_dir):
     # A level that is too long for the column: Postgres refuses it after the words and media were written.
     app_db.execute("UPDATE senses SET cefr = 'MUCH-TOO-LONG' WHERE id = 4")

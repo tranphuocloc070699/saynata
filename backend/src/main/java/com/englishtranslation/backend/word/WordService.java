@@ -3,7 +3,11 @@ package com.englishtranslation.backend.word;
 import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.media.BackendWordMediaService;
+import com.englishtranslation.backend.media.SenseMedia;
+import com.englishtranslation.backend.media.SenseMediaReader;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,10 +29,15 @@ public class WordService {
     private final EnglishWords englishWords;
     private final IpaDictionary ipaDictionary;
     private final SimpleWords simpleWords;
+    private final BackendWordMediaService mediaService;
+    private final SenseMediaReader mediaReader;
 
     public WordService(WordLookupRepository repository, ClaudeService claude, ClaudeProperties properties,
             JsonMapper jsonMapper, EnglishWords englishWords,
-            IpaDictionary ipaDictionary, SimpleWords simpleWords) {
+            IpaDictionary ipaDictionary, SimpleWords simpleWords,
+            BackendWordMediaService mediaService, SenseMediaReader mediaReader) {
+        this.mediaService = mediaService;
+        this.mediaReader = mediaReader;
         this.simpleWords = simpleWords;
         this.repository = repository;
         this.claude = claude;
@@ -45,14 +54,14 @@ public class WordService {
         // Nothing is saved, so a later update of the word list can fix a missing word.
         if (!englishWords.contains(normalized)) {
             log.debug("'{}' is not on the English word list, Claude not called", normalized);
-            return new WordResponse(normalized, new WordEntry(List.of()), false, null);
+            return new WordResponse(normalized, new WordEntryView(List.of()), false, null);
         }
 
         String cacheKey = CacheKeys.key("word", properties.wordPromptVersion(), normalized);
 
         Optional<WordLookup> saved = repository.findByCacheKey(cacheKey);
         if (saved.isPresent()) {
-            return response(normalized, readEntry(saved.get()), true);
+            return response(normalized, readEntry(saved.get()), true, mediaOf(saved.get().getId()));
         }
 
         WordEntry entry = claude.describeWord(normalized);
@@ -73,11 +82,12 @@ public class WordService {
                     properties.wordPromptVersion(), needsReview);
             row.setCefr(entry.firstCefr());
             repository.saveAndFlush(row);
-            return response(normalized, entry, false);
+            startMediaJob(row.getId(), normalized, entry);
+            return response(normalized, entry, false, Map.of());
         } catch (DataIntegrityViolationException e) {
             // Another request saved the same key while we waited for Claude. Keep the first answer.
             WordLookup first = repository.findByCacheKey(cacheKey).orElseThrow(() -> e);
-            return response(normalized, readEntry(first), true);
+            return response(normalized, readEntry(first), true, mediaOf(first.getId()));
         }
     }
 
@@ -95,8 +105,27 @@ public class WordService {
     }
 
     /** Adds the IPA at request time, so rows saved before IPA existed get it too. */
-    private WordResponse response(String word, WordEntry entry, boolean cached) {
-        return new WordResponse(word, entry, cached, ipaDictionary.ipaFor(word));
+    private WordResponse response(String word, WordEntry entry, boolean cached, Map<Integer, SenseMedia> media) {
+        return new WordResponse(word, WordEntryView.of(entry, media), cached, ipaDictionary.ipaFor(word));
+    }
+
+    /** The media of a saved word, by sense position. A media problem must never break the word answer. */
+    private Map<Integer, SenseMedia> mediaOf(Long lookupId) {
+        try {
+            return mediaReader.forBackendWords(List.of(lookupId)).getOrDefault(lookupId, Map.of());
+        } catch (RuntimeException e) {
+            log.warn("Could not read the media of word_lookup {}: {}", lookupId, e.toString());
+            return Map.of();
+        }
+    }
+
+    /** Starts the picture job on its own thread. It is not waited for; the picture shows on the next lookup. */
+    private void startMediaJob(Long lookupId, String word, WordEntry entry) {
+        try {
+            mediaService.fetchInBackground(lookupId, word, entry);
+        } catch (RuntimeException e) {
+            log.warn("Could not start the media job for '{}': {}", word, e.toString());
+        }
     }
 
     private WordEntry readEntry(WordLookup lookup) {

@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-14 07:51'
+updated_date: '2026-10-14 12:19'
 ---
-> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-14 (Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
+> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-14 (pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -49,6 +49,7 @@ sequenceDiagram
     participant DB as Postgres word_lookup
     participant CS as ClaudeService
     participant CL as Claude API
+    participant MS as BackendWordMediaService
 
     App->>WC: GET /api/words/Reluctant
     WC->>WC: @Pattern letters, ' and - only, 1 to 64 chars, else 400
@@ -59,7 +60,8 @@ sequenceDiagram
     WS->>DB: findByCacheKey(key)
     alt hit
         DB-->>WS: entry_json
-        WS-->>WC: {word, entry, cached: true}
+        WS->>DB: media of the saved word (word_lookup_media + media)
+        WS-->>WC: {word, entry (+ imageUrl per sense), cached: true}
     else miss
         WS->>CS: describeWord("reluctant")
         CS->>CL: WORD_PROMPT, effort LOW, schema = WordEntry
@@ -68,6 +70,7 @@ sequenceDiagram
         opt race: another request saved first
             WS->>DB: read the first row back
         end
+        WS-)MS: fetchInBackground (own thread, not waited for)
         WS-->>WC: {word, entry, cached: false}
     end
     WC-->>App: 200 JSON
@@ -77,18 +80,62 @@ sequenceDiagram
 |---|---|---|
 | Endpoint | [WordController.java:20-23](../../../backend/src/main/java/com/englishtranslation/backend/word/WordController.java#L20-L23) | `GET /api/words/{word}`. Only letters, `'` and `-`, 1–64 chars ("don't", "well-known"). A space → 400. |
 | Normalise | [CacheKeys.java:24-26](../../../backend/src/main/java/com/englishtranslation/backend/cache/CacheKeys.java#L24-L26) | Sentence rules + `toLowerCase(Locale.ROOT)`. "Run" and "run" share one row. |
-| Word list | [WordService.java:44-49](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L44-L49), [EnglishWords.java](../../../backend/src/main/java/com/englishtranslation/backend/word/EnglishWords.java) | After normalising, the word must be on the list loaded at startup into a `HashSet`: `words/scowl-70.txt` (SCOWL size 70, US/GB/CA/AU, license in `words/SCOWL-LICENSE.txt`) plus `words/ngsl.txt` (lemmas and forms of the bundled dictionary). Not on it (`runk`): **200 with empty `senses`**, Claude is not called, nothing is saved in Postgres (so a list update can fix a missing word), debug log only. Why: Haiku "corrected" `runk` into a `drunk` entry (TASK-38). |
-| Cache key | [WordService.java:51](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L51) | `sha256("word" \| wordPromptVersion \| normalizedWord)`. No language: entries are always English + Vietnamese. |
-| Hit | [WordService.java:53-56](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L53-L56) | Parse `entry_json` into `WordEntry`, `cached: true`. |
-| Miss | [WordService.java:58-74](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L58-L74) | Claude → simple-word check (next row) → save the whole entry as JSON text → `cached: false`. |
-| Race | [WordService.java:75-79](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L75-L79) | Same pattern as sentences: the unique key wins, the second request reads the first row. |
+| Word list | [WordService.java:53-58](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L53-L58), [EnglishWords.java](../../../backend/src/main/java/com/englishtranslation/backend/word/EnglishWords.java) | After normalising, the word must be on the list loaded at startup into a `HashSet`: `words/scowl-70.txt` (SCOWL size 70, US/GB/CA/AU, license in `words/SCOWL-LICENSE.txt`) plus `words/ngsl.txt` (lemmas and forms of the bundled dictionary). Not on it (`runk`): **200 with empty `senses`**, Claude is not called, nothing is saved in Postgres (so a list update can fix a missing word), debug log only. Why: Haiku "corrected" `runk` into a `drunk` entry (TASK-38). |
+| Cache key | [WordService.java:60](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L60) | `sha256("word" \| wordPromptVersion \| normalizedWord)`. No language: entries are always English + Vietnamese. |
+| Hit | [WordService.java:62-65](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L62-L65) | Parse `entry_json` into `WordEntry`, `cached: true`. |
+| Miss | [WordService.java:67-86](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L67-L86) | Claude → simple-word check (next row) → save the whole entry as JSON text → `cached: false`. |
+| Race | [WordService.java:87-91](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L87-L91) | Same pattern as sentences: the unique key wins, the second request reads the first row. |
 | Prompt | [ClaudeService.java:45-115](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L45-L115) | `WORD_PROMPT`: 1–4 senses, ≤20-word definition, never the word itself, exactly 3 examples with a level (easy = short present simple, medium = another situation and structure, harder = a complex structure or B2 collocation; same rules as the pipeline's `EXAMPLE_RULES`, with one good set), 0–3 `usage` items with the rules and the agreed few-shot examples (get, make, take, depend). Never correct spelling, never describe a different word; not an English word exactly as written → empty `senses` (TASK-38). |
 | Request | [ClaudeService.java:153-165](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L153-L165) | `maxTokens 8000`, `effort LOW`, structured output with `WordEntry.class`. The word goes inside `<word>` tags, escaped by `wordMessage` ([174-176](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L174-L176)). |
 | Shape | [WordEntry.java:7-41](../../../backend/src/main/java/com/englishtranslation/backend/word/WordEntry.java#L7-L41) | Same as the pipeline's `models.py`, in camelCase, **without** `source_index`, `image_type`, `image_query`. `examples` is a list of `{ level, text }` (`level` is a lowercase String, like `kind`). `usage` is a list of `{ kind, pattern, example }`; `kind` is a plain lowercase String (an enum would be written in capitals in the schema). |
 | Simple words | [SimpleWords.java](../../../backend/src/main/java/com/englishtranslation/backend/word/SimpleWords.java), [WordService.java:59-69](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L59-L69), [retry 82-93](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L82-L93) | Java copy of the pipeline's `validate.py` rules (TASK-16). The word list is `words/ngsl.txt` plus `words/simple-extra.txt` (the pipeline's `EXTRA_ALLOWED`, `BASIC_WORDS`, `NUMBERS_AND_DATES`, `GRAMMAR_TERMS`, copied; keep them in step). Checked: each `simpleDefinition` (no word outside the list; the possessive `'s` is dropped) and each example (easy 0 outside words, medium 1, harder 2; contractions count as their base word; `me`, `my`, `oh` are allowed; the headword and words starting with it are allowed, because a backend headword may be rare). Usage items and the 20-word limit are **not** checked. If anything fails: **one** retry through `ClaudeService.describeWordAgain(word, feedback)`, where the feedback names the hard words. If the retry also fails, the entry is still saved with `needs_review = true` and a `warn` log line. If the retry call itself throws, the first entry is kept and flagged. Never more than one retry. The flag is not sent to the app. |
 | Cache version | [application.properties:18](../../../backend/src/main/resources/application.properties#L18) | `app.claude.word-prompt-version=v7` (TASK-38; v6 was TASK-35). v7 makes the wrong `runk` rows of v6 unreachable on the server and the phone. Rows saved with v3 to v5 have no example levels (or no usage); the new key never reads them. The app has the same value in `PromptVersions.word` ([CacheKeys.swift:15](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L15)); a test checks they match. |
-| Response | [WordResponse.java:8](../../../backend/src/main/java/com/englishtranslation/backend/word/WordResponse.java#L8) | `{ word, entry: { senses: [...] }, cached, ipa }`. `ipa` is nullable. |
+| Response | [WordResponse.java:9](../../../backend/src/main/java/com/englishtranslation/backend/word/WordResponse.java#L9), [WordEntryView.java](../../../backend/src/main/java/com/englishtranslation/backend/word/WordEntryView.java) | `{ word, entry: { senses: [...] }, cached, ipa }`. `ipa` is nullable. Each sense may have `imageUrl` (TASK-49.4): an absolute address such as `https://api.loffy.me/media/run_1_3fa9c2d1.webp`. The field is **left out** when the sense has no media, and every other field is unchanged, so old app versions see nothing new. `WordEntry` itself (what Claude writes and `entry_json` stores) has no image field; the response uses `WordEntryView`. |
+| Media | [WordService.mediaOf:113](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L113), [SenseMediaReader](../../../backend/src/main/java/com/englishtranslation/backend/media/SenseMediaReader.java) | A cached word reads its media rows (`word_lookup_media` joined to `media`) and adds `imageUrl` = `MEDIA_BASE_URL` + `/` + file name. A problem reading media is logged and ignored: the word still answers. |
 | IPA | [IpaDictionary.java](../../../backend/src/main/java/com/englishtranslation/backend/word/IpaDictionary.java), [WordService.java:95-98](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L95-L98) | `words/ipa-dict-en_US.txt` (open-dict-data/ipa-dict, MIT, license in `words/IPA-DICT-LICENSE.txt`) is loaded at startup into a map: lowercase word to its **first** IPA, with slashes (for example `/ˈɡɹeɪvˌjɑɹd/`). `WordService.response()` adds it on every answer, at request time, so rows cached before TASK-39 get it too. It is not saved in `entry_json`, so the word prompt and its version did not change. A word missing from the list (or a not-a-word answer) gets `ipa: null`. The list uses `ɹ` and `ɫ` (American, dictionary style). |
+
+### Pictures for backend words (TASK-49.4)
+
+Words that are not in the bundled dictionary get a Pixabay photo or clip **after** the answer was sent. The first lookup has no `imageUrl`; the next one has it.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant WS as WordService
+    participant MS as BackendWordMediaService (thread media-1)
+    participant DB as Postgres
+    participant PX as Pixabay
+    participant FF as ffmpeg
+    participant FS as MEDIA_DIR
+
+    WS->>DB: save the new word_lookup row
+    WS-)MS: fetchInBackground (returns at once)
+    WS-->>WS: answer the request without imageUrl
+    loop first 3 senses that are noun, adjective or verb
+        MS->>DB: claim: insert word_lookup_media (word_lookup_id, sense_position)
+        alt already claimed
+            MS-->>MS: skip, Pixabay is not asked again
+        else new
+            MS->>PX: verb: search clip (photo if none); noun/adjective: search photo
+            PX-->>MS: hit + download
+            MS->>FF: 320 px WebP, or 3 s muted H.264 MP4
+            FF->>FS: write .tmp file, then move to word_sense_hash8.ext
+            MS->>DB: insert media row (Pixabay id, photographer, page, license) and set media_id
+        end
+    end
+```
+
+| Step | File | What happens |
+|---|---|---|
+| Start | [WordService.startMediaJob:123](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L123) | Called after `saveAndFlush`. If starting it fails, it is logged and the answer is still sent. |
+| Thread | [MediaConfig.mediaExecutor](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaConfig.java#L21) | One worker thread, queue of 50. When the queue is full the job is dropped (the word works, it just has no picture). |
+| Job | [BackendWordMediaService.fetch:65](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L65) | Does nothing when `PIXABAY_API_KEY` is empty. Nouns and adjectives get a photo, verbs get a clip (a photo if Pixabay has no clip), other parts of speech get nothing. The first 3 senses at most. Search words = the headword. |
+| Claim | [claim:98](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L98) | A row in `word_lookup_media` is inserted **before** Pixabay is asked (unique on word and sense position). So a sense is asked once, even if Pixabay found nothing or the download failed. To try again, delete the word in the admin ("Regenerate"). |
+| Pixabay | [HttpPixabayClient](../../../backend/src/main/java/com/englishtranslation/backend/media/HttpPixabayClient.java) | Same searches as `pipeline/src/pipeline/media.py` (`safesearch`, `order=popular`, tiny/small video first). At least 1.5 s between requests (40 per minute; Pixabay allows 100 per 60 s). Downloads only from `*.pixabay.com` over https. |
+| Convert | [FfmpegMediaConverter](../../../backend/src/main/java/com/englishtranslation/backend/media/FfmpegMediaConverter.java) | One ffmpeg call: photo to WebP (quality 80, max 320 px wide), clip to H.264 MP4 (3 s, no audio, 320 px, `+faststart`). ffmpeg is installed in the Docker image. |
+| Save | [fetchOneSense:110](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L110) | File name `word_<sense number>_<8 hex of sha256>.webp\|mp4` (the hash makes the name unique per content, so Caddy can cache it for a year). Written to a `.tmp-` file and moved. If the media row cannot be saved, the file is deleted. A failed sense is logged and the next sense still runs. |
+
+Flyway [V7](../../../backend/src/main/resources/db/migration/V7__create_word_lookup_media.sql) adds `word_lookup_media (word_lookup_id, sense_position, media_id)`; deleting a word deletes its rows. Bundled words need no table: `dictionary_sense.media_id` already points to the `media` row. Env: `MEDIA_DIR`, `MEDIA_BASE_URL`, `PIXABAY_API_KEY` (doc-11, section 9).
 
 **Table `word_lookup`** ([V1](../../../backend/src/main/resources/db/migration/V1__create_cache_tables.sql#L11-L19), entity [WordLookup.java](../../../backend/src/main/java/com/englishtranslation/backend/word/WordLookup.java)):
 `cache_key VARCHAR(64) UNIQUE`, `word VARCHAR(64)`, `entry_json TEXT`, `model`, `prompt_version`, `created_at`, and `needs_review BOOLEAN NOT NULL DEFAULT FALSE` ([V4](../../../backend/src/main/resources/db/migration/V4__add_needs_review_to_word_lookup.sql), TASK-16). To list entries to check: `SELECT word, entry_json FROM word_lookup WHERE needs_review;`.
@@ -289,6 +336,8 @@ bad word → 400, Claude refused → 422, Claude down → 502. A word that is no
 | [CacheKeysTest.java](../../../backend/src/test/java/com/englishtranslation/backend/cache/CacheKeysTest.java) | Words are lowercased |
 
 ## Known gaps
+
+- Backend-word pictures (TASK-49.4): the job runs only when a word is created. If the server restarts while the job is queued, that word gets no picture until an admin regenerates it. `GET /api/words/{word}` serves bundled words' media only through the exported `dictionary.sqlite` (the app reads bundled words from its own file, never from this endpoint).
 
 - **Keep the keys equal.** `CacheKeys.swift` must copy the backend normalising **exactly**, or the phone and server use different keys. The word prompt version lives in `PromptVersions.word` and must equal `app.claude.word-prompt-version`.
 - **Phone-cached backend words keep their old JSON**, saved before TASK-39, so they show no IPA until the phone cache entry is cleared or replaced. The usage list of a backend word can be empty if the saved answer is from an older prompt version. A word that is not on the IPA list shows no IPA line.

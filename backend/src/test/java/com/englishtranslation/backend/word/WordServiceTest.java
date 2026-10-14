@@ -12,6 +12,7 @@ import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -75,7 +76,7 @@ class WordServiceTest {
 
         assertThat(first.cached()).isFalse();
         assertThat(second.cached()).isTrue();
-        assertThat(second.entry()).isEqualTo(entry);
+        assertThat(second.entry()).isEqualTo(WordEntryView.of(entry, Map.of()));
         verify(claude, times(1)).describeWord("reluctant");
     }
 
@@ -199,7 +200,7 @@ class WordServiceTest {
 
         verify(claude, times(1)).describeWord("reluctant");
         verify(claude, times(1)).describeWordAgain(Mockito.eq("reluctant"), contains("hesitant"));
-        assertThat(response.entry()).isEqualTo(simple);
+        assertThat(response.entry()).isEqualTo(WordEntryView.of(simple, Map.of()));
         assertThat(savedNeedsReview("reluctant")).isFalse();
     }
 
@@ -213,7 +214,7 @@ class WordServiceTest {
 
         verify(claude, times(1)).describeWord("reluctant");
         verify(claude, times(1)).describeWordAgain(anyString(), anyString());
-        assertThat(response.entry()).isEqualTo(hard);
+        assertThat(response.entry()).isEqualTo(WordEntryView.of(hard, Map.of()));
         assertThat(savedNeedsReview("reluctant")).isTrue();
     }
 
@@ -225,7 +226,7 @@ class WordServiceTest {
 
         WordResponse response = service.lookUp("reluctant");
 
-        assertThat(response.entry()).isEqualTo(hard);
+        assertThat(response.entry()).isEqualTo(WordEntryView.of(hard, Map.of()));
         assertThat(savedNeedsReview("reluctant")).isTrue();
     }
 

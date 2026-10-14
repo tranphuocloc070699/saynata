@@ -315,4 +315,44 @@ class AdminBundledWordsTest {
         assertThat(bundled.findById(run.getId())).isPresent();
         mockMvc.perform(asAdmin(delete("/api/admin/words/b-999999"))).andExpect(status().isNotFound());
     }
+
+    /** Makes a media row (a Pixabay photo or clip) and returns its id. */
+    private long saveMedia(String fileName, String kind, String photographer) {
+        jdbc.update("insert into media (file_name, kind, photographer, page_url, license_note, created_at)"
+                + " values (?, ?, ?, ?, 'Pixabay Content License', current_timestamp)",
+                fileName, kind, photographer, "https://pixabay.com/x/" + fileName);
+        return jdbc.queryForObject("select id from media where file_name = ?", Long.class, fileName);
+    }
+
+    @Test
+    void wordsCarryTheMediaOfEachSenseWithTheCredit() throws Exception {
+        DictionaryWord run = saveBundled("run", 1, false, "A1", "B1");
+        long clipId = saveMedia("admin_test_run_1.mp4", "clip", "Pat Maker");
+        jdbc.update("update dictionary_sense set media_id = ? where word_id = ? and position = 0", clipId, run.getId());
+        WordLookup zebra = saveBackend("zebra", "B1", false);
+        long photoId = saveMedia("admin_test_zebra_1.webp", "photo", "Zoe Camera");
+        jdbc.update("insert into word_lookup_media (word_lookup_id, sense_position, media_id, created_at)"
+                + " values (?, 0, ?, current_timestamp)", zebra.getId(), photoId);
+        try {
+            // one bundled word: sense 1 has a clip, sense 2 has none (null keeps the order of the senses)
+            mockMvc.perform(asAdmin(get("/api/admin/words/b-" + run.getId())))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.media.length()").value(2))
+                    .andExpect(jsonPath("$.media[0].kind").value("clip"))
+                    .andExpect(jsonPath("$.media[0].url").value("https://api.loffy.me/media/admin_test_run_1.mp4"))
+                    .andExpect(jsonPath("$.media[0].photographer").value("Pat Maker"))
+                    .andExpect(jsonPath("$.media[0].pageUrl").value("https://pixabay.com/x/admin_test_run_1.mp4"))
+                    .andExpect(jsonPath("$.media[1]").doesNotExist());
+            // the list has them too
+            mockMvc.perform(asAdmin(get("/api/admin/words?_start=0&_end=10&_sort=word&_order=ASC")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].media[0].photographer").value("Pat Maker"))
+                    .andExpect(jsonPath("$[1].media[0].kind").value("photo"))
+                    .andExpect(jsonPath("$[1].media[0].photographer").value("Zoe Camera"));
+        } finally {
+            backend.deleteAll();
+            bundled.deleteAll();
+            jdbc.update("delete from media where file_name like 'admin_test_%'");
+        }
+    }
 }
