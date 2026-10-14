@@ -1,10 +1,11 @@
 ---
 id: TASK-49.1
 title: 'Backend: admin REST API with ADMIN login'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-14 10:54'
-updated_date: '2026-10-14 10:58'
+updated_date: '2026-10-14 11:30'
 labels:
   - backend
   - cms
@@ -35,3 +36,15 @@ Spring Boot /api/admin/** for the admin web app (F5). Accounts: a Flyway migrati
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Flyway V5: users + user_roles. 2. Spring Security (stateless): JWT HS256 in HttpOnly cookie saynata_admin, cookie filter, only /api/admin/** needs ADMIN. 3. Login/me/logout + in-memory IP rate limit (429). 4. First admin at startup from ADMIN_EMAIL + ADMIN_INITIAL_PASSWORD. 5. Admin words + sentences REST (Refine simple-rest shape, X-Total-Count), validate entry JSON on update. 6. CORS for /api/admin/** only. 7. MockMvc tests incl. public endpoints stay open. 8. Docs: .env.example, compose prod, doc-11, new feature page, CLAUDE.md row.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Built backend/admin API (branch f5/task-49.1). 97 backend tests pass. Test it: Goal: log in as ADMIN and manage words/sentences over REST. Steps: 1) set ADMIN_JWT_SECRET, ADMIN_EMAIL, ADMIN_INITIAL_PASSWORD in backend/.env and start the backend (first admin is created, log line shows email only). 2) curl -i -c jar -H 'Content-Type: application/json' -d '{"email":"...","password":"..."}' http://localhost:8081/api/admin/auth/login. 3) curl -b jar 'http://localhost:8081/api/admin/words?_start=0&_end=10' -i (array + X-Total-Count). 4) PUT a bad entry body {"entry":{"senses":[]}} (Content-Type json) -> 400 with a clear detail. Expected: no cookie gives 401; /api/words/run and /actuator/health stay open. Automated: cd backend && ./mvnw -B test. PR is opened by the orchestrator (gh not authenticated in the worker).
+<!-- SECTION:NOTES:END -->

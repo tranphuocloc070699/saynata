@@ -1,5 +1,5 @@
 ---
-id: doc-13
+id: doc-14
 title: Admin CMS
 type: specification
 created_date: '2026-10-14 11:29'
