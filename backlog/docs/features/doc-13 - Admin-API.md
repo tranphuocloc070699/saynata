@@ -3,7 +3,7 @@ id: doc-13
 title: Admin API
 type: specification
 created_date: '2026-10-14 11:28'
-updated_date: '2026-10-14 11:30'
+updated_date: '2026-10-14 11:36'
 ---
 # Admin API
 
@@ -50,12 +50,12 @@ sequenceDiagram
 | First admin | [AdminBootstrap.java:36](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminBootstrap.java#L36) | At start-up, only when no ADMIN exists: creates one from `ADMIN_EMAIL` + `ADMIN_INITIAL_PASSWORD` (12+ characters). Logs the email, never the password. |
 | Rules | [SecurityConfig.java:36](../../../backend/src/main/java/com/englishtranslation/backend/admin/SecurityConfig.java#L36) | Stateless. Only `/api/admin/**` needs ADMIN (login and logout are open, OPTIONS is open for CORS). Everything else stays open. No login gives 401. |
 | CORS | [SecurityConfig.java:60](../../../backend/src/main/java/com/englishtranslation/backend/admin/SecurityConfig.java#L60) | Only for `/api/admin/**`: `https://admin.loffy.me` and `http://localhost:5173`, with credentials, `X-Total-Count` exposed. |
-| Login | [AdminAuthController.java:54](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminAuthController.java#L54) | Same 401 "Wrong email or password." for unknown email, wrong password, or a user without ADMIN. Too many tries: 429. |
+| Login | [AdminAuthController.java:60](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminAuthController.java#L60) | Same 401 "Wrong email or password." for unknown email, wrong password, or a user without ADMIN. Too many tries: 429. |
 | Rate limit | [LoginRateLimiter.java:24](../../../backend/src/main/java/com/englishtranslation/backend/admin/LoginRateLimiter.java#L24) | In memory, per IP (the real IP from `X-Forwarded-For`, trusted only from a private or loopback proxy such as Caddy). A restart clears it. |
 | Token | [AdminTokenService.java:46](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminTokenService.java#L46) | JWT HS256 with `ADMIN_JWT_SECRET` (32+ characters, or start-up fails), 8 hours, holds only the user id. |
 | Cookie filter | [AdminCookieFilter.java:39](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminCookieFilter.java#L39) | Reads the cookie, checks the token, loads the user from the database and checks the ADMIN role again (so removing an admin works at once). |
 | CSRF | [JsonWritesOnlyFilter.java:19](../../../backend/src/main/java/com/englishtranslation/backend/admin/JsonWritesOnlyFilter.java#L19) | Spring CSRF is off. Instead the cookie is SameSite=Strict, and every POST/PUT/DELETE under `/api/admin` must send `Content-Type: application/json` (else 415). The admin site and the API must share the site `loffy.me` (for example admin.loffy.me and api.loffy.me). |
-| Me, logout | [AdminAuthController.java:77](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminAuthController.java#L77), [:84](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminAuthController.java#L84) | `GET /api/admin/auth/me` gives email and display name. `POST /api/admin/auth/logout` clears the cookie. |
+| Me, logout | [AdminAuthController.java:83](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminAuthController.java#L83), [:90](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminAuthController.java#L90) | `GET /api/admin/auth/me` gives id, email, display name and roles (for example `["ADMIN"]`). `POST /api/admin/auth/logout` clears the cookie. |
 
 ## Words and sentences (Refine simple-rest shape)
 
