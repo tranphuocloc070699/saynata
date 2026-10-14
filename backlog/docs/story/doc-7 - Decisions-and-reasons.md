@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-14 09:12'
+updated_date: '2026-10-14 10:58'
 ---
 # Decisions and reasons
 
@@ -31,8 +31,10 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | Other target languages on word cards: Apple on-device Translation of the English explanation; Vietnamese stays from the dictionary; add backend short meanings (Haiku, cached) later only if quality is not good enough | "I don't want to spend a lot of money." Only one line per meaning changes with the language; on-device translation is $0 and offline. | B: Haiku on demand (~$0.0002/word); C: pre-build 8 languages (~$7, bigger app) | Developer chose A |
 | 10-12 | Grow the dictionary to about 50,000 words, from a word file the developer gives (read from a dictionary) | Reason: not recorded. The developer wants words like "apple" and "house", which the NGSL list (2,750) does not have. | wordfreq top lemmas, NGSL family lists (~4,000), wordfreq + topic lists | Developer |
 | 10-12 | A word with an article ("an apple", "the apple!") is looked up as the bare word; only for one word, sentences keep their articles (TASK-44) | The developer typed "an apple" and got a sentence explanation instead of the word card. | — | Developer |
-| 10-14 | F3 Listen first; F4 Speak and score later | Reason: not recorded. | F3 and F4 together | Developer |
-| 10-14 | F3 reads three things: the headword, each sense's simple explanation, each example sentence. Not the Vietnamese line, Grammar examples, other languages, slow speed or accent choice | Reason: not recorded. Claude's brainstorm also suggested slow speed on a second tap and hiding a speaker with no voice. | Read all text; also Vietnamese; also Grammar examples | Developer chose from Claude's list |
+| 10-14 | **Stop** growing the dictionary to 50,000 words; it stays at the NGSL list (2,750 words), and other words come from the backend (Claude Haiku, cached) | "Because it costs too much money. I chose to generate words when a user needs them." Replaces the 10-12 rows on 50,000 words and their word file. | Keep the 50,000-word plan | Developer |
+| 10-14 | Sense photos and action clips from **Pixabay** instead of Pexels (TASK-23) | "Because Pixabay has an API." Pixabay's license also allows storing resized copies, so files can be bundled in the app. | Pexels (the plan in TASK-23), Unsplash (needs hotlinking) | Developer (built by a local agent) |
+| 10-14 | F3 Listen first; F4 Speak and score later | "I think it's necessary at this time." | F3 and F4 together | Developer |
+| 10-14 | F3 reads three things: the headword, each sense's simple explanation, each example sentence. Not the Vietnamese line, Grammar examples, other languages, slow speed or accent choice | "I think those are necessary. I can add other types of content later." Claude's brainstorm also suggested slow speed on a second tap and hiding a speaker with no voice. | Read all text; also Vietnamese; also Grammar examples | Developer chose from Claude's list |
 | 10-10 | Icon-only buttons with VoiceOver labels | "I think they look clean, and I've seen a lot of apps do it that way." It came after "too much text, users don't know where to focus." | Labelled Listen / Speak buttons | Developer |
 
 ## Design
@@ -44,6 +46,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | Code-first design system (Theme.swift + preview gallery), no Figma or Claude Design | HIG already sets most values, and SwiftUI previews show real iOS parts. HTML mockups only copy them. | Figma, Claude Design | Claude, accepted |
 | 10-11 | No dark mode for now | "I'll make a mini game later, and dark mode won't work well with a game UI." | — | Developer |
 | 10-14 | F3 speakers: word speaker stays in the header; a small speaker on each sense title row; a small speaker at the end of each example line (option A) | Easy to find, and VoiceOver reads it as a button. | B: tap the example text itself (cleaner, but hard to find and clashes with text selection) | Developer chose A from the mockup; Claude recommended |
+| 10-14 | Examples rows: level label and a **plain** speaker icon (no circle, no border) on line 1, the sentence on line 2; speaker at the right edge (mockup option A) | The developer's phone test: "it's too narrow". The label, the sentence and a round speaker shared one line, so the sentence wrapped every 2-3 words. A keeps all speakers in one column. | B: speaker right after the label; keep one line (TASK-48) | Developer (layout idea), chose A from Claude's mockup |
 
 ## Stack
 
@@ -62,6 +65,10 @@ Quotes are the developer's words, with spelling fixed.
 | 10-09 | On-device text to speech and speech to text | Free and works offline. | Cloud voices | Developer |
 | 10-14 | Host the backend on a **VPS** (`vps_sieutoc`), keep Spring Boot | "I want to ship my app fast, I want to use it on my phone." Workers would need a TypeScript rewrite and no Postgres; the VPS guide already existed. | Cloudflare Workers (ChatGPT's idea), Cloudflare Containers | Developer, after Claude's comparison |
 | 10-14 | **Auto deploy**: GitHub Action SSHes into the VPS after CI passes on main | Developer asked for auto deploy. A deploy key in GitHub secrets means no Claude session needs SSH access to the server. | Claude sessions SSH in directly; manual deploys | Claude, accepted |
+| 10-14 | **Admin CMS** = a separate web app: React (Vite) + React-Admin, served as static files by Caddy (admin.loffy.me), talking to a new Spring Boot `/api/admin` REST API with Spring Security (ADMIN role) | "I want to create a CMS to manage, because later I want to implement user features." Reason for B over A/C: not recorded (Claude's reasons: tables, search and forms for free; the same REST API and Spring Security serve app users later; light on the small VPS). | A: admin pages inside Spring Boot (Thymeleaf + htmx); C: ready-made headless CMS (Directus/Strapi) on the same Postgres | Developer chose B, Claude recommended |
+| 10-14 | **The server Postgres becomes the source of truth** for words, sentences and media; the pipeline exports the bundled `dictionary.sqlite` from it at release time | Needed for the CMS: one place to edit. Backend entries change live; bundled words reach users with the next app update. Reason in the developer's words: not recorded. | Keep `dictionary.sqlite` as the source and edit it only through the pipeline | Developer chose, Claude recommended |
+| 10-14 | Admin UI built with **shadcn/ui** components and **Refine** (data, login, CRUD on the REST API), instead of React-Admin; the entry detail is a plain table of fields, not the phone layout; layout **A**: list and detail side by side | "I want an open-source library like shadcn to create the UI and connect to the backend. No need to make the UI like the phone." | React-Admin (Material UI look); detail shown as the app shows it; B: detail on its own page | Developer |
+| 10-14 | Admin login with a **users table with roles** (ADMIN now; app users later reuse it) | Reason: not recorded (Claude: app users are planned, so one account system from the start). | One admin account from `.env` | Developer chose, Claude recommended |
 
 ## Workflow
 
@@ -87,5 +94,4 @@ The eight open reasons above were answered by the developer on 2026-10-11. New d
 go here as questions.
 
 - Python for the pipeline: Claude's choice in the first brainstorm. Reason not recorded; ask if it matters.
-- Word list for the 50,000 words: why the developer's own dictionary file rather than a frequency list (wordfreq)? Reason not recorded.
-- 10-14: Why F3 before F4, and why only the headword, explanations and examples are read aloud. Reason not recorded.
+- 10-14: Why the separate React admin (B) over admin pages inside Spring Boot, and why make the server database the source of truth? Reason not recorded.
