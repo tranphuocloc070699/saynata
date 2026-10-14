@@ -39,23 +39,23 @@ struct SpeechPlayerTests {
 
     @Test func speakSetsCurrentIDAndReadsTheText() {
         let (player, fake) = makePlayer()
-        player.speak(text: "Hello", id: "a")
+        player.speak("Hello", id: "a")
         #expect(player.currentID == "a")
         #expect(fake.spoken.map(\.text) == ["Hello"])
     }
 
     @Test func speakingANewIDReplacesTheOldOne() {
         let (player, fake) = makePlayer()
-        player.speak(text: "One", id: "a")
-        player.speak(text: "Two", id: "b")
+        player.speak("One", id: "a")
+        player.speak("Two", id: "b")
         #expect(player.currentID == "b")
-        #expect(fake.stopCount >= 1)
+        #expect(fake.stopCount == 1)
         #expect(fake.spoken.map(\.text) == ["One", "Two"])
     }
 
     @Test func stopClearsCurrentID() {
         let (player, fake) = makePlayer()
-        player.speak(text: "One", id: "a")
+        player.speak("One", id: "a")
         let stopsBefore = fake.stopCount
         player.stop()
         #expect(player.currentID == nil)
@@ -71,16 +71,16 @@ struct SpeechPlayerTests {
 
     @Test func finishingClearsCurrentID() {
         let (player, fake) = makePlayer()
-        player.speak(text: "One", id: "a")
+        player.speak("One", id: "a")
         fake.end(token: fake.spoken[0].token)
         #expect(player.currentID == nil)
     }
 
     @Test func lateCallbackOfAReplacedUtteranceIsIgnored() {
         let (player, fake) = makePlayer()
-        player.speak(text: "One", id: "a")
+        player.speak("One", id: "a")
         let oldToken = fake.spoken[0].token
-        player.speak(text: "Two", id: "b")
+        player.speak("Two", id: "b")
         // The first utterance reports "cancelled" after the second has started.
         fake.end(token: oldToken)
         #expect(player.currentID == "b")
@@ -90,76 +90,22 @@ struct SpeechPlayerTests {
 
     @Test func lateCallbackAfterStopDoesNotTouchTheNextPart() {
         let (player, fake) = makePlayer()
-        player.speak(text: "One", id: "a")
+        player.speak("One", id: "a")
         let oldToken = fake.spoken[0].token
         player.stop()
-        player.speak(text: "Two", id: "b")
+        player.speak("Two", id: "b")
         fake.end(token: oldToken)
         #expect(player.currentID == "b")
     }
 
-    @Test func toggleStartsThenStops() {
-        let (player, _) = makePlayer()
-        let part = SpeechPart.sentence("Hello there.")
-        player.toggle(part)
-        #expect(player.isPlaying(part))
-        player.toggle(part)
-        #expect(!player.isPlaying(part))
-    }
-
-    @Test func togglingAnotherPartMovesPlayback() {
-        let (player, _) = makePlayer()
-        let first = SpeechPart.sentence("One.")
-        let second = SpeechPart.sentence("Two.")
-        player.toggle(first)
-        player.toggle(second)
-        #expect(!player.isPlaying(first))
-        #expect(player.isPlaying(second))
-    }
-
-    // MARK: - Text chosen per part
-
-    @Test func wordIsReadAsTyped() {
-        #expect(SpeechPart.word(of: .ran).text == "ran")
-        #expect(SpeechPart.word(of: .run).text == "run")
-    }
-
-    @Test func explanationIsTheSenseSimpleDefinition() {
-        let sense = WordEntry.apple.senses[0]
-        let part = SpeechPart.explanation(of: sense, senseIndex: 0, in: .apple)
-        #expect(part.text == sense.simpleDefinition)
-        #expect(part.kind == .explanation)
-    }
-
-    @Test func exampleIsTheExampleTextOnly() {
-        let example = WordEntry.apple.senses[0].examples[0]
-        let part = SpeechPart.example(example, exampleIndex: 0, senseIndex: 0, in: .apple)
-        #expect(part.text == example.text)
-        #expect(part.kind == .example)
-    }
-
-    @Test func sentenceIsReadAsWritten() {
-        #expect(SpeechPart.sentence("The mist blurred the edges.").text == "The mist blurred the edges.")
-    }
-
-    @Test func everyPartOfAWordCardHasItsOwnID() {
-        let entry = WordEntry.apple
-        var ids = [SpeechPart.word(of: entry).id]
-        for (senseIndex, sense) in entry.senses.enumerated() {
-            ids.append(SpeechPart.explanation(of: sense, senseIndex: senseIndex, in: entry).id)
-            for (exampleIndex, example) in sense.examples.enumerated() {
-                ids.append(SpeechPart.example(example, exampleIndex: exampleIndex, senseIndex: senseIndex, in: entry).id)
-            }
-        }
-        #expect(Set(ids).count == ids.count)
-    }
-
-    @Test func labelsNameThePartAndChangeWhilePlaying() {
-        #expect(SpeechPart.Kind.word.listenLabel == "Listen to the word")
-        #expect(SpeechPart.Kind.explanation.listenLabel == "Listen to the explanation")
-        #expect(SpeechPart.Kind.example.listenLabel == "Listen to the example")
-        for kind in [SpeechPart.Kind.word, .explanation, .example, .sentence] {
-            #expect(kind.stopLabel != kind.listenLabel)
-        }
+    @Test func emptyTextDoesNothing() {
+        let (player, fake) = makePlayer()
+        player.speak("Keep playing", id: "current")
+        let stopsBefore = fake.stopCount
+        player.speak("", id: "empty")
+        player.speak("   \n", id: "whitespace")
+        #expect(player.currentID == "current")
+        #expect(fake.spoken.map(\.text) == ["Keep playing"])
+        #expect(fake.stopCount == stopsBefore)
     }
 }

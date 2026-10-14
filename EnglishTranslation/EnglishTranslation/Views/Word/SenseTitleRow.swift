@@ -11,7 +11,13 @@ struct SenseTitleRow: View {
     let number: Int
     let sense: Sense
     /// When set, a small speaker at the right reads the explanation. The compact card leaves it nil.
-    var speech: SpeechPart?
+    var speechID: String?
+
+    @Environment(SpeechPlayer.self) private var speechPlayer
+
+    private var isPlaying: Bool {
+        speechID != nil && speechPlayer.currentID == speechID
+    }
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.medium) {
@@ -27,13 +33,23 @@ struct SenseTitleRow: View {
                 .foregroundStyle(Theme.Colors.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
-                .speechHighlight(speech)
+                .speechHighlight(isPlaying: isPlaying)
 
             LevelChip(text: sense.chipText)
                 .fixedSize()
 
-            if let speech {
-                SpeakerButton(part: speech, size: .compact)
+            if let speechID {
+                IconButton(
+                    systemImage: isPlaying ? "stop.fill" : "speaker.wave.2",
+                    label: isPlaying ? "Stop" : "Listen to the explanation",
+                    size: .compact
+                ) {
+                    if isPlaying {
+                        speechPlayer.stop()
+                    } else {
+                        speechPlayer.speak(sense.simpleDefinition, id: speechID)
+                    }
+                }
             }
         }
     }
@@ -42,4 +58,5 @@ struct SenseTitleRow: View {
 #Preview {
     SenseTitleRow(number: 1, sense: WordEntry.depend.senses[0])
         .padding()
+        .environment(SpeechPlayer.silent())
 }

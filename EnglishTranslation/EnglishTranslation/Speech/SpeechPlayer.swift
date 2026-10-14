@@ -8,7 +8,7 @@ import SwiftUI
 
 /// Reads one part of the screen aloud at a time (F3 Listen, TASK-7).
 /// Created once in `EnglishTranslationApp` and shared with `.environment`.
-/// A view asks `currentID == part.id` to know if its part is playing.
+/// A view compares `currentID` with its own id to know if its text is playing.
 @Observable
 @MainActor
 final class SpeechPlayer {
@@ -27,14 +27,17 @@ final class SpeechPlayer {
         }
     }
 
-    /// A player that makes no sound. It is the default in previews, where nobody injects a real one.
+    /// A player that makes no sound. Previews inject this instead of the real audio player.
     static func silent() -> SpeechPlayer {
         SpeechPlayer(synthesizer: SilentSynthesizer())
     }
 
-    /// Reads `text`. If something else is playing, it stops first.
-    func speak(text: String, id: String) {
-        synthesizer.stop()
+    /// Reads `text`. If something else is playing, it stops first. Empty text is ignored.
+    func speak(_ text: String, id: String) {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        if currentID != nil {
+            synthesizer.stop()
+        }
         latestToken += 1
         currentID = id
         synthesizer.speak(text, token: latestToken)
@@ -47,19 +50,6 @@ final class SpeechPlayer {
         latestToken += 1
         currentID = nil
         synthesizer.stop()
-    }
-
-    /// The speaker button: stops the part if it is playing, otherwise reads it.
-    func toggle(_ part: SpeechPart) {
-        if currentID == part.id {
-            stop()
-        } else {
-            speak(text: part.text, id: part.id)
-        }
-    }
-
-    func isPlaying(_ part: SpeechPart) -> Bool {
-        currentID == part.id
     }
 
     private func utteranceEnded(token: Int) {
@@ -76,7 +66,14 @@ private final class SilentSynthesizer: SpeechSynthesizing {
     func stop() {}
 }
 
-extension EnvironmentValues {
-    /// The shared player. The default is silent, so previews and tests need no setup.
-    @Entry var speechPlayer = SpeechPlayer.silent()
+extension View {
+    /// Adds a soft accent background while this text is being read aloud.
+    func speechHighlight(isPlaying: Bool) -> some View {
+        background(
+            RoundedRectangle(cornerRadius: Theme.Radius.block)
+                .fill(Theme.Colors.accent.opacity(isPlaying ? 0.12 : 0))
+                .padding(-Theme.Spacing.xSmall)
+        )
+        .animation(.easeOut(duration: 0.15), value: isPlaying)
+    }
 }

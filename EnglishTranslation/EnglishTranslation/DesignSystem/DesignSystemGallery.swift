@@ -135,4 +135,5 @@ struct DesignSystemGallery: View {
 
 #Preview {
     DesignSystemGallery()
+        .environment(SpeechPlayer.silent())
 }

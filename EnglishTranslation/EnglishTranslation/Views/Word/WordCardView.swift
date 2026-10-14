@@ -19,6 +19,10 @@ struct WordCardView: View {
     /// Which senses have their target-language row open (by index). Starts as "Show translation" in Settings says.
     /// Kept apart from `openRow`, so "Always open" can open the row on every sense.
     @State private var openTargetRows: Set<Int>
+    @Environment(SpeechPlayer.self) private var speechPlayer
+
+    private let wordSpeechID = "word"
+    private var displayedWord: String { entry.matchedForm?.text ?? entry.word }
 
     init(entry: WordEntry, targetLanguage: TargetLanguage = .vietnamese) {
         self.entry = entry
@@ -43,10 +47,10 @@ struct WordCardView: View {
     private var header: some View {
         HStack(alignment: .top, spacing: Theme.Spacing.small) {
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                Text(SpeechPart.word(of: entry).text)
+                Text(displayedWord)
                     .font(.largeTitle.weight(.semibold))
                     .foregroundStyle(Theme.Colors.textPrimary)
-                    .speechHighlight(.word(of: entry))
+                    .speechHighlight(isPlaying: speechPlayer.currentID == wordSpeechID)
                 if let pill = entry.formPillText {
                     FormPill(text: pill)
                 } else if let ipa = entry.ipa {
@@ -56,7 +60,12 @@ struct WordCardView: View {
                 }
             }
             Spacer()
-            SpeakerButton(part: .word(of: entry))
+            IconButton(
+                systemImage: speechPlayer.currentID == wordSpeechID ? "stop.fill" : "speaker.wave.2",
+                label: speechPlayer.currentID == wordSpeechID ? "Stop" : "Listen to the word"
+            ) {
+                toggleSpeech(displayedWord, id: wordSpeechID)
+            }
         }
     }
 
@@ -64,12 +73,12 @@ struct WordCardView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             SenseTitleRow(
                 number: index + 1, sense: sense,
-                speech: .explanation(of: sense, senseIndex: index, in: entry))
+                speechID: "sense-\(index)")
 
             VStack(spacing: 0) {
                 if !sense.examples.isEmpty {
                     foldedRow("Examples", index: index) {
-                        WordExamplesSection(entry: entry, senseIndex: index)
+                        WordExamplesSection(examples: sense.examples, senseIndex: index)
                     }
                 }
                 if !sense.usage.isEmpty {
@@ -115,34 +124,48 @@ struct WordCardView: View {
             content: content
         )
     }
+
+    private func toggleSpeech(_ text: String, id: String) {
+        if speechPlayer.currentID == id {
+            speechPlayer.stop()
+        } else {
+            speechPlayer.speak(text, id: id)
+        }
+    }
 }
 
 #Preview("Form: ran") {
     ScrollView { WordCardView(entry: .ran).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }
 
 #Preview("Two senses: apple") {
     ScrollView { WordCardView(entry: .apple).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }
 
 #Preview("Usage in all groups: get") {
     ScrollView { WordCardView(entry: .get).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }
 
 #Preview("Sense with no usage") {
     ScrollView { WordCardView(entry: .run).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }
 
 #Preview("Old data: string examples") {
     ScrollView { WordCardView(entry: .oldData).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }
 
 #Preview("Missing optional fields") {
     ScrollView { WordCardView(entry: .sparse).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }

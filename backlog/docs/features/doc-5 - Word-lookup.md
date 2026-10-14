@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-14 06:53'
+updated_date: '2026-10-14 07:51'
 ---
-> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19. Last traced from code: 2026-10-11 (Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
+> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19. Last traced from code: 2026-10-14 (Listen: TASK-7; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -232,8 +232,8 @@ hides the level or the Vietnamese row. Last traced: 2026-10-14 (Listen: TASK-7).
 
 Top to bottom:
 
-1. **Header** ([WordCardView.swift:43-61](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L43-L61)): the headword as typed (`matchedForm.text`, else `word`), and the word speaker (`SpeakerButton`, see Listen below). Under it, either the form pill (when `matchedForm` is set; it has the lemma IPA) or the IPA (when the user typed the base word).
-2. **One card per sense** ([senseCard:63-100](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L63-L100)): surface, hairline border, card radius. Title = `SenseTitleRow` (with its small speaker).
+1. **Header** ([WordCardView.swift:46-70](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L46-L70)): the headword as typed (`matchedForm.text`, else `word`), and the word speaker (see Listen below). Under it, either the form pill (when `matchedForm` is set; it has the lemma IPA) or the IPA (when the user typed the base word).
+2. **One card per sense** ([senseCard:72-109](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L72-L109)): surface, hairline border, card radius. Title = `SenseTitleRow` (with its small speaker).
 3. **Three folded rows**, in this order: Examples, Grammar, and the picked language (title from `TargetLanguage.title`, "Vietnamese" by default). No counters. Examples and Grammar are closed and only one of them is open at a time per card. The language row starts closed unless "Show translation" in Settings says otherwise (TASK-29); it is tracked apart from the other two (`openTargetRows`), so "Always open" can open it on every sense. Examples is hidden with no examples, Grammar with no usage. The language row is hidden for English, for Vietnamese with no text, and for other languages with no simple explanation (`Sense.hasTargetLanguageRow(for:)`).
 4. **Examples (open)**: one line each, with a level label (`ExampleLevelLabel`: easy teal, medium amber, harder coral). No level (old data) means no label.
 5. **Grammar (open)**: `Sense.usageGroups` ([WordEntry+Display.swift:22-33](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordEntry+Display.swift#L22-L33)) groups by kind in a fixed order: Patterns, Collocations, Phrases and idioms (phrase and idiom together). Empty groups are hidden. Each item is a bullet: pattern in medium weight, example below in secondary serif.
@@ -246,15 +246,14 @@ Last traced: 2026-10-14. Spec R4, scope in doc-7 (2026-10-14). The app reads thr
 
 | Part | Where | Notes |
 |---|---|---|
-| Word speaker | [WordCardView.swift:59](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L59) (header), [WordCardCompactView.swift:33](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardCompactView.swift#L33) | Regular 44 pt. Reads `SpeechPart.word(of:)`. |
-| Explanation speaker | [SenseTitleRow.swift:36](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseTitleRow.swift#L36) | Compact size, right of the level chip. Only when the row gets a `speech` part, so the compact card shows none. |
-| Example speaker | [WordExamplesSection.swift:34](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordExamplesSection.swift#L34) | Compact size, at the end of each example line. |
-| Button and highlight | [SpeakerButton.swift](../../../EnglishTranslation/EnglishTranslation/Views/Shared/SpeakerButton.swift) | Speaker icon, or `stop.fill` while its part plays; VoiceOver label changes too. `speechHighlight(_:)` puts a soft accent background (12% opacity) behind the text being read. Built on `IconButton(size: .compact)`: 32 pt circle inside a 44 pt tap target. |
-| What to read | [SpeechPart.swift](../../../EnglishTranslation/EnglishTranslation/Speech/SpeechPart.swift) | One value per part: `id`, `text`, `kind`. The text chosen per part lives here. |
-| Player | [SpeechPlayer.swift:14-77](../../../EnglishTranslation/EnglishTranslation/Speech/SpeechPlayer.swift#L14-L77) | `@MainActor @Observable`. `currentID` says which part plays. `toggle` stops a playing part, otherwise `speak` (which stops the old one first). Each utterance has a token; a late "cancelled" callback of a replaced utterance is ignored. Shared with `.environment(\.speechPlayer, ...)` in [EnglishTranslationApp.swift](../../../EnglishTranslation/EnglishTranslation/EnglishTranslationApp.swift); the default is a silent player for previews. |
-| Voice | [SpeechSynthesizing.swift:24-62](../../../EnglishTranslation/EnglishTranslation/Speech/SpeechSynthesizing.swift#L24-L62) | `AppleSpeechSynthesizer` wraps `AVSpeechSynthesizer`, voice `en-US`. Audio session `.playback` + `.spokenAudio`, so it plays with the silent switch on. A protocol hides it, so tests use a fake. |
+| Word speaker | [WordCardView.swift:46-69](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L46-L69) (header), [WordCardCompactView.swift:19-46](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardCompactView.swift#L19-L46) | Regular 44 pt. Reads the displayed word (`matchedForm.text`, else `word`), so "ran" stays "ran". The compact card keeps only this speaker. |
+| Explanation speaker | [SenseTitleRow.swift:18-53](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseTitleRow.swift#L18-L53) | Compact `IconButton`, right of the level chip. Reads `sense.simpleDefinition`. The compact card passes no speech id, so it shows none. |
+| Example speaker | [WordExamplesSection.swift:17-48](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordExamplesSection.swift#L17-L48) | Compact `IconButton` at the end of each example line. Reads only `example.text`; ids use `example-{sense}-{example}`. |
+| Button and highlight | [IconButton.swift](../../../EnglishTranslation/EnglishTranslation/DesignSystem/Components/IconButton.swift), [SpeechPlayer.swift:67-76](../../../EnglishTranslation/EnglishTranslation/Speech/SpeechPlayer.swift#L67-L76) | The existing button has a compact 32 pt circle inside its 44 pt tap target. Every view changes its icon to `stop.fill` and VoiceOver label to "Stop" while its id plays. `speechHighlight(isPlaying:)` puts a soft accent background (12% opacity) behind that text. |
+| Player | [SpeechPlayer.swift:14-58](../../../EnglishTranslation/EnglishTranslation/Speech/SpeechPlayer.swift#L14-L58) | `@MainActor @Observable`; API `speak(_:id:)`, `stop()`, `currentID`. A new id stops the old utterance. Tokens ignore a late cancellation callback, and empty text does nothing. One instance is shared with `.environment(speechPlayer)` in [EnglishTranslationApp.swift:9-18](../../../EnglishTranslation/EnglishTranslation/EnglishTranslationApp.swift#L9-L18). |
+| Voice | [SpeechSynthesizing.swift:22-80](../../../EnglishTranslation/EnglishTranslation/Speech/SpeechSynthesizing.swift#L22-L80) | `AppleSpeechSynthesizer` wraps `AVSpeechSynthesizer`, voice `en-US`. Audio session `.playback` + `.spokenAudio` plays with the silent switch on. Finish/cancel deactivates it with `.notifyOthersOnDeactivation`. A protocol hides audio from unit tests. |
 
-Tests: [SpeechPlayerTests.swift](../../../EnglishTranslation/EnglishTranslationTests/SpeechPlayerTests.swift) (speak sets `currentID`, a new id replaces the old, stop clears, finish clears, late callbacks ignored, toggle, text per part, unique ids, labels).
+Tests: [SpeechPlayerTests.swift:40-110](../../../EnglishTranslation/EnglishTranslationTests/SpeechPlayerTests.swift#L40-L110) (speak sets `currentID`, a new id replaces and stops the old one, stop clears, finish clears, late callbacks are ignored, and empty text does nothing).
 
 ### Target-language row (TASK-40, doc-7)
 

@@ -14,7 +14,7 @@ struct EnglishTranslationApp: App {
         WindowGroup {
             ContentView()
                 .environment(store)
-                .environment(\.speechPlayer, speechPlayer)
+                .environment(speechPlayer)
         }
     }
 }

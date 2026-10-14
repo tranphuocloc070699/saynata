@@ -10,8 +10,9 @@ struct SentenceHeader: View {
     let sentence: String
     /// True for a moment after Copy, so the icon shows a check mark.
     @State private var didCopy = false
+    @Environment(SpeechPlayer.self) private var speechPlayer
 
-    private var part: SpeechPart { .sentence(sentence) }
+    private let speechID = "sentence"
 
     var body: some View {
         HStack(alignment: .top, spacing: Theme.Spacing.small) {
@@ -19,11 +20,20 @@ struct SentenceHeader: View {
                 .font(.system(.title3, design: .serif))
                 .foregroundStyle(Theme.Colors.textPrimary)
                 .textSelection(.enabled)
-                .speechHighlight(part)
+                .speechHighlight(isPlaying: speechPlayer.currentID == speechID)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, Theme.Spacing.small)
 
-            SpeakerButton(part: part)
+            IconButton(
+                systemImage: speechPlayer.currentID == speechID ? "stop.fill" : "speaker.wave.2",
+                label: speechPlayer.currentID == speechID ? "Stop" : "Listen to the sentence"
+            ) {
+                if speechPlayer.currentID == speechID {
+                    speechPlayer.stop()
+                } else {
+                    speechPlayer.speak(sentence, id: speechID)
+                }
+            }
             IconButton(systemImage: didCopy ? "checkmark" : "doc.on.doc", label: "Copy", action: copy)
         }
     }
@@ -42,4 +52,5 @@ struct SentenceHeader: View {
     SentenceHeader(sentence: "The mist blurred the edges of the world.")
         .padding()
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }

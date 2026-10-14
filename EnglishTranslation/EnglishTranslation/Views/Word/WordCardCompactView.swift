@@ -14,15 +14,19 @@ struct WordCardCompactView: View {
 
     /// Starts the way "Show translation" in Settings says.
     @State private var isLanguageRowOpen = TranslationRowPreference().startsOpen
+    @Environment(SpeechPlayer.self) private var speechPlayer
+
+    private var displayedWord: String { entry.matchedForm?.text ?? entry.word }
+    private var speechID: String { "word-\(displayedWord)" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             HStack(alignment: .center, spacing: Theme.Spacing.small) {
                 HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.small) {
-                    Text(entry.word)
+                    Text(displayedWord)
                         .font(.headline)
                         .foregroundStyle(Theme.Colors.textPrimary)
-                        .speechHighlight(.word(of: entry))
+                        .speechHighlight(isPlaying: speechPlayer.currentID == speechID)
                     if let ipa = entry.ipa {
                         Text(ipa)
                             .font(.subheadline)
@@ -30,7 +34,16 @@ struct WordCardCompactView: View {
                     }
                 }
                 Spacer()
-                SpeakerButton(part: .word(of: entry))
+                IconButton(
+                    systemImage: speechPlayer.currentID == speechID ? "stop.fill" : "speaker.wave.2",
+                    label: speechPlayer.currentID == speechID ? "Stop" : "Listen to the word"
+                ) {
+                    if speechPlayer.currentID == speechID {
+                        speechPlayer.stop()
+                    } else {
+                        speechPlayer.speak(displayedWord, id: speechID)
+                    }
+                }
             }
 
             if let sense = entry.senses.first {
@@ -61,4 +74,5 @@ struct WordCardCompactView: View {
     }
     .padding()
     .background(Theme.Colors.background)
+    .environment(SpeechPlayer.silent())
 }

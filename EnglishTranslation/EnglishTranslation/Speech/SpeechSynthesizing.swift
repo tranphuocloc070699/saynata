@@ -25,6 +25,7 @@ final class AppleSpeechSynthesizer: NSObject, SpeechSynthesizing {
     var onUtteranceEnded: ((_ token: Int) -> Void)?
 
     private let synthesizer = AVSpeechSynthesizer()
+    private var activeToken: Int?
 
     override init() {
         super.init()
@@ -35,6 +36,7 @@ final class AppleSpeechSynthesizer: NSObject, SpeechSynthesizing {
         prepareAudioSession()
         let utterance = TokenUtterance(string: text, token: token)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        activeToken = token
         synthesizer.speak(utterance)
     }
 
@@ -64,8 +66,17 @@ extension AppleSpeechSynthesizer: AVSpeechSynthesizerDelegate {
     private nonisolated func utteranceEnded(_ utterance: AVSpeechUtterance) {
         guard let token = (utterance as? TokenUtterance)?.token else { return }
         Task { @MainActor in
+            if self.activeToken == token {
+                self.activeToken = nil
+                self.deactivateAudioSession()
+            }
             self.onUtteranceEnded?(token)
         }
+    }
+
+    /// Gives audio back to music and other apps after speech ends.
+    private func deactivateAudioSession() {
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
 
