@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Palette "Sage and Teal" (docs/design/design-system.md). HSL values for shadcn tokens. */
+:root {
+  --background: 100 15% 95%; /* #F3F5F1 */
+  --card: 0 0% 100%; /* #FFFFFF */
+  --muted: 140 13% 92%; /* #E8EEE9 meaning block */
+  --border: 135 11% 86%; /* #D9E0DA hairline */
+  --chip: 155 28% 88%; /* #DCEBE4 */
+  --foreground: 155 15% 14%; /* #1F2A26 */
+  --muted-foreground: 150 8% 40%; /* #5F6E67 */
+  --secondary: 140 13% 92%;
+  --primary: 168 40% 31%; /* #2F6F62 accent */
+  --primary-foreground: 0 0% 100%;
+  --destructive: 8 58% 44%; /* #B3402F */
+}
+
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
