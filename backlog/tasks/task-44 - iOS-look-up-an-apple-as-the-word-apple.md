@@ -1,11 +1,11 @@
 ---
 id: TASK-44
 title: 'iOS: look up ''an apple'' as the word ''apple'''
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-12 03:06'
-updated_date: '2026-10-12 03:12'
+updated_date: '2026-10-14 11:18'
 labels:
   - ios
 dependencies: []
@@ -21,18 +21,18 @@ The developer typed 'an apple' and got a sentence explanation, not the word card
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 'a apple', 'an apple', 'the apple' (any case, extra spaces) open the word card for 'apple'
-- [ ] #2 Punctuation around the word is ignored: 'apple!', 'an apple.', '"apple",' open the word card for 'apple'
-- [ ] #3 Input that is only an article ('a', 'the') or has two or more words after the article (for example 'the red apple') keeps today's behaviour
-- [ ] #4 TextRoute (share extension, Translate button) uses the same rule as the app
-- [ ] #5 Unit tests cover the cases above
+- [x] #1 'a apple', 'an apple', 'the apple' (any case, extra spaces) open the word card for 'apple'
+- [x] #2 Punctuation around the word is ignored: 'apple!', 'an apple.', '"apple",' open the word card for 'apple'
+- [x] #3 Input that is only an article ('a', 'the') or has two or more words after the article (for example 'the red apple') keeps today's behaviour
+- [x] #4 TextRoute (share extension, Translate button) uses the same rule as the app
+- [x] #5 Unit tests cover the cases above
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
-- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Tests pass
+- [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -47,4 +47,12 @@ The developer typed 'an apple' and got a sentence explanation, not the word card
 Implemented CacheKeys.wordQuery + TranslationStore routing; 128 tests pass (9 new). AC #4 open: TextRoute is on feature/f6-share-extension; it must call CacheKeys.wordQuery after the merge. Test it (iPhone 16 Pro, iOS 18.5): type 'an apple' -> word card 'apple'; 'The apple!' -> same; 'the red apple' -> sentence result; 'an aple' -> not-a-word with did-you-mean 'apple'. Automated: CacheTests, TranslationStoreTests (xcodebuild test, -only-testing:EnglishTranslationTests).
 
 PR: https://github.com/tranphuocloc070699/saynata/pull/34
+
+Verified 2026-10-14: developer tested on a real iPhone 13 (iOS 18) with the main build after PR #37/#38 (word, sentence, speakers, share sheet, 'an apple', media all worked); iOS unit tests 146 passed (Codex run on the Mac, iPhone 16 Pro iOS 18.5 simulator); docs check 0 problems.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Article + single word ('an apple', punctuation) opens the word card, in the app and TextRoute; merged in PR #34; verified on the developer's iPhone and by unit tests.
+<!-- SECTION:FINAL_SUMMARY:END -->
