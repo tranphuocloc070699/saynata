@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-10 04:31'
-updated_date: '2026-10-14 06:54'
+updated_date: '2026-10-14 06:55'
 labels:
   - ios
 milestone: m-0
@@ -50,4 +50,6 @@ Learner hears the headword, each sense's simple English explanation, and each ex
 
 <!-- SECTION:NOTES:BEGIN -->
 Implemented on branch f3/task-7. Files: Speech/SpeechPlayer.swift, SpeechSynthesizing.swift, SpeechPart.swift; Views/Shared/SpeakerButton.swift; IconButton size .compact; wired into WordCardView, SenseTitleRow, WordExamplesSection, WordCardCompactView, SentenceHeader. Tests: SpeechPlayerTests; full iOS suite passes (134 tests). Docs updated: doc-5 (Listen section), doc-4, design-system.md. Test it card: type 'ran', tap header speaker (reads ran, icon stop.fill); tap sense speaker (explanation read, highlight); tap another speaker (first stops); example speaker; sentence speaker; repeat with airplane mode on (still works, failure case: network off); on a real iPhone with silent switch on (still heard). ShareExtension/TranslationExtension folders do not exist yet on this branch; they will need the speechPlayer environment value when added.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/36 (into feature/f3-listen)
 <!-- SECTION:NOTES:END -->
