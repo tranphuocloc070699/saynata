@@ -72,6 +72,57 @@ struct CacheKeysTests {
         #expect(CacheKeys.isSingleToken("Hello there.") == false)
     }
 
+    @Test func wordQueryDropsAnArticleBeforeOneWord() {
+        #expect(CacheKeys.wordQuery("a apple") == "apple")
+        #expect(CacheKeys.wordQuery("an apple") == "apple")
+        #expect(CacheKeys.wordQuery("the apple") == "apple")
+        #expect(CacheKeys.wordQuery("  The   Apple\n") == "Apple")
+        #expect(CacheKeys.wordQuery("AN apple") == "apple")
+    }
+
+    @Test func wordQueryIgnoresPunctuation() {
+        for mark in ["!", ".", ",", "?", ";", ":", "\"", "'", "\u{201C}", "\u{2018}"] {
+            #expect(CacheKeys.wordQuery("\(mark)apple\(mark)") == "apple", "mark: \(mark)")
+        }
+        #expect(CacheKeys.wordQuery("apple!") == "apple")
+        #expect(CacheKeys.wordQuery("an apple.") == "apple")
+        #expect(CacheKeys.wordQuery("The  Apple!") == "Apple")
+        #expect(CacheKeys.wordQuery("\"apple\",") == "apple")
+        #expect(CacheKeys.wordQuery("\u{201C}an apple\u{201D}") == "apple")
+        #expect(CacheKeys.wordQuery("an \"apple\"?") == "apple")
+    }
+
+    @Test func wordQueryKeepsOneTokenAsItIs() {
+        #expect(CacheKeys.wordQuery("apple") == "apple")
+        #expect(CacheKeys.wordQuery("don't") == "don't")
+        // An article alone is looked up as a word, like today.
+        #expect(CacheKeys.wordQuery("a") == "a")
+        #expect(CacheKeys.wordQuery("The") == "The")
+        #expect(CacheKeys.wordQuery("the.") == "the")
+        // Only marks: still the word path (it shows its own error).
+        #expect(CacheKeys.wordQuery("?!") == "")
+    }
+
+    @Test func wordQueryGivesNilForSentences() {
+        #expect(CacheKeys.wordQuery("the red apple") == nil)
+        #expect(CacheKeys.wordQuery("an apple a day") == nil)
+        #expect(CacheKeys.wordQuery("go home") == nil)
+        #expect(CacheKeys.wordQuery("red apple") == nil)
+        #expect(CacheKeys.wordQuery("the ?") == nil)
+        #expect(CacheKeys.wordQuery("") == nil)
+        #expect(CacheKeys.wordQuery("   ") == nil)
+        // The article must come first.
+        #expect(CacheKeys.wordQuery("apple the") == nil)
+    }
+
+    @Test func wordQueryGivesTheSameCacheKeyForEveryForm() {
+        let keys = ["apple", "an apple", "The apple!", "  AN  Apple. "].compactMap { input in
+            CacheKeys.wordQuery(input).map { CacheKeys.wordKey($0) }
+        }
+        #expect(keys.count == 4)
+        #expect(Set(keys).count == 1)
+    }
+
     @Test func caseAndKindChangeTheKey() {
         #expect(CacheKeys.sentenceKey("US", targetLang: "vi") != CacheKeys.sentenceKey("us", targetLang: "vi"))
         #expect(CacheKeys.sentenceKey("run", targetLang: "vi") != CacheKeys.wordKey("run"))

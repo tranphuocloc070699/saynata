@@ -1,11 +1,11 @@
 ---
 id: TASK-22
 title: Show the 500-character limit in the app and a clear 400 message
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-10 06:37'
-updated_date: '2026-10-11 15:51'
+updated_date: '2026-10-12 03:08'
 labels:
   - ios
   - backend
@@ -21,15 +21,15 @@ The backend rejects text over 500 characters with detail 'Invalid request conten
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The input shows a character count and blocks Explain above 500
-- [ ] #2 Backend 400 for long text says what is wrong (e.g. 'Text must be 1-500 characters.')
+- [x] #1 The input shows a character count and blocks Explain above 500
+- [x] #2 Backend 400 for long text says what is wrong (e.g. 'Text must be 1-500 characters.')
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #2 Tests pass
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #2 Tests pass
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -42,4 +42,12 @@ The backend rejects text over 500 characters with detail 'Invalid request conten
 
 <!-- SECTION:NOTES:BEGIN -->
 PR: https://github.com/tranphuocloc070699/saynata/pull/26. Test it: type or paste over 500 characters. Expected: counter turns red 'Make it shorter. 538 / 500', Explain disabled. Backend 400 detail is 'Text must be 1-500 characters.' (restart backend to see it with curl). Automated: ./mvnw -B test (50 passed), TranslationControllerTest; TranslationStoreTests limit tests.
+
+2026-10-12: merged into main with F2 (PR #29). Developer tested F2 on the simulator and approved; 119 iOS unit tests pass (iPhone 16 Pro, iOS 18.5); CI backend, pipeline and doc links pass.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+500-character counter in the app and a clear message on 400. Shipped with F2 (PR #29), developer-tested.
+<!-- SECTION:FINAL_SUMMARY:END -->

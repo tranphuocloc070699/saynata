@@ -74,6 +74,26 @@ enum CacheKeys {
         return String(String.UnicodeScalarView(scalars[start ... end]))
     }
 
+    /// The articles a learner may type before a word.
+    private static let articles: Set<String> = ["a", "an", "the"]
+
+    /// The word to look up, or nil when the input is a sentence. This is the one rule for "word or sentence":
+    /// - one token ("apple", "Apple!", "(apple)") gives that word without edge punctuation;
+    /// - an article ("a", "an", "the", any case) followed by exactly one word ("an apple.", "The  Apple!")
+    ///   gives the word without the article;
+    /// - anything else ("the red apple", "go home") gives nil.
+    /// An article alone ("the") is one token, so it is looked up as a word. Case is kept: `normalizeWord` lowercases later.
+    /// A single token made only of marks ("?!") gives "" (not nil), so the word path can show its error.
+    static func wordQuery(_ input: String) -> String? {
+        if isSingleToken(input) { return trimmingWordPunctuation(input) }
+
+        // Trim first, so quotes around the whole phrase do not stick to the article ("“an apple”").
+        let tokens = trimmingWordPunctuation(input).split(separator: " ")
+        guard tokens.count == 2, articles.contains(tokens[0].lowercased()) else { return nil }
+        let word = trimmingWordPunctuation(String(tokens[1]))
+        return word.isEmpty ? nil : word
+    }
+
     /// The key for a sentence answer: sha256 of `sentence|promptVersion|targetLang|text`.
     static func sentenceKey(
         _ text: String,

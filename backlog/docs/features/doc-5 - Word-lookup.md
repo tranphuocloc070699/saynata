@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 16:28'
+updated_date: '2026-10-12 03:11'
 ---
-> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19. Last traced from code: 2026-10-11 (Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
+> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-12 (article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -20,9 +20,9 @@ Only words the bundle doesn't have go to the backend, which asks Claude once and
 
 ```mermaid
 flowchart TD
-    A["User enters text"] --> T{"One token after normalising?"}
+    A["User enters text"] --> T{"CacheKeys.wordQuery gives a word? (one token, or a/an/the + one word)"}
     T -- "no" --> SENT["Sentence path (doc-4)"]
-    T -- yes --> N["Normalise: trim, collapse spaces, lowercase"]
+    T -- yes --> N["Normalise: drop the article, trim, collapse spaces, lowercase"]
     N --> B{"In bundled dictionary.sqlite? (lemma or form, e.g. ran → run)"}
     B -- yes --> SHOW[Show entry]
     B -- no --> L{"In local SQLite cache?"}
@@ -134,7 +134,7 @@ sequenceDiagram
     participant API as GET /api/words/word
 
     U->>ST: taps Explain with "serendipity"
-    ST->>ST: CacheKeys.isSingleToken is true, state = .loading
+    ST->>ST: CacheKeys.wordQuery gives "serendipity", state = .loading
     ST->>WL: lookUp("serendipity")
     WL->>DS: lookUp (lemma, then form)
     alt in the bundle
@@ -157,9 +157,10 @@ sequenceDiagram
 
 | Step | File | What happens |
 |---|---|---|
-| Word or sentence | [CacheKeys.swift:56-62](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L56-L62) | `isSingleToken`: normalise like the backend, then no space left and not empty. "don't" and "well-known" are one token, "go home" is two. The no-break space does not split (same as Java). |
-| Route | [TranslationStore.swift:44-54](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L44-L54) | One token goes to `lookUpWord`, more go to `explainSentence` (doc-4). The input is trimmed first. The target-language picker does not matter for a word: entries are English plus Vietnamese. |
-| Word path | [TranslationStore.swift:56-66](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L56-L66) | `makeWordLookup().lookUp(...)`, then `.loadedWord(entry)` or `.failed(error.localizedDescription, spelling:)` (spelling help: see "iOS: did you mean" below). The lookup is built per request (like the translator), by [TranslatorFactory.swift:25-33](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L25-L33). |
+| Word or sentence | [CacheKeys.swift:77-95](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L77-L95) | `wordQuery` (TASK-44) is the one rule. One token gives the word without edge punctuation. `a`, `an` or `the` (any case) plus exactly one word gives that word: "an apple", "The  Apple!" and `“an apple”` all give the word apple, so the word card and the cache key are the same as for "apple". "the red apple" gives nil (a sentence). An article alone ("the") is one token and is looked up as a word. Only marks ("?!") give "" so the word path shows its error. The share extension's `TextRoute` (on `feature/f6-share-extension`) should call this function after the merge. |
+| One token | [CacheKeys.swift:56-62](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L56-L62) | `isSingleToken`: normalise like the backend, then no space left and not empty. "don't" and "well-known" are one token, "go home" is two. The no-break space does not split (same as Java). `wordQuery` and the sentence word cards use it. |
+| Route | [TranslationStore.swift:56-65](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L56-L65) | `CacheKeys.wordQuery` decides: a word goes to `lookUpWord(word)` with the bare word (no article, no edge punctuation), anything else goes to `explainSentence` (doc-4). The input is trimmed first. The target-language picker does not matter for a word: entries are English plus Vietnamese. |
+| Word path | [TranslationStore.swift:68-77](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L68-L77) | `makeWordLookup().lookUp(...)`, then `.loadedWord(entry)` or `.failed(error.localizedDescription, spelling:)` (spelling help: see "iOS: did you mean" below). The lookup is built per request (like the translator), by [TranslatorFactory.swift:25-33](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L25-L33). |
 | Punctuation | [CacheKeys.swift:64-75](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L64-L75) | `trimmingWordPunctuation`: word path only. Removes punctuation and symbols at the start and end ("Run!", "(run)", "“run”" give "Run"); inner `'` and `-` stay. `WordLookup` calls it first, so the bundle, the cache key and the backend all get the clean word. Nothing left ("?!") gives `notOneWord`. Sentences are not touched. |
 | Order | [WordLookup.swift:54-75](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L54-L75) | 1. bundle (`DictionaryStore.lookUp`, a broken file counts as a miss), 2. and 3. `backend.entry(forWord:)`. Protocols `WordLooking` and `WordFetching` ([WordLookup.swift:9-27](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L9-L27)) let tests use fakes. |
 | Cache and fetch | [BackendClient.swift:86-101](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L86-L101) | `entry(forWord:)`: key = `CacheKeys.wordKey` (same as the backend), local hit returns with no network. A miss calls `GET {baseURL}/api/words/{normalised word}` (the word is percent-encoded as one path part), then saves the **raw JSON** under the key. Errors are never saved. |
@@ -206,7 +207,7 @@ A real word that is not in the bundle (for example "serendipity") still goes to 
 | Suggest | [SpellingSuggester.swift](../../../EnglishTranslation/EnglishTranslation/Dictionary/SpellingSuggester.swift) | Loads the candidate list on first use and keeps it. Damerau-Levenshtein distance (a swap of two neighbour letters counts as 1), max 1 for words of 4 letters or fewer, 2 for longer. A word that is already bundled gives nothing. One result per lemma (best distance), sorted by distance, then rank (lower = more common), then alphabet. Max 3. |
 | Ask | [WordLookup.swift:50-52](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L50-L52) | `suggestions(for:)` removes punctuation, then asks the suggester. The protocol has a default that returns nothing, so fakes need no change. |
 | Wire | [TranslatorFactory.swift:28-31](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L28-L31) | One shared suggester for the app, built on the bundled dictionary. |
-| State | [TranslationStore.swift:66-84](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L66-L84) | Only `notAnEnglishWord` and `URLError` ask for suggestions. `.failed(message, spelling: SpellingHelp?)` keeps the old message. `lookUp(suggestion:)` handles a tap. |
+| State | [TranslationStore.swift:66-96](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L66-L96) | Only `notAnEnglishWord` and `URLError` ask for suggestions. `.failed(message, spelling: SpellingHelp?)` keeps the old message. `lookUp(suggestion:)` handles a tap. |
 | View | [SpellingSuggestionsView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/SpellingSuggestionsView.swift) | "No word "runj". Did you mean:" and chips in the `LevelChip` style, 44 pt tall, VoiceOver label "Look up run". Shown by [TranslateResultView.swift:26-33](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateResultView.swift#L26-L33). |
 
 Note: a form is suggested by its base word ("rung" is a form of "ring", so "runj" can show "run" and "ring").
@@ -254,6 +255,10 @@ The picked language reaches the card as `TranslationStore.targetLanguage`, throu
 
 
 Tests: [TranslationRowPreferenceTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationRowPreferenceTests.swift) (Show translation logic), [TargetLanguageRowTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TargetLanguageRowTests.swift) (row title, Vietnamese uses the dictionary text, other languages need translation, English has no row, Chinese code, cache), [WordEntryTests.swift](../../../EnglishTranslation/EnglishTranslationTests/WordEntryTests.swift) (usage grouping and order, empty groups, form pill text, example decoding of old strings and new objects, entry without `matchedForm`).
+
+## Tests (iOS, TASK-44)
+
+`CacheTests.swift` (`wordQuery…` tests): articles, case, extra spaces, punctuation `! . , ? ; :` and straight/curly quotes, sentences give nil, same cache key for every form. `TranslationStoreTests.swift`: "an apple" calls `lookUp("apple")`, "the red apple" uses the sentence translator, "the" alone is looked up, spelling help uses the bare word.
 
 ## Errors
 

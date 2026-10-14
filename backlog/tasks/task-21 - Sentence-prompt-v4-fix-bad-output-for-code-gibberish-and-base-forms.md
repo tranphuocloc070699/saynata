@@ -1,11 +1,11 @@
 ---
 id: TASK-21
 title: 'Sentence prompt v4: fix bad output for code, gibberish and base forms'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-10 06:37'
-updated_date: '2026-10-11 15:11'
+updated_date: '2026-10-12 03:08'
 labels:
   - backend
 dependencies:
@@ -21,17 +21,17 @@ Probe 2026-10-10 found: (1) code ('for (int i = 0; ...') and gibberish ('asdkj q
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Decision recorded for non-English or not-a-sentence input (copy text unchanged, a flag in the response, or 422)
-- [ ] #2 translation is always a translation of the input, never an explanation
-- [ ] #3 Base form only appears for inflected words
-- [ ] #4 The probe cases in backlog/docs/features (doc-4, Probe results) pass
+- [x] #1 Decision recorded for non-English or not-a-sentence input (copy text unchanged, a flag in the response, or 422)
+- [x] #2 translation is always a translation of the input, never an explanation
+- [x] #3 Base form only appears for inflected words
+- [x] #4 The probe cases in backlog/docs/features (doc-4, Probe results) pass
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #2 Tests pass
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #2 Tests pass
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -46,4 +46,12 @@ Probe 2026-10-10 found: (1) code ('for (int i = 0; ...') and gibberish ('asdkj q
 Decision AC#1 (orchestrator default, developer may change): not-English input (code, gibberish, another language) -> HTTP 422, detail "This doesn't look like English. Type an English word or sentence.", nothing cached. Model returns isEnglish (SentenceAnswer); ClaudeService.toExplanation throws NotEnglishException; handler maps to 422. Prompt v6: translation is always a translation of the input; base form only for inflected words. Vietnamese input now also gets 422 (the old 'copy unchanged' probe rows change). Backend and iOS PromptVersions.sentence = v6, CacheTests hashes updated.
 
 PR: https://github.com/tranphuocloc070699/saynata/pull/24 . Test it. Goal: explain-first sentence; non-English gives a clear 422. Steps: run backend + app; (1) 'I was reluctant to leave.' (2) 'asdkj qwe zzxq' (3) code line (4) Vietnamese sentence. Expected: (1) meaning, words, translation last, no wrong base form; (2-4) 'This doesn't look like English. Type an English word or sentence. (status 422)', nothing cached. Automated: cd backend && ./mvnw -B test; iOS xcodebuild test -only-testing:EnglishTranslationTests (both pass).
+
+2026-10-12: merged into main with F2 (PR #29). Developer tested F2 on the simulator and approved; 119 iOS unit tests pass (iPhone 16 Pro, iOS 18.5); CI backend, pipeline and doc links pass.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Sentence prompt v4: non-English input gets a clear message; base forms only for inflected words. Shipped with F2 (PR #29).
+<!-- SECTION:FINAL_SUMMARY:END -->

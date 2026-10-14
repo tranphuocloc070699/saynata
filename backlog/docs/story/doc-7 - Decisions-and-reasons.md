@@ -29,6 +29,8 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | Usage lines: include at least one idiom when the sense has one (less common idioms are OK), and no duplicates across a word's senses | After the first dry run: "I want more idioms, not only common ones, and no duplicates." The dry run had few idioms and pairs like "depend on + something" / "It depends on + noun". | "Common items only" (the first rule) | Developer |
 | 10-11 | Word card v2: each meaning in its own card, titled "number + simple explanation"; Examples (3, easy to harder) and Grammar (usage grouped by kind, bullets) as folded rows; "past tense of run" line for forms; "Did you mean" for typos | After testing F1: meanings looked the same and were hard to tell apart; "ran" mixed with "run"; the usage block was too flat. Did you mean is free and offline. | Option A (numbered list with dividers); "Meaning 1 of 3" titles; a short 1-3 word label | Developer chose from mockups v1-v3 |
 | 10-11 | Other target languages on word cards: Apple on-device Translation of the English explanation; Vietnamese stays from the dictionary; add backend short meanings (Haiku, cached) later only if quality is not good enough | "I don't want to spend a lot of money." Only one line per meaning changes with the language; on-device translation is $0 and offline. | B: Haiku on demand (~$0.0002/word); C: pre-build 8 languages (~$7, bigger app) | Developer chose A |
+| 10-12 | Grow the dictionary to about 50,000 words, from a word file the developer gives (read from a dictionary) | Reason: not recorded. The developer wants words like "apple" and "house", which the NGSL list (2,750) does not have. | wordfreq top lemmas, NGSL family lists (~4,000), wordfreq + topic lists | Developer |
+| 10-12 | A word with an article ("an apple", "the apple!") is looked up as the bare word; only for one word, sentences keep their articles (TASK-44) | The developer typed "an apple" and got a sentence explanation instead of the word card. | — | Developer |
 | 10-10 | Icon-only buttons with VoiceOver labels | "I think they look clean, and I've seen a lot of apps do it that way." It came after "too much text, users don't know where to focus." | Labelled Listen / Speak buttons | Developer |
 
 ## Design
@@ -51,6 +53,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-09 | No `@Transactional` around the LLM call | A transaction would hold a DB connection for seconds. A unique key + catching the duplicate-key error handles two requests at once. | — | Claude |
 | 10-09 | Backend model **Claude Haiku 5.5** | "It's cheaper than Sonnet, and the answers are just as good." | — | Developer |
 | 10-10 | Pipeline model **Claude Sonnet 5.5**, 8 threads in parallel | Built once and it is the core of the app. Sonnet gave simpler definitions and better Vietnamese ($40-55) than Haiku (~$3). Paid from $200 credit. | Haiku, Gemini, DeepSeek | Developer chose after Claude's test |
+| 10-12 | Pipeline model for the next words: **Claude Haiku 5.5** | "Could you change to Haiku, because I want to explain around 50,000 words." Sonnet would cost several hundred dollars at that size. Real cost is measured on 50 words first. | Sonnet (same model as the first 2,750 words) | Developer |
 | 10-03 | Pipeline in **Python** (uv) | Reason: not recorded (Claude's choice in the first brainstorm). | — | Claude |
 | 10-10 | App talks only to our backend; remove direct LLM clients | "Remove the LLM client in the app, always call the API." Also: API keys in the app bundle can be pulled out of the .ipa. | DeepSeek / OpenAI / Claude in the app | Developer |
 | 10-09 | On-device text to speech and speech to text | Free and works offline. | Cloud voices | Developer |
@@ -80,3 +83,4 @@ The eight open reasons above were answered by the developer on 2026-10-11. New d
 go here as questions.
 
 - Python for the pipeline: Claude's choice in the first brainstorm. Reason not recorded; ask if it matters.
+- Word list for the 50,000 words: why the developer's own dictionary file rather than a frequency list (wordfreq)? Reason not recorded.
