@@ -9,6 +9,7 @@ learning Swift and English at the same time.
 | `EnglishTranslation/` | SwiftUI, iOS 18 | The app, plus two extensions that show the same explain sheet for selected text: `ShareExtension` (Share, then Saynata) and `TranslationExtension` (the system Translate item, when Saynata is the default translation app, iOS 18.4+). Both compile the app folder, see doc-10. Talks only to our backend (the direct LLM clients were removed in TASK-18); `Speech/` reads English aloud on device with `AVSpeechSynthesizer`. |
 | `backend/` | Spring Boot 4, Java 17, Postgres, Flyway, Claude Haiku 5.5 | `POST /api/translations`, `GET /api/words/{word}`, with a shared cache-first DB. Words not on the bundled SCOWL/NGSL word list are rejected before Claude is called. `/api/admin/**` (Spring Security, ADMIN login in an HttpOnly cookie, `users` table) lets the admin web app list, edit, review and delete words and sentences, see doc-13. **Postgres is the source of truth for the bundled dictionary too** (tables `dictionary_word`, `dictionary_sense`, `dictionary_form`, `media`; Flyway V6): the admin lists and edits bundled words next to the words Claude wrote (ids `b-12` / `w-45`, filters `source` and `cefr`). Media files stay on disk, only their rows are in Postgres. |
 | `pipeline/` | Python 3.12, uv, Claude Sonnet 5.5 | Generates the NGSL words (3 levelled examples per sense, form types via lemminflect) into `data/pipeline.db`. `import-to-postgres` copies the bundled `dictionary.sqlite` into the server Postgres once; `export` (needs `DATABASE_URL` in `pipeline/.env`, read-only) builds the `dictionary.sqlite` and `media/` folder bundled in the app from Postgres, see doc-6. |
+| `admin/` | React, Vite, TypeScript, Refine, shadcn/ui (Tailwind) | The admin CMS at `admin.loffy.me` (F5): sign in, then review, edit, mark reviewed and regenerate words and sentences through `/api/admin`. Builds to static files (`npm run build`); tests: `cd admin && npm test`. |
 
 Read before working:
 - Goal, requirements, decisions: `backlog/docs/doc-1 - Vision-and-spec.md`
@@ -25,7 +26,7 @@ Workers: the main chat plans and reviews; `.claude/agents/implementer.md` (Sonne
 opens a PR into its feature branch (TASK-31 to 34 are features F1-F4). `.claude/hooks/guard-git-push.sh` blocks
 force-push and pushes to main in every permission mode.
 
-Tests: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` (the Postgres tests need `TEST_DATABASE_URL`, else they are skipped) · iOS in Xcode (⌘U).
+Tests: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` (the Postgres tests need `TEST_DATABASE_URL`, else they are skipped) · `cd admin && npm test` · iOS in Xcode (⌘U).
 Deploy the backend to a VPS: `cd backend && ./scripts/deploy.sh` on the server, or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
 
 **Simulator: always iPhone 16 Pro (iOS 18.5)** for iOS tests, builds and screenshots, by agents and in Test it cards:
