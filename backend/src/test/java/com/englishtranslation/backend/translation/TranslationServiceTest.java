@@ -6,6 +6,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.englishtranslation.backend.cache.CacheKeys;
+import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.claude.NotEnglishException;
 import java.util.List;
@@ -23,6 +25,9 @@ class TranslationServiceTest {
 
     @Autowired
     SentenceTranslationRepository repository;
+
+    @Autowired
+    ClaudeProperties properties;
 
     @MockitoBean
     ClaudeService claude;
@@ -75,6 +80,47 @@ class TranslationServiceTest {
 
         assertThat(repository.count()).isZero();
         verify(claude, times(2)).explainSentence("for (int i = 0; i < n; i++) {}", TargetLanguage.VI);
+    }
+
+    @Test
+    void personalSentenceIsExplainedButNeverSavedOrReadFromCache() {
+        String text = "Email me at john@example.com";
+        when(claude.explainSentence(text, TargetLanguage.VI)).thenReturn(sample("Gui email cho toi"));
+
+        TranslationResponse first = service.translate(text, TargetLanguage.VI);
+        TranslationResponse second = service.translate(text, TargetLanguage.VI);
+
+        assertThat(first.cached()).isFalse();
+        assertThat(second.cached()).isFalse();
+        assertThat(first.explanation().translation()).isEqualTo("Gui email cho toi");
+        assertThat(repository.count()).isZero();
+        // Claude was asked both times, so no cache read happened.
+        verify(claude, times(2)).explainSentence(text, TargetLanguage.VI);
+    }
+
+    @Test
+    void personalSentenceIgnoresARowThatIsAlreadyInTheCache() {
+        String text = "My phone is 0912 345 678";
+        String key = CacheKeys.key("sentence", properties.sentencePromptVersion(), "vi", CacheKeys.normalizeSentence(text));
+        repository.saveAndFlush(new SentenceTranslation(key, text, "vi", "old meaning", "[]", "old",
+                properties.model(), properties.sentencePromptVersion()));
+        when(claude.explainSentence(text, TargetLanguage.VI)).thenReturn(sample("fresh"));
+
+        TranslationResponse response = service.translate(text, TargetLanguage.VI);
+
+        assertThat(response.explanation().translation()).isEqualTo("fresh");
+        assertThat(response.cached()).isFalse();
+    }
+
+    @Test
+    void sentenceWithSmallNumbersStillCaches() {
+        when(claude.explainSentence("I have 2 cats in 2026", TargetLanguage.VI)).thenReturn(sample("Toi co 2 meo"));
+
+        service.translate("I have 2 cats in 2026", TargetLanguage.VI);
+        TranslationResponse second = service.translate("I have 2 cats in 2026", TargetLanguage.VI);
+
+        assertThat(second.cached()).isTrue();
+        assertThat(repository.count()).isEqualTo(1);
     }
 
     @Test

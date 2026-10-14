@@ -3,7 +3,7 @@ id: doc-1
 title: Vision and spec
 type: specification
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-11 15:08'
+updated_date: '2026-10-14 11:25'
 ---
 # Spec: EnglishTranslation — translator for a Vietnamese English learner
 
@@ -117,8 +117,10 @@ Rules:
   400). We keep the model's default sampling, use `effort: low`, and rely on R2/R3's cache for
   repeatable output. The model ID is config (`app.claude.model`), so it can be switched to a model
   that accepts `temperature` if this proves to be a problem.
-- **Sentences are shared between users.** A sentence can contain personal text. Accepted for v1
-  (single user). Revisit before public release.
+- **Sentences are shared between users, but personal-looking ones are never stored** (TASK-9, chosen 2026-10-14).
+  A sentence with an email, phone number, link, or a run of 6+ digits is still explained, but is never saved to
+  or read from the shared cache (`PersonalTextDetector`). Options that lost: a cache per user, and an opt-out switch.
+  Reason: not recorded.
 - **No backend import of the dictionary.** The phone already has it, so the backend only stores
   words the dictionary lacks.
 
