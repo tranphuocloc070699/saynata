@@ -4,6 +4,7 @@ title: F5 Admin CMS
 status: To Do
 assignee: []
 created_date: '2026-10-14 10:54'
+updated_date: '2026-10-14 10:58'
 labels:
   - feature
   - cms
@@ -16,7 +17,7 @@ ordinal: 48000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-A web admin to review and fix the content: words (bundled and backend), sentences, and sense media, with the server Postgres as the single source of truth (doc-7, 2026-10-14). Stack: React (Vite) + React-Admin as static files served by Caddy at admin.loffy.me; Spring Boot /api/admin REST API with Spring Security (ADMIN role). Prepares for app users later (same Spring Security). Feature branch: feature/f5-cms. One testable feature = one feature branch and one GitHub PR into main (workflow: TASK-26). Workers open task PRs into the feature branch; the orchestrator reviews and merges them. The feature PR carries a Test it card, and it merges only after the developer has tested it and said yes. Delete the feature branch only after that PR merges.
+A web admin to review and fix the content: words (bundled and backend), sentences, and sense media, with the server Postgres as the single source of truth (doc-7, 2026-10-14). Stack: React (Vite, TypeScript) + Refine (data provider, auth provider, CRUD) + shadcn/ui components (Tailwind), built to static files and served by Caddy at admin.loffy.me; Spring Boot /api/admin REST API with Spring Security and a users table with roles (ADMIN now; app users later reuse it). Mockup (chosen): https://claude.ai/artifact/2ahgYwgaaWimvWxvp8rXSW — layout A, list and detail side by side; the detail is a plain table of fields, not the phone layout. Feature branch: feature/f5-cms. One testable feature = one feature branch and one GitHub PR into main (workflow: TASK-26). Workers open task PRs into the feature branch; the orchestrator reviews and merges them. The feature PR carries a Test it card, and it merges only after the developer has tested it and said yes. Delete the feature branch only after that PR merges.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-14 10:53'
+updated_date: '2026-10-14 10:58'
 ---
 # Decisions and reasons
 
@@ -67,6 +67,8 @@ Quotes are the developer's words, with spelling fixed.
 | 10-14 | **Auto deploy**: GitHub Action SSHes into the VPS after CI passes on main | Developer asked for auto deploy. A deploy key in GitHub secrets means no Claude session needs SSH access to the server. | Claude sessions SSH in directly; manual deploys | Claude, accepted |
 | 10-14 | **Admin CMS** = a separate web app: React (Vite) + React-Admin, served as static files by Caddy (admin.loffy.me), talking to a new Spring Boot `/api/admin` REST API with Spring Security (ADMIN role) | "I want to create a CMS to manage, because later I want to implement user features." Reason for B over A/C: not recorded (Claude's reasons: tables, search and forms for free; the same REST API and Spring Security serve app users later; light on the small VPS). | A: admin pages inside Spring Boot (Thymeleaf + htmx); C: ready-made headless CMS (Directus/Strapi) on the same Postgres | Developer chose B, Claude recommended |
 | 10-14 | **The server Postgres becomes the source of truth** for words, sentences and media; the pipeline exports the bundled `dictionary.sqlite` from it at release time | Needed for the CMS: one place to edit. Backend entries change live; bundled words reach users with the next app update. Reason in the developer's words: not recorded. | Keep `dictionary.sqlite` as the source and edit it only through the pipeline | Developer chose, Claude recommended |
+| 10-14 | Admin UI built with **shadcn/ui** components and **Refine** (data, login, CRUD on the REST API), instead of React-Admin; the entry detail is a plain table of fields, not the phone layout; layout **A**: list and detail side by side | "I want an open-source library like shadcn to create the UI and connect to the backend. No need to make the UI like the phone." | React-Admin (Material UI look); detail shown as the app shows it; B: detail on its own page | Developer |
+| 10-14 | Admin login with a **users table with roles** (ADMIN now; app users later reuse it) | Reason: not recorded (Claude: app users are planned, so one account system from the start). | One admin account from `.env` | Developer chose, Claude recommended |
 
 ## Workflow
 
