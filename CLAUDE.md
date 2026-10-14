@@ -26,7 +26,7 @@ opens a PR into its feature branch (TASK-31 to 34 are features F1-F4). `.claude/
 force-push and pushes to main in every permission mode.
 
 Tests: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` · iOS in Xcode (⌘U).
-Deploy the backend to a VPS: `cd backend && docker compose -f docker-compose.prod.yml up -d --build` (guide: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
+Deploy the backend to a VPS: `cd backend && ./scripts/deploy.sh` on the server, or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
 
 **Simulator: always iPhone 16 Pro (iOS 18.5)** for iOS tests, builds and screenshots, by agents and in Test it cards:
 `-destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5'`. It is the developer's device, so results match what they see.
