@@ -8,11 +8,10 @@ import SwiftUI
 /// The top of a sentence result: the sentence in quotes (serif), with Listen and Copy on the right.
 struct SentenceHeader: View {
     let sentence: String
-    /// Called when Listen is tapped. Speech is not built yet (F3), so the default does nothing.
-    var onListen: () -> Void = {}
-
     /// True for a moment after Copy, so the icon shows a check mark.
     @State private var didCopy = false
+
+    private var part: SpeechPart { .sentence(sentence) }
 
     var body: some View {
         HStack(alignment: .top, spacing: Theme.Spacing.small) {
@@ -20,10 +19,11 @@ struct SentenceHeader: View {
                 .font(.system(.title3, design: .serif))
                 .foregroundStyle(Theme.Colors.textPrimary)
                 .textSelection(.enabled)
+                .speechHighlight(part)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, Theme.Spacing.small)
 
-            IconButton(systemImage: "speaker.wave.2", label: "Listen", action: onListen)
+            SpeakerButton(part: part)
             IconButton(systemImage: didCopy ? "checkmark" : "doc.on.doc", label: "Copy", action: copy)
         }
     }

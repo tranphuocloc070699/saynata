@@ -5,15 +5,20 @@
 
 import SwiftUI
 
-/// The content of the "Examples" row: one example per line, each with a small level label.
+/// The content of the "Examples" row: one example per line, each with a small level label and a small speaker at the end.
 /// An example with no level (old data) has no label.
 struct WordExamplesSection: View {
-    let examples: [Example]
+    let entry: WordEntry
+    /// Which sense of `entry` these examples belong to.
+    let senseIndex: Int
+
+    private var examples: [Example] { entry.senses[senseIndex].examples }
 
     var body: some View {
         // A Grid keeps the sentences in one column, even when the labels have different widths.
         Grid(alignment: .topLeading, horizontalSpacing: Theme.Spacing.small, verticalSpacing: Theme.Spacing.small) {
-            ForEach(Array(examples.enumerated()), id: \.offset) { _, example in
+            ForEach(Array(examples.enumerated()), id: \.offset) { index, example in
+                let part = SpeechPart.example(example, exampleIndex: index, senseIndex: senseIndex, in: entry)
                 GridRow {
                     if let level = example.level {
                         ExampleLevelLabel(level: level)
@@ -25,6 +30,8 @@ struct WordExamplesSection: View {
                         .foregroundStyle(Theme.Colors.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
+                        .speechHighlight(part)
+                    SpeakerButton(part: part, size: .compact)
                 }
             }
         }
@@ -55,6 +62,6 @@ struct ExampleLevelLabel: View {
 }
 
 #Preview {
-    WordExamplesSection(examples: WordEntry.apple.senses[0].examples)
+    WordExamplesSection(entry: .apple, senseIndex: 0)
         .padding()
 }

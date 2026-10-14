@@ -1,10 +1,11 @@
 ---
 id: TASK-7
 title: 'iOS: text to speech'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-10 04:31'
-updated_date: '2026-10-14 06:28'
+updated_date: '2026-10-14 06:54'
 labels:
   - ios
 milestone: m-0
@@ -34,3 +35,19 @@ Learner hears the headword, each sense's simple English explanation, and each ex
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Add Speech/SpeechPlayer (@MainActor @Observable: speak(_:), stop(), currentID) behind a SpeechSynthesizing protocol; AppleSpeechSynthesizer wraps AVSpeechSynthesizer (en-US, .playback/.spokenAudio session, delegate with per-utterance token so replaced utterances are ignored).
+2. Add SpeechPart (id, text, kind) with factories: word (as typed), explanation, example, sentence.
+3. IconButton gets a compact size (32 pt circle, 44 pt tap target). New SpeakerButton composes it (listen/stop icon and VoiceOver label) plus a soft highlight modifier.
+4. Wire WordCardView header, SenseTitleRow, WordExamplesSection, WordCardCompactView, SentenceHeader. Inject player in app root via environment (safe silent default for previews).
+5. Unit tests with a fake synthesizer. Update doc-5 and doc-4 pages. Run tests, check_docs, open PR.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented on branch f3/task-7. Files: Speech/SpeechPlayer.swift, SpeechSynthesizing.swift, SpeechPart.swift; Views/Shared/SpeakerButton.swift; IconButton size .compact; wired into WordCardView, SenseTitleRow, WordExamplesSection, WordCardCompactView, SentenceHeader. Tests: SpeechPlayerTests; full iOS suite passes (134 tests). Docs updated: doc-5 (Listen section), doc-4, design-system.md. Test it card: type 'ran', tap header speaker (reads ran, icon stop.fill); tap sense speaker (explanation read, highlight); tap another speaker (first stops); example speaker; sentence speaker; repeat with airplane mode on (still works, failure case: network off); on a real iPhone with silent switch on (still heard). ShareExtension/TranslationExtension folders do not exist yet on this branch; they will need the speechPlayer environment value when added.
+<!-- SECTION:NOTES:END -->

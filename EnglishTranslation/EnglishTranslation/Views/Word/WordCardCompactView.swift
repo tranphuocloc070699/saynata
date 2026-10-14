@@ -11,7 +11,6 @@ import SwiftUI
 struct WordCardCompactView: View {
     let entry: WordEntry
     var targetLanguage: TargetLanguage = .vietnamese
-    var onListen: () -> Void = {}
 
     /// Starts the way "Show translation" in Settings says.
     @State private var isLanguageRowOpen = TranslationRowPreference().startsOpen
@@ -23,6 +22,7 @@ struct WordCardCompactView: View {
                     Text(entry.word)
                         .font(.headline)
                         .foregroundStyle(Theme.Colors.textPrimary)
+                        .speechHighlight(.word(of: entry))
                     if let ipa = entry.ipa {
                         Text(ipa)
                             .font(.subheadline)
@@ -30,7 +30,7 @@ struct WordCardCompactView: View {
                     }
                 }
                 Spacer()
-                IconButton(systemImage: "speaker.wave.2", label: "Listen", action: onListen)
+                SpeakerButton(part: .word(of: entry))
             }
 
             if let sense = entry.senses.first {

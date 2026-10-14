@@ -10,6 +10,8 @@ import SwiftUI
 struct SenseTitleRow: View {
     let number: Int
     let sense: Sense
+    /// When set, a small speaker at the right reads the explanation. The compact card leaves it nil.
+    var speech: SpeechPart?
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.medium) {
@@ -25,9 +27,14 @@ struct SenseTitleRow: View {
                 .foregroundStyle(Theme.Colors.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
+                .speechHighlight(speech)
 
             LevelChip(text: sense.chipText)
                 .fixedSize()
+
+            if let speech {
+                SpeakerButton(part: speech, size: .compact)
+            }
         }
     }
 }
