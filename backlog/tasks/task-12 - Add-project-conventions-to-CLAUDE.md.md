@@ -1,10 +1,10 @@
 ---
 id: TASK-12
 title: Add project conventions to CLAUDE.md
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-10 05:46'
-updated_date: '2026-10-10 08:25'
+updated_date: '2026-10-14 11:21'
 labels:
   - docs
 dependencies: []
@@ -29,3 +29,9 @@ Style drifts between AI sessions (naming, folders, how to test). Write the rules
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Read the current iOS, backend and pipeline code and write a short Conventions section in CLAUDE.md with each part's test command.
+<!-- SECTION:PLAN:END -->
