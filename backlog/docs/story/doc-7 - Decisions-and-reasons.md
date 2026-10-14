@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-14 06:27'
+updated_date: '2026-10-14 09:12'
 ---
 # Decisions and reasons
 
@@ -79,6 +79,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | Workers in bypassPermissions mode | "I'm lazy, and I want to see how convenient bypassPermissions is." An experiment, kept safe by the guard hook. Note: it only works when the main chat is also in that mode. | acceptEdits (Claude) | Developer |
 | 10-11 | No stacked PRs; feature branches deleted only after their main PR merges | PR #2 was closed by GitHub when #1's branch was deleted. | Stacked PRs | Claude, after that bug |
 | 10-11 | Guard hook blocks force-push and push to main | Bash deny rules miss forms like `git -C . push`. A hook blocks in every permission mode. Tested. | Deny rules only | Claude |
+| 10-14 | Merge all features (F3 Listen, share extension, sense media, app icon, "an apple") into main before testing on the phone; test later | "I'll install on my phone and test later." Breaks the "merge only after the developer tests" rule for this round. iOS tests ran only on the worker's Mac (Codex: 127 passed) and not after the F3/share-extension merge. | Test each feature first, then merge | Developer |
 
 ## Questions answered
 
