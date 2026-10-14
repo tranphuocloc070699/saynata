@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>BackendBaseURL</key>
-	<string>http://localhost:8081</string>
+	<string>https://api.loffy.me</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
