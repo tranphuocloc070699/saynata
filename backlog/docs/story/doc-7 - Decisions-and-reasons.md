@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-14 09:12'
+updated_date: '2026-10-14 09:41'
 ---
 # Decisions and reasons
 
@@ -31,8 +31,9 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | Other target languages on word cards: Apple on-device Translation of the English explanation; Vietnamese stays from the dictionary; add backend short meanings (Haiku, cached) later only if quality is not good enough | "I don't want to spend a lot of money." Only one line per meaning changes with the language; on-device translation is $0 and offline. | B: Haiku on demand (~$0.0002/word); C: pre-build 8 languages (~$7, bigger app) | Developer chose A |
 | 10-12 | Grow the dictionary to about 50,000 words, from a word file the developer gives (read from a dictionary) | Reason: not recorded. The developer wants words like "apple" and "house", which the NGSL list (2,750) does not have. | wordfreq top lemmas, NGSL family lists (~4,000), wordfreq + topic lists | Developer |
 | 10-12 | A word with an article ("an apple", "the apple!") is looked up as the bare word; only for one word, sentences keep their articles (TASK-44) | The developer typed "an apple" and got a sentence explanation instead of the word card. | — | Developer |
-| 10-14 | F3 Listen first; F4 Speak and score later | Reason: not recorded. | F3 and F4 together | Developer |
-| 10-14 | F3 reads three things: the headword, each sense's simple explanation, each example sentence. Not the Vietnamese line, Grammar examples, other languages, slow speed or accent choice | Reason: not recorded. Claude's brainstorm also suggested slow speed on a second tap and hiding a speaker with no voice. | Read all text; also Vietnamese; also Grammar examples | Developer chose from Claude's list |
+| 10-14 | Sense photos and action clips from **Pixabay** instead of Pexels (TASK-23) | "Because Pixabay has an API." Pixabay's license also allows storing resized copies, so files can be bundled in the app. | Pexels (the plan in TASK-23), Unsplash (needs hotlinking) | Developer (built by a local agent) |
+| 10-14 | F3 Listen first; F4 Speak and score later | "I think it's necessary at this time." | F3 and F4 together | Developer |
+| 10-14 | F3 reads three things: the headword, each sense's simple explanation, each example sentence. Not the Vietnamese line, Grammar examples, other languages, slow speed or accent choice | "I think those are necessary. I can add other types of content later." Claude's brainstorm also suggested slow speed on a second tap and hiding a speaker with no voice. | Read all text; also Vietnamese; also Grammar examples | Developer chose from Claude's list |
 | 10-10 | Icon-only buttons with VoiceOver labels | "I think they look clean, and I've seen a lot of apps do it that way." It came after "too much text, users don't know where to focus." | Labelled Listen / Speak buttons | Developer |
 
 ## Design
@@ -88,4 +89,3 @@ go here as questions.
 
 - Python for the pipeline: Claude's choice in the first brainstorm. Reason not recorded; ask if it matters.
 - Word list for the 50,000 words: why the developer's own dictionary file rather than a frequency list (wordfreq)? Reason not recorded.
-- 10-14: Why F3 before F4, and why only the headword, explanations and examples are read aloud. Reason not recorded.
