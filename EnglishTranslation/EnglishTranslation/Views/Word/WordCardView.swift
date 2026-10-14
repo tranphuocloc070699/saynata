@@ -15,6 +15,8 @@ struct WordCardView: View {
     /// The picked language. It titles the last row (TASK-40).
     var targetLanguage: TargetLanguage = .vietnamese
     var onListen: () -> Void = {}
+    /// False when the caller draws its own header (the share sheet puts three buttons beside the word).
+    var showsHeader = true
 
     /// Which folded row is open, for example "0-Vietnamese". Only one at a time per card (design rule 8).
     @State private var openRow = ""
@@ -22,9 +24,13 @@ struct WordCardView: View {
     /// Kept apart from `openRow`, so "Always open" can open the row on every sense.
     @State private var openTargetRows: Set<Int>
 
-    init(entry: WordEntry, targetLanguage: TargetLanguage = .vietnamese, onListen: @escaping () -> Void = {}) {
+    init(
+        entry: WordEntry, targetLanguage: TargetLanguage = .vietnamese, showsHeader: Bool = true,
+        onListen: @escaping () -> Void = {}
+    ) {
         self.entry = entry
         self.targetLanguage = targetLanguage
+        self.showsHeader = showsHeader
         self.onListen = onListen
         let startsOpen = TranslationRowPreference().startsOpen
         _openTargetRows = State(initialValue: startsOpen ? Set(entry.senses.indices) : [])
@@ -32,7 +38,9 @@ struct WordCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-            header
+            if showsHeader {
+                header
+            }
 
             ForEach(Array(entry.senses.enumerated()), id: \.offset) { index, sense in
                 senseCard(sense, index: index)
@@ -42,22 +50,8 @@ struct WordCardView: View {
 
     // MARK: - Parts
 
-    /// The word as typed (a form like "ran" stays "ran"). With a form, the pill shows the base word.
     private var header: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.small) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                Text(entry.matchedForm?.text ?? entry.word)
-                    .font(.largeTitle.weight(.semibold))
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                if let pill = entry.formPillText {
-                    FormPill(text: pill)
-                } else if let ipa = entry.ipa {
-                    Text(ipa)
-                        .font(.callout)
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                }
-            }
-            Spacer()
+        WordHeaderView(entry: entry) {
             IconButton(systemImage: "speaker.wave.2", label: "Listen", action: onListen)
         }
     }
@@ -65,6 +59,11 @@ struct WordCardView: View {
     private func senseCard(_ sense: Sense, index: Int) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             SenseTitleRow(number: index + 1, sense: sense)
+
+            if let imageUrl = sense.imageUrl {
+                SenseMediaView(path: imageUrl)
+                    .padding(.top, Theme.Spacing.xSmall)
+            }
 
             VStack(spacing: 0) {
                 if !sense.examples.isEmpty {

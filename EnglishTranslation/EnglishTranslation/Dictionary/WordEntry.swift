@@ -44,15 +44,24 @@ struct Sense: Codable, Equatable, Sendable {
     let examples: [Example]
     /// Common ways to use the word. Empty for now; TASK-24 fills it.
     let usage: [Usage]
+    /// Optional relative path or URL to an image or action clip.
+    let imageUrl: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case pos, cefr, simpleDefinition, vietnamese, examples, usage
+        case imageUrl
+        case imageURL = "image_url"
+    }
 
     init(pos: String, cefr: String, simpleDefinition: String, vietnamese: String,
-         examples: [Example], usage: [Usage] = []) {
+         examples: [Example], usage: [Usage] = [], imageUrl: String? = nil) {
         self.pos = pos
         self.cefr = cefr
         self.simpleDefinition = simpleDefinition
         self.vietnamese = vietnamese
         self.examples = examples
         self.usage = usage
+        self.imageUrl = imageUrl
     }
 
     // `usage` may be missing in older JSON, so it falls back to an empty list.
@@ -64,6 +73,19 @@ struct Sense: Codable, Equatable, Sendable {
         vietnamese = try container.decode(String.self, forKey: .vietnamese)
         examples = try container.decode([Example].self, forKey: .examples)
         usage = try container.decodeIfPresent([Usage].self, forKey: .usage) ?? []
+        imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
+            ?? container.decodeIfPresent(String.self, forKey: .imageURL)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pos, forKey: .pos)
+        try container.encode(cefr, forKey: .cefr)
+        try container.encode(simpleDefinition, forKey: .simpleDefinition)
+        try container.encode(vietnamese, forKey: .vietnamese)
+        try container.encode(examples, forKey: .examples)
+        try container.encode(usage, forKey: .usage)
+        try container.encodeIfPresent(imageUrl, forKey: .imageUrl)
     }
 }
 
