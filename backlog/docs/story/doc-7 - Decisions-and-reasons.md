@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-14 10:40'
+updated_date: '2026-10-14 10:53'
 ---
 # Decisions and reasons
 
@@ -46,6 +46,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | Code-first design system (Theme.swift + preview gallery), no Figma or Claude Design | HIG already sets most values, and SwiftUI previews show real iOS parts. HTML mockups only copy them. | Figma, Claude Design | Claude, accepted |
 | 10-11 | No dark mode for now | "I'll make a mini game later, and dark mode won't work well with a game UI." | — | Developer |
 | 10-14 | F3 speakers: word speaker stays in the header; a small speaker on each sense title row; a small speaker at the end of each example line (option A) | Easy to find, and VoiceOver reads it as a button. | B: tap the example text itself (cleaner, but hard to find and clashes with text selection) | Developer chose A from the mockup; Claude recommended |
+| 10-14 | Examples rows: level label and a **plain** speaker icon (no circle, no border) on line 1, the sentence on line 2; speaker at the right edge (mockup option A) | The developer's phone test: "it's too narrow". The label, the sentence and a round speaker shared one line, so the sentence wrapped every 2-3 words. A keeps all speakers in one column. | B: speaker right after the label; keep one line (TASK-48) | Developer (layout idea), chose A from Claude's mockup |
 
 ## Stack
 
@@ -64,6 +65,8 @@ Quotes are the developer's words, with spelling fixed.
 | 10-09 | On-device text to speech and speech to text | Free and works offline. | Cloud voices | Developer |
 | 10-14 | Host the backend on a **VPS** (`vps_sieutoc`), keep Spring Boot | "I want to ship my app fast, I want to use it on my phone." Workers would need a TypeScript rewrite and no Postgres; the VPS guide already existed. | Cloudflare Workers (ChatGPT's idea), Cloudflare Containers | Developer, after Claude's comparison |
 | 10-14 | **Auto deploy**: GitHub Action SSHes into the VPS after CI passes on main | Developer asked for auto deploy. A deploy key in GitHub secrets means no Claude session needs SSH access to the server. | Claude sessions SSH in directly; manual deploys | Claude, accepted |
+| 10-14 | **Admin CMS** = a separate web app: React (Vite) + React-Admin, served as static files by Caddy (admin.loffy.me), talking to a new Spring Boot `/api/admin` REST API with Spring Security (ADMIN role) | "I want to create a CMS to manage, because later I want to implement user features." Reason for B over A/C: not recorded (Claude's reasons: tables, search and forms for free; the same REST API and Spring Security serve app users later; light on the small VPS). | A: admin pages inside Spring Boot (Thymeleaf + htmx); C: ready-made headless CMS (Directus/Strapi) on the same Postgres | Developer chose B, Claude recommended |
+| 10-14 | **The server Postgres becomes the source of truth** for words, sentences and media; the pipeline exports the bundled `dictionary.sqlite` from it at release time | Needed for the CMS: one place to edit. Backend entries change live; bundled words reach users with the next app update. Reason in the developer's words: not recorded. | Keep `dictionary.sqlite` as the source and edit it only through the pipeline | Developer chose, Claude recommended |
 
 ## Workflow
 
@@ -89,3 +92,4 @@ The eight open reasons above were answered by the developer on 2026-10-11. New d
 go here as questions.
 
 - Python for the pipeline: Claude's choice in the first brainstorm. Reason not recorded; ask if it matters.
+- 10-14: Why the separate React admin (B) over admin pages inside Spring Boot, and why make the server database the source of truth? Reason not recorded.

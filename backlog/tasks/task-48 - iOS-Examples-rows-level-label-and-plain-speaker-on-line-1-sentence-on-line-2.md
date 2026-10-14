@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-14 10:50'
+updated_date: '2026-10-14 10:54'
 labels:
   - ios
   - ui
@@ -36,3 +37,9 @@ The developer's phone test (2026-10-14): the Examples row is too narrow, because
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-14: the developer chose mockup Option A (label left, plain speaker at the right edge, sentence on line 2). Build A.
+<!-- SECTION:NOTES:END -->
