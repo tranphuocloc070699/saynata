@@ -24,6 +24,8 @@ final class DictionaryStore: @unchecked Sendable {
     private var hasUsageColumn = false
     /// The old bundled file has no `forms.type` column (added by TASK-35). Then the type is "form".
     private var hasFormTypeColumn = false
+    /// Added by TASK-23 (media pass). Then imageUrl is filled.
+    private var hasImageUrlColumn = false
 
     /// Opens the dictionary file at `url`.
     init(url: URL) throws {
@@ -35,6 +37,7 @@ final class DictionaryStore: @unchecked Sendable {
         }
         hasUsageColumn = try columnExists("usage", in: "senses")
         hasFormTypeColumn = try columnExists("type", in: "forms")
+        hasImageUrlColumn = try columnExists("image_url", in: "senses")
     }
 
     /// Opens the dictionary inside the app bundle.
@@ -100,8 +103,9 @@ final class DictionaryStore: @unchecked Sendable {
     private func loadSenses(wordID: Int64) throws -> [Sense] {
         // Without the column, SELECT NULL so the column numbers stay the same.
         let usageColumn = hasUsageColumn ? "usage" : "NULL"
+        let imageColumn = hasImageUrlColumn ? "image_url" : "NULL"
         let sql = """
-            SELECT pos, cefr, simple_definition, vietnamese, examples, \(usageColumn)
+            SELECT pos, cefr, simple_definition, vietnamese, examples, \(usageColumn), \(imageColumn)
             FROM senses WHERE word_id = ?1 ORDER BY position
             """
         return try run(sql, int: wordID) { statement in
@@ -111,7 +115,8 @@ final class DictionaryStore: @unchecked Sendable {
                 simpleDefinition: Self.text(statement, 2) ?? "",
                 vietnamese: Self.text(statement, 3) ?? "",
                 examples: Self.decodeExamples(Self.text(statement, 4)),
-                usage: Self.decodeUsage(Self.text(statement, 5))
+                usage: Self.decodeUsage(Self.text(statement, 5)),
+                imageUrl: Self.text(statement, 6)
             )
         }
     }

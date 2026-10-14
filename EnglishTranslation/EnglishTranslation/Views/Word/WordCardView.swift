@@ -60,6 +60,11 @@ struct WordCardView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             SenseTitleRow(number: index + 1, sense: sense)
 
+            if let imageUrl = sense.imageUrl {
+                SenseMediaView(path: imageUrl)
+                    .padding(.top, Theme.Spacing.xSmall)
+            }
+
             VStack(spacing: 0) {
                 if !sense.examples.isEmpty {
                     foldedRow("Examples", index: index) {
