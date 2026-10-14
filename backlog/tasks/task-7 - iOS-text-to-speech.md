@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-10 04:31'
-updated_date: '2026-10-14 07:52'
+updated_date: '2026-10-14 10:47'
 labels:
   - ios
 milestone: m-0
@@ -54,4 +54,6 @@ Implemented on branch f3/task-7. Files: Speech/SpeechPlayer.swift, SpeechSynthes
 PR: https://github.com/tranphuocloc070699/saynata/pull/36 (into feature/f3-listen)
 
 Final verification 2026-10-14: kept every speaker as the existing IconButton (no new button component). SpeechPlayer API is speak(_:id:), stop(), currentID; empty input is ignored; en-US AVSpeechSynthesizer uses .playback/.spokenAudio and deactivates with .notifyOthersOnDeactivation. Final unit result: "✔ Test run with 127 tests in 13 suites passed after 0.468 seconds." Final simulator build: ** BUILD SUCCEEDED **. On iPhone 16 Pro (iOS 18.5), verified borrow and ran: ran remains the spoken/displayed form; word, explanation and all three example controls are present; active VoiceOver label/icon becomes Stop/stop.fill; starting another speaker replaces the active one. check_docs.py: 13 docs checked, 0 problems. TASK-7 and TASK-33 intentionally remain open for reviewer approval.
+
+2026-10-14 review: check on the phone whether example rows look too spaced (each compact speaker keeps a 44 pt tap area). If yes, it needs a mockup before changing. Bugs found in review moved to TASK-46 (speech after leaving a screen, ducking music).
 <!-- SECTION:NOTES:END -->
