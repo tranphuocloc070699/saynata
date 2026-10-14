@@ -14,6 +14,7 @@ what can go wrong, which tests cover it, and what is still missing.
 | [Word lookup](doc-5%20-%20Word-lookup.md) | Working: bundle, local cache, backend, word card | iOS + backend |
 | [Dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md) | 245 / 2,809 words | Python, offline |
 | [Share extension](doc-10%20-%20Share-extension.md) | Plumbing works; final layout waits for a mockup | iOS (extension target) |
+| [Admin API](doc-13%20-%20Admin-API.md) | Backend built (TASK-49.1); admin web app not yet | Backend `/api/admin` |
 
 Not started yet: **text to speech** (TASK-7), **speech to text with a score** (TASK-8). Add a page when work starts.
 

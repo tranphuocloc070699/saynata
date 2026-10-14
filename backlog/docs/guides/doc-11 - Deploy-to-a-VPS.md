@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-14 06:43'
+updated_date: '2026-10-14 11:45'
 ---
 # Deploy to a VPS
 
@@ -56,6 +56,15 @@ nano .env
 | `BACKEND_PORT` | Port on the server (default 8081). |
 | `BACKEND_BIND` | `0.0.0.0` (open) or `127.0.0.1` (only Caddy on the same server can reach it). |
 | `CLAUDE_MODEL` | Optional. Default is the model in `application.properties`. |
+| `ADMIN_JWT_SECRET` | Signs the admin login cookie. 32+ characters. Make one with `openssl rand -base64 48`. **The backend does not start without it**, unless `ADMIN_ENABLED=false`. |
+| `ADMIN_EMAIL` | Email of the first admin (for the admin web app). Used only when no admin exists yet. |
+| `ADMIN_INITIAL_PASSWORD` | Password of the first admin, 12+ characters. Used only when no admin exists yet; remove it from `.env` after the first start. |
+| `ADMIN_ENABLED` | Optional. `false` turns the admin API off. Default `true`. |
+
+The admin API (`/api/admin`, see [Admin API](../features/doc-13%20-%20Admin-API.md)) is for the admin web app.
+Its login cookie is `SameSite=Strict`, so the admin site and the API must share a site, for example
+`admin.loffy.me` and `api.loffy.me`. Behind Caddy keep `BACKEND_BIND=127.0.0.1`: the login rate limit reads the
+client IP from `X-Forwarded-For`, which Caddy sets.
 
 `.env` is git-ignored. Never commit it. Set `DB_PASSWORD` before the first start: Postgres keeps the first one
 in the volume.

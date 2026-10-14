@@ -40,6 +40,9 @@ public class SentenceTranslation {
     @Column(name = "prompt_version", nullable = false, length = 16)
     private String promptVersion;
 
+    @Column(name = "needs_review", nullable = false)
+    private boolean needsReview;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -57,6 +60,41 @@ public class SentenceTranslation {
         this.model = model;
         this.promptVersion = promptVersion;
         this.createdAt = Instant.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getTargetLang() {
+        return targetLang;
+    }
+
+    public String getModel() {
+        return model;
+    }
+
+    public String getPromptVersion() {
+        return promptVersion;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public boolean isNeedsReview() {
+        return needsReview;
+    }
+
+    public void setNeedsReview(boolean needsReview) {
+        this.needsReview = needsReview;
+    }
+
+    /** Used by the admin web app when a person fixes the explanation. */
+    public void setExplanation(String meaning, String wordsJson, String translation) {
+        this.meaning = meaning;
+        this.wordsJson = wordsJson;
+        this.translation = translation;
     }
 
     public String getSourceText() {
