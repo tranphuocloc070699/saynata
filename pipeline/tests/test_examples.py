@@ -275,7 +275,7 @@ def test_export_stores_levels_and_form_types(db, tmp_path, monkeypatch):
     ])])
     examples.run_pass(db, VOCABULARY | {"went"}, fake_fetch([], go_result), limit=10, workers=1, words=["go"])
 
-    path, count, _, without_levels = export.export(db)
+    path, count, _, without_levels = export.export_from_pipeline_db(db)
 
     app = sqlite3.connect(path)
     types = dict(app.execute("SELECT form, type FROM forms"))

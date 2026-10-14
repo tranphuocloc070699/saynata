@@ -252,7 +252,7 @@ flowchart LR
 
 ## 4. Export Schema: `dictionary.sqlite` for iOS
 
-When `pipeline export` runs, it packages all `done` records into a normalised SQLite database bundled directly inside `EnglishTranslation/Resources/dictionary.sqlite`.
+When `pipeline export` runs (since TASK-49.3 it reads the dictionary tables in the server Postgres; `export-local` is the old export from `data/pipeline.db`), it packages all words into a normalised SQLite database bundled directly inside `EnglishTranslation/Resources/dictionary.sqlite`.
 
 ```mermaid
 erDiagram
@@ -308,4 +308,6 @@ erDiagram
 | `uv run pipeline examples --dry-run --words ...` | 1 per word | ~$0.003 / word | Test levelled examples extraction; outputs results without writing to DB. |
 | `uv run pipeline examples` | 1 per word | ~$8.00 total | Run examples pass for all `done` words lacking levels; resume-safe. |
 | `uv run pipeline report` | 0 | Free | Display status counts and current validation errors. |
-| `uv run pipeline export` | 0 | Free | Build `data/out/dictionary.sqlite` and `data/out/dictionary.jsonl`. |
+| `uv run pipeline import-to-postgres` | 0 | Free | One time: copy the bundled `dictionary.sqlite` into Postgres (`DATABASE_URL`). Re-run safe. |
+| `uv run pipeline export` | 0 | Free | Build `data/out/dictionary.sqlite`, `data/out/dictionary.jsonl` and `data/out/media/` from Postgres (read-only). |
+| `uv run pipeline export-local` | 0 | Free | Old export from `data/pipeline.db`. |

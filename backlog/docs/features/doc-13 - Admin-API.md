@@ -3,16 +3,16 @@ id: doc-13
 title: Admin API
 type: specification
 created_date: '2026-10-14 11:28'
-updated_date: '2026-10-14 11:36'
+updated_date: '2026-10-14 11:55'
 ---
 # Admin API
 
-> Status: **backend built** (TASK-49.1, part of F5 Admin CMS, TASK-49). The admin web app is TASK-49.2. Last traced from code: 2026-10-14.
+> Status: **backend built** (TASK-49.1 and TASK-49.3, part of F5 Admin CMS, TASK-49). The admin web app is TASK-49.2. Last traced from code: 2026-10-14.
 > Why: Postgres on the server is the single source of truth for content (doc-7, 2026-10-14). A person needs a safe way to read, fix and regenerate words and sentences.
 
 ## What it does
 
-`/api/admin/**` is a small REST API for the admin web app (admin.loffy.me). An admin logs in with email and password, gets a signed cookie, and can then list, search, read, edit, mark as reviewed and delete the words (`word_lookup`) and sentences (`sentence_translation`) that Claude wrote. Deleting a row is "regenerate": the next public lookup asks Claude again. The public API (`/api/translations`, `/api/words/{word}`, `/actuator/health`) is unchanged and needs no login.
+`/api/admin/**` is a small REST API for the admin web app (admin.loffy.me). An admin logs in with email and password, gets a signed cookie, and can then list, search, read, edit, mark as reviewed and delete the words and sentences. Words come from two tables: the **bundled dictionary** (`dictionary_word`, the 2,750 words in the iOS app, source `bundled`) and the words Claude wrote on demand (`word_lookup`, source `backend`). Sentences are `sentence_translation`. Deleting a row is "regenerate": the next public lookup asks Claude again. The public API (`/api/translations`, `/api/words/{word}`, `/actuator/health`) is unchanged and needs no login.
 
 ## Big picture
 
@@ -22,7 +22,7 @@ flowchart LR
     SEC -->|ADMIN only| AUTH[AdminAuthController]
     SEC -->|ADMIN only| WORDS[AdminWordController]
     SEC -->|ADMIN only| SENT[AdminSentenceController]
-    WORDS --> PG[(Postgres)]
+    WORDS --> PG[(Postgres: dictionary_word + word_lookup)]
     SENT --> PG
     AUTH --> PG
     APP[iOS app] -->|no login| PUB["/api/words, /api/translations"]
@@ -59,13 +59,21 @@ sequenceDiagram
 
 ## Words and sentences (Refine simple-rest shape)
 
+### Ids and the two sources
+
+A word id is a **string with a letter**: `b-12` is `dictionary_word` 12 (bundled), `w-45` is `word_lookup` 45 (backend). The two tables count from 1 each, so the letter keeps the ids apart. The list returns these ids, and `GET`, `PUT`, `POST .../reviewed` and `DELETE` accept the same ids, so Refine simple-rest works without changes. A bare number or any other id is a 404 ([AdminWordId.parse:16](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordId.java#L16)). Sentences keep their numeric ids.
+
+The list reads the database view `admin_word_list` ([V6](../../../backend/src/main/resources/db/migration/V6__create_dictionary_tables.sql)), which joins both tables, so filters, sorting and paging happen in SQL. The level (`cefr`) of a word is the level of its **first sense**; for a backend word it is saved in `word_lookup.cefr` when the entry is saved or edited, and [WordCefrBackfill](../../../backend/src/main/java/com/englishtranslation/backend/word/WordCefrBackfill.java) fills it at start-up for older rows.
+
+### Requests
+
 | Request | File:line | What happens |
 |---|---|---|
-| `GET /api/admin/words?_start&_end&_sort&_order&q&needs_review` | [AdminWordController.java:62](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordController.java#L62) | JSON array and header `X-Total-Count`. `q` searches the word (case-insensitive, `%` and `_` match themselves). `_start` must be a multiple of the page size (Refine does this). Sort names: id, word, needsReview, model, promptVersion, createdAt. Page size at most 200. |
-| `GET /api/admin/words/{id}` | [AdminWordController.java:81](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordController.java#L81) | `{id, word, entry, model, promptVersion, needsReview, createdAt}`. `entry` is the same `WordEntry` the public API returns. 404 when missing. |
-| `PUT /api/admin/words/{id}` | [AdminWordController.java:87](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordController.java#L87) | Body `{"entry": {...}}`; other fields are ignored. [EntryParser](../../../backend/src/main/java/com/englishtranslation/backend/admin/EntryParser.java#L31) must read it as a `WordEntry` (unknown fields, empty text, bad example level or usage kind are errors), else 400 with a ProblemDetail that names the field. |
-| `POST /api/admin/words/{id}/reviewed` | [AdminWordController.java:96](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordController.java#L96) | `needsReview = false`. |
-| `DELETE /api/admin/words/{id}` | [AdminWordController.java:104](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordController.java#L104) | Deletes the row. The next `GET /api/words/{word}` calls Claude again. |
+| `GET /api/admin/words?_start&_end&_sort&_order&q&needs_review&source&cefr` | [AdminWordController.java:37](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordController.java#L37), [AdminWordService.list:83](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordService.java#L83) | JSON array and header `X-Total-Count`. `q` searches the word (case-insensitive, `%` and `_` match themselves). `source=bundled` or `backend`. `cefr` is a list: `cefr=A1,A2` (or repeated); each level is A1 to C2, else 400 ([checkLevels:140](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordService.java#L140)). All filters work together. `_start` must be a multiple of the page size (Refine does this). Sort names: id, word, source, needsReview, model, promptVersion, createdAt ([orderBy:127](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordService.java#L127); `id` sorts by source, then by number; "bundled" comes before "backend" when descending). Page size at most 200. |
+| `GET /api/admin/words/{id}` | [AdminWordController.java:55](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordController.java#L55) | `{id, word, entry, ipa, needsReview, source, model, promptVersion, createdAt}`. `entry` is the same `WordEntry` the public API returns. `ipa` is set for bundled words (null for backend words). `model` and `promptVersion` can be null for bundled words. 404 when missing. |
+| `PUT /api/admin/words/{id}` | [AdminWordController.java:61](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordController.java#L61), [AdminWordService.update:196](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordService.java#L196) | Body `{"entry": {...}}`; other fields are ignored. [EntryParser](../../../backend/src/main/java/com/englishtranslation/backend/admin/EntryParser.java#L31) must read it as a `WordEntry` (unknown fields, empty text, bad example level or usage kind are errors), else 400 with a ProblemDetail that names the field and nothing is saved. **Bundled word:** the `dictionary_sense` rows are updated ([applyEntry:255](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordService.java#L255)) and the next `pipeline export` has the change. Senses are matched by **position**: sense 1 stays sense 1 and keeps its `image_type`, `image_query` and media. A sense added at the end has no picture (`image_type` "none"); a sense left out at the end is removed. |
+| `POST /api/admin/words/{id}/reviewed` | [AdminWordController.java:66](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordController.java#L66) | `needsReview = false` (also for bundled words). |
+| `DELETE /api/admin/words/{id}` | [AdminWordController.java:72](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminWordController.java#L72) | Backend word: deletes the row; the next `GET /api/words/{word}` calls Claude again. **Bundled word: 400** "A bundled word cannot be deleted here. Edit it instead." (it would disappear from the next `dictionary.sqlite`). |
 | Same for `/api/admin/sentences` | [AdminSentenceController.java](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminSentenceController.java#L63) | Search `q` is on the source text. Item: `{id, sourceText, targetLang, explanation{meaning, words, translation}, model, promptVersion, needsReview, createdAt}`. `PUT` body `{"explanation": {...}}` (the same shape as the public response). |
 
 ## Errors
@@ -77,22 +85,27 @@ sequenceDiagram
 | More than 10 logins in 15 minutes from one IP | 429 | "Too many login attempts. Try again in 15 minutes." |
 | Write without `Content-Type: application/json` | 415 | "Send Content-Type: application/json." |
 | Bad entry JSON or bad list parameters | 400 | ProblemDetail `detail`, for example "entry.senses[0].examples[0].level must be one of: easy, harder, medium." |
-| Unknown id | 404 | Standard problem body |
+| Unknown id, or a word id without `b-` / `w-` | 404 | Standard problem body |
+| Delete of a bundled word | 400 | "A bundled word cannot be deleted here. Edit it instead." |
+| `source` or `cefr` with a wrong value | 400 | "source must be one of: backend, bundled." / "cefr must be a list of: A1, A2, B1, B2, C1, C2." |
 | `ADMIN_JWT_SECRET` missing (admin enabled) | start-up fails | Log: "Set ADMIN_JWT_SECRET to at least 32 characters". Set `ADMIN_ENABLED=false` to run without the admin API. |
 
 ## Tests
 
-`AdminAuthTest` (login, cookie flags, 401, rate limit, CORS, public endpoints open), `AdminContentApiTest` (list/paging/search/filter, get, update, invalid JSON, reviewed, delete), `AdminSetupTest` (first admin, secret check, token), `AdminDisabledTest`.
+`AdminAuthTest` (login, cookie flags, 401, rate limit, CORS, public endpoints open), `AdminContentApiTest` (list/paging/search/filter, get, update, invalid JSON, reviewed, delete), `AdminBundledWordsTest` (both sources in one list, `source` and `cefr` filters, ids, update of a bundled word keeps the picture fields, validation, reviewed, bundled delete is 400), `WordCefrBackfillTest`, `AdminSetupTest` (first admin, secret check, token), `AdminDisabledTest`.
 Run: `cd backend && ./mvnw -B test`.
 
 ## Change checklist
 
 - New env key: also `backend/.env.example`, `backend/docker-compose.prod.yml`, and doc-11.
 - New field in `WordEntry` or `Explanation`: also the checks in `EntryParser`.
+- New column on the word list: also the view `admin_word_list` (a new Flyway migration) and `AdminWordService`.
 - New admin endpoint: it is covered by `/api/admin/**` automatically; add a 401 test.
 
 ## Known gaps
 
-- Sense media and the bundled dictionary are not in Postgres yet (TASK-49.3).
+- The admin entry has no picture fields: a bundled sense keeps its `image_type`, `image_query` and media, but they cannot be edited here yet (sense media is TASK-49.4).
+- Bundled word forms (`dictionary_form`) and the word's IPA cannot be edited through the API yet.
+- The default sort is `id DESC`, which lists bundled words before backend words.
 - Only the ADMIN role is used. The USER role is ready in the tables for app users later.
-- Not run against a real Postgres by the worker that built it (no Docker in that container). Flyway V5 and the `like ... escape` query ran on H2 in tests.
+- Ran on a real PostgreSQL 16 on 2026-10-14 (TASK-49.3): Flyway V1 to V6, the `admin_word_list` view, the filters and a PUT on a bundled word. The automated tests use H2.

@@ -3,10 +3,11 @@ id: TASK-49.3
 title: >-
   Move the bundled dictionary and media into Postgres; pipeline exports
   dictionary.sqlite from it
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-14 10:54'
-updated_date: '2026-10-14 10:54'
+updated_date: '2026-10-14 11:56'
 labels:
   - backend
   - pipeline
@@ -39,3 +40,19 @@ Make the server Postgres the source of truth (doc-7, 2026-10-14). Flyway migrati
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Flyway V6: tables dictionary_word, dictionary_sense (examples/usage as JSON text, media_id), dictionary_form, media (file name, kind photo|clip, size, Pixabay attribution); word_lookup.cefr column; view admin_word_list (bundled + backend rows, ids b-N / w-N).
+2. Backend: entities DictionaryWord/DictionarySense, AdminWordController lists both sources (JdbcClient over the view) with q, needs_review, source, cefr filters; GET/PUT/reviewed work for both id kinds; PUT on bundled updates dictionary tables with the same EntryParser validation. Backfill word_lookup.cefr at start-up.
+3. Pipeline: psycopg; import-to-postgres (idempotent, skip existing lemmas, --overwrite) from dictionary.sqlite (+ pipeline.db media metadata, media files for size/width/height); export builds dictionary.sqlite + jsonl + media folder from Postgres (read-only); old pipeline.db export kept as export-local.
+4. Tests: backend H2 tests; pipeline pytest against a real Postgres (TEST_DATABASE_URL, schema from the Flyway files); full real run import -> export on PG16 and Spring Boot against PG16.
+5. Docs: doc-6, doc-13, doc-11, CLAUDE.md, pipeline README/.env.example.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Built: Flyway V6 (dictionary_word, dictionary_sense, dictionary_form, media, word_lookup.cefr, view admin_word_list); admin words API lists bundled + backend words (ids b-N / w-N, filters source and cefr, PUT on bundled updates dictionary tables); pipeline import-to-postgres and export (read-only) from Postgres; export-local keeps the old pipeline.db export. Tests: backend 109 passed (H2); pipeline 81 passed with TEST_DATABASE_URL (68 passed, 13 skipped without); real PG16: Flyway V1-V6 applied, full import 2750/7779/5542, admin filters, PUT on b-191 then export: only that sense row differs from the bundled file. Test it: run pipeline tests with TEST_DATABASE_URL, then import-to-postgres and export against a local Postgres where the backend has run once. PR: opened by the orchestrator into feature/f5-cms.
+<!-- SECTION:NOTES:END -->

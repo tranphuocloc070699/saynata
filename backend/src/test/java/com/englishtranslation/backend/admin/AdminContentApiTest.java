@@ -161,9 +161,9 @@ class AdminContentApiTest {
     void getOneWordAndUnknownIdGives404() throws Exception {
         WordLookup run = saveWord("run", true);
 
-        mockMvc.perform(asAdmin(get("/api/admin/words/" + run.getId())))
+        mockMvc.perform(asAdmin(get("/api/admin/words/w-" + run.getId())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(run.getId()))
+                .andExpect(jsonPath("$.id").value("w-" + run.getId()))
                 .andExpect(jsonPath("$.word").value("run"))
                 .andExpect(jsonPath("$.needsReview").value(true))
                 .andExpect(jsonPath("$.model").value("test-model"))
@@ -175,7 +175,7 @@ class AdminContentApiTest {
     void updateWordSavesTheEntryAndThePublicApiShowsIt() throws Exception {
         WordLookup run = saveWord("run", false);
 
-        mockMvc.perform(asAdmin(put("/api/admin/words/" + run.getId())).content(GOOD_ENTRY))
+        mockMvc.perform(asAdmin(put("/api/admin/words/w-" + run.getId())).content(GOOD_ENTRY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.entry.senses[0].simpleDefinition").value("to move fast on your feet"));
 
@@ -187,7 +187,7 @@ class AdminContentApiTest {
         WordLookup run = saveWord("run", false);
         String wholeRecord = GOOD_ENTRY.replace("{\"entry\"", "{\"id\": 5, \"word\": \"hacked\", \"needsReview\": true, \"entry\"");
 
-        mockMvc.perform(asAdmin(put("/api/admin/words/" + run.getId())).content(wholeRecord))
+        mockMvc.perform(asAdmin(put("/api/admin/words/w-" + run.getId())).content(wholeRecord))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.word").value("run"));
     }
@@ -207,7 +207,7 @@ class AdminContentApiTest {
         };
 
         for (String body : badBodies) {
-            mockMvc.perform(asAdmin(put("/api/admin/words/" + run.getId())).content(body))
+            mockMvc.perform(asAdmin(put("/api/admin/words/w-" + run.getId())).content(body))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.detail").isNotEmpty());
         }
@@ -218,7 +218,7 @@ class AdminContentApiTest {
     void invalidEntryMessageNamesTheProblem() throws Exception {
         WordLookup run = saveWord("run", false);
 
-        mockMvc.perform(asAdmin(put("/api/admin/words/" + run.getId())).content(GOOD_ENTRY.replace("\"easy\"", "\"simple\"")))
+        mockMvc.perform(asAdmin(put("/api/admin/words/w-" + run.getId())).content(GOOD_ENTRY.replace("\"easy\"", "\"simple\"")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("entry.senses[0].examples[0].level must be one of: easy, harder, medium."));
     }
@@ -227,7 +227,7 @@ class AdminContentApiTest {
     void markWordReviewed() throws Exception {
         WordLookup run = saveWord("run", true);
 
-        mockMvc.perform(asAdmin(post("/api/admin/words/" + run.getId() + "/reviewed")))
+        mockMvc.perform(asAdmin(post("/api/admin/words/w-" + run.getId() + "/reviewed")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.needsReview").value(false));
         assertThat(words.findById(run.getId()).orElseThrow().isNeedsReview()).isFalse();
@@ -237,10 +237,10 @@ class AdminContentApiTest {
     void deleteWordRemovesTheRowSoTheNextLookupRegenerates() throws Exception {
         WordLookup run = saveWord("run", false);
 
-        mockMvc.perform(asAdmin(delete("/api/admin/words/" + run.getId()))).andExpect(status().isOk());
+        mockMvc.perform(asAdmin(delete("/api/admin/words/w-" + run.getId()))).andExpect(status().isOk());
 
         assertThat(words.findById(run.getId())).isEmpty();
-        mockMvc.perform(asAdmin(delete("/api/admin/words/" + run.getId()))).andExpect(status().isNotFound());
+        mockMvc.perform(asAdmin(delete("/api/admin/words/w-" + run.getId()))).andExpect(status().isNotFound());
     }
 
     // ---- sentences ----
@@ -331,9 +331,9 @@ class AdminContentApiTest {
     void writeEndpointsNeedLoginToo() throws Exception {
         WordLookup run = saveWord("run", false);
 
-        mockMvc.perform(put("/api/admin/words/" + run.getId()).contentType(MediaType.APPLICATION_JSON).content(GOOD_ENTRY))
+        mockMvc.perform(put("/api/admin/words/w-" + run.getId()).contentType(MediaType.APPLICATION_JSON).content(GOOD_ENTRY))
                 .andExpect(status().isUnauthorized());
-        mockMvc.perform(delete("/api/admin/words/" + run.getId()).contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(delete("/api/admin/words/w-" + run.getId()).contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized());
         assertThat(words.findById(run.getId())).isPresent();
     }

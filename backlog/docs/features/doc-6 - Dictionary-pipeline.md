@@ -3,14 +3,15 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-11 11:45'
+updated_date: '2026-10-14 11:55'
 ---
-> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-11 (levelled examples and form types, TASK-35). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
+> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-14 (Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
+> **Since TASK-49.3 the server Postgres is the source of truth** for the bundled words, senses, forms and media rows. `dictionary.sqlite` is built *from* Postgres by `export`; the generate passes below still fill `data/pipeline.db`.
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
 
 ## What it does
 
-An offline Python job that builds `dictionary.sqlite`, the word data bundled in the iOS app.
+An offline Python job that builds the word data bundled in the iOS app. The words live in Postgres (edited in the admin web app, see [Admin API](doc-13%20-%20Admin-API.md)); `export` turns them into `dictionary.sqlite`.
 For each of the ~2,800 most common English words (NGSL), it takes the Wiktionary senses, asks an LLM
 to write a **simple definition** + **Vietnamese meaning** + **3 levelled examples per sense** + **usage** (patterns with an example), checks that the definition only
 uses simple words, and retries with feedback when it doesn't.
@@ -30,10 +31,16 @@ flowchart LR
     USE --> ST
     ST -->|"pipeline examples: one call per word"| EXA[examples.py gives each sense 3 levelled examples]
     EXA --> ST
-    FOR[forms.py lemminflect labels each form] --> EXP
-    ST --> EXP[export.py]
+    FOR[forms.py lemminflect labels each form] --> EXL[export-local, old]
+    ST --> EXL
+    EXL --> OUT0[data/out/dictionary.sqlite]
+    SQL0[bundled dictionary.sqlite] -->|"import-to-postgres, one time"| PG[(Postgres: dictionary_word, dictionary_sense, dictionary_form, media)]
+    ADMIN[Admin web app, /api/admin/words] <-->|edits bundled words| PG
+    PG -->|"export, read-only"| EXP[export.py]
+    MED[media files on disk] --> EXP
     EXP --> OUT1[data/out/dictionary.sqlite → iOS app]
     EXP --> OUT2[data/out/dictionary.jsonl]
+    EXP --> OUT3[data/out/media/]
 ```
 
 ## `generate` command: step by step
@@ -205,15 +212,45 @@ Uses the free library **lemminflect** to say what each form is, so the app can s
 
 [form_type:40-56](../../../pipeline/src/pipeline/forms.py#L40-L56) only looks at the parts of speech the word has senses for. The answer is `"form"` when lemminflect does not know the form, when two kinds of word fit ("runs" = plural noun or third person verb), or when the form is the word itself. [word_forms:59-64](../../../pipeline/src/pipeline/forms.py#L59-L64) lists every form of a word; the examples check uses it to see that a sentence contains the headword.
 
-### 9. Export: [export.py](../../../pipeline/src/pipeline/export.py)
+### 9. Postgres tables and import: [postgres.py](../../../pipeline/src/pipeline/postgres.py) (TASK-49.3)
+
+The tables are made by the backend (Flyway [V6__create_dictionary_tables.sql](../../../backend/src/main/resources/db/migration/V6__create_dictionary_tables.sql)), so run the backend (or its migrations) once before the first import.
+
+| Table | What it holds |
+|---|---|
+| `dictionary_word` | `lemma` (unique), `word_rank` (NGSL), `ipa`, `needs_review`, `model`, `prompt_version`, timestamps. |
+| `dictionary_sense` | One meaning: `position`, `pos`, `cefr`, `simple_definition`, `vietnamese`, `examples_json`, `usage_json` (the same JSON text the app reads), `image_type`, `image_query`, `media_id`. Unique on (word, position). |
+| `dictionary_form` | `form` and `form_type` ("past tense", "plural", … or "form"). |
+| `media` | One row per file: `file_name` (unique, for example `run_1.mp4`), `kind` (`photo` or `clip`), `width`, `height`, `bytes`, `pixabay_id`, `photographer`, `page_url`, `license_note` (Pixabay attribution). **The files are not in Postgres**: they are on disk (on the VPS a folder, served by Caddy in TASK-49.4). |
+| `word_lookup` | Unchanged: the words the backend asked Claude about. |
+
+`uv run pipeline import-to-postgres` ([cli.py:156](../../../pipeline/src/pipeline/cli.py#L156), [import_dictionary:89](../../../pipeline/src/pipeline/postgres.py#L89)) reads the bundled `dictionary.sqlite` and fills the tables in **one transaction** (an error changes nothing):
+
+| Step | Line | What happens |
+|---|---|---|
+| Media | [107-132](../../../pipeline/src/pipeline/postgres.py#L107-L132) | One row per distinct `senses.image_url` (`media/run_1.mp4` → `run_1.mp4`). Size, width and height come from the file in `--media-dir` when it is there (Pillow reads photos; clips get no width/height). Pixabay author and page URL come from `data/pipeline.db` when it exists. `license_note` is "Pixabay Content License". |
+| Words | [134-163](../../../pipeline/src/pipeline/postgres.py#L134-L163) | A lemma that is already in Postgres is **skipped**, so the command is safe to run again and never overwrites an admin edit. `--overwrite` replaces such a word (and its senses and forms) with the file. |
+| Senses, forms | [164-192](../../../pipeline/src/pipeline/postgres.py#L164-L192) | `examples` and `usage` JSON text is copied as it is. Forms keep their order. |
+
+`DATABASE_URL` (in `pipeline/.env`, or `--database-url`) is a normal Postgres URL, for example `postgresql://app:password@localhost:55432/english_translation` ([database_url:23](../../../pipeline/src/pipeline/postgres.py#L23)). How to reach the VPS database: [Deploy to a VPS](../guides/doc-11%20-%20Deploy-to-a-VPS.md).
+
+### 10. Export: [export.py](../../../pipeline/src/pipeline/export.py)
+
+`uv run pipeline export` ([export_from_postgres:117](../../../pipeline/src/pipeline/export.py#L117)) reads Postgres on a **read-only connection** ([connect:34](../../../pipeline/src/pipeline/postgres.py#L34)) and writes three things into `data/out/`:
 
 | Part | Line | Note |
 |---|---|---|
-| App schema | [10-31](../../../pipeline/src/pipeline/export.py#L10-L31) | `meta`, `words`, `forms` ("ran" → run, with a `type` column: "past tense", "plural", … or "form"), `senses`. `senses.examples` is a JSON list of `{level, text}` (a word the examples pass has not reached yet is exported with its old examples as easy, medium). `senses.usage` is a JSON list of `{kind, pattern, example}`; there are no `collocations` or `synonyms` columns. Case-insensitive indexes on lemma and form. |
-| Only `done` | [42](../../../pipeline/src/pipeline/export.py#L42) | `needs_review` and `failed` words are **not** exported. |
-| Rebuild | [36-40](../../../pipeline/src/pipeline/export.py#L36-L40) | Deletes and recreates the file each time. |
-| Version | [73-76](../../../pipeline/src/pipeline/export.py#L73-L76) | `meta.dictionary_version` = UTC timestamp, so the app can tell versions apart. |
-| Missing usage / levels | [export.py:41-90](../../../pipeline/src/pipeline/export.py#L41-L90) | `export` also returns how many words still have no usage and how many still have no example levels; the `export` command prints a warning for each if it is not 0. |
+| App schema | [24-49](../../../pipeline/src/pipeline/export.py#L24-L49) | Unchanged: `meta`, `words`, `forms` ("ran" → run, with a `type` column), `senses` (`examples` JSON list of `{level, text}`, `usage` JSON list of `{kind, pattern, example}`, `image_url`). Case-insensitive indexes on lemma and form. [DictionaryStore.swift](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift) reads it as before. |
+| Words | [130](../../../pipeline/src/pipeline/export.py#L130), [149](../../../pipeline/src/pipeline/export.py#L149) | Every `dictionary_word`, ordered by `word_rank`, numbered 1, 2, 3… Senses by `position`. Forms in the order they were imported. |
+| JSON text | [160-161](../../../pipeline/src/pipeline/export.py#L160-L161) | `examples_json` and `usage_json` are parsed and written again, so the text has one format also after an edit in the admin. |
+| `image_url` | [162](../../../pipeline/src/pipeline/export.py#L162) | `media/<file_name>` from the sense's media row, else empty. |
+| Rebuild | [125](../../../pipeline/src/pipeline/export.py#L125) | Deletes and recreates the file each time. `meta.dictionary_version` = UTC timestamp ([181](../../../pipeline/src/pipeline/export.py#L181)). |
+| Media folder | [191-204](../../../pipeline/src/pipeline/export.py#L191-L204) | Copies the files the senses use from `--media-dir` (default `data/media`) into `data/out/media/` (emptied first). Files that are not there are listed as a warning; the sense still points to them. |
+| `export-local` | [52](../../../pipeline/src/pipeline/export.py#L52) | The old export from `data/pipeline.db` (only `done` words; the usage and examples warnings). Use it only for a fresh `generate` run until those words can be imported into Postgres. |
+
+An edit made in the admin for a bundled word is in the next `export` (tested: edit one definition in the admin, export, only that sense row differs from the bundled file).
+
+Copy `data/out/dictionary.sqlite` and `data/out/media/` into `EnglishTranslation/EnglishTranslation/Resources/` to ship them.
 
 ## Commands ([cli.py](../../../pipeline/src/pipeline/cli.py))
 
@@ -229,7 +266,9 @@ Uses the free library **lemminflect** to say what each form is, so the app can s
 | `uv run pipeline usage` | Yes, 1 call per word (~$8 for 2,750 words) | Add usage to every done word that has none. Resume-safe; run it again to retry failed words ([cli.py:111-122](../../../pipeline/src/pipeline/cli.py#L111-L122)) |
 | `uv run pipeline revalidate` | No | Re-check stored `needs_review` entries after the checks change; passing ones become `done` ([cli.py:92-108](../../../pipeline/src/pipeline/cli.py#L92-L108)) |
 | `uv run pipeline report` | No | Counts per status + the problem list |
-| `uv run pipeline export` | No | Build `data/out/dictionary.sqlite` + `.jsonl` |
+| `uv run pipeline import-to-postgres` | No | One time: copy the bundled `dictionary.sqlite` (+ media facts) into Postgres. Re-run safe; `--overwrite`, `--sqlite`, `--media-dir`, `--database-url` |
+| `uv run pipeline export` | No | Build `data/out/dictionary.sqlite`, `.jsonl` and `media/` from Postgres (read-only). `--media-dir`, `--database-url` |
+| `uv run pipeline export-local` | No | Old: build `dictionary.sqlite` from `data/pipeline.db` |
 
 ## Tests
 
@@ -241,14 +280,19 @@ Uses the free library **lemminflect** to say what each form is, so the app can s
 | [test_usage.py](../../../pipeline/tests/test_usage.py) | Usage checks (contractions, hard words, `sb`/`sth`), the pass with a fake LLM (definitions untouched, resume, no retry on error, bad items dropped, max 3, dry run), the prompt has the agreed examples, export stores usage as JSON |
 | [test_examples.py](../../../pipeline/tests/test_examples.py) | Example checks (levels, 2 words outside the list for harder, headword or a form), an example that repeats another one is dropped, the examples pass with a fake LLM (definitions untouched, order, resume, no retry, drops, old examples kept as a fallback, dry run), old string examples load, form types (ran, went, running, apples, runs, …), export stores levels and form types |
 
-Run: `uv run pytest` in `pipeline/` (no API key needed).
+| [test_postgres.py](../../../pipeline/tests/test_postgres.py) | Import counts match the file (words, senses, forms, media), columns and media facts, Pixabay attribution from `pipeline.db`, import twice changes nothing, admin edits survive a re-import (and `--overwrite` replaces them), a failed import changes nothing, round trip (import then export gives the same schema and rows), word numbering by rank, an edit in Postgres is in the next export, missing media files, read-only connection. Last test: the whole bundled file (2,750 words, 7,779 senses, 5,542 forms) round-trips. |
+
+Run: `uv run pytest` in `pipeline/` (no API key needed). The Postgres tests need `TEST_DATABASE_URL` (a Postgres you can write to, for example `postgresql://postgres@localhost:5432/postgres`); without it they are skipped. Each test makes its own schema from the backend's Flyway files and drops it. CI starts a Postgres for them.
 
 ## Known gaps
 
 - **Network errors become `failed` with `attempts=1`**, even when some LLM calls already ran ([cli.py:67-68](../../../pipeline/src/pipeline/cli.py#L67-L68)). `report` undercounts calls for these words.
 - **3 schema errors in a row → `needs_review` with no entry** ([cli.py:54-62](../../../pipeline/src/pipeline/cli.py#L54-L62)). Harmless for export, but `report` shows the schema error as the problem.
 - **No sampling control** on Claude 5.5 models. Fine here: the output is generated once and stored, so R3's "same input, same output" holds through the file.
-- **Image fields are generated but not used yet** (`image_url` is always empty). Images are out of scope for v1.
+- **Words from a new `generate` run are not imported into Postgres yet.** `import-to-postgres` reads a `dictionary.sqlite`, not `data/pipeline.db`. Until a pipeline.db import exists, use `export-local` for a fresh run (it does not include admin edits).
+- **Media files are not in Postgres and `import-to-postgres` does not upload them.** Only 3 sample files are in the repo (`Resources/media`). The full set comes with the media pass (TASK-23); copying the folder to the VPS and serving it is TASK-49.4.
+- **`needs_review` words from `pipeline.db` (59) are not in Postgres**, because they are not in the bundled file.
+- **Bundled words cannot be deleted in the admin** (a delete would drop the word from the next `dictionary.sqlite`); the admin edits them instead.
 - **The usage pass has not run on the real data yet** (TASK-24): until the developer runs `uv run pipeline usage`, `dictionary.sqlite` has an empty `usage` for every word. Words whose call fails keep no usage until the next run.
 - **The examples pass has not run on the real data yet** (TASK-35): until the developer runs `uv run pipeline examples` and then `export`, the bundled `dictionary.sqlite` has old examples and no `forms.type`. The app reads both old and new files.
 - **59 words are not in the file** (`needs_review` after allowlist + Sonnet retry on 2026-10-11: 18 use the headword, 3 too long, the rest use rarer words). The backend fills them on demand.

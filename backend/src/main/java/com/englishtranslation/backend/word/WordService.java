@@ -68,9 +68,11 @@ public class WordService {
             }
         }
         try {
-            repository.saveAndFlush(new WordLookup(
+            WordLookup row = new WordLookup(
                     cacheKey, normalized, jsonMapper.writeValueAsString(entry), properties.model(),
-                    properties.wordPromptVersion(), needsReview));
+                    properties.wordPromptVersion(), needsReview);
+            row.setCefr(entry.firstCefr());
+            repository.saveAndFlush(row);
             return response(normalized, entry, false);
         } catch (DataIntegrityViolationException e) {
             // Another request saved the same key while we waited for Claude. Keep the first answer.

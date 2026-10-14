@@ -6,6 +6,11 @@ import java.util.List;
 /** Same shape as pipeline/src/pipeline/models.py, in camelCase and without the image fields. */
 public record WordEntry(List<Sense> senses) {
 
+    /** The level of the first (main) sense, or null when there is none. The admin list filters on it. */
+    public String firstCefr() {
+        return senses == null || senses.isEmpty() || senses.get(0) == null ? null : senses.get(0).cefr();
+    }
+
     public record Sense(
             String pos,
             String cefr,
