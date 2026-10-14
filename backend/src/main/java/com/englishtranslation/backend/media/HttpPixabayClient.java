@@ -73,7 +73,7 @@ public class HttpPixabayClient implements PixabayClient {
     public byte[] download(String url) {
         URI uri = URI.create(url);
         // Only download from Pixabay, whatever the answer said.
-        if (!"https".equals(uri.getScheme()) || uri.getHost() == null || !uri.getHost().endsWith("pixabay.com")) {
+        if (!isPixabayAddress(uri)) {
             throw new IllegalArgumentException("Not a Pixabay https address: " + uri.getHost());
         }
         HttpResponse<byte[]> response = send(HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(60)).build(),
@@ -137,5 +137,12 @@ public class HttpPixabayClient implements PixabayClient {
             }
         }
         lastCallAt = System.currentTimeMillis();
+    }
+
+    /** True only for https on pixabay.com or one of its subdomains (cdn.pixabay.com), not "evilpixabay.com". */
+    static boolean isPixabayAddress(URI uri) {
+        String host = uri.getHost();
+        return "https".equals(uri.getScheme()) && host != null
+                && (host.equals("pixabay.com") || host.endsWith(".pixabay.com"));
     }
 }
