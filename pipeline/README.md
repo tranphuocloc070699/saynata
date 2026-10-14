@@ -8,8 +8,18 @@ examples, and an image hint for each sense of each word.
 ```
 NGSL word list ─► Kaikki (Wiktionary JSON) ─► filter senses ─► LLM ────► validate ─► retry
                                                                               │
-                                     data/out/dictionary.sqlite ◄─ export ◄───┘
+                                                                              │
+                          (one time) import-to-postgres ◄─ dictionary.sqlite ─┘
+                                          │
+                                          ▼
+                              server Postgres = source of truth  ◄─ edits in the admin web app
+                                          │
+                      data/out/dictionary.sqlite + media/ ◄─ export
 ```
+
+Since TASK-49.3 the **server Postgres** holds the bundled words, senses, forms and media rows. `export` builds
+`dictionary.sqlite` (the same file format the app already reads) from it. The generate passes still write to
+`data/pipeline.db`; their words are not imported into Postgres yet.
 
 | File | Job |
 |---|---|
@@ -23,7 +33,8 @@ NGSL word list ─► Kaikki (Wiktionary JSON) ─► filter senses ─► LLM �
 | `examples.py` | The examples pass: gives each sense 3 examples (easy, medium, harder) |
 | `forms.py` | Labels each word form (past tense, plural, ...) with lemminflect |
 | `media.py` | The media pass: fetches & resizes Pixabay photos (320px WebP) and action loops (MP4) |
-| `export.py` | Builds `dictionary.sqlite` for the iOS app + `dictionary.jsonl` |
+| `postgres.py` | Connects to the server Postgres (`DATABASE_URL`) and imports `dictionary.sqlite` into it (one time, re-run safe) |
+| `export.py` | Builds `dictionary.sqlite` + `dictionary.jsonl` + `media/` from Postgres (read-only). `export-local` is the old export from `data/pipeline.db` |
 
 ## Run
 
@@ -40,8 +51,15 @@ uv run pipeline examples --dry-run --words run make get  # 3 calls (~$0.01), sav
 uv run pipeline examples            # 3 levelled examples per sense for every done word (1 call per word, ~$8)
 uv run pipeline media --dry-run --words apple run bank   # preview Pixabay photo & video matches, saves nothing
 uv run pipeline media               # download, resize, and cache media for all eligible senses
-uv run pipeline export
+uv run pipeline import-to-postgres  # one time: copy the bundled dictionary.sqlite into Postgres (DATABASE_URL in .env)
+uv run pipeline export              # build data/out/dictionary.sqlite and data/out/media/ from Postgres
 ```
+
+`import-to-postgres` skips words that are already in Postgres, so it is safe to run again and it never overwrites
+edits made in the admin. `--overwrite` replaces them with the file. Options: `--sqlite PATH` (default: the file in the
+app's Resources), `--media-dir PATH` (default: `media/` next to that file), `--database-url`.
+`export` uses a read-only connection and copies the media files named in Postgres from `--media-dir`
+(default `data/media`) into `data/out/media/`.
 
 `usage` only adds the `usage` list to entries that are already `done`. It never changes definitions,
 makes one call per word with no retries, and can be stopped and run again.
@@ -52,6 +70,7 @@ makes one call per word with no retries, and can be stopped and run again.
 | What | Command | Uses LLM? |
 |---|---|---|
 | Unit tests (checker, sense filter) | `uv run pytest` | No |
+| Import and export tests (need a Postgres) | `TEST_DATABASE_URL=postgresql://user@host/db uv run pytest` | No |
 | See the prompt for a word | `uv run pipeline preview bank` | No |
 | Try one word, save nothing | `uv run pipeline try bank` | Yes, 1-3 calls |
 | Small real batch | `uv run pipeline generate --limit 20` then `report` | Yes |

@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-14 11:45'
+updated_date: '2026-10-14 11:55'
 ---
 # Deploy to a VPS
 
@@ -60,6 +60,7 @@ nano .env
 | `ADMIN_EMAIL` | Email of the first admin (for the admin web app). Used only when no admin exists yet. |
 | `ADMIN_INITIAL_PASSWORD` | Password of the first admin, 12+ characters. Used only when no admin exists yet; remove it from `.env` after the first start. |
 | `ADMIN_ENABLED` | Optional. `false` turns the admin API off. Default `true`. |
+| `POSTGRES_PORT` | Optional. Port of Postgres on the server's own loopback (`127.0.0.1`), for the dictionary pipeline (section 8). Default 5432. It is never open to the internet. |
 
 The admin API (`/api/admin`, see [Admin API](../features/doc-13%20-%20Admin-API.md)) is for the admin web app.
 Its login cookie is `SameSite=Strict`, so the admin site and the API must share a site, for example
@@ -218,6 +219,41 @@ To update after a `git pull`, run step 2 again and nothing else: Caddy reads the
 The Caddy user must be able to read the folder (`chmod -R o+rX ~/saynata/admin/dist`, and `chmod o+x` on each parent folder).
 CI builds and tests the admin app on every pull request (`admin` job in `.github/workflows/ci.yml`).
 
+## 9. Dictionary pipeline: Postgres and media (TASK-49.3)
+
+The bundled dictionary (2,750 words) lives in this server's Postgres (tables `dictionary_word`, `dictionary_sense`,
+`dictionary_form`, `media`; made by Flyway when the backend starts). The pipeline on your Mac imports into it once and
+exports `dictionary.sqlite` from it, see [Dictionary pipeline](../features/doc-6%20-%20Dictionary-pipeline.md).
+
+**`DATABASE_URL` for the pipeline.** Postgres has no public port. Compose publishes it only on the server's loopback
+(`127.0.0.1:5432`), so open an SSH tunnel from your Mac and keep it open while the pipeline runs:
+
+```bash
+ssh -N -L 55432:127.0.0.1:5432 vps_sieutoc      # change 5432 if you set POSTGRES_PORT
+```
+
+Then in `pipeline/.env` (git-ignored):
+
+```
+DATABASE_URL=postgresql://app:YOUR_DB_PASSWORD@localhost:55432/english_translation
+```
+
+`app` and `english_translation` are the user and database in `docker-compose.prod.yml`; the password is `DB_PASSWORD`
+from `backend/.env`. Start the backend once before the first import (it creates the tables). Then, in `pipeline/`:
+
+```bash
+uv run pipeline import-to-postgres   # one time; safe to run again
+uv run pipeline export               # read-only; builds data/out/dictionary.sqlite and data/out/media/
+```
+
+**The media folder.** Media files (photos and short clips) are not stored in Postgres. Postgres keeps only a row per
+file (`media`: file name, photo or clip, size, Pixabay author and page link). The files live on disk. The planned place
+on the VPS is a folder such as `/var/lib/saynata/media` (a Docker volume), served by Caddy; setting that up is
+TASK-49.4. Until then, keep the files in `pipeline/data/media/` (the media pass writes there). `import-to-postgres`
+reads sizes from `--media-dir` (default: `media/` next to the sqlite file) and `export` copies the files named in
+Postgres from `--media-dir` (default `data/media`) into `data/out/media/`. Copy files to the server with
+`rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/`.
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -228,4 +264,5 @@ CI builds and tests the admin app on every pull request (`admin` job in `.github
 | App cannot connect | Test the URL with `curl` from your laptop. Check DNS, the firewall, and that the URL starts with `https://`. |
 | Deploy fails with `Not possible to fast-forward` | Someone changed files in `~/saynata` on the server. Run `git status` there, then `git checkout -- .` to drop the changes. |
 | Deploy fails with `Host key verification failed` | `VPS_KNOWN_HOSTS` is wrong or the server was rebuilt. Run `ssh-keyscan` again and update the secret. |
+| Pipeline cannot connect to `DATABASE_URL` | Is the SSH tunnel open? Does the port in the URL match `-L`? Is the compose file the new one (`docker compose -f docker-compose.prod.yml up -d` recreates Postgres with the loopback port; the data stays in the volume)? |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |

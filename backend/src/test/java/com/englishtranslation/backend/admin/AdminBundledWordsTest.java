@@ -1,0 +1,318 @@
+package com.englishtranslation.backend.admin;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.dictionary.DictionarySense;
+import com.englishtranslation.backend.dictionary.DictionaryWord;
+import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
+import com.englishtranslation.backend.translation.SentenceTranslationRepository;
+import com.englishtranslation.backend.user.Role;
+import com.englishtranslation.backend.user.User;
+import com.englishtranslation.backend.user.UserRepository;
+import com.englishtranslation.backend.word.WordLookup;
+import com.englishtranslation.backend.word.WordLookupRepository;
+import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+
+/** The bundled words (table dictionary_word) in the admin words API, next to the backend words. */
+@SpringBootTest(properties = "app.claude.api-key=test-key")
+@AutoConfigureMockMvc
+class AdminBundledWordsTest {
+
+    static final String EXAMPLES = "[{\"level\":\"easy\",\"text\":\"I run.\"},{\"level\":\"medium\",\"text\":\"She runs.\"},"
+            + "{\"level\":\"harder\",\"text\":\"He ran to the bus.\"}]";
+    static final String USAGE = "[{\"kind\":\"phrase\",\"pattern\":\"run away\",\"example\":\"The dog ran away.\"}]";
+
+    static final String NEW_ENTRY = """
+            {"entry": {"senses": [
+              {"pos": "verb", "cefr": "A1", "simpleDefinition": "to move fast on your feet", "vietnamese": "chạy",
+               "examples": [{"level": "easy", "text": "I run every day."}], "usage": []},
+              {"pos": "noun", "cefr": "B1", "simpleDefinition": "a fast walk for exercise", "vietnamese": "cuộc chạy",
+               "examples": [{"level": "easy", "text": "I went for a run."}], "usage": []}]}}
+            """;
+
+    static final String ONE_SENSE_ENTRY = """
+            {"entry": {"senses": [
+              {"pos": "verb", "cefr": "A1", "simpleDefinition": "to go fast", "vietnamese": "chạy",
+               "examples": [{"level": "easy", "text": "I run."}], "usage": []}]}}
+            """;
+
+    @Autowired
+    MockMvc mockMvc;
+    @Autowired
+    UserRepository users;
+    @Autowired
+    PasswordEncoder passwordEncoder;
+    @Autowired
+    DictionaryWordRepository bundled;
+    @Autowired
+    WordLookupRepository backend;
+    @Autowired
+    SentenceTranslationRepository sentences;
+    @Autowired
+    LoginRateLimiter rateLimiter;
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @MockitoBean
+    ClaudeService claude;
+
+    Cookie adminCookie;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        backend.deleteAll();
+        bundled.deleteAll();
+        sentences.deleteAll();
+        users.deleteAll();
+        rateLimiter.reset();
+        users.save(new User("admin@example.com", passwordEncoder.encode("correct-horse-battery"), "Admin", Role.ADMIN));
+        adminCookie = mockMvc.perform(post("/api/admin/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"admin@example.com\", \"password\": \"correct-horse-battery\"}"))
+                .andReturn().getResponse().getCookie("saynata_admin");
+    }
+
+    private MockHttpServletRequestBuilder asAdmin(MockHttpServletRequestBuilder request) {
+        return request.cookie(adminCookie).contentType(MediaType.APPLICATION_JSON);
+    }
+
+    /** A bundled word with one sense per level given; every sense has a picture ("photo", query "<lemma> picture"). */
+    private DictionaryWord saveBundled(String lemma, int rank, boolean needsReview, String... levels) {
+        DictionaryWord word = new DictionaryWord(lemma, rank, "/" + lemma + "/");
+        word.setNeedsReview(needsReview);
+        for (int i = 0; i < levels.length; i++) {
+            DictionarySense sense = new DictionarySense(word, i);
+            sense.setText("verb", levels[i], "meaning " + i + " of " + lemma, "nghĩa", EXAMPLES, USAGE);
+            word.getSenses().add(sense);
+        }
+        DictionaryWord saved = bundled.save(word);
+        jdbc.update("update dictionary_sense set image_type = 'photo', image_query = ? where word_id = ?",
+                lemma + " picture", saved.getId());
+        return saved;
+    }
+
+    private WordLookup saveBackend(String word, String cefr, boolean needsReview) {
+        String json = "{\"senses\":[{\"pos\":\"noun\",\"cefr\":\"" + cefr + "\",\"simpleDefinition\":\"backend text\","
+                + "\"vietnamese\":\"x\",\"examples\":[{\"level\":\"easy\",\"text\":\"A " + word + ".\"}],\"usage\":[]}]}";
+        WordLookup row = new WordLookup("key-" + word, word, json, "test-model", "v7", needsReview);
+        row.setCefr(cefr);
+        return backend.save(row);
+    }
+
+    @Test
+    void listShowsBundledAndBackendWordsWithTheirSourceAndPrefixedIds() throws Exception {
+        DictionaryWord run = saveBundled("run", 5, false, "A1");
+        WordLookup zebra = saveBackend("zebra", "B1", false);
+        // The two tables count ids separately, so the same number can exist in both. The letter keeps them apart.
+        mockMvc.perform(asAdmin(get("/api/admin/words?_start=0&_end=10&_sort=word&_order=ASC")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "2"))
+                .andExpect(jsonPath("$[0].id").value("b-" + run.getId()))
+                .andExpect(jsonPath("$[0].word").value("run"))
+                .andExpect(jsonPath("$[0].source").value("bundled"))
+                .andExpect(jsonPath("$[0].ipa").value("/run/"))
+                .andExpect(jsonPath("$[0].entry.senses[0].simpleDefinition").value("meaning 0 of run"))
+                .andExpect(jsonPath("$[0].entry.senses[0].examples.length()").value(3))
+                .andExpect(jsonPath("$[0].entry.senses[0].usage[0].kind").value("phrase"))
+                .andExpect(jsonPath("$[1].id").value("w-" + zebra.getId()))
+                .andExpect(jsonPath("$[1].source").value("backend"))
+                .andExpect(jsonPath("$[1].ipa").doesNotExist())
+                .andExpect(jsonPath("$[1].entry.senses[0].simpleDefinition").value("backend text"));
+    }
+
+    @Test
+    void listCanFilterBySource() throws Exception {
+        saveBundled("run", 5, false, "A1");
+        saveBundled("walk", 6, false, "A1");
+        saveBackend("zebra", "B1", false);
+
+        mockMvc.perform(asAdmin(get("/api/admin/words?source=bundled&_sort=word&_order=ASC")))
+                .andExpect(header().string("X-Total-Count", "2"))
+                .andExpect(jsonPath("$[0].word").value("run"))
+                .andExpect(jsonPath("$[1].word").value("walk"));
+        mockMvc.perform(asAdmin(get("/api/admin/words?source=backend")))
+                .andExpect(header().string("X-Total-Count", "1"))
+                .andExpect(jsonPath("$[0].word").value("zebra"));
+        mockMvc.perform(asAdmin(get("/api/admin/words?source=other")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(containsString("source must be one of")));
+    }
+
+    @Test
+    void listCanFilterByCefrOfTheFirstSense() throws Exception {
+        saveBundled("run", 1, false, "A1", "C1"); // first sense A1; the second sense does not count
+        saveBundled("walk", 2, false, "A2");
+        saveBundled("analyse", 3, false, "B2");
+        saveBackend("zebra", "B1", false);
+
+        mockMvc.perform(asAdmin(get("/api/admin/words?cefr=A1,A2&_sort=word&_order=ASC")))
+                .andExpect(header().string("X-Total-Count", "2"))
+                .andExpect(jsonPath("$[0].word").value("run"))
+                .andExpect(jsonPath("$[1].word").value("walk"));
+        mockMvc.perform(asAdmin(get("/api/admin/words?cefr=B1,B2&_sort=word&_order=ASC")))
+                .andExpect(header().string("X-Total-Count", "2"))
+                .andExpect(jsonPath("$[0].word").value("analyse"))
+                .andExpect(jsonPath("$[1].word").value("zebra"));
+        mockMvc.perform(asAdmin(get("/api/admin/words?cefr=b2&source=bundled")))
+                .andExpect(header().string("X-Total-Count", "1"));
+        mockMvc.perform(asAdmin(get("/api/admin/words?cefr=C1")))
+                .andExpect(header().string("X-Total-Count", "0"));
+        mockMvc.perform(asAdmin(get("/api/admin/words?cefr=Z9")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(containsString("cefr must be a list of")));
+    }
+
+    @Test
+    void filtersWorkTogetherWithSearchAndNeedsReview() throws Exception {
+        saveBundled("run", 1, true, "A1");
+        saveBundled("runner", 2, false, "A1");
+        saveBackend("running", "A1", true);
+
+        mockMvc.perform(asAdmin(get("/api/admin/words?q=RUN&needs_review=true&_sort=word&_order=ASC")))
+                .andExpect(header().string("X-Total-Count", "2"))
+                .andExpect(jsonPath("$[0].word").value("run"))
+                .andExpect(jsonPath("$[1].word").value("running"));
+        mockMvc.perform(asAdmin(get("/api/admin/words?q=run&needs_review=true&source=bundled&cefr=A1")))
+                .andExpect(header().string("X-Total-Count", "1"))
+                .andExpect(jsonPath("$[0].word").value("run"));
+    }
+
+    @Test
+    void listPagesAcrossBothSourcesAndSortsById() throws Exception {
+        saveBundled("a", 1, false, "A1");
+        saveBundled("b", 2, false, "A1");
+        saveBackend("c", "A1", false);
+
+        // Sorting by id means: by source ("bundled" before "backend" when descending), then by the number.
+        mockMvc.perform(asAdmin(get("/api/admin/words?_start=0&_end=2")))
+                .andExpect(header().string("X-Total-Count", "3"))
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].word").value("b"))
+                .andExpect(jsonPath("$[1].word").value("a"));
+        mockMvc.perform(asAdmin(get("/api/admin/words?_start=2&_end=4")))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].word").value("c"));
+        mockMvc.perform(asAdmin(get("/api/admin/words?_sort=id&_order=ASC")))
+                .andExpect(jsonPath("$[0].word").value("c"))
+                .andExpect(jsonPath("$[1].word").value("a"));
+    }
+
+    @Test
+    void getOneBundledWordAndNumbersWithoutALetterAre404() throws Exception {
+        DictionaryWord run = saveBundled("run", 1, true, "A1", "B1");
+
+        mockMvc.perform(asAdmin(get("/api/admin/words/b-" + run.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("b-" + run.getId()))
+                .andExpect(jsonPath("$.source").value("bundled"))
+                .andExpect(jsonPath("$.needsReview").value(true))
+                .andExpect(jsonPath("$.entry.senses.length()").value(2))
+                .andExpect(jsonPath("$.entry.senses[1].cefr").value("B1"));
+        mockMvc.perform(asAdmin(get("/api/admin/words/b-999999"))).andExpect(status().isNotFound());
+        mockMvc.perform(asAdmin(get("/api/admin/words/" + run.getId()))).andExpect(status().isNotFound());
+        mockMvc.perform(asAdmin(get("/api/admin/words/x-1"))).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void updateBundledWordChangesTheDictionaryTablesAndKeepsThePictureFields() throws Exception {
+        DictionaryWord run = saveBundled("run", 1, false, "A1");
+
+        mockMvc.perform(asAdmin(put("/api/admin/words/b-" + run.getId())).content(NEW_ENTRY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("b-" + run.getId()))
+                .andExpect(jsonPath("$.entry.senses.length()").value(2))
+                .andExpect(jsonPath("$.entry.senses[0].examples.length()").value(1));
+
+        assertThat(jdbc.queryForList(
+                "select position, cefr, simple_definition, image_type, image_query, examples_json, usage_json"
+                        + " from dictionary_sense where word_id = ? order by position", run.getId()))
+                .satisfiesExactly(
+                        first -> {
+                            assertThat(first.get("simple_definition")).isEqualTo("to move fast on your feet");
+                            assertThat(first.get("image_type")).isEqualTo("photo"); // kept
+                            assertThat(first.get("image_query")).isEqualTo("run picture"); // kept
+                            assertThat((String) first.get("examples_json")).contains("I run every day.");
+                            assertThat(first.get("usage_json")).isEqualTo("[]");
+                        },
+                        second -> {
+                            assertThat(second.get("cefr")).isEqualTo("B1");
+                            assertThat(second.get("image_type")).isEqualTo("none"); // a new sense has no picture
+                        });
+
+        // A shorter entry removes the senses at the end.
+        mockMvc.perform(asAdmin(put("/api/admin/words/b-" + run.getId())).content(ONE_SENSE_ENTRY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entry.senses.length()").value(1));
+        assertThat(jdbc.queryForObject("select count(*) from dictionary_sense where word_id = ?", Integer.class,
+                run.getId())).isEqualTo(1);
+    }
+
+    @Test
+    void updateBundledWordIsValidatedLikeABackendWordAndSavesNothingOnError() throws Exception {
+        DictionaryWord run = saveBundled("run", 1, false, "A1");
+        String bad = NEW_ENTRY.replace("\"easy\"", "\"simple\"");
+
+        mockMvc.perform(asAdmin(put("/api/admin/words/b-" + run.getId())).content(bad))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(containsString("entry.senses[0].examples[0].level must be one of")));
+        mockMvc.perform(asAdmin(put("/api/admin/words/b-" + run.getId())).content("{}"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(jdbc.queryForObject("select simple_definition from dictionary_sense where word_id = ?",
+                String.class, run.getId())).isEqualTo("meaning 0 of run");
+    }
+
+    @Test
+    void updateBackendWordKeepsItsLevelForTheCefrFilter() throws Exception {
+        WordLookup zebra = saveBackend("zebra", "B1", false);
+
+        mockMvc.perform(asAdmin(put("/api/admin/words/w-" + zebra.getId())).content(NEW_ENTRY))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(asAdmin(get("/api/admin/words?cefr=A1")))
+                .andExpect(header().string("X-Total-Count", "1"));
+        mockMvc.perform(asAdmin(get("/api/admin/words?cefr=B1")))
+                .andExpect(header().string("X-Total-Count", "0"));
+    }
+
+    @Test
+    void markBundledWordReviewed() throws Exception {
+        DictionaryWord run = saveBundled("run", 1, true, "A1");
+
+        mockMvc.perform(asAdmin(post("/api/admin/words/b-" + run.getId() + "/reviewed")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.needsReview").value(false));
+        assertThat(bundled.findById(run.getId()).orElseThrow().isNeedsReview()).isFalse();
+    }
+
+    @Test
+    void aBundledWordCannotBeDeleted() throws Exception {
+        DictionaryWord run = saveBundled("run", 1, false, "A1");
+
+        mockMvc.perform(asAdmin(delete("/api/admin/words/b-" + run.getId())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(containsString("cannot be deleted")));
+        assertThat(bundled.findById(run.getId())).isPresent();
+        mockMvc.perform(asAdmin(delete("/api/admin/words/b-999999"))).andExpect(status().isNotFound());
+    }
+}
