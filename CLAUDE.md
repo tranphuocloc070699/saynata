@@ -87,6 +87,31 @@ Do not edit Backlog task, draft, document, decision, or milestone markdown files
   starts with a mockup (an inline visual or a page) and waits for the developer's choice. Only then change
   SwiftUI code. Bug fixes that keep the agreed design (flicker, wrong colour token) do not need a mockup.
 
+## Conventions
+
+Follow the code that is already there; these are the rules it uses (TASK-12).
+
+- **iOS** (`EnglishTranslation/`): SwiftUI views in `Views/<Flow>/` (Translate, Word, Sentence, SelectedText,
+  Settings, Shared); state in `@Observable` classes (`Stores/`, `Speech/`) injected with `.environment`, so every
+  `#Preview` that needs one adds it (for example `.environment(SpeechPlayer.silent())`). Colors, spacing, radius and
+  text styles only from `Theme` and `DesignSystem/Components` (`IconButton`, `cardSurface()`…), per
+  `docs/design/design-system.md`. System APIs sit behind a small protocol so tests use a fake. Tests use Swift
+  Testing (`import Testing`, `@Test`, `#expect`) in `EnglishTranslationTests/`.
+  Test: ⌘U, or `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' -only-testing:EnglishTranslationTests -parallel-testing-enabled NO`.
+- **Backend** (`backend/`): one package per feature (`translation/`, `word/`, `claude/`, `cache/`, `common/`),
+  each with its controller, service, repository and records. Errors are `ProblemDetail` responses from
+  `common/ApiExceptionHandler`. Schema changes only as a new Flyway file `V<n>__<what>.sql`; never edit an old one.
+  A prompt change bumps its version in `application.properties` (`app.claude.*-prompt-version`). Secrets come from env
+  or `backend/.env` (git-ignored); new keys go in `.env.example` and doc-11. Tests are JUnit 5 + `@SpringBootTest`
+  with a fake Claude key; they never call the real API. Test: `cd backend && ./mvnw -B test`.
+- **Pipeline** (`pipeline/`): one module per step in `src/pipeline/` (`senses`, `examples`, `usage`, `forms`, `media`,
+  `validate`, `export`), run through `cli.py`; progress is saved in `pipeline.db`, so every step can resume.
+  Agents never start paid passes (LLM, large media runs); they write the code and say the command and its cost.
+  Test: `cd pipeline && uv run pytest`.
+- **Everywhere**: branches `feature/f<n>-<name>` for features and `f<n>/task-<id>` for their tasks, `fix/<what>` for
+  fixes; merge, never rebase or force-push; every PR has a "Test it" card; only the main chat marks a task Done,
+  after the developer has tested it. Commit messages start with the task ID.
+
 ## Feature docs
 
 `backlog/docs/features/` has one page per flow (files, `file:line` links, Mermaid diagrams, errors, tests, known gaps).
