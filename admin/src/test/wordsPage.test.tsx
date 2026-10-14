@@ -95,6 +95,38 @@ describe("words page", () => {
     expect(within(entry).getByRole("button", { name: "Regenerate" })).toBeInTheDocument();
   });
 
+  it("shows the photo of a sense with the Pixabay credit, and a dash when there is none", async () => {
+    const withPhoto: WordItem = {
+      ...run,
+      entry: { senses: [run.entry.senses[0], { ...run.entry.senses[0], simpleDefinition: "A race." }] },
+      media: [
+        { url: "https://api.loffy.me/media/run_1_ab.webp", kind: "photo", photographer: "Jane Photo", pageUrl: "https://pixabay.com/photos/x-1/" },
+        null,
+      ],
+    };
+    renderWords([withPhoto]);
+    await userEvent.click(await screen.findByRole("button", { name: /run/ }));
+
+    const entry = screen.getByRole("region", { name: "Entry" });
+    expect(within(entry).getByRole("img", { name: "run, sense 1" })).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.webp");
+    expect(within(entry).getByRole("link", { name: "Jane Photo" })).toHaveAttribute("href", "https://pixabay.com/photos/x-1/");
+    expect(within(entry).queryByRole("img", { name: "run, sense 2" })).not.toBeInTheDocument();
+  });
+
+  it("plays a clip as a muted looping video", async () => {
+    const withClip: WordItem = {
+      ...run,
+      media: [{ url: "https://api.loffy.me/media/run_1_ab.mp4", kind: "clip", photographer: "Pat Maker", pageUrl: "https://pixabay.com/videos/x-2/" }],
+    };
+    renderWords([withClip]);
+    await userEvent.click(await screen.findByRole("button", { name: /run/ }));
+
+    const video = within(screen.getByRole("region", { name: "Entry" })).getByLabelText("run, sense 1");
+    expect(video.tagName).toBe("VIDEO");
+    expect(video).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.mp4");
+    expect((video as HTMLVideoElement).muted).toBe(true);
+  });
+
   it("asks for confirmation before regenerating", async () => {
     renderWords([run]);
     await userEvent.click(await screen.findByRole("button", { name: /run/ }));

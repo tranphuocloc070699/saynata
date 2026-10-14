@@ -23,7 +23,15 @@ export interface Sense {
   vietnamese: string;
   examples: Example[];
   usage: UsageLine[];
-  imageUrl?: string;
+}
+
+// The picture or clip of one sense, with the Pixabay credit (TASK-49.4).
+export interface SenseMedia {
+  url: string;
+  kind: "photo" | "clip";
+  photographer: string;
+  pageUrl: string;
+  licenseNote?: string;
 }
 
 export interface WordEntry {
@@ -40,6 +48,8 @@ export interface WordItem {
   model: string;
   promptVersion: string;
   createdAt: string;
+  // One item per sense, same order as entry.senses; null when a sense has no media.
+  media?: (SenseMedia | null)[];
 }
 
 export interface SentenceWord {

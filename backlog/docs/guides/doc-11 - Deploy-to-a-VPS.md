@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-14 11:55'
+updated_date: '2026-10-14 12:19'
 ---
 # Deploy to a VPS
 
@@ -60,6 +60,9 @@ nano .env
 | `ADMIN_EMAIL` | Email of the first admin (for the admin web app). Used only when no admin exists yet. |
 | `ADMIN_INITIAL_PASSWORD` | Password of the first admin, 12+ characters. Used only when no admin exists yet; remove it from `.env` after the first start. |
 | `ADMIN_ENABLED` | Optional. `false` turns the admin API off. Default `true`. |
+| `PIXABAY_API_KEY` | Optional. Free key from https://pixabay.com/api/docs/ . With it, a new word that is not in the bundle gets a photo or clip in the background (section 9). Empty = no pictures are fetched. |
+| `MEDIA_BASE_URL` | Optional. Public address of the media folder. Default `https://api.loffy.me/media`. |
+| `MEDIA_HOST_DIR` | Optional. Folder on the server with the media files. Default `/var/lib/saynata/media` (section 9). |
 | `POSTGRES_PORT` | Optional. Port of Postgres on the server's own loopback (`127.0.0.1`), for the dictionary pipeline (section 8). Default 5432. It is never open to the internet. |
 
 The admin API (`/api/admin`, see [Admin API](../features/doc-13%20-%20Admin-API.md)) is for the admin web app.
@@ -129,6 +132,7 @@ api.example.com {
 ```
 
 3. Run `sudo systemctl reload caddy`, then `curl https://api.example.com/actuator/health`.
+   The same block also serves the sense photos and clips at `/media/`, see section 9.
 
 Option B: a tunnel such as Cloudflare Tunnel or Tailscale Funnel. You open no ports and need no certificate setup,
 but it adds an account and a service you depend on.
@@ -246,13 +250,60 @@ uv run pipeline import-to-postgres   # one time; safe to run again
 uv run pipeline export               # read-only; builds data/out/dictionary.sqlite and data/out/media/
 ```
 
-**The media folder.** Media files (photos and short clips) are not stored in Postgres. Postgres keeps only a row per
-file (`media`: file name, photo or clip, size, Pixabay author and page link). The files live on disk. The planned place
-on the VPS is a folder such as `/var/lib/saynata/media` (a Docker volume), served by Caddy; setting that up is
-TASK-49.4. Until then, keep the files in `pipeline/data/media/` (the media pass writes there). `import-to-postgres`
-reads sizes from `--media-dir` (default: `media/` next to the sqlite file) and `export` copies the files named in
-Postgres from `--media-dir` (default `data/media`) into `data/out/media/`. Copy files to the server with
-`rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/`.
+**The media folder (TASK-49.4).** Media files (photos and short clips) are not stored in Postgres. Postgres keeps only a row per
+file (`media`: file name, photo or clip, size, Pixabay author and page link). The files live on disk in
+`/var/lib/saynata/media` on the server. `docker-compose.prod.yml` mounts that folder into the backend container as
+`/app/media` (`MEDIA_DIR`), and Caddy serves it read-only at `https://api.loffy.me/media/<file>`.
+
+1. Make the folder once. The backend runs as user id 10001 inside the container, so that user must own it:
+
+```bash
+sudo mkdir -p /var/lib/saynata/media
+sudo chown 10001:10001 /var/lib/saynata/media
+sudo chmod 755 /var/lib/saynata/media     # Caddy only needs to read it
+```
+
+2. Add this inside the existing `api.loffy.me` block of `/etc/caddy/Caddyfile`, **before** `reverse_proxy`.
+   `handle_path` removes `/media` from the path, so `root` is the folder itself. File names contain a hash of the
+   content (for example `run_1_3fa9c2d1.mp4`), so a name never changes its file and the cache can be one year:
+
+```caddyfile
+api.loffy.me {
+    handle_path /media/* {
+        root * /var/lib/saynata/media
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
+    }
+    reverse_proxy 127.0.0.1:8081
+}
+```
+
+3. `sudo systemctl reload caddy`, then redeploy the backend (`./scripts/deploy.sh`). The image now has ffmpeg
+   (about 100 MB more). Check: `curl -I https://api.loffy.me/media/<a file name>` shows `Cache-Control: public, max-age=31536000, immutable`.
+
+**What puts files there.**
+
+- *New backend words.* With `PIXABAY_API_KEY` set, the backend saves a photo (320 px WebP) or a 3 s muted clip (MP4) for the
+  first 3 senses of a word it just created, after the answer was sent. The next lookup returns the address in
+  `imageUrl`. Pixabay is asked once per sense and at most 40 times a minute. Without a key nothing is fetched.
+- *The bundled 2,750 words (pipeline media pass).* Run the pass on your Mac (it uses your Pixabay key and takes a long time;
+  start with `--words run walk` to try it), then copy the files and the rows to the server:
+
+```bash
+cd pipeline
+uv run pipeline media --words run walk          # or without --words for the full pass (many Pixabay requests)
+uv run pipeline export-local                    # builds data/out/dictionary.sqlite from the media pass (image_url per sense)
+uv run pipeline link-media --media-dir data/media   # media rows + links into the server Postgres, through the SSH tunnel
+rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/
+```
+
+  `link-media` only adds `media` rows (file name, size, photographer, Pixabay page) and sets `media_id` on senses that have none.
+  It never changes text and never replaces media a sense already has, so admin edits are safe (`import-to-postgres` skips
+  words that are already there, so it cannot do this job). The files can be copied before or after the rows; an address works as soon as both exist. File names from the pipeline
+  are like `run_1.mp4` (no hash). Do not replace a file under the same name later, because the browser and the
+  app may keep the old one for a year; use a new name.
+- `import-to-postgres` reads sizes from `--media-dir` (default: `media/` next to the sqlite file) and `export` copies
+  the files named in Postgres from `--media-dir` (default `data/media`) into `data/out/media/`.
 
 ## Troubleshooting
 

@@ -22,7 +22,10 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
-      # Tests use H2 and a mocked ClaudeService: no Docker or API key needed.
+      # ffmpeg is for the converter test (it is skipped without ffmpeg).
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+        working-directory: .
+      # Tests use H2, a mocked ClaudeService and a fake Pixabay: no Docker or API key needed.
       - run: ./mvnw -B test
 
   docker:
