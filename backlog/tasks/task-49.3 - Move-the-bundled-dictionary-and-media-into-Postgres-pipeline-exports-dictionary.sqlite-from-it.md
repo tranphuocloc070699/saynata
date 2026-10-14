@@ -6,12 +6,13 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-14 10:54'
+updated_date: '2026-10-14 10:54'
 labels:
   - backend
   - pipeline
   - cms
 dependencies:
-  - TASK-49
+  - TASK-49.1
 parent_task_id: TASK-49
 priority: medium
 type: task

@@ -4,11 +4,12 @@ title: 'Admin web app: words and sentences review (React + React-Admin)'
 status: To Do
 assignee: []
 created_date: '2026-10-14 10:54'
+updated_date: '2026-10-14 10:54'
 labels:
   - web
   - cms
 dependencies:
-  - TASK-49
+  - TASK-49.1
 parent_task_id: TASK-49
 priority: high
 type: task
