@@ -11,10 +11,8 @@ import SwiftUI
 /// Shown for a single-word input (TASK-19); previews use the sample words.
 struct WordCardView: View {
     let entry: WordEntry
-    /// Called when the listen button is tapped. Speech is not built yet.
     /// The picked language. It titles the last row (TASK-40).
     var targetLanguage: TargetLanguage = .vietnamese
-    var onListen: () -> Void = {}
     /// False when the caller draws its own header (the share sheet puts three buttons beside the word).
     var showsHeader = true
 
@@ -23,15 +21,15 @@ struct WordCardView: View {
     /// Which senses have their target-language row open (by index). Starts as "Show translation" in Settings says.
     /// Kept apart from `openRow`, so "Always open" can open the row on every sense.
     @State private var openTargetRows: Set<Int>
+    @Environment(SpeechPlayer.self) private var speechPlayer
 
-    init(
-        entry: WordEntry, targetLanguage: TargetLanguage = .vietnamese, showsHeader: Bool = true,
-        onListen: @escaping () -> Void = {}
-    ) {
+    private let wordSpeechID = "word"
+    private var displayedWord: String { entry.matchedForm?.text ?? entry.word }
+
+    init(entry: WordEntry, targetLanguage: TargetLanguage = .vietnamese, showsHeader: Bool = true) {
         self.entry = entry
         self.targetLanguage = targetLanguage
         self.showsHeader = showsHeader
-        self.onListen = onListen
         let startsOpen = TranslationRowPreference().startsOpen
         _openTargetRows = State(initialValue: startsOpen ? Set(entry.senses.indices) : [])
     }
@@ -51,14 +49,21 @@ struct WordCardView: View {
     // MARK: - Parts
 
     private var header: some View {
-        WordHeaderView(entry: entry) {
-            IconButton(systemImage: "speaker.wave.2", label: "Listen", action: onListen)
+        WordHeaderView(entry: entry, isSpeaking: speechPlayer.currentID == wordSpeechID) {
+            IconButton(
+                systemImage: speechPlayer.currentID == wordSpeechID ? "stop.fill" : "speaker.wave.2",
+                label: speechPlayer.currentID == wordSpeechID ? "Stop" : "Listen to the word"
+            ) {
+                toggleSpeech(displayedWord, id: wordSpeechID)
+            }
         }
     }
 
     private func senseCard(_ sense: Sense, index: Int) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            SenseTitleRow(number: index + 1, sense: sense)
+            SenseTitleRow(
+                number: index + 1, sense: sense,
+                speechID: "sense-\(index)")
 
             if let imageUrl = sense.imageUrl {
                 SenseMediaView(path: imageUrl)
@@ -68,7 +73,7 @@ struct WordCardView: View {
             VStack(spacing: 0) {
                 if !sense.examples.isEmpty {
                     foldedRow("Examples", index: index) {
-                        WordExamplesSection(examples: sense.examples)
+                        WordExamplesSection(examples: sense.examples, senseIndex: index)
                     }
                 }
                 if !sense.usage.isEmpty {
@@ -114,34 +119,48 @@ struct WordCardView: View {
             content: content
         )
     }
+
+    private func toggleSpeech(_ text: String, id: String) {
+        if speechPlayer.currentID == id {
+            speechPlayer.stop()
+        } else {
+            speechPlayer.speak(text, id: id)
+        }
+    }
 }
 
 #Preview("Form: ran") {
     ScrollView { WordCardView(entry: .ran).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }
 
 #Preview("Two senses: apple") {
     ScrollView { WordCardView(entry: .apple).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }
 
 #Preview("Usage in all groups: get") {
     ScrollView { WordCardView(entry: .get).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }
 
 #Preview("Sense with no usage") {
     ScrollView { WordCardView(entry: .run).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }
 
 #Preview("Old data: string examples") {
     ScrollView { WordCardView(entry: .oldData).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }
 
 #Preview("Missing optional fields") {
     ScrollView { WordCardView(entry: .sparse).padding() }
         .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
 }

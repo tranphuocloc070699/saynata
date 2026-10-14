@@ -22,6 +22,8 @@ struct SelectedTextResultView: View {
     var onClose: (() -> Void)?
 
     @State private var store = TranslationStore()
+    /// The extensions have no app around them, so the sheet makes its own player for the speakers (F3).
+    @State private var speechPlayer = SpeechPlayer()
     /// Nil while the text is still being read.
     @State private var selectedText: String?
 
@@ -33,7 +35,9 @@ struct SelectedTextResultView: View {
             .padding(Theme.Spacing.large)
         }
         .background(Theme.Colors.background)
+        .environment(speechPlayer)
         .task { await explainSelectedText() }
+        .onDisappear { speechPlayer.stop() }
     }
 
     // MARK: - Content
@@ -46,7 +50,7 @@ struct SelectedTextResultView: View {
                 textHeader(route == .empty ? "Nothing to explain" : "Text too long", quoted: false)
                 Text(message).foregroundStyle(Theme.Colors.textSecondary)
             } else if case let .loadedWord(entry) = store.state {
-                WordHeaderView(entry: entry) { buttons }
+                WordHeaderView(entry: entry, isSpeaking: speechPlayer.currentID == headerSpeechID) { buttons }
                 WordCardView(entry: entry, targetLanguage: store.targetLanguage, showsHeader: false)
             } else {
                 textHeader(store.inputText.trimmingCharacters(in: .whitespacesAndNewlines), quoted: route == .sentence)
@@ -86,15 +90,35 @@ struct SelectedTextResultView: View {
     /// Listen, Open in Saynata, Close. Icon only (CLAUDE.md "UI rule"). Listen and Open only show when there is something to hear or open.
     @ViewBuilder
     private var buttons: some View {
-        if isExplained {
-            // Speech is built in F3 (TASK-7). For now the button does nothing.
-            IconButton(systemImage: "speaker.wave.2", label: "Listen") {}
+        if isExplained, let headerText {
+            let isPlaying = speechPlayer.currentID == headerSpeechID
+            IconButton(
+                systemImage: isPlaying ? "stop.fill" : "speaker.wave.2",
+                label: isPlaying ? "Stop" : "Listen"
+            ) {
+                if isPlaying {
+                    speechPlayer.stop()
+                } else {
+                    speechPlayer.speak(headerText, id: headerSpeechID)
+                }
+            }
         }
         if let onOpenApp, let url = openURL {
             IconButton(systemImage: "arrow.up.forward.app", label: "Open in Saynata") { onOpenApp(url) }
         }
         if let onClose {
             IconButton(systemImage: "xmark", label: "Close", action: onClose)
+        }
+    }
+
+    private let headerSpeechID = "selected-text"
+
+    /// What the header speaker reads: the word as shown, or the selected sentence.
+    private var headerText: String? {
+        switch store.state {
+        case let .loadedWord(entry): entry.matchedForm?.text ?? entry.word
+        case .loaded: store.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        case .idle, .loading, .failed: nil
         }
     }
 

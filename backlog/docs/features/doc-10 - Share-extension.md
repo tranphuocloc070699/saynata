@@ -3,11 +3,11 @@ id: doc-10
 title: Share extension
 type: specification
 created_date: '2026-10-11 15:35'
-updated_date: '2026-10-11 16:01'
+updated_date: '2026-10-14 09:12'
 ---
 # Share extension and Translate button
 
-> Status: **working** (TASK-30 share extension, TASK-42 Translate button). Listen is a placeholder until F3. Last traced from code: 2026-10-11.
+> Status: **working** (TASK-30 share extension, TASK-42 Translate button). Listen reads aloud (F3, TASK-7). Last traced from code: 2026-10-14.
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Builds on [Word lookup](doc-5%20-%20Word-lookup.md) and [Sentence translation](doc-4%20-%20Sentence-translation.md).
 
 ## What it does
@@ -47,7 +47,7 @@ Why: no files moved and no new module; a change in `WordCardView` shows in both.
 | Read the text | [ShareViewController.swift:38-60](../../../EnglishTranslation/ShareExtension/ShareViewController.swift#L38-L60) | Loads the first `public.text` attachment (or `attributedContentText`). Empty string if none. |
 | Host the sheet | [ShareViewController.swift:14-31](../../../EnglishTranslation/ShareExtension/ShareViewController.swift#L14-L31) | `UIHostingController` with `ShareSheetView`, pinned to the full view. |
 | Route | [TextRoute.swift:23-36](../../../EnglishTranslation/EnglishTranslation/Translation/TextRoute.swift#L23-L36) | Trim, then: empty, over 500 UTF-16 units (the same count as Java's `@Size(max = 500)`), one token (`CacheKeys.isSingleToken`) or sentence. |
-| Show / explain | [SelectedTextResultView.swift:41-82](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L41-L82), [115-122](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L115-L122). The view lives in the shared app folder, so both extensions compile it. | A problem message is shown as text. Otherwise `TranslationStore.translate()` runs. Header row: for a word, `WordHeaderView` (headword large, IPA or form pill under it); for a sentence, the quoted text in serif. On the right: Listen (placeholder), Open in Saynata (only when the host gives an `onOpenApp` closure: the share extension does, the translation extension does not), Close (only when the host gives an `onClose` closure: the share extension does, the translation extension does not), all icon-only with accessibility labels. Below the header the app's own views are reused unchanged: `WordCardView(showsHeader: false)` for a word, `TranslateResultView` for a sentence and for errors (with "Did you mean"). The sentence layout is not built here, so it follows the app when that view is restyled. |
+| Show / explain | [SelectedTextResultView.swift:44-86](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L44-L86), [142-149](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L142-L149). The view lives in the shared app folder, so both extensions compile it. | A problem message is shown as text. Otherwise `TranslationStore.translate()` runs. Header row: for a word, `WordHeaderView` (headword large, IPA or form pill under it); for a sentence, the quoted text in serif. On the right: Listen (reads the word as shown or the selected sentence; the sheet makes its own `SpeechPlayer` and puts it in the environment, because the extensions have no app around them and the word card's speakers need it), Open in Saynata (only when the host gives an `onOpenApp` closure: the share extension does, the translation extension does not), Close (only when the host gives an `onClose` closure: the share extension does, the translation extension does not), all icon-only with accessibility labels. Below the header the app's own views are reused unchanged: `WordCardView(showsHeader: false)` for a word, `TranslateResultView` for a sentence and for errors (with "Did you mean"). The sentence layout is not built here, so it follows the app when that view is restyled. |
 | Open the app | [ShareViewController.swift:72-83](../../../EnglishTranslation/ShareExtension/ShareViewController.swift#L72-L83) | A share extension cannot call `UIApplication.shared`, and `extensionContext.open` does not work for share extensions. The code walks the responder chain to the host's `UIApplication` and calls `open(url)`, then closes the sheet. Checked on the iOS 18.5 simulator; it relies on the responder chain, so re-check it on each new iOS version. |
 | Link | [DeepLink.swift](../../../EnglishTranslation/EnglishTranslation/Translation/DeepLink.swift) | `saynata://lookup?text=<encoded text>`. The scheme is in the app's Info.plist (`CFBundleURLTypes`). |
 | App side | [EnglishTranslationApp.swift:16-21](../../../EnglishTranslation/EnglishTranslation/EnglishTranslationApp.swift#L16-L21) | `onOpenURL`: put the text in the input and call `translate()`. Other URLs are ignored. |
@@ -82,7 +82,6 @@ Run: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -
 ## Known gaps
 
 - iOS does not let third-party apps add their own button to the text-selection menu of other apps. The two entry points are Share, then Saynata, and (iOS 18.4 and later) the system Translate item when Saynata is the default translation app.
-- Listen does nothing yet (speech is F3, TASK-7).
 - The share row shows the app's name and its placeholder icon: the extension has no icon of its own.
 - On a real device, the App Group needs the capability in Xcode (see the PR). Until then the two caches are separate.
 - The app itself does not apply the 500-character limit before calling the backend (the backend answers 400).
@@ -123,5 +122,5 @@ Same as the share sheet: empty text, over 500 characters, offline, not an Englis
 ### Known gaps (Translate button)
 
 - The consent sheet names the app by its `CFBundleName`, which is the Xcode product name `EnglishTranslation`, not "Saynata". Fixing it means renaming the app target's product name (not done: it touches the test host path).
-- Listen is a placeholder, as in the share sheet.
+- Listen works as in the share sheet.
 - Some reports say the default translation app setting is limited by region; not checked.

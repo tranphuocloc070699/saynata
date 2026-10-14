@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-14 03:56'
+updated_date: '2026-10-14 09:12'
 ---
 # Decisions and reasons
 
@@ -31,6 +31,8 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | Other target languages on word cards: Apple on-device Translation of the English explanation; Vietnamese stays from the dictionary; add backend short meanings (Haiku, cached) later only if quality is not good enough | "I don't want to spend a lot of money." Only one line per meaning changes with the language; on-device translation is $0 and offline. | B: Haiku on demand (~$0.0002/word); C: pre-build 8 languages (~$7, bigger app) | Developer chose A |
 | 10-12 | Grow the dictionary to about 50,000 words, from a word file the developer gives (read from a dictionary) | Reason: not recorded. The developer wants words like "apple" and "house", which the NGSL list (2,750) does not have. | wordfreq top lemmas, NGSL family lists (~4,000), wordfreq + topic lists | Developer |
 | 10-12 | A word with an article ("an apple", "the apple!") is looked up as the bare word; only for one word, sentences keep their articles (TASK-44) | The developer typed "an apple" and got a sentence explanation instead of the word card. | — | Developer |
+| 10-14 | F3 Listen first; F4 Speak and score later | Reason: not recorded. | F3 and F4 together | Developer |
+| 10-14 | F3 reads three things: the headword, each sense's simple explanation, each example sentence. Not the Vietnamese line, Grammar examples, other languages, slow speed or accent choice | Reason: not recorded. Claude's brainstorm also suggested slow speed on a second tap and hiding a speaker with no voice. | Read all text; also Vietnamese; also Grammar examples | Developer chose from Claude's list |
 | 10-10 | Icon-only buttons with VoiceOver labels | "I think they look clean, and I've seen a lot of apps do it that way." It came after "too much text, users don't know where to focus." | Labelled Listen / Speak buttons | Developer |
 
 ## Design
@@ -41,6 +43,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | Follow Apple HIG and a design system | "I want to follow a design system and Apple's design guidelines. I don't believe in my taste." | Own custom style | Developer |
 | 10-11 | Code-first design system (Theme.swift + preview gallery), no Figma or Claude Design | HIG already sets most values, and SwiftUI previews show real iOS parts. HTML mockups only copy them. | Figma, Claude Design | Claude, accepted |
 | 10-11 | No dark mode for now | "I'll make a mini game later, and dark mode won't work well with a game UI." | — | Developer |
+| 10-14 | F3 speakers: word speaker stays in the header; a small speaker on each sense title row; a small speaker at the end of each example line (option A) | Easy to find, and VoiceOver reads it as a button. | B: tap the example text itself (cleaner, but hard to find and clashes with text selection) | Developer chose A from the mockup; Claude recommended |
 
 ## Stack
 
@@ -76,6 +79,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | Workers in bypassPermissions mode | "I'm lazy, and I want to see how convenient bypassPermissions is." An experiment, kept safe by the guard hook. Note: it only works when the main chat is also in that mode. | acceptEdits (Claude) | Developer |
 | 10-11 | No stacked PRs; feature branches deleted only after their main PR merges | PR #2 was closed by GitHub when #1's branch was deleted. | Stacked PRs | Claude, after that bug |
 | 10-11 | Guard hook blocks force-push and push to main | Bash deny rules miss forms like `git -C . push`. A hook blocks in every permission mode. Tested. | Deny rules only | Claude |
+| 10-14 | Merge all features (F3 Listen, share extension, sense media, app icon, "an apple") into main before testing on the phone; test later | "I'll install on my phone and test later." Breaks the "merge only after the developer tests" rule for this round. iOS tests ran only on the worker's Mac (Codex: 127 passed) and not after the F3/share-extension merge. | Test each feature first, then merge | Developer |
 
 ## Questions answered
 
@@ -84,3 +88,4 @@ go here as questions.
 
 - Python for the pipeline: Claude's choice in the first brainstorm. Reason not recorded; ask if it matters.
 - Word list for the 50,000 words: why the developer's own dictionary file rather than a frequency list (wordfreq)? Reason not recorded.
+- 10-14: Why F3 before F4, and why only the headword, explanations and examples are read aloud. Reason not recorded.

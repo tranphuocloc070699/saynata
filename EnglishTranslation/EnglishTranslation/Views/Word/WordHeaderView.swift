@@ -9,6 +9,8 @@ import SwiftUI
 /// The buttons on the right come from the caller: the word card passes Listen, the share sheet passes three.
 struct WordHeaderView<Actions: View>: View {
     let entry: WordEntry
+    /// True while the word is read aloud (F3). The word then gets a soft highlight.
+    var isSpeaking = false
     @ViewBuilder var actions: () -> Actions
 
     /// The word as typed (a form like "ran" stays "ran"). With a form, the pill shows the base word.
@@ -18,6 +20,7 @@ struct WordHeaderView<Actions: View>: View {
                 Text(entry.matchedForm?.text ?? entry.word)
                     .font(.largeTitle.weight(.semibold))
                     .foregroundStyle(Theme.Colors.textPrimary)
+                    .speechHighlight(isPlaying: isSpeaking)
                 if let pill = entry.formPillText {
                     FormPill(text: pill)
                 } else if let ipa = entry.ipa {

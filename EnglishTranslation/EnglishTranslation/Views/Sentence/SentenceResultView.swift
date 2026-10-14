@@ -67,4 +67,5 @@ struct SentenceResultView: View {
             .padding()
     }
     .background(Theme.Colors.background)
+    .environment(SpeechPlayer.silent())
 }
