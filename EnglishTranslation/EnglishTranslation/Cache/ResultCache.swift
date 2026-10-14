@@ -11,12 +11,37 @@ import SQLite3
 ///
 /// The backend JSON is stored as-is (a blob), so a change of the Swift models does not need a migration.
 actor ResultCache {
-    /// The cache file in Application Support. Nil if the file cannot be opened (the app then works without a cache).
+    /// The App Group id. It must be the same in both `.entitlements` files (app and share extension).
+    static let appGroupID = "group.com.luke.EnglishTranslation"
+
+    /// The cache file, shared by the app and the share extension when the App Group works.
+    /// Nil if the file cannot be opened (the app then works without a cache).
     static let shared: ResultCache? = {
-        let folder = URL.applicationSupportDirectory
+        let folder = cacheFolder()
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return try? ResultCache(fileURL: folder.appending(path: "result-cache.sqlite"))
+        let file = folder.appending(path: "result-cache.sqlite")
+        moveOldCacheIfNeeded(to: file)
+        return try? ResultCache(fileURL: file)
     }()
+
+    /// The App Group folder. If the group is not set up (for example no signing team yet), the process's own
+    /// Application Support folder: the app and the extension then keep two separate caches, and both still work.
+    private static func cacheFolder() -> URL {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)
+            ?? URL.applicationSupportDirectory
+    }
+
+    /// Before the share extension, the app kept the cache in Application Support. Move it to the group
+    /// folder once, so saved answers are not lost. Does nothing when both folders are the same.
+    private static func moveOldCacheIfNeeded(to file: URL) {
+        let old = URL.applicationSupportDirectory.appending(path: "result-cache.sqlite")
+        let manager = FileManager.default
+        guard old != file,
+              manager.fileExists(atPath: old.path(percentEncoded: false)),
+              !manager.fileExists(atPath: file.path(percentEncoded: false))
+        else { return }
+        try? manager.moveItem(at: old, to: file)
+    }
 
     private let database: OpaquePointer
 
@@ -28,6 +53,8 @@ actor ResultCache {
             sqlite3_close(handle)
             throw ResultCacheError.cannotOpen(path)
         }
+        // The app and the share extension may use the file at the same time: wait up to 2 s instead of failing.
+        sqlite3_busy_timeout(handle, 2000)
         let createTable = """
             CREATE TABLE IF NOT EXISTS result_cache (
                 cache_key  TEXT PRIMARY KEY,

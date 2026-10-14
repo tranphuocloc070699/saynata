@@ -13,6 +13,8 @@ struct WordCardView: View {
     let entry: WordEntry
     /// The picked language. It titles the last row (TASK-40).
     var targetLanguage: TargetLanguage = .vietnamese
+    /// False when the caller draws its own header (the share sheet puts three buttons beside the word).
+    var showsHeader = true
 
     /// Which folded row is open, for example "0-Vietnamese". Only one at a time per card (design rule 8).
     @State private var openRow = ""
@@ -24,16 +26,19 @@ struct WordCardView: View {
     private let wordSpeechID = "word"
     private var displayedWord: String { entry.matchedForm?.text ?? entry.word }
 
-    init(entry: WordEntry, targetLanguage: TargetLanguage = .vietnamese) {
+    init(entry: WordEntry, targetLanguage: TargetLanguage = .vietnamese, showsHeader: Bool = true) {
         self.entry = entry
         self.targetLanguage = targetLanguage
+        self.showsHeader = showsHeader
         let startsOpen = TranslationRowPreference().startsOpen
         _openTargetRows = State(initialValue: startsOpen ? Set(entry.senses.indices) : [])
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-            header
+            if showsHeader {
+                header
+            }
 
             ForEach(Array(entry.senses.enumerated()), id: \.offset) { index, sense in
                 senseCard(sense, index: index)
@@ -43,23 +48,8 @@ struct WordCardView: View {
 
     // MARK: - Parts
 
-    /// The word as typed (a form like "ran" stays "ran"). With a form, the pill shows the base word.
     private var header: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.small) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                Text(displayedWord)
-                    .font(.largeTitle.weight(.semibold))
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                    .speechHighlight(isPlaying: speechPlayer.currentID == wordSpeechID)
-                if let pill = entry.formPillText {
-                    FormPill(text: pill)
-                } else if let ipa = entry.ipa {
-                    Text(ipa)
-                        .font(.callout)
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                }
-            }
-            Spacer()
+        WordHeaderView(entry: entry, isSpeaking: speechPlayer.currentID == wordSpeechID) {
             IconButton(
                 systemImage: speechPlayer.currentID == wordSpeechID ? "stop.fill" : "speaker.wave.2",
                 label: speechPlayer.currentID == wordSpeechID ? "Stop" : "Listen to the word"
@@ -74,6 +64,11 @@ struct WordCardView: View {
             SenseTitleRow(
                 number: index + 1, sense: sense,
                 speechID: "sense-\(index)")
+
+            if let imageUrl = sense.imageUrl {
+                SenseMediaView(path: imageUrl)
+                    .padding(.top, Theme.Spacing.xSmall)
+            }
 
             VStack(spacing: 0) {
                 if !sense.examples.isEmpty {

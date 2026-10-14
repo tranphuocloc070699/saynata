@@ -275,6 +275,55 @@ struct TranslationStoreTests {
         #expect(lookup.lastWord == "Ran")
     }
 
+    @Test func articleAndOneWordLooksUpTheBareWord() async {
+        for (input, expected) in [("an apple", "apple"), ("The apple!", "apple"), ("  A  Apple. ", "Apple")] {
+            let lookup = FakeWordLookup(.success(.run))
+            let store = TranslationStore(
+                makeTranslator: { Issue.record("An article and a word must not use the sentence translator"); throw BackendError.badStatus(0, detail: nil) },
+                makeWordLookup: { lookup })
+            store.inputText = input
+            await store.translate()
+
+            guard case .loadedWord = store.state else {
+                Issue.record("Expected .loadedWord for \(input), got \(store.state)")
+                continue
+            }
+            #expect(lookup.lastWord == expected, "input: \(input)")
+        }
+    }
+
+    @Test func articleAndTwoWordsStaysASentence() async {
+        let lookup = FakeWordLookup(.failure(WordLookupError.notOneWord))
+        let store = TranslationStore(
+            makeTranslator: { FakeTranslator(result: .success(sample("Quả táo đỏ"))) },
+            makeWordLookup: { lookup })
+        store.inputText = "the red apple"
+        await store.translate()
+        #expect(lookup.lastWord == nil)
+
+        guard case .loaded = store.state else {
+            Issue.record("Expected .loaded, got \(store.state)")
+            return
+        }
+    }
+
+    @Test func anArticleAloneIsStillLookedUpAsAWord() async {
+        let lookup = FakeWordLookup(.success(.run))
+        let store = TranslationStore(makeWordLookup: { lookup })
+        store.inputText = "the"
+        await store.translate()
+        #expect(lookup.lastWord == "the")
+    }
+
+    @Test func spellingHelpUsesTheWordWithoutTheArticle() async {
+        let fake = FakeWordLookup(.failure(WordLookupError.notAnEnglishWord("aple")))
+        fake.suggestionWords = ["apple"]
+        let store = TranslationStore(makeWordLookup: { fake })
+        store.inputText = "an Aple!"
+        await store.translate()
+        #expect(fake.suggestionsAskedFor == "aple")
+    }
+
     @Test func moreThanOneWordGoesToTheSentenceTranslator() async {
         // The sentence path may read the bundle (for word cards) but must never call `lookUp`.
         let lookup = FakeWordLookup(.failure(WordLookupError.notOneWord))

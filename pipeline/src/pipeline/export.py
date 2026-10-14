@@ -64,15 +64,18 @@ def export(pipeline_db: sqlite3.Connection) -> tuple[Path, int, int, int]:
                 [(form, word_id, form_type(row["lemma"], form, sense_pos)) for form in json.loads(row["forms"])],
             )
             for position, sense in enumerate(entry["senses"]):
+                media_meta = sense.get("media")
+                media_file = media_meta.get("filename") if isinstance(media_meta, dict) else None
+                image_url = f"media/{media_file}" if media_file else None
                 app_db.execute(
                     """INSERT INTO senses (word_id, position, pos, cefr, simple_definition, vietnamese,
-                       examples, usage, image_type, image_query)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       examples, usage, image_type, image_query, image_url)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         word_id, position, sense["pos"], sense["cefr"], sense["simple_definition"],
                         sense["vietnamese"], json.dumps(old_examples_as_levels(sense), ensure_ascii=False),
                         json.dumps(sense.get("usage", []), ensure_ascii=False),
-                        sense["image_type"], sense["image_query"],
+                        sense["image_type"], sense["image_query"], image_url,
                     ),
                 )
             for sense in entry["senses"]:  # old fields stay out of the files; plain-string examples get levels

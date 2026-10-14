@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-11 16:34'
+updated_date: '2026-10-14 06:43'
 ---
 # Deploy to a VPS
 
@@ -36,8 +36,8 @@ The backend has a health check on `/actuator/health` (it shows only `UP` or `DOW
 The simplest way is to clone the repo on the server:
 
 ```bash
-git clone https://github.com/<you>/english-translation.git
-cd english-translation/backend
+git clone https://github.com/tranphuocloc070699/saynata.git ~/saynata
+cd ~/saynata/backend
 ```
 
 Or copy only the `backend/` folder: `rsync -av --exclude target backend/ user@SERVER:~/saynata/`.
@@ -79,7 +79,7 @@ Useful commands:
 
 | Job | Command |
 |---|---|
-| Update after `git pull` | `docker compose -f docker-compose.prod.yml up -d --build` |
+| Update after `git pull` | `./scripts/deploy.sh` (rebuilds, waits until healthy, prints logs if not) |
 | Restart | `docker compose -f docker-compose.prod.yml restart backend` |
 | Stop (keeps data) | `docker compose -f docker-compose.prod.yml down` |
 | Back up the database | `docker compose -f docker-compose.prod.yml exec postgres pg_dump -U app english_translation > backup.sql` |
@@ -137,6 +137,46 @@ server. Watch `docker compose -f docker-compose.prod.yml logs -f backend` while 
 
 The Claude key stays on the server. The app never sends one.
 
+## 7. Auto deploy (GitHub Actions)
+
+After CI passes on `main`, [.github/workflows/deploy.yml](../../../.github/workflows/deploy.yml) logs in to the VPS
+over SSH, moves `~/saynata` to the commit CI tested (`git merge --ff-only`), and runs
+[backend/scripts/deploy.sh](../../../backend/scripts/deploy.sh). That script runs `docker compose up -d --build --wait`,
+so the run turns red if the backend does not become healthy, and it prints the last backend logs.
+You can also start it by hand: Actions tab, **Deploy**, **Run workflow**.
+Until the secrets below exist, the workflow does nothing and stays green.
+
+```mermaid
+flowchart LR
+    PUSH[push to main] --> CI[CI workflow]
+    CI -->|success| DEP[Deploy workflow]
+    DEP -->|SSH, deploy key| VPS[VPS: git merge + deploy.sh]
+```
+
+One-time setup (steps 1-3 above must be done first; the repo can live in `~/saynata` or another folder such as `/var/www/saynata`, see `VPS_APP_DIR`):
+
+1. On your Mac, make a key only for deploys (no passphrase):
+   `ssh-keygen -t ed25519 -f ~/.ssh/saynata_deploy -N "" -C "github-deploy"`
+2. Allow it on the VPS: `ssh-copy-id -i ~/.ssh/saynata_deploy.pub vps_sieutoc`
+3. Get the server's host key, so GitHub can check it is talking to your server:
+   `ssh-keyscan -p <port> <server IP>` (copy all output lines).
+4. On GitHub: repo **Settings**, **Secrets and variables**, **Actions**, **New repository secret**:
+
+| Secret | Value |
+|---|---|
+| `VPS_HOST` | The server IP or domain (the `HostName` in your `~/.ssh/config` for `vps_sieutoc`) |
+| `VPS_USER` | The SSH user (`User` in `~/.ssh/config`). Default `root`. |
+| `VPS_PORT` | Optional. Default 22. |
+| `VPS_SSH_KEY` | The whole private key: `cat ~/.ssh/saynata_deploy` |
+| `VPS_KNOWN_HOSTS` | The `ssh-keyscan` output from step 3 |
+| `VPS_APP_DIR` | Optional. Repo folder on the server: an absolute path such as `/var/www/saynata`, or a path relative to the user's home. Default `saynata` (`~/saynata`). |
+
+5. Test: Actions tab, **Deploy**, **Run workflow**. Then `curl https://<your domain>/actuator/health`.
+
+Rules: never edit files inside `~/saynata` on the server (except `backend/.env`, which git ignores), or the
+fast-forward fails. The private key lives only in GitHub secrets and on your Mac, never in git or in a chat.
+The deploy user must be able to run `docker` (`sudo usermod -aG docker <user>`).
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -144,4 +184,6 @@ The Claude key stays on the server. The app never sends one.
 | Compose says `Set CLAUDE_API_KEY in .env` | `.env` is missing or the value is empty. Run compose from the `backend/` folder. |
 | Backend stays "unhealthy" | Read `logs backend`. Often a wrong `DB_PASSWORD` (the volume keeps the old one) or too little RAM. |
 | App cannot connect | Test the URL with `curl` from your laptop. Check DNS, the firewall, and that the URL starts with `https://`. |
+| Deploy fails with `Not possible to fast-forward` | Someone changed files in `~/saynata` on the server. Run `git status` there, then `git checkout -- .` to drop the changes. |
+| Deploy fails with `Host key verification failed` | `VPS_KNOWN_HOSTS` is wrong or the server was rebuilt. Run `ssh-keyscan` again and update the secret. |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |
