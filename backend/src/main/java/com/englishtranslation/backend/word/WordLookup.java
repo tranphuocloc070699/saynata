@@ -57,11 +57,40 @@ public class WordLookup {
         this.createdAt = Instant.now();
     }
 
+    public Long getId() {
+        return id;
+    }
+
+    public String getWord() {
+        return word;
+    }
+
+    public String getModel() {
+        return model;
+    }
+
+    public String getPromptVersion() {
+        return promptVersion;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
     public boolean isNeedsReview() {
         return needsReview;
     }
 
+    public void setNeedsReview(boolean needsReview) {
+        this.needsReview = needsReview;
+    }
+
     public String getEntryJson() {
         return entryJson;
+    }
+
+    /** Used by the admin web app when a person fixes the entry. */
+    public void setEntryJson(String entryJson) {
+        this.entryJson = entryJson;
     }
 }

@@ -1,6 +1,7 @@
 package com.englishtranslation.backend.common;
 
 import com.anthropic.errors.AnthropicServiceException;
+import com.englishtranslation.backend.admin.InvalidAdminRequestException;
 import com.englishtranslation.backend.claude.ClaudeRefusedException;
 import com.englishtranslation.backend.claude.NotEnglishException;
 import org.slf4j.Logger;
@@ -36,6 +37,12 @@ public class ApiExceptionHandler {
             default -> "Invalid request.";
         };
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+    }
+
+    /** The admin web app sent a bad entry or bad list parameters. The message already says what is wrong. */
+    @ExceptionHandler(InvalidAdminRequestException.class)
+    public ProblemDetail handleInvalidAdminRequest(InvalidAdminRequestException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
     @ExceptionHandler(ClaudeRefusedException.class)

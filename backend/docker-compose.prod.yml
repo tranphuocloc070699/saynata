@@ -1,6 +1,6 @@
 # Production compose file: backend + Postgres. The dev file is compose.yaml (Postgres only).
 #
-#   cp .env.example .env     # then fill in CLAUDE_API_KEY and DB_PASSWORD
+#   cp .env.example .env     # then fill in CLAUDE_API_KEY, DB_PASSWORD and ADMIN_JWT_SECRET
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
 # Docker Compose reads .env in this folder for the ${...} values below.
@@ -36,6 +36,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       # Spring would try to start the dev compose.yaml otherwise.
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      # Admin web app API. Empty values are fine only with ADMIN_ENABLED=false.
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-}
+      ADMIN_ENABLED: ${ADMIN_ENABLED:-true}
       # Optional override for the model in application.properties.
       APP_CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-haiku-5-5}
     ports:
