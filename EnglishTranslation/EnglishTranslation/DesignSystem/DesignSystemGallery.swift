@@ -94,6 +94,7 @@ struct DesignSystemGallery: View {
             IconButton(systemImage: "doc.on.doc", label: "Copy") {}
             IconButton(systemImage: "speaker.wave.2", label: "Listen") {}
             IconButton(systemImage: "mic", label: "Speak") {}
+            IconButton(systemImage: "speaker.wave.2", label: "Listen", size: .compact) {}
             Spacer()
             IconButton(systemImage: "star", label: "Save") {}
         }
@@ -134,4 +135,5 @@ struct DesignSystemGallery: View {
 
 #Preview {
     DesignSystemGallery()
+        .environment(SpeechPlayer.silent())
 }

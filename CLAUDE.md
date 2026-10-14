@@ -6,7 +6,7 @@ learning Swift and English at the same time.
 
 | Part | Stack | Job |
 |---|---|---|
-| `EnglishTranslation/` | SwiftUI, iOS 18 | The app. Talks only to our backend (the direct LLM clients were removed in TASK-18). |
+| `EnglishTranslation/` | SwiftUI, iOS 18 | The app. Talks only to our backend (the direct LLM clients were removed in TASK-18); `Speech/` reads English aloud on device with `AVSpeechSynthesizer`. |
 | `backend/` | Spring Boot 4, Java 17, Postgres, Flyway, Claude Haiku 5.5 | `POST /api/translations`, `GET /api/words/{word}`, with a shared cache-first DB. Words not on the bundled SCOWL/NGSL word list are rejected before Claude is called. |
 | `pipeline/` | Python 3.12, uv, Claude Sonnet 5.5 | Builds `dictionary.sqlite` (NGSL words, 3 levelled examples per sense, form types via lemminflect) bundled in the app. |
 
