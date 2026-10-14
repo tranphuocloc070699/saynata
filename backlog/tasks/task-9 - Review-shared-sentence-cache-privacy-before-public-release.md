@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-10 04:31'
-updated_date: '2026-10-14 11:25'
+updated_date: '2026-10-14 11:27'
 labels:
   - backend
 milestone: m-0
@@ -17,12 +17,15 @@ ordinal: 9000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Sentences are shared across users in the backend cache and may contain personal text. Accepted for v1 single-user use (spec Decisions).
+Sentences are shared across users in the backend cache and may contain personal text. Decision (doc-7, 2026-10-14, option 1): keep the cache shared, but do not store a sentence that looks personal: an email address, a phone number (7+ digits with spaces, dots, dashes or +), a link (http, www., or a domain like name.com), or any run of 6+ digits. Such a sentence is still explained by Claude and returned, just never saved or read from the cache. Implement in the backend translation flow (backend/src/main/java/com/englishtranslation/backend/translation/TranslationService.java), with a small PersonalTextDetector class and unit tests. Update the sentence feature page (backlog/docs/features/doc-4) and doc-1 Decisions.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Decision recorded: keep shared, add per-user scope, or opt-out
+- [x] #1 Decision recorded: keep shared, add per-user scope, or opt-out
+- [ ] #2 A sentence with an email, phone number, link or 6+ digit run is explained but not saved to or read from sentence_translation (tests)
+- [ ] #3 Normal sentences are cached exactly as before (existing tests still pass)
+- [ ] #4 doc-4 and doc-1 describe the rule
 <!-- AC:END -->
 
 ## Definition of Done

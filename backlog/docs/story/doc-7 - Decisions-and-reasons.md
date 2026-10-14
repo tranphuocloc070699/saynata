@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-14 10:58'
+updated_date: '2026-10-14 11:22'
 ---
 # Decisions and reasons
 
@@ -69,6 +69,8 @@ Quotes are the developer's words, with spelling fixed.
 | 10-14 | **The server Postgres becomes the source of truth** for words, sentences and media; the pipeline exports the bundled `dictionary.sqlite` from it at release time | Needed for the CMS: one place to edit. Backend entries change live; bundled words reach users with the next app update. Reason in the developer's words: not recorded. | Keep `dictionary.sqlite` as the source and edit it only through the pipeline | Developer chose, Claude recommended |
 | 10-14 | Admin UI built with **shadcn/ui** components and **Refine** (data, login, CRUD on the REST API), instead of React-Admin; the entry detail is a plain table of fields, not the phone layout; layout **A**: list and detail side by side | "I want an open-source library like shadcn to create the UI and connect to the backend. No need to make the UI like the phone." | React-Admin (Material UI look); detail shown as the app shows it; B: detail on its own page | Developer |
 | 10-14 | Admin login with a **users table with roles** (ADMIN now; app users later reuse it) | Reason: not recorded (Claude: app users are planned, so one account system from the start). | One admin account from `.env` | Developer chose, Claude recommended |
+| 10-14 | Sense images and clips are **served from the server** (`https://api.loffy.me/media/...`, files on the VPS behind Caddy, rows in Postgres), downloaded by the app once and cached; words that come from the backend get an image when their entry is created (Pixabay) | The developer saw no image for "apple" (a backend word; only 3 sample files existed). Reason for B in the developer's words: not recorded (Claude: works for backend words, keeps the app small, fits the CMS). | A: bundle all media in the app (~20-40 MB, nothing for backend words) | Developer chose B, Claude recommended |
+| 10-14 | Shared sentence cache privacy (TASK-9): keep the cache shared, but **do not store** sentences that look personal (email address, phone number, link, long number); they are still explained, just not cached | Reason: not recorded (Claude: the cache returns one user's text to others; this keeps the cost saving without storing personal data). | Per-user cache (needs logins); keep as is | Developer chose 1, Claude recommended |
 
 ## Workflow
 
@@ -95,3 +97,4 @@ go here as questions.
 
 - Python for the pipeline: Claude's choice in the first brainstorm. Reason not recorded; ask if it matters.
 - 10-14: Why the separate React admin (B) over admin pages inside Spring Boot, and why make the server database the source of truth? Reason not recorded.
+- 10-14: Why images from the server (B), and why the "do not store personal-looking sentences" rule (1)? Reason not recorded.
