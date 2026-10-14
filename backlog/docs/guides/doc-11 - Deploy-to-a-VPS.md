@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-14 03:55'
+updated_date: '2026-10-14 06:43'
 ---
 # Deploy to a VPS
 
@@ -153,7 +153,7 @@ flowchart LR
     DEP -->|SSH, deploy key| VPS[VPS: git merge + deploy.sh]
 ```
 
-One-time setup (steps 1-3 above must be done first, with the repo cloned to `~/saynata`):
+One-time setup (steps 1-3 above must be done first; the repo can live in `~/saynata` or another folder such as `/var/www/saynata`, see `VPS_APP_DIR`):
 
 1. On your Mac, make a key only for deploys (no passphrase):
    `ssh-keygen -t ed25519 -f ~/.ssh/saynata_deploy -N "" -C "github-deploy"`
@@ -169,7 +169,7 @@ One-time setup (steps 1-3 above must be done first, with the repo cloned to `~/s
 | `VPS_PORT` | Optional. Default 22. |
 | `VPS_SSH_KEY` | The whole private key: `cat ~/.ssh/saynata_deploy` |
 | `VPS_KNOWN_HOSTS` | The `ssh-keyscan` output from step 3 |
-| `VPS_APP_DIR` | Optional. Repo folder on the server, relative to the user's home. Default `saynata`. |
+| `VPS_APP_DIR` | Optional. Repo folder on the server: an absolute path such as `/var/www/saynata`, or a path relative to the user's home. Default `saynata` (`~/saynata`). |
 
 5. Test: Actions tab, **Deploy**, **Run workflow**. Then `curl https://<your domain>/actuator/health`.
 
