@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-14 06:43'
+updated_date: '2026-10-14 11:30'
 ---
 # Deploy to a VPS
 
@@ -177,12 +177,45 @@ Rules: never edit files inside `~/saynata` on the server (except `backend/.env`,
 fast-forward fails. The private key lives only in GitHub secrets and on your Mac, never in git or in a chat.
 The deploy user must be able to run `docker` (`sudo usermod -aG docker <user>`).
 
+## 8. Admin web app (admin.loffy.me)
+
+The admin CMS ([Admin CMS](../features/doc-13%20-%20Admin-CMS.md)) is only static files. Caddy serves `admin/dist`; the backend
+at `api.loffy.me` stays the same (its `/api/admin/**` login and CORS for `https://admin.loffy.me` come from TASK-49.1).
+
+1. DNS: add an `A` record `admin.loffy.me` that points to the server, like `api.loffy.me`.
+2. Build (on the server, or on your Mac and copy `admin/dist`). It needs Node 20 or newer:
+
+```bash
+cd ~/saynata/admin
+npm ci
+VITE_API_URL=https://api.loffy.me npm run build     # writes admin/dist
+```
+
+3. Add this to `/etc/caddy/Caddyfile` next to the `api.loffy.me` block (`root` is the absolute path to `admin/dist`;
+   `try_files` sends every unknown path to `index.html`, so a reload on `/words` works):
+
+```caddyfile
+admin.loffy.me {
+    root * /home/youruser/saynata/admin/dist
+    encode gzip
+    try_files {path} /index.html
+    file_server
+}
+```
+
+4. Run `sudo systemctl reload caddy`, then open `https://admin.loffy.me` and sign in.
+
+To update after a `git pull`, run step 2 again and nothing else: Caddy reads the new files at once, no restart.
+The Caddy user must be able to read the folder (`chmod -R o+rX ~/saynata/admin/dist`, and `chmod o+x` on each parent folder).
+CI builds and tests the admin app on every pull request (`admin` job in `.github/workflows/ci.yml`).
+
 ## Troubleshooting
 
 | Problem | Fix |
 |---|---|
 | Compose says `Set CLAUDE_API_KEY in .env` | `.env` is missing or the value is empty. Run compose from the `backend/` folder. |
 | Backend stays "unhealthy" | Read `logs backend`. Often a wrong `DB_PASSWORD` (the volume keeps the old one) or too little RAM. |
+| Admin page is blank after a reload | The Caddy block is missing `try_files {path} /index.html`. |
 | App cannot connect | Test the URL with `curl` from your laptop. Check DNS, the firewall, and that the URL starts with `https://`. |
 | Deploy fails with `Not possible to fast-forward` | Someone changed files in `~/saynata` on the server. Run `git status` there, then `git checkout -- .` to drop the changes. |
 | Deploy fails with `Host key verification failed` | `VPS_KNOWN_HOSTS` is wrong or the server was rebuilt. Run `ssh-keyscan` again and update the secret. |

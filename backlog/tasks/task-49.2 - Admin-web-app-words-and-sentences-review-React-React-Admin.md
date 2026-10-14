@@ -1,10 +1,11 @@
 ---
 id: TASK-49.2
 title: 'Admin web app: words and sentences review (React + Refine + shadcn/ui)'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-14 10:54'
-updated_date: '2026-10-14 10:58'
+updated_date: '2026-10-14 11:30'
 labels:
   - web
   - cms
@@ -37,8 +38,20 @@ New folder admin/ (React + Vite + TypeScript + Refine + shadcn/ui on Tailwind) f
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Scaffold admin/ (Vite, React, TS, Tailwind, shadcn-style ui, Refine simple-rest, react-router).
+2. src/api/types.ts, authProvider (cookie), dataProvider.
+3. Pages: login, words, sentences (list + search + chips + detail table + icon buttons + edit form/JSON tab + regenerate confirm).
+4. Vitest tests: dataProvider, login, words list + filter.
+5. CI job, doc-11 Caddy + deploy, CLAUDE.md row, feature page, check_docs.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-10-14: mockup approved (layout A, plain field view, shadcn/ui + Refine). AC #1 can be checked at review.
+
+Built admin/ (Vite, React 19, TS, Refine core 5 + simple-rest, shadcn-style components, Tailwind 3, Sage and Teal tokens). Words and Sentences split view, edit form + JSON tab, mark reviewed, regenerate with in-page confirm, login via fetch + HttpOnly cookie. npm run build OK, npm test 15 passed. CI job 'admin', Caddy snippet in doc-11 section 8, CLAUDE.md row, feature page doc-13. Bundled/From backend/CEFR chips filter the loaded page only until the backend supports source and cefr params. Test it: cd admin && cp .env.example .env.local (VITE_API_URL=http://localhost:8081) && npm ci && npm run dev, open http://localhost:5173, sign in, open a word, press Edit, change the explanation, Save. PR: opened by the orchestrator into feature/f5-cms.
 <!-- SECTION:NOTES:END -->
