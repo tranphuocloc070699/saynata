@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 06:21'
-updated_date: '2026-10-15 06:22'
+updated_date: '2026-10-15 06:27'
 labels:
   - backend
   - admin
@@ -42,3 +42,9 @@ Words saved with needs_review = true (hard words still left after one retry, see
 3. Tests: backend AdminBundledWordsTest style, Vitest in wordsPage.test.tsx.
 4. Update doc-13, doc-14; run check_docs.py.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/55. Test it: after merge and deploy, open https://admin.loffy.me, press the Needs review chip, open "working" or "apple". Expect a reason list under Status (e.g. "sense 1: the definition uses hard words [abstain]") and the same list at the top of the edit form. After a fixing save the list is recomputed; if empty it says "No problems found now; press ✓ to mark it reviewed" and the badge stays. Automated: cd backend && ./mvnw -B test (171 pass); cd admin && npx vitest run (34 pass).
+<!-- SECTION:NOTES:END -->
