@@ -4,6 +4,8 @@ import com.anthropic.errors.AnthropicServiceException;
 import com.englishtranslation.backend.admin.InvalidAdminRequestException;
 import com.englishtranslation.backend.claude.ClaudeRefusedException;
 import com.englishtranslation.backend.claude.NotEnglishException;
+import com.englishtranslation.backend.limits.RateLimitedException;
+import org.springframework.http.ResponseEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
@@ -43,6 +45,21 @@ public class ApiExceptionHandler {
     @ExceptionHandler(InvalidAdminRequestException.class)
     public ProblemDetail handleInvalidAdminRequest(InvalidAdminRequestException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    /**
+     * Errors with a code the app understands: sign_in_required (401), rate_limited (429, with Retry-After),
+     * daily_limit_reached (503), invalid_code, invalid_email... The answer is problem details plus a "code" field.
+     */
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ProblemDetail> handleApiException(ApiException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(e.status(), e.getMessage());
+        problem.setProperty("code", e.code());
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(e.status());
+        if (e instanceof RateLimitedException limited) {
+            response.header("Retry-After", String.valueOf(limited.retryAfterSeconds()));
+        }
+        return response.body(problem);
     }
 
     @ExceptionHandler(ClaudeRefusedException.class)

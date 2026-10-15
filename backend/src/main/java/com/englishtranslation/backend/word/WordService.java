@@ -3,6 +3,7 @@ package com.englishtranslation.backend.word;
 import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.limits.ClaudeGate;
 import com.englishtranslation.backend.dictionary.BundledEntryReader;
 import com.englishtranslation.backend.dictionary.DictionaryWord;
 import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
@@ -36,12 +37,14 @@ public class WordService {
     private final SenseMediaReader mediaReader;
     private final DictionaryWordRepository bundled;
     private final BundledEntryReader bundledReader;
+    private final ClaudeGate gate;
 
     public WordService(WordLookupRepository repository, ClaudeService claude, ClaudeProperties properties,
             JsonMapper jsonMapper, EnglishWords englishWords,
             IpaDictionary ipaDictionary, SimpleWords simpleWords,
             BackendWordMediaService mediaService, SenseMediaReader mediaReader,
-            DictionaryWordRepository bundled, BundledEntryReader bundledReader) {
+            DictionaryWordRepository bundled, BundledEntryReader bundledReader, ClaudeGate gate) {
+        this.gate = gate;
         this.bundled = bundled;
         this.bundledReader = bundledReader;
         this.mediaService = mediaService;
@@ -79,6 +82,8 @@ public class WordService {
             return response(normalized, readEntry(saved.get()), true, mediaOf(saved.get().getId()));
         }
 
+        // Only a word that is not bundled and not cached gets here. A guest cannot cause a Claude call.
+        gate.beforeNewCall();
         WordEntry entry = claude.describeWord(normalized);
         boolean needsReview = false;
         List<String> problems = simpleWords.problems(entry, normalized);
@@ -126,6 +131,7 @@ public class WordService {
                 + "Use only very common words in definitions and in easy examples. Problems: "
                 + String.join("; ", problems);
         try {
+            gate.checkBudget(); // the second call of the same request: only the money limit is checked again
             return claude.describeWordAgain(word, feedback);
         } catch (RuntimeException e) {
             log.warn("Retry for '{}' failed, keeping the first entry: {}", word, e.toString());

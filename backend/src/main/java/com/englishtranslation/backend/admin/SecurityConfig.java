@@ -1,5 +1,10 @@
 package com.englishtranslation.backend.admin;
 
+import com.englishtranslation.backend.auth.AccessTokenService;
+import com.englishtranslation.backend.auth.BearerTokenFilter;
+import com.englishtranslation.backend.limits.LimitProperties;
+import com.englishtranslation.backend.limits.PublicReadRateLimitFilter;
+import com.englishtranslation.backend.limits.RateLimiter;
 import com.englishtranslation.backend.user.UserRepository;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
@@ -25,7 +30,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  * Who may call what.
  * - POST /api/admin/auth/login and /logout are open (login must work without being logged in).
  * - Everything else under /api/admin needs the ADMIN role.
- * - All other URLs (/api/translations, /api/words, /actuator/health) stay open, as before.
+ * - /api/me needs a signed-in app user (role USER, from the Bearer access token).
+ * - All other URLs (/api/auth, /api/translations, /api/words, /actuator/health) stay open. /api/translations and
+ *   /api/words read the Bearer token if there is one; without it the caller is a guest (see ClaudeGate).
  * No session is kept on the server: each request brings its own cookie.
  */
 @Configuration
@@ -34,7 +41,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectProvider<AdminTokenService> tokens,
-            UserRepository users)
+            UserRepository users, AccessTokenService accessTokens, RateLimiter rateLimiter, LimitProperties limits)
             throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable) // replaced by JsonWritesOnlyFilter + the SameSite=Strict cookie
@@ -47,11 +54,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/api/admin/**").permitAll() // CORS preflight
                         .requestMatchers(HttpMethod.POST, "/api/admin/auth/login", "/api/admin/auth/logout").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/me", "/api/me/**").hasRole("USER")
                         .anyRequest().permitAll());
         // When the admin API is switched off there is no cookie filter, so every /api/admin call gets 401.
         tokens.ifAvailable(service -> http.addFilterBefore(
                 new AdminCookieFilter(service, users), UsernamePasswordAuthenticationFilter.class));
         http.addFilterBefore(new JsonWritesOnlyFilter(), UsernamePasswordAuthenticationFilter.class);
+        // App users: an optional Bearer token (separate from the admin cookie), and a per-IP limit on public reads.
+        http.addFilterBefore(new PublicReadRateLimitFilter(rateLimiter, limits), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(new BearerTokenFilter(accessTokens, users), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

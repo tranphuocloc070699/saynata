@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-15 07:59'
+updated_date: '2026-10-15 10:02'
 ---
 # Decisions and reasons
 
@@ -102,6 +102,13 @@ Quotes are the developer's words, with spelling fixed.
 | 10-15 | When a word is both bundled and in the backend table (example: "run"), **the bundled entry wins**: `GET /api/words/{word}` answers it from `dictionary_word` and never calls Claude, and a migration deletes the old backend rows | Reason: not recorded (the duplicates appeared because Claude had described "run" before the bundled words were imported into Postgres). | Keep the backend row and hide the bundled one; merge the two entries | Developer |
 | 10-15 | Admin word list: every filter chip is **a server-side filter** (source, level, media), one source and one media filter at a time, levels OR-ed; new chips Has media and No media | Reason: "From backend" on the client kept loading page after page with infinite scroll ("Nothing found" while loading 850 of 2,753). | Keep matching the loaded rows on the client | Developer |
 | 10-15 | App loads bundled words' media from the server with the offline cache; the app stays small. The bundled `dictionary.sqlite` now holds `media/<file>` for 3,372 senses; a path whose file is not inside the app is loaded from `https://api.loffy.me/media/<file>` | Developer's choice: keep the app small. Files are saved on the phone after the first view, so they show offline later. | Bundle all 63 MB of media in the app | Developer |
+| 10-15 | **Real user accounts, signed in with an email code.** The learner types an email, gets a 6-digit code by email and is signed in. No passwords. Email goes through **AWS SES** on the developer's own domain | Reason: not recorded. | Not recorded | Developer |
+| 10-15 | **Guests** (no sign-in) may use only what needs no new Claude call: bundled words and anything already in the shared cache. A new sentence, or a word that is neither bundled nor cached, needs a signed-in user | Reason: not recorded. | Not recorded | Developer |
+| 10-15 | **Daily Claude budget cap of $1 (USD)**, counted in money from real token usage and per-model prices in config. At the cap the backend makes no new Claude call until midnight UTC and serves only cached answers (503 `daily_limit_reached`). Admin regenerate is covered too | Reason: not recorded. | Not recorded | Developer |
+| 10-15 | **Rate limits**: email code 5 per hour per IP and 3 per 15 minutes per email; new Claude calls 60 per hour and 300 per day per user; public reads 120 per minute per IP. A small in-memory token bucket, no Redis | Reason: not recorded (one server is enough, so no Redis). | Bucket4j; Redis | Developer, method chosen by Claude |
+| 10-15 | Email codes are saved as an **HMAC** with a server key (not a plain hash), and the access-token key is derived from `USER_JWT_SECRET`, or from `ADMIN_JWT_SECRET`, or random, so the backend always starts | A plain hash of 6 digits can be reversed in a second. Merging auto-deploys, so a missing variable must not break production before SES is ready. | Plain SHA-256; fail at start-up without the secret | Claude |
+| 10-15 | A refresh token that is used twice revokes all sessions of that user | A used token that comes back may have been copied (OWASP refresh token rotation advice). Cost: a flaky network that repeats a refresh signs the user out. | Only reject the second use | Claude |
+| 10-15 | The iOS sign-in screen waits for a mockup. Until it exists, the current app gets 401 for new sentences and uncached words (bundled and cached answers still work) | Rule: mockup before UI code. | Build the screen without a mockup | Developer |
 
 ## Questions answered
 
@@ -112,3 +119,4 @@ go here as questions.
 - 10-14: Why the separate React admin (B) over admin pages inside Spring Boot, and why make the server database the source of truth? Reason not recorded.
 - 10-14: Why images from the server (B), and why the "do not store personal-looking sentences" rule (1)? Reason not recorded.
 - 10-14: Why images option B (AI only for the bad ones)? Reason not recorded.
+- 10-15: Why accounts with an email code and AWS SES (not passwords or Sign in with Apple), why guests may not cause new Claude calls, and why $1 per day? Reason not recorded.

@@ -58,6 +58,10 @@ class ClaudeServiceStreamingTest {
     }
 
     private static ClaudeService serviceStreaming(List<String> eventJson) {
+        return serviceStreaming(eventJson, org.mockito.Mockito.mock(ClaudeUsageService.class));
+    }
+
+    private static ClaudeService serviceStreaming(List<String> eventJson, ClaudeUsageService usage) {
         List<RawMessageStreamEvent> events = eventJson.stream()
                 .map(ClaudeServiceStreamingTest::parseEvent)
                 .toList();
@@ -75,7 +79,7 @@ class ClaudeServiceStreamingTest {
         when(messages.createStreaming(any(StructuredMessageCreateParams.class))).thenReturn(stream);
         AnthropicClient client = mock(AnthropicClient.class);
         when(client.messages()).thenReturn(messages);
-        return new ClaudeService(client, PROPERTIES);
+        return new ClaudeService(client, PROPERTIES, usage);
     }
 
     @Test
@@ -110,5 +114,29 @@ class ClaudeServiceStreamingTest {
 
         assertThatThrownBy(() -> service.explainSentenceStreaming("anything", TargetLanguage.VI, piece -> {
         })).isInstanceOf(ClaudeRefusedException.class);
+    }
+
+    @Test
+    void theTokensClaudeReportsAreRecordedForTheSentenceFeature() {
+        ClaudeUsageService usage = org.mockito.Mockito.mock(ClaudeUsageService.class);
+        ClaudeService service = serviceStreaming(streamOf("end_turn",
+                "{\"isEnglish\":true,\"meaning\":\"Hi.\",\"words\":[],\"translation\":\"Chào\"}"), usage);
+
+        service.explainSentenceStreaming("Hello", TargetLanguage.VI, piece -> {
+        });
+
+        // message_start reported 10 input tokens, message_delta reported 20 output tokens.
+        org.mockito.Mockito.verify(usage).record(Feature.SENTENCE, "claude-haiku-5-5", 10, 20);
+    }
+
+    @Test
+    void aRefusedAnswerIsStillRecordedBecauseItCostMoney() {
+        ClaudeUsageService usage = org.mockito.Mockito.mock(ClaudeUsageService.class);
+        ClaudeService service = serviceStreaming(streamOf("refusal", ""), usage);
+
+        assertThatThrownBy(() -> service.explainSentenceStreaming("anything", TargetLanguage.VI, piece -> {
+        })).isInstanceOf(ClaudeRefusedException.class);
+
+        org.mockito.Mockito.verify(usage).record(Feature.SENTENCE, "claude-haiku-5-5", 10, 20);
     }
 }

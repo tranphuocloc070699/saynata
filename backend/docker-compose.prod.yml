@@ -44,6 +44,14 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-}
       ADMIN_ENABLED: ${ADMIN_ENABLED:-true}
+      # App user accounts (email code sign-in) and Claude cost limits. See "AWS SES setup" in the deploy guide.
+      # All are optional: with none of them the backend still starts (codes go to the log, not to email).
+      USER_JWT_SECRET: ${USER_JWT_SECRET:-}
+      SES_FROM_EMAIL: ${SES_FROM_EMAIL:-}
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      CLAUDE_DAILY_BUDGET_USD: ${CLAUDE_DAILY_BUDGET_USD:-1.00}
       # Optional override for the model in application.properties.
       APP_CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-haiku-5-5}
       # Photos and clips for new words. Empty PIXABAY_API_KEY = none are fetched. MEDIA_DIR is /app/media (Dockerfile).
