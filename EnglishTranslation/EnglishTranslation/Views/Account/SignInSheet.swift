@@ -13,7 +13,6 @@ struct SignInSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @FocusState private var isEmailFocused: Bool
-    @FocusState private var isCodeFocused: Bool
 
     /// - Parameter onSignedIn: runs after the code was right. The sheet then closes by itself.
     ///   For a result that was waiting, this runs the request again.
@@ -98,10 +97,8 @@ struct SignInSheet: View {
                         // Saved at once, then checked: a late save lost a code filled from Mail.
                         if model.setCode(value) { Task { await model.verifyCode() } }
                     }),
-                length: SignInModel.codeLength,
-                isFocused: $isCodeFocused)
+                length: SignInModel.codeLength)
                 .disabled(model.isBusy)
-                .task { isCodeFocused = true }
 
             Button {
                 Task { await model.sendNewCode() }

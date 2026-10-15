@@ -12,7 +12,11 @@ import SwiftUI
 struct CodeBoxes: View {
     @Binding var code: String
     var length = 6
-    var isFocused: FocusState<Bool>.Binding
+    /// Opens the number pad when the boxes appear.
+    var focusOnAppear = true
+
+    /// True while the code field is editing. Plain state, not @FocusState: the field is UIKit (see OneTimeCodeField).
+    @State private var isEditing = false
 
     var body: some View {
         ZStack {
@@ -24,8 +28,9 @@ struct CodeBoxes: View {
             // A UIKit field, so the code iOS shows above the keyboard (AutoFill "From Mail") really fills it.
             OneTimeCodeField(
                 text: $code,
-                isFocused: Binding(get: { isFocused.wrappedValue }, set: { isFocused.wrappedValue = $0 }),
-                maxLength: length)
+                maxLength: length,
+                focusOnAppear: focusOnAppear,
+                onEditingChanged: { isEditing = $0 })
                 .frame(maxWidth: .infinity, minHeight: 56)
                 .accessibilityValue(code.isEmpty ? "Empty" : code)
         }
@@ -33,7 +38,7 @@ struct CodeBoxes: View {
 
     private func box(at index: Int) -> some View {
         let digits = Array(code)
-        let isNext = isFocused.wrappedValue && index == min(digits.count, length - 1)
+        let isNext = isEditing && index == min(digits.count, length - 1)
         return Text(index < digits.count ? String(digits[index]) : "")
             .font(.title2.monospacedDigit().weight(.semibold))
             .foregroundStyle(Theme.Colors.textPrimary)
@@ -50,12 +55,10 @@ struct CodeBoxes: View {
 #Preview {
     struct Demo: View {
         @State private var code = "482"
-        @FocusState private var focused: Bool
         var body: some View {
-            CodeBoxes(code: $code, isFocused: $focused)
+            CodeBoxes(code: $code)
                 .padding()
                 .background(Theme.Colors.background)
-                .onAppear { focused = true }
         }
     }
     return Demo()

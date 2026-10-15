@@ -116,12 +116,11 @@ struct DesignSystemGallery: View {
     // MARK: - Code boxes
 
     @State private var sampleCode = "48"
-    @FocusState private var isSampleCodeFocused: Bool
 
     /// The one-time code boxes of the sign-in sheet (TASK-70). Tap them and type.
     private var codeBoxesSample: some View {
         TitledSection(title: "Code boxes") {
-            CodeBoxes(code: $sampleCode, isFocused: $isSampleCodeFocused)
+            CodeBoxes(code: $sampleCode, focusOnAppear: false)
         }
     }
 
