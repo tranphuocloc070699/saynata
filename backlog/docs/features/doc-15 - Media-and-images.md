@@ -3,11 +3,11 @@ id: doc-15
 title: Media and images
 type: specification
 created_date: '2026-10-15 04:02'
-updated_date: '2026-10-15 14:43'
+updated_date: '2026-10-15 18:52'
 ---
 # Media and images
 
-> Status: **working for photos and clips from Pixabay** (TASK-23, 49.3, 49.4, 52). AI images are not built yet (TASK-53). The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-15 (removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
+> Status: **working for photos and clips from Pixabay** (TASK-23, 49.3, 49.4, 52). AI images are not built yet (TASK-53). The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-16 (Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
 > Why: a small picture or a short clip helps a learner remember a meaning (doc-1, Vision and spec). Postgres on the server is the source of truth for content (doc-7).
 
 ## What it does
@@ -275,6 +275,7 @@ Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTes
 | [FfmpegMediaConverterTest](../../../backend/src/test/java/com/englishtranslation/backend/media/FfmpegMediaConverterTest.java) | Big photo becomes a small WebP, video becomes a short MP4, bad input fails with a clear message. Needs ffmpeg on the machine. |
 | [HttpPixabayClientTest](../../../backend/src/test/java/com/englishtranslation/backend/media/HttpPixabayClientTest.java) | Only Pixabay hosts over https are accepted. A fake HTTP client: 429 then 200 succeeds (one 1 s pause), 429 three times gives `PixabayBusyException`, `Retry-After` is used, a `Retry-After` past the budget gives up at once, other errors are not tried again (TASK-63). |
 | [AdminMediaTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaTest.java) | Login and role, search (6 results, default words, rate limit, errors), pick, remove, mark for AI, list, 404. TASK-76: the file and row are deleted when unused and kept while another sense (bundled or backend) uses them, a missing file is fine, picking another deletes the old file, Remove all media for a bundled word and a backend word (also without a claim row), the background job does not fill a removed sense, only ADMIN may call it. |
+| [test_media_check.py](../../../pipeline/tests/test_media_check.py) | TASK-78: the Claude check with a fake client and a fake ffmpeg (see doc-6). |
 | [test_media.py](../../../pipeline/tests/test_media.py) | `needs_media`, file names, WebP resize, dry run, the pass with a fake fetcher. |
 | [test_postgres.py](../../../pipeline/tests/test_postgres.py) | TASK-76: `link-media` skips `none` and `removed` senses and makes no media row for them; `export` writes no `image_url` for them. Needs `TEST_DATABASE_URL`. |
 | [mediaRow.test.tsx](../../../admin/src/test/mediaRow.test.tsx) | The admin buttons and the Pick another panel, the full-size viewer (TASK-77). |
@@ -290,9 +291,29 @@ Run: `cd backend && ./mvnw -B test`, `cd pipeline && uv run pytest`, `cd admin &
 - Change `MEDIA_BASE_URL` or the folder: [doc-11](../guides/doc-11%20-%20Deploy-to-a-VPS.md), `docker-compose.prod.yml` and the Caddyfile together.
 - Change Pixabay limits: `HttpPixabayClient` (backend), `_wait_for_rate_limit` (pipeline), `MediaSearchRateLimiter` (admin).
 
+## Claude check of the pictures (TASK-78)
+
+Developer decision (2026-10-15, doc-7): every Pixabay picture is checked by Claude first, the wrong ones are marked `needs_ai`, and AI images (TASK-53) are made only for those. Marking by hand in the admin still works for pictures Claude missed.
+
+```mermaid
+flowchart LR
+    PG[(Postgres: senses + media)] --> MC[pipeline media-check]
+    FILES[data/media files] --> MC
+    MC -->|"photo or middle frame of a clip, word, meaning, example"| CL[Claude Haiku 5.5]
+    CL -->|"good, wrong or unsure + reason"| MC
+    MC --> TAB[(media_check, Flyway V12)]
+    MC -->|"--apply: wrong only"| ST["dictionary_sense.media_status = needs_ai"]
+    MC --> REP[data/out/media-check.html]
+    ST --> LIST["GET /api/admin/media?status=needs_ai"]
+```
+
+How to run it, the costs and the table: doc-6, section 12. In short: `uv run pipeline media-check --limit 50`, open the report, then the full run, then `--apply`. `--apply` writes the same `media_status = 'needs_ai'` as the admin's Mark for AI, so the existing list shows the result. A sense that already has a status (`removed`, `needs_ai`) is never checked or changed.
+
+The admin does not show the verdict yet (follow-up): the word detail Media row could show the newest `media_check` verdict and reason, read-only. It needs a mockup first (project rule) and changes `AdminWord`, its service and the React app, so it was left out of TASK-78.
+
 ## TASK-53: AI images (not built)
 
-AI images plug in at `media_status = needs_ai` (set by Mark for AI, listed by `GET /api/admin/media?status=needs_ai`). A future job reads those senses, makes an image, saves it through `MediaStore` with `source = ai` (plus provider, prompt and cost) on the `media` row, links it, and clears the status.
+AI images plug in at `media_status = needs_ai` (set by Mark for AI or by `pipeline media-check --apply`, listed by `GET /api/admin/media?status=needs_ai`). A future job reads those senses, makes an image, saves it through `MediaStore` with `source = ai` (plus provider, prompt and cost) on the `media` row, links it, and clears the status.
 
 ## Finding words by media (TASK-60)
 
@@ -300,6 +321,7 @@ AI images plug in at `media_status = needs_ai` (set by Mark for AI, listed by `G
 
 ## Known gaps
 
+- The Claude check (`media-check`) looks at the bundled senses only, not at the pictures of backend words (`word_lookup_media`). Its verdict is not shown in the admin yet.
 - Flyway V9 (TASK-58) deleted the `word_lookup` rows of words that are in the bundled dictionary, with their `word_lookup_media` links. The media rows and files of those words stay on disk (same gap as the next lines).
 
 - A new word's first answer has no `imageUrl`. The picture shows from the second lookup (on purpose: the answer must not wait for Pixabay).

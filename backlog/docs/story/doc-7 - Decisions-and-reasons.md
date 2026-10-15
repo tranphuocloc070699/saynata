@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-15 14:43'
+updated_date: '2026-10-15 18:52'
 ---
 # Decisions and reasons
 
@@ -117,6 +117,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-15 | Make sentence answers feel faster with three changes done **together** (TASK-73, 74, 75): stream the meaning word by word (`meaning-delta` events); show the offline dictionary word cards at once while Claude works; make one tiny Claude call after start-up to warm the connection. One branch, one PR (`feature/faster-sentences`) | Measured on production: the `meaning` event arrives at 1.3-1.8 s, `done` at 2-2.5 s, and the first call after a restart took 7-9 s. The developer asked for all three together. Any further reason: not recorded. | Doing them one at a time; waiting for a faster model | Developer |
 | 10-15 | **Removing media really takes effect** (TASK-76): add a word-level **Remove all media** in the admin (`DELETE /api/admin/words/{id}/media`), and make No image, Pick another and Remove all **delete the media row and the file** when no other sense uses it. Removed senses are marked (`image_type = none`, `media_status = removed`) so neither the backend job nor the pipeline fills them again | Some words cannot have a good picture. Before, No image only unlinked the file in Postgres, so the app (which holds `media/<file>` in the bundled `dictionary.sqlite`) kept showing it. | Keep the file and send a "removed" list to the app; only hide it in the admin | Developer |
 | 10-15 | Admin words list: a clip **plays on hover** in the 56x42 thumbnail, and a media **full-size viewer** (dark backdrop, caption, Close icon) opens from the Media row and from a Pick-another tile (TASK-77) | Mockup approved by the developer. Reason: not recorded. | Not recorded | Developer |
+| 10-15 | **Check every Pixabay picture and clip with Claude first** (TASK-78): `uv run pipeline media-check` asks Claude Haiku 5.5 whether each picture clearly shows its meaning (good, wrong, unsure); `--apply` marks the wrong ones `needs_ai`; AI images (TASK-53) are then made only for those. The generation method is not chosen yet. Unsure is never applied automatically | Reason: not recorded. | Marking every bad picture by hand in the admin (the 10-14 plan) | Developer |
 
 ## Questions answered
 
@@ -129,3 +130,4 @@ go here as questions.
 - 10-14: Why images option B (AI only for the bad ones)? Reason not recorded.
 - 10-15: Why accounts with an email code (not passwords or Sign in with Apple), why guests may not cause new Claude calls, and why $1 per day? Reason not recorded.
 - 10-15: Why these three speed changes together (and not one by one)? Only the measurements were given. Reason not recorded.
+- 10-15: Why check every picture with Claude first, instead of marking bad pictures by hand in the admin? Reason not recorded.
