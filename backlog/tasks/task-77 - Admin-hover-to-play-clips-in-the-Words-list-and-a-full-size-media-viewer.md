@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 14:37'
-updated_date: '2026-10-15 14:43'
+updated_date: '2026-10-15 14:44'
 labels:
   - admin
   - web
@@ -39,4 +39,6 @@ Developer approved mockup 2026-10-15. (1) A Words list row with a clip plays it 
 
 <!-- SECTION:NOTES:BEGIN -->
 Hover to play (HoverClip in WordsPage) and MediaLightbox (Radix Dialog) built in the same PR as TASK-76. Admin tests pass.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/69. Test it: hover a clip row in Words (plays muted, stops on leave); click a Media row photo or a Pick-another zoom icon (viewer, Esc/backdrop/X close).
 <!-- SECTION:NOTES:END -->

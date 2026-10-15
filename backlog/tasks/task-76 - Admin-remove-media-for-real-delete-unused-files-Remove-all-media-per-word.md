@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 14:33'
-updated_date: '2026-10-15 14:43'
+updated_date: '2026-10-15 14:44'
 labels:
   - backend
   - admin
@@ -50,4 +50,6 @@ Developer decision 2026-10-15: add a word-level Remove all media in the admin, a
 
 <!-- SECTION:NOTES:BEGIN -->
 Backend: MediaCleanup + DELETE /api/admin/words/{id}/media; pipeline link-media/export skip removed senses; admin button. Tests: backend 306 pass, pipeline 102 pass (local Postgres 15), admin 58 pass.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/69. Test it: on admin.loffy.me, Remove all media on a word (confirm), Media rows show -, old file URL gives 404; No image and Pick another also give 404 for the old file; link-media does not bring it back.
 <!-- SECTION:NOTES:END -->
