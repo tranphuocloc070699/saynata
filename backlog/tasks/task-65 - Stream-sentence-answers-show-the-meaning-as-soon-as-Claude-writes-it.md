@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 08:58'
-updated_date: '2026-10-15 09:10'
+updated_date: '2026-10-15 09:11'
 labels:
   - backend
   - ios
@@ -60,4 +60,6 @@ A new sentence takes 1.9-2.7 s (once 8.9 s) and the app shows nothing until the 
 Decision: not-English on the stream is an error event with status 422 (same message as the old 422), not a done event, because there is no TranslationResponse for it. The app does not fall back for 4xx answers.
 
 Implemented backend SSE, iOS streaming and docs. Tests: backend 210 pass, iOS 179 pass (iPhone 16 Pro, iOS 18.5). No backend/.env in the worktree, so no real Claude timings: run BASE_URL=http://localhost:8081 python3 backend/scripts/measure_stream.py. Test it: new sentence in the app shows the Meaning card + spinner first, then words and translation row; same sentence again shows at once; 'asdkj qwe zzxq' shows the 422 message; backend off shows the normal error after one fallback try. Also: curl -N -H 'Content-Type: application/json' -H 'Accept: text/event-stream' -d '{"text":"...","targetLang":"vi"}' http://localhost:8081/api/translations/stream
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/62 (Test it card is in the PR body). Not-English is an error event (422), not done.
 <!-- SECTION:NOTES:END -->
