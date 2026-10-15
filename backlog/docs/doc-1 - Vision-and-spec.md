@@ -3,7 +3,7 @@ id: doc-1
 title: Vision and spec
 type: specification
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-14 11:25'
+updated_date: '2026-10-15 09:09'
 ---
 # Spec: EnglishTranslation — translator for a Vietnamese English learner
 
@@ -90,6 +90,7 @@ not call the LLM.
 | Method | Path | Body / param | Returns |
 |---|---|---|---|
 | `POST` | `/api/translations` | `{ "text": "...", "targetLang": "vi" }` | `{ text, targetLang, explanation, cached }` |
+| `POST` | `/api/translations/stream` | same body | `text/event-stream` (TASK-65): `meaning` `{ meaning }` as soon as it is written (cache misses), then `done` with the same JSON as `/api/translations`; or `error` `{ status, message }` |
 | `GET`  | `/api/words/{word}` | path: the word | `{ word, entry, cached }` |
 
 `explanation` = `{ meaning, words: [{ word, partOfSpeech, meaning }], translation }`. Only

@@ -5,6 +5,8 @@ import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.type.TypeReference;
@@ -38,12 +40,32 @@ public class TranslationService {
     }
 
     public TranslationResponse translate(String text, TargetLanguage targetLang) {
+        return translate(text, targetLang, normalized -> claude.explainSentence(normalized, targetLang));
+    }
+
+    /**
+     * Same as {@link #translate}, but a Claude call is streamed: {@code onMeaning} gets the simple English
+     * meaning as soon as Claude has written it, before the words and the translation are done.
+     * On a cache hit it is never called. The return value is the same as {@link #translate} gives.
+     */
+    public TranslationResponse translateStreaming(String text, TargetLanguage targetLang, Consumer<String> onMeaning) {
+        return translate(text, targetLang, normalized -> {
+            JsonStringFieldReader meaningReader = new JsonStringFieldReader("meaning");
+            return claude.explainSentenceStreaming(normalized, targetLang, piece -> meaningReader.feed(piece)
+                    .filter(meaning -> !meaning.isBlank()) // a not-English answer has an empty meaning
+                    .ifPresent(onMeaning));
+        });
+    }
+
+    /** The cache rules, shared by both ways in. {@code askClaude} runs only when there is no cached answer. */
+    private TranslationResponse translate(String text, TargetLanguage targetLang,
+            Function<String, Explanation> askClaude) {
         String normalized = CacheKeys.normalizeSentence(text);
 
         // Personal text (email, phone, link, long number) is explained, but never saved to
         // or read from the shared cache.
         if (personalTextDetector.looksPersonal(normalized)) {
-            Explanation explanation = claude.explainSentence(normalized, targetLang);
+            Explanation explanation = askClaude.apply(normalized);
             return new TranslationResponse(normalized, targetLang, explanation, false);
         }
 
@@ -54,7 +76,7 @@ public class TranslationService {
             return new TranslationResponse(normalized, targetLang, readExplanation(saved.get()), true);
         }
 
-        Explanation explanation = claude.explainSentence(normalized, targetLang);
+        Explanation explanation = askClaude.apply(normalized);
         try {
             repository.saveAndFlush(new SentenceTranslation(
                     cacheKey, normalized, targetLang.code(), explanation.meaning(),

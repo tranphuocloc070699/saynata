@@ -32,6 +32,8 @@ interface Props<T extends Item, E> {
   chips: Chip[];
   itemTitle: (item: T) => string;
   itemSubtitle: (item: T) => string;
+  // A small picture on the left of the row (words list). Without it the row is two lines of text.
+  itemThumb?: (item: T) => ReactNode;
   itemBadges?: (item: T) => ReactNode;
   detailRows: (item: T) => FieldRow[];
   // The JSON the backend stores for this item: what the editor changes and PUT sends.
@@ -45,6 +47,7 @@ export function EntryBrowser<T extends Item, E>({
   chips,
   itemTitle,
   itemSubtitle,
+  itemThumb,
   itemBadges,
   detailRows,
   editableEntry,
@@ -213,12 +216,17 @@ export function EntryBrowser<T extends Item, E>({
                   item.id === selectedId && "bg-muted",
                 )}
               >
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">{itemTitle(item)}</span>
-                  {item.needsReview && <Badge variant="warning">Needs review</Badge>}
-                  {itemBadges?.(item)}
+                <div className="flex items-center gap-3">
+                  {itemThumb?.(item)}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold">{itemTitle(item)}</span>
+                      {item.needsReview && <Badge variant="warning">Needs review</Badge>}
+                      {itemBadges?.(item)}
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
+                  </div>
                 </div>
-                <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
               </button>
             </li>
           ))}

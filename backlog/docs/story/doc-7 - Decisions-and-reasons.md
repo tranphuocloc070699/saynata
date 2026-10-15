@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-15 07:55'
+updated_date: '2026-10-15 07:59'
 ---
 # Decisions and reasons
 
@@ -72,6 +72,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-14 | Sense images and clips are **served from the server** (`https://api.loffy.me/media/...`, files on the VPS behind Caddy, rows in Postgres), downloaded by the app once and cached; words that come from the backend get an image when their entry is created (Pixabay) | The developer saw no image for "apple" (a backend word; only 3 sample files existed). Reason for B in the developer's words: not recorded (Claude: works for backend words, keeps the app small, fits the CMS). | A: bundle all media in the app (~20-40 MB, nothing for backend words) | Developer chose B, Claude recommended |
 | 10-14 | Shared sentence cache privacy (TASK-9): keep the cache shared, but **do not store** sentences that look personal (email address, phone number, link, long number); they are still explained, just not cached | Reason: not recorded (Claude: the cache returns one user's text to others; this keeps the cost saving without storing personal data). | Per-user cache (needs logins); keep as is | Developer chose 1, Claude recommended |
 | 10-14 | Images: **Pixabay for every picture sense first; AI-generated images only for the ones the developer marks as bad in the admin** (option B). Style rule: flat simple illustration, one subject, light background, Sage and Teal colours, no text in the picture, no realistic faces; a budget cap on every run | Reason: not recorded (Claude: cheapest, about 150-300 images instead of 1,500-4,000). Provider and budget still to choose after a 20-word trial. | A: AI for all ~1,500 picture senses; C: AI for all senses incl. abstract ones (~3,000-4,000) | Developer chose B from Claude's options |
+| 10-15 | **Topic words** (TASK-61): add about 1,000-1,400 everyday concrete words NGSL misses (apple, giraffe, scarf, tram), each with one topic. Start from the **first-sense list** (Open English WordNet 2025 + wordfreq Zipf ≥ 3.5, NGSL removed: 1,271 words, 1,378 with a short hand list), then a **Claude Haiku judge** keeps or drops each word (names, rare meanings, technical words) before any Sonnet money is spent | The developer noticed everyday words are missing ("apple" is not in NGSL, because NGSL is chosen by frequency) and asked where to find vocabulary for streets, vegetables, animals and tools. First-sense list: picked the recommended option (cleaner; the any-sense list finds more animals but much more noise). The judge costs under $0.10. | Any-sense list (1,888 words, more noise); copying the Cambridge Young Learners lists (© Cambridge, used only to check coverage); hand-picking every word | Developer chose, Claude recommended |
 
 ## Workflow
 
