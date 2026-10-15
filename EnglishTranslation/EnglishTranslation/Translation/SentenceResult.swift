@@ -14,7 +14,8 @@ struct SentenceResult: Equatable {
     let explanation: Explanation
     /// The language the translation was made in. The result heading uses this, not the live picker.
     let language: TargetLanguage
-    /// One entry per word in `explanation.words`, with the pill and chip text for its card.
+    /// Claude's words first (one per word in `explanation.words`), then the other dictionary words
+    /// found in the sentence. Each has the pill and chip text for its card.
     let words: [SentenceWordInfo]
 
     /// - Parameter bundledEntry: Looks a word up in the bundled dictionary. Nil entries are fine.
@@ -27,8 +28,11 @@ struct SentenceResult: Equatable {
         self.sentence = sentence
         self.explanation = explanation
         self.language = language
-        self.words = explanation.words.map { word in
+        // Claude's words first, with Claude's meaning. Then the other words from the bundled dictionary (TASK-56).
+        let claudeWords = explanation.words.map { word in
             SentenceWordInfo(word: word, entry: bundledEntry(word.word))
         }
+        self.words = claudeWords + SentenceWordFinder.extraWords(
+            in: sentence, skipping: claudeWords, bundledEntry: bundledEntry)
     }
 }

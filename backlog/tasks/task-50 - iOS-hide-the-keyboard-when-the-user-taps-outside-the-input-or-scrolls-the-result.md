@@ -3,9 +3,11 @@ id: TASK-50
 title: >-
   iOS: hide the keyboard when the user taps outside the input or scrolls the
   result
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-14 11:18'
+updated_date: '2026-10-15 06:27'
 labels:
   - ios
 dependencies: []
@@ -34,3 +36,18 @@ Developer request (2026-10-14): when the user taps outside the text input, the k
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. @FocusState in TranslateView, passed to TranslateInputView.
+2. Clear focus on send and on a simultaneous tap gesture on the ScrollView.
+3. scrollDismissesKeyboard(.interactively).
+4. Check on iPhone 16 Pro simulator: buttons, folded rows, speakers, selection.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Done in PR (branch feature/keyboard-and-sentence-words). @FocusState in TranslateView; tap gesture is simultaneous and sits on the options and the result area, not on the text box (a first try on the whole ScrollView also hid the keyboard on a tap inside the box, found on the simulator). Send clears focus. scrollDismissesKeyboard(.interactively). Simulator (iPhone 16 Pro, hardware keyboard on): tap inside keeps focus, tap outside ends it. Result-area taps/selection need a check on a real iPhone.
+<!-- SECTION:NOTES:END -->

@@ -51,6 +51,23 @@ struct SentenceWordInfo: Equatable, Identifiable {
         }
     }
 
+    /// A word the app found by itself in the sentence (TASK-56). The explanation is the dictionary's
+    /// first meaning, and the pill and chip come from the entry like for Claude's words.
+    /// - Parameters:
+    ///   - sentenceWord: The word as it appears in the sentence, for example "apples".
+    ///   - entry: Its bundled dictionary entry.
+    init(sentenceWord: String, entry: WordEntry) {
+        word = sentenceWord
+        explanation = entry.senses.first?.simpleDefinition ?? ""
+        self.entry = entry
+        if let form = entry.matchedForm {
+            pillText = "\(form.type) of \(entry.word)"
+        } else {
+            pillText = nil
+        }
+        chipText = entry.senses.first?.chipText
+    }
+
     /// Splits "took out (base form: draw out)" into "took out" and "base form: draw out".
     /// The note is nil when the meaning has none.
     static func splitBaseFormNote(from meaning: String) -> (explanation: String, note: String?) {
