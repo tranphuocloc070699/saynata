@@ -51,4 +51,6 @@ The admin Words list has 2,750 bundled words, and paging 20 at a time with arrow
 
 <!-- SECTION:NOTES:BEGIN -->
 Implemented in EntryBrowser (useInfiniteList, 50 per page, IntersectionObserver sentinel, N of total footer, spinner row). npm test 31 pass, npm run build ok, doc-14 updated. Test it: run admin (npm run dev), open Words. Footer says 50 of 2,750 with no arrows. Scroll to load more with a spinner row. Search or the Needs review chip resets to page 1. The selected word stays selected. Mark reviewed far down updates the row without jumping to top. Automated: cd admin && npm test.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/52
 <!-- SECTION:NOTES:END -->
