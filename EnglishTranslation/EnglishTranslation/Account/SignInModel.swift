@@ -98,10 +98,24 @@ final class SignInModel {
 
     /// The text field changed (typing, or Mail filling the code). Keeps digits only, and checks the code at 6 digits.
     func updateCode(_ raw: String) async {
-        code = String(raw.filter(\.isNumber).prefix(Self.codeLength))
-        if code.count == Self.codeLength {
+        if setCode(raw) {
             await verify()
         }
+    }
+
+    /// Saves the digits at once (not in a Task), so the text field reads them back right away. When Mail fills all
+    /// 6 digits in one go, a late update made SwiftUI put the old empty text back, and the code vanished.
+    /// Returns true when the code is complete and should be checked.
+    @discardableResult
+    func setCode(_ raw: String) -> Bool {
+        code = String(raw.filter(\.isNumber).prefix(Self.codeLength))
+        return code.count == Self.codeLength
+    }
+
+    /// Checks a complete code. Call after `setCode` returned true.
+    func verifyCode() async {
+        guard code.count == Self.codeLength else { return }
+        await verify()
     }
 
     private func verify() async {

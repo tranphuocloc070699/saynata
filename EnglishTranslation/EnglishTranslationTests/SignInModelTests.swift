@@ -90,6 +90,16 @@ struct SignInModelTests {
 
     // MARK: - Step 2
 
+    /// Mail fills all 6 digits in one go. The code must be saved at once (not later in a Task),
+    /// or SwiftUI reads the old empty value back and the filled code disappears.
+    @Test func aFullCodeFromMailIsSavedAtOnce() {
+        let model = makeModel()
+        #expect(model.setCode("482 913") == true)
+        #expect(model.code == "482913")
+        #expect(model.setCode("12") == false)
+        #expect(model.code == "12")
+    }
+
     @Test func theCodeKeepsDigitsOnlyAndAtMostSix() async {
         serve()
         let model = makeModel()

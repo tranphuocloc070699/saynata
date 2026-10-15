@@ -92,7 +92,12 @@ struct SignInSheet: View {
                 .foregroundStyle(Theme.Colors.textSecondary)
 
             CodeBoxes(
-                code: Binding(get: { model.code }, set: { value in Task { await model.updateCode(value) } }),
+                code: Binding(
+                    get: { model.code },
+                    set: { value in
+                        // Saved at once, then checked: a late save lost a code filled from Mail.
+                        if model.setCode(value) { Task { await model.verifyCode() } }
+                    }),
                 length: SignInModel.codeLength,
                 isFocused: $isCodeFocused)
                 .disabled(model.isBusy)
