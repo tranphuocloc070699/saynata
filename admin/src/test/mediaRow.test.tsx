@@ -1,0 +1,166 @@
+import { Refine, type DataProvider } from "@refinedev/core";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MediaSearchResult, WordItem } from "@/api/types";
+import { MediaRow } from "@/components/MediaRow";
+import { httpClient } from "@/providers/dataProvider";
+
+const API = "https://api.test/api/admin";
+
+const word: WordItem = {
+  id: "b-5",
+  word: "run",
+  needsReview: false,
+  source: "bundled",
+  model: "haiku",
+  promptVersion: "v3",
+  createdAt: "2026-10-14T10:00:00Z",
+  entry: { senses: [] },
+  media: [{ url: "https://api.loffy.me/media/run_1_ab.webp", kind: "photo", photographer: "Jane Photo", pageUrl: "https://pixabay.com/photos/x-1/" }],
+  mediaStatus: [null],
+};
+
+function result(id: number, kind: "photo" | "clip" = "photo"): MediaSearchResult {
+  return {
+    kind,
+    pixabayId: id,
+    previewUrl: `https://cdn.pixabay.com/preview/${id}.jpg`,
+    downloadUrl: `https://cdn.pixabay.com/x/${id}`,
+    photographer: `Person ${id}`,
+    pageUrl: `https://pixabay.com/x-${id}/`,
+  };
+}
+
+function renderRow(item: WordItem = word) {
+  const dataProvider = { getList: vi.fn(), getApiUrl: () => API } as unknown as DataProvider;
+  render(
+    <MemoryRouter>
+      <Refine dataProvider={dataProvider} options={{ disableTelemetry: true }}>
+        <MediaRow word={item} index={0} />
+      </Refine>
+    </MemoryRouter>,
+  );
+}
+
+describe("media row", () => {
+  const get = vi.spyOn(httpClient, "get");
+  const put = vi.spyOn(httpClient, "put");
+  const del = vi.spyOn(httpClient, "delete");
+  const post = vi.spyOn(httpClient, "post");
+
+  beforeEach(() => {
+    get.mockResolvedValue({ data: { query: "person running", results: [result(1), result(2, "clip"), result(3)] } });
+    put.mockResolvedValue({ data: {} });
+    del.mockResolvedValue({ data: {} });
+    post.mockResolvedValue({ data: {} });
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it("shows the current photo with its credit and three icon-only buttons", () => {
+    renderRow();
+    expect(screen.getByRole("img", { name: "run, sense 1" })).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.webp");
+    expect(screen.getByRole("link", { name: "Jane Photo" })).toBeInTheDocument();
+    for (const name of ["Pick another image", "No image", "Mark for AI image"]) {
+      const button = screen.getByRole("button", { name });
+      // Icon only (CLAUDE.md): the button has no visible text.
+      expect(button).toHaveTextContent("");
+      expect(button.querySelector("svg")).not.toBeNull();
+    }
+    expect(screen.queryByRole("region", { name: /Pick another image/ })).not.toBeInTheDocument();
+  });
+
+  it("opens the panel under the row, searches with the sense's own words and fills the search input", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
+
+    const panel = await screen.findByRole("region", { name: "Pick another image (sense 1)" });
+    expect(get).toHaveBeenCalledWith(`${API}/media/search`, { params: { sense: "b-5:0" } });
+    expect(await within(panel).findByLabelText("Search words")).toHaveValue("person running");
+    expect(within(panel).getAllByRole("button", { name: /^Result / })).toHaveLength(3);
+    // Only the clip has the "clip" mark.
+    expect(within(panel).getAllByText("clip")).toHaveLength(1);
+    expect(within(panel).getByRole("button", { name: "Use this image" })).toBeDisabled();
+  });
+
+  it("searches again with the words that were typed", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
+    const input = await screen.findByLabelText("Search words");
+    await vi.waitFor(() => expect(input).toHaveValue("person running"));
+
+    await userEvent.clear(input);
+    await userEvent.type(input, "jogger");
+    await userEvent.click(screen.getByRole("button", { name: "Search" }));
+
+    await vi.waitFor(() => expect(get).toHaveBeenLastCalledWith(`${API}/media/search`, { params: { sense: "b-5:0", q: "jogger" } }));
+  });
+
+  it("applies the chosen result and closes the panel", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Result 2, clip by Person 2" }));
+    expect(screen.getByRole("button", { name: "Result 2, clip by Person 2" })).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(screen.getByRole("button", { name: "Use this image" }));
+
+    await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+    const [url, body, config] = put.mock.calls[0];
+    expect(url).toBe(`${API}/words/b-5/senses/0/media`);
+    expect(body).toEqual({
+      kind: "clip",
+      pixabayId: 2,
+      downloadUrl: "https://cdn.pixabay.com/x/2",
+      photographer: "Person 2",
+      pageUrl: "https://pixabay.com/x-2/",
+    });
+    expect(config).toEqual({ headers: { "Content-Type": "application/json" } });
+    await vi.waitFor(() => expect(screen.queryByRole("region", { name: /Pick another image/ })).not.toBeInTheDocument());
+  });
+
+  it("closes the panel with the close button", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Close search" }));
+    expect(screen.queryByRole("region", { name: /Pick another image/ })).not.toBeInTheDocument();
+  });
+
+  it("says so when Pixabay has no results", async () => {
+    get.mockResolvedValue({ data: { query: "zzzz", results: [] } });
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
+    expect(await screen.findByText("Pixabay has nothing for these words.")).toBeInTheDocument();
+  });
+
+  it("No image sends DELETE for the sense", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "No image" }));
+    await vi.waitFor(() => expect(del).toHaveBeenCalledTimes(1));
+    expect(del.mock.calls[0][0]).toBe(`${API}/words/b-5/senses/0/media`);
+  });
+
+  it("Mark for AI sends POST, and a marked sense shows the waiting note", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "Mark for AI image" }));
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(post.mock.calls[0][0]).toBe(`${API}/words/b-5/senses/0/media/mark-for-ai`);
+  });
+
+  it("shows that a sense is waiting for an AI image", () => {
+    renderRow({ ...word, mediaStatus: ["needs_ai"] });
+    expect(screen.getByText("Waiting for an AI image")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mark for AI image" })).toBeDisabled();
+  });
+
+  it("shows the message of the backend when a change fails", async () => {
+    put.mockRejectedValue({ response: { data: { detail: "Could not download or convert that file. Try another one." } } });
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Result 1, photo by Person 1" }));
+    await userEvent.click(screen.getByRole("button", { name: "Use this image" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not download or convert that file.");
+    // The panel stays open so another result can be tried.
+    expect(screen.getByRole("region", { name: "Pick another image (sense 1)" })).toBeInTheDocument();
+  });
+});

@@ -11,17 +11,22 @@
     uv run pipeline usage                # add usage to every done word that has none (about $8 for 2,578 words)
     uv run pipeline revalidate         # re-check needs_review words after the checks change (no LLM)
     uv run pipeline report               # counts + entries that need review
-    uv run pipeline export               # build data/out/dictionary.sqlite
+    uv run pipeline import-to-postgres   # one time: copy the bundled dictionary.sqlite into Postgres (DATABASE_URL)
+    uv run pipeline export               # build data/out/dictionary.sqlite (+ media/) from Postgres
+    uv run pipeline link-media           # after the media pass: add its media to senses in Postgres (no text changes)
+    uv run pipeline export-local         # old: build dictionary.sqlite from data/pipeline.db
 """
 
 import argparse
 import json
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from pipeline import export, sources, store
+from pipeline import export, postgres, sources, store
 from pipeline.senses import build_source
 from pipeline.validate import build_vocabulary, find_problems
 
@@ -146,6 +151,52 @@ def add_media(limit: int, workers: int, words: list[str] | None, dry_run: bool) 
     print(f"Done: {counts['saved']} saved, {counts['failed']} failed, {counts['media_found']} media files matched")
 
 
+BUNDLED_SQLITE = Path("../EnglishTranslation/EnglishTranslation/Resources/dictionary.sqlite")
+
+
+def import_to_postgres(args) -> None:
+    sqlite_path = Path(args.sqlite)
+    if not sqlite_path.is_file():
+        raise SystemExit(f"No dictionary file at {sqlite_path}. Use --sqlite to point to it.")
+    media_dir = Path(args.media_dir) if args.media_dir else sqlite_path.parent / "media"
+    pipeline_db = None
+    if store.DB_PATH.is_file():
+        pipeline_db = sqlite3.connect(store.DB_PATH)
+        print(f"Reading Pixabay attribution from {store.DB_PATH}")
+    pg = postgres.connect(postgres.database_url(args.database_url))
+    result = postgres.import_dictionary(
+        sqlite3.connect(sqlite_path), pg, media_dir=media_dir, pipeline_db=pipeline_db, overwrite=args.overwrite
+    )
+    pg.close()
+    print(f"Words written: {result.words_written}, skipped (already in Postgres): {result.words_skipped}")
+    print(f"Senses: {result.senses}, forms: {result.forms}, media rows in the file: {result.media}")
+    if result.words_skipped and not args.overwrite:
+        print("Skipped words were not changed. Use --overwrite to replace them with the file.")
+
+
+def link_media_to_postgres(args) -> None:
+    sqlite_path = Path(args.sqlite)
+    if not sqlite_path.is_file():
+        raise SystemExit(f"No dictionary file at {sqlite_path}. Use --sqlite to point to it.")
+    media_dir = Path(args.media_dir) if args.media_dir else sqlite_path.parent / "media"
+    pipeline_db = sqlite3.connect(store.DB_PATH) if store.DB_PATH.is_file() else None
+    pg = postgres.connect(postgres.database_url(args.database_url))
+    linked = postgres.link_media(sqlite3.connect(sqlite_path), pg, media_dir=media_dir, pipeline_db=pipeline_db)
+    pg.close()
+    print(f"Senses linked to media: {linked} (senses that already had media were not changed)")
+
+
+def export_from_postgres(args) -> None:
+    pg = postgres.connect(postgres.database_url(args.database_url), read_only=True)
+    result = export.export_from_postgres(pg, media_dir=Path(args.media_dir))
+    pg.close()
+    print(f"Exported {result.words} words, {result.senses} senses, {result.forms} forms to {result.path}")
+    print(f"Media: {result.media_copied} files copied to {result.path.parent / 'media'}")
+    if result.media_missing:
+        print(f"Warning: {len(result.media_missing)} media files are not in {args.media_dir}, for example "
+              f"{', '.join(result.media_missing[:3])}. Copy the server media folder there first (--media-dir).")
+
+
 def report() -> None:
     db = store.connect()
     for row in db.execute("SELECT status, COUNT(*) AS n, SUM(attempts) AS calls FROM words GROUP BY status"):
@@ -182,7 +233,20 @@ def main() -> None:
     media_parser.add_argument("--dry-run", action="store_true", help="query Pixabay and print matches, save nothing")
     commands.add_parser("revalidate")
     commands.add_parser("report")
-    commands.add_parser("export")
+    commands.add_parser("export-local")
+    import_parser = commands.add_parser("import-to-postgres")
+    import_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    import_parser.add_argument("--sqlite", default=str(BUNDLED_SQLITE), help="the dictionary.sqlite to read")
+    import_parser.add_argument("--media-dir", help="folder with the media files (default: media/ next to the sqlite file)")
+    import_parser.add_argument("--overwrite", action="store_true", help="replace words that are already in Postgres")
+    link_parser = commands.add_parser("link-media")
+    link_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    link_parser.add_argument("--sqlite", default=str(export.OUT_DIR / "dictionary.sqlite"),
+                             help="the dictionary.sqlite whose image_url values to link (default: data/out/, from export-local)")
+    link_parser.add_argument("--media-dir", help="folder with the media files (default: media/ next to the sqlite file)")
+    export_parser = commands.add_parser("export")
+    export_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    export_parser.add_argument("--media-dir", default=str(export.MEDIA_DIR), help="folder with the media files to copy")
     args = parser.parse_args()
 
     if args.command == "preview":
@@ -201,8 +265,14 @@ def main() -> None:
         revalidate()
     elif args.command == "report":
         report()
+    elif args.command == "import-to-postgres":
+        import_to_postgres(args)
+    elif args.command == "link-media":
+        link_media_to_postgres(args)
     elif args.command == "export":
-        path, count, without_usage, without_levels = export.export(store.connect())
+        export_from_postgres(args)
+    elif args.command == "export-local":
+        path, count, without_usage, without_levels = export.export_from_pipeline_db(store.connect())
         print(f"Exported {count} words to {path}")
         if without_usage:
             print(f"Warning: {without_usage} words have no usage yet. Run `uv run pipeline usage` first.")

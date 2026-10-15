@@ -1,11 +1,11 @@
 ---
 id: TASK-38
 title: 'Backend: reject non-words before calling Claude (runk became drunk)'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
 created_date: '2026-10-11 14:51'
-updated_date: '2026-10-11 15:23'
+updated_date: '2026-10-15 03:38'
 labels:
   - backend
   - ios
@@ -30,9 +30,9 @@ Developer test 2026-10-11: typing 'runk' showed a card for 'drunk' under the hea
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
-- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Tests pass
+- [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -47,4 +47,12 @@ Developer test 2026-10-11: typing 'runk' showed a card for 'drunk' under the hea
 PR: https://github.com/tranphuocloc070699/saynata/pull/20. Test it: start backend; curl localhost:8081/api/words/runk -> {"senses":[]}, no Claude call; curl .../serendipity -> full entry; in the app 'runk' shows 'not an English word' + Did you mean; ru%20nk -> 400. Automated: ./mvnw -B test (31 pass), iOS unit tests (85 pass). Follow-up: iOS ResultCache still saves empty answers; 'different headword' check is prompt-only.
 
 AC #2 left open: the prompt forbids spelling correction, but code cannot check which word a definition describes; the SCOWL word list (AC #1) is the real guard. Merged in PR #20 / F1 #14.
+
+2026-10-15: developer confirmed it works on the phone. AC #2 stays unchecked on purpose: the prompt forbids spelling correction, but no code check rejects entries that define a different headword; the SCOWL list (AC #1) is the real guard.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Backend rejects words not on the bundled SCOWL/NGSL list before calling Claude, prompt v7 forbids spelling correction, cached wrong entries are bypassed. Verified by backend tests (31) and iOS tests (85) in PR #20 and the developer's phone test.
+<!-- SECTION:FINAL_SUMMARY:END -->

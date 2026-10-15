@@ -3,9 +3,11 @@ id: TASK-52
 title: >-
   Admin: replace a sense image (pick another Pixabay result, no image, or mark
   for AI)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-14 14:44'
+updated_date: '2026-10-15 06:21'
 labels:
   - backend
   - web
@@ -25,7 +27,7 @@ Decision (doc-7, 2026-10-14, images option B): Pixabay first; the developer fixe
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Mockup for the pick-another panel approved by the developer before UI code
+- [x] #1 Mockup for the pick-another panel approved by the developer before UI code
 - [ ] #2 Pick another: shows up to 6 Pixabay results for the sense; choosing one replaces the image (file + media row) for bundled and backend words
 - [ ] #3 No image: the sense has no media afterwards; Mark for AI: the sense is listed by GET /api/admin/media?status=needs_ai
 - [ ] #4 Only ADMIN can call these endpoints; Pixabay calls are rate limited; tests cover each path
@@ -37,3 +39,20 @@ Decision (doc-7, 2026-10-14, images option B): Pixabay first; the developer fixe
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Flyway V8: media_status column on dictionary_sense and word_lookup_media.
+2. PixabayClient.search (up to 6 photo+clip results with preview); MediaStore (download, convert, save media row) extracted from BackendWordMediaService and reused.
+3. Admin API: GET /api/admin/media/search?sense=b-12:0&q=, PUT/DELETE /api/admin/words/{id}/senses/{n}/media, POST .../media/mark-for-ai, GET /api/admin/media?status=needs_ai. ADMIN only (existing rule), search rate limited (30 per 5 min per admin).
+4. Admin web app: inline panel under the Media row (approved option A), icon-only buttons with aria-labels.
+5. Tests: backend with fake Pixabay + auth checks; Vitest for the panel.
+6. Update doc-13, doc-14; check_docs; PR into feature/f5-cms.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/49 (into feature/f5-cms). Backend 169 tests pass, admin 27 tests pass. TEST IT. Goal: in the admin, pick another Pixabay picture, remove it, or mark a sense for AI. Steps: (1) backend/.env with ADMIN_JWT_SECRET, ADMIN_EMAIL, ADMIN_INITIAL_PASSWORD, PIXABAY_API_KEY, MEDIA_DIR=./media, MEDIA_BASE_URL=http://localhost:8090; run ./mvnw spring-boot:run (compose starts Postgres). (2) cd backend/media && python3 -m http.server 8090 (backend does not serve /media; Caddy does on the VPS). (3) cd admin && cp .env.example .env.local && npm ci && npm run dev, sign in at http://localhost:5173. (4) Open a word, in the Media row press Pick another image: inline panel, search box prefilled, up to 6 tiles, clip mark; pick one, press the check. (5) Press No image, then Mark for AI image. (6) Open http://localhost:8081/api/admin/media?status=needs_ai. Expected: new picture and credit show; No image shows a dash; Mark for AI shows 'Waiting for an AI image'; the list shows the sense. Failure: wrong PIXABAY_API_KEY gives 'Pixabay did not answer. Try again later.' under the row. Automated: cd backend && ./mvnw -B test (AdminMediaTest); cd admin && npm test (mediaRow.test.tsx). Not covered: real Pixabay search (HttpPixabayClient.search).
+<!-- SECTION:NOTES:END -->

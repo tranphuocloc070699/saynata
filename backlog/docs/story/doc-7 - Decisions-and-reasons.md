@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-14 14:44'
+updated_date: '2026-10-15 07:25'
 ---
 # Decisions and reasons
 
@@ -90,6 +90,16 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | No stacked PRs; feature branches deleted only after their main PR merges | PR #2 was closed by GitHub when #1's branch was deleted. | Stacked PRs | Claude, after that bug |
 | 10-11 | Guard hook blocks force-push and push to main | Bash deny rules miss forms like `git -C . push`. A hook blocks in every permission mode. Tested. | Deny rules only | Claude |
 | 10-14 | Merge all features (F3 Listen, share extension, sense media, app icon, "an apple") into main before testing on the phone; test later | "I'll install on my phone and test later." Breaks the "merge only after the developer tests" rule for this round. iOS tests ran only on the worker's Mac (Codex: 127 passed) and not after the F3/share-extension merge. | Test each feature first, then merge | Developer |
+| 10-15 | Merge TASK-52 (admin pick-another) into F5 and ship it with F5 untested | One deploy and one test round. Reason: picked the recommended option. | Ship F5 alone, keep #49 open | Developer |
+| 10-15 | Admin web app deployed by GitHub Actions (build on GitHub, rsync admin/dist to the VPS) | "I want to create CI/CD for the admin too." Building on GitHub keeps Node off the VPS and avoids running out of memory. | Build on the VPS with npm | Developer asked, Claude chose the method |
+| 10-15 | Backend port 8081 on loopback only (BACKEND_BIND=127.0.0.1 default) | Security check: Docker opened 8081 past ufw, so clients could skip Caddy and fake X-Forwarded-For. | Keep 0.0.0.0 | Claude, after the developer asked about VPS security |
+| 10-15 | Media for all bundled words with a full Pixabay pass; 727 words with only abstract senses (the, be, of) get none for now | "Implement media or images for all words bundled." Stock photos can't show function words. | AI images for all (TASK-53, costs money) | Developer |
+| 10-15 | Admin lists use infinite scroll | Developer request, so 2,750 words are easy to browse. | Pages with arrows | Developer |
+| 10-15 | Sentence words: the app also adds every content word found in the bundled dictionary, after Claude's hard words (option a) | Developer thought words were missing ("I like apples" showed none). Offline, free, the same every time. | Lower the prompt bar to above A2 (option b) | Developer |
+| 10-15 | Show the needs-review reasons in the admin, worked out when the entry is read | "If it needs review, show the reason." Reading-time reasons need no migration and stay correct after edits. | Store the reasons in a column | Developer asked, Claude chose the method |
+| 10-15 | TASK-48 Examples row: option A (plain speaker at the right edge of line 1, sentence on line 2) | Reason: not recorded. | Option B (speaker right after the label) | Developer |
+| 10-15 | When a word is both bundled and in the backend table (example: "run"), **the bundled entry wins**: `GET /api/words/{word}` answers it from `dictionary_word` and never calls Claude, and a migration deletes the old backend rows | Reason: not recorded (the duplicates appeared because Claude had described "run" before the bundled words were imported into Postgres). | Keep the backend row and hide the bundled one; merge the two entries | Developer |
+| 10-15 | Admin word list: every filter chip is **a server-side filter** (source, level, media), one source and one media filter at a time, levels OR-ed; new chips Has media and No media | Reason: "From backend" on the client kept loading page after page with infinite scroll ("Nothing found" while loading 850 of 2,753). | Keep matching the loaded rows on the client | Developer |
 
 ## Questions answered
 

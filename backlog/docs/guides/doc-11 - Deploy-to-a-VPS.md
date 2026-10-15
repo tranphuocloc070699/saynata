@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-14 06:43'
+updated_date: '2026-10-15 04:28'
 ---
 # Deploy to a VPS
 
@@ -56,6 +56,19 @@ nano .env
 | `BACKEND_PORT` | Port on the server (default 8081). |
 | `BACKEND_BIND` | `0.0.0.0` (open) or `127.0.0.1` (only Caddy on the same server can reach it). |
 | `CLAUDE_MODEL` | Optional. Default is the model in `application.properties`. |
+| `ADMIN_JWT_SECRET` | Signs the admin login cookie. 32+ characters. Make one with `openssl rand -base64 48`. **The backend does not start without it**, unless `ADMIN_ENABLED=false`. |
+| `ADMIN_EMAIL` | Email of the first admin (for the admin web app). Used only when no admin exists yet. |
+| `ADMIN_INITIAL_PASSWORD` | Password of the first admin, 12+ characters. Used only when no admin exists yet; remove it from `.env` after the first start. |
+| `ADMIN_ENABLED` | Optional. `false` turns the admin API off. Default `true`. |
+| `PIXABAY_API_KEY` | Optional. Free key from https://pixabay.com/api/docs/ . With it, a new word that is not in the bundle gets a photo or clip in the background (section 9). Empty = no pictures are fetched. |
+| `MEDIA_BASE_URL` | Optional. Public address of the media folder. Default `https://api.loffy.me/media`. |
+| `MEDIA_HOST_DIR` | Optional. Folder on the server with the media files. Default `/var/lib/saynata/media` (section 9). |
+| `POSTGRES_PORT` | Optional. Port of Postgres on the server's own loopback (`127.0.0.1`), for the dictionary pipeline (section 8). Default 5432. It is never open to the internet. |
+
+The admin API (`/api/admin`, see [Admin API](../features/doc-13%20-%20Admin-API.md)) is for the admin web app.
+Its login cookie is `SameSite=Strict`, so the admin site and the API must share a site, for example
+`admin.loffy.me` and `api.loffy.me`. Behind Caddy keep `BACKEND_BIND=127.0.0.1`: the login rate limit reads the
+client IP from `X-Forwarded-For`, which Caddy sets.
 
 `.env` is git-ignored. Never commit it. Set `DB_PASSWORD` before the first start: Postgres keeps the first one
 in the volume.
@@ -119,6 +132,7 @@ api.example.com {
 ```
 
 3. Run `sudo systemctl reload caddy`, then `curl https://api.example.com/actuator/health`.
+   The same block also serves the sense photos and clips at `/media/`, see section 9.
 
 Option B: a tunnel such as Cloudflare Tunnel or Tailscale Funnel. You open no ports and need no certificate setup,
 but it adds an account and a service you depend on.
@@ -143,6 +157,9 @@ After CI passes on `main`, [.github/workflows/deploy.yml](../../../.github/workf
 over SSH, moves `~/saynata` to the commit CI tested (`git merge --ff-only`), and runs
 [backend/scripts/deploy.sh](../../../backend/scripts/deploy.sh). That script runs `docker compose up -d --build --wait`,
 so the run turns red if the backend does not become healthy, and it prints the last backend logs.
+A second job, `deploy-admin`, then builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
+`ADMIN_API_URL` repository variable, default `https://api.loffy.me`) and copies `admin/dist` to the server with
+`rsync --delete` (section 8). The VPS needs `rsync`, but no Node.
 You can also start it by hand: Actions tab, **Deploy**, **Run workflow**.
 Until the secrets below exist, the workflow does nothing and stays green.
 
@@ -177,13 +194,129 @@ Rules: never edit files inside `~/saynata` on the server (except `backend/.env`,
 fast-forward fails. The private key lives only in GitHub secrets and on your Mac, never in git or in a chat.
 The deploy user must be able to run `docker` (`sudo usermod -aG docker <user>`).
 
+## 8. Admin web app (admin.loffy.me)
+
+The admin CMS ([Admin CMS](../features/doc-14%20-%20Admin-CMS.md)) is only static files. Caddy serves `admin/dist`; the backend
+at `api.loffy.me` stays the same (its `/api/admin/**` login and CORS for `https://admin.loffy.me` come from TASK-49.1).
+
+1. DNS: add an `A` record `admin.loffy.me` that points to the server, like `api.loffy.me`.
+2. Build. The Deploy workflow does this for you after every push to main (section 7). By hand, on the server or on your Mac (then copy `admin/dist`), with Node 20 or newer:
+
+```bash
+cd ~/saynata/admin
+npm ci
+VITE_API_URL=https://api.loffy.me npm run build     # writes admin/dist
+```
+
+3. Add this to `/etc/caddy/Caddyfile` next to the `api.loffy.me` block (`root` is the absolute path to `admin/dist`;
+   `try_files` sends every unknown path to `index.html`, so a reload on `/words` works):
+
+```caddyfile
+admin.loffy.me {
+    root * /home/youruser/saynata/admin/dist
+    encode gzip
+    try_files {path} /index.html
+    file_server
+}
+```
+
+4. Run `sudo systemctl reload caddy`, then open `https://admin.loffy.me` and sign in.
+
+Updates are automatic: the `deploy-admin` job replaces `admin/dist` after each push to main, and Caddy reads the new files at once, no restart. By hand, run step 2 again.
+The Caddy user must be able to read the folder (`chmod -R o+rX ~/saynata/admin/dist`, and `chmod o+x` on each parent folder).
+CI builds and tests the admin app on every pull request (`admin` job in `.github/workflows/ci.yml`).
+
+## 9. Dictionary pipeline: Postgres and media (TASK-49.3)
+
+The bundled dictionary (2,750 words) lives in this server's Postgres (tables `dictionary_word`, `dictionary_sense`,
+`dictionary_form`, `media`; made by Flyway when the backend starts). The pipeline on your Mac imports into it once and
+exports `dictionary.sqlite` from it, see [Dictionary pipeline](../features/doc-6%20-%20Dictionary-pipeline.md).
+
+**`DATABASE_URL` for the pipeline.** Postgres has no public port. Compose publishes it only on the server's loopback
+(`127.0.0.1:5432`), so open an SSH tunnel from your Mac and keep it open while the pipeline runs:
+
+```bash
+ssh -N -L 55432:127.0.0.1:5432 vps_sieutoc      # change 5432 if you set POSTGRES_PORT
+```
+
+Then in `pipeline/.env` (git-ignored):
+
+```
+DATABASE_URL=postgresql://app:YOUR_DB_PASSWORD@localhost:55432/english_translation
+```
+
+`app` and `english_translation` are the user and database in `docker-compose.prod.yml`; the password is `DB_PASSWORD`
+from `backend/.env`. Start the backend once before the first import (it creates the tables). Then, in `pipeline/`:
+
+```bash
+uv run pipeline import-to-postgres   # one time; safe to run again
+uv run pipeline export               # read-only; builds data/out/dictionary.sqlite and data/out/media/
+```
+
+**The media folder (TASK-49.4).** Media files (photos and short clips) are not stored in Postgres. Postgres keeps only a row per
+file (`media`: file name, photo or clip, size, Pixabay author and page link). The files live on disk in
+`/var/lib/saynata/media` on the server. `docker-compose.prod.yml` mounts that folder into the backend container as
+`/app/media` (`MEDIA_DIR`), and Caddy serves it read-only at `https://api.loffy.me/media/<file>`.
+
+1. Make the folder once. The backend runs as user id 10001 inside the container, so that user must own it:
+
+```bash
+sudo mkdir -p /var/lib/saynata/media
+sudo chown 10001:10001 /var/lib/saynata/media
+sudo chmod 755 /var/lib/saynata/media     # Caddy only needs to read it
+```
+
+2. Add this inside the existing `api.loffy.me` block of `/etc/caddy/Caddyfile`, **before** `reverse_proxy`.
+   `handle_path` removes `/media` from the path, so `root` is the folder itself. File names contain a hash of the
+   content (for example `run_1_3fa9c2d1.mp4`), so a name never changes its file and the cache can be one year:
+
+```caddyfile
+api.loffy.me {
+    handle_path /media/* {
+        root * /var/lib/saynata/media
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
+    }
+    reverse_proxy 127.0.0.1:8081
+}
+```
+
+3. `sudo systemctl reload caddy`, then redeploy the backend (`./scripts/deploy.sh`). The image now has ffmpeg
+   (about 100 MB more). Check: `curl -I https://api.loffy.me/media/<a file name>` shows `Cache-Control: public, max-age=31536000, immutable`.
+
+**What puts files there.**
+
+- *New backend words.* With `PIXABAY_API_KEY` set, the backend saves a photo (320 px WebP) or a 3 s muted clip (MP4) for the
+  first 3 senses of a word it just created, after the answer was sent. The next lookup returns the address in
+  `imageUrl`. Pixabay is asked once per sense and at most 40 times a minute. Without a key nothing is fetched.
+- *The bundled 2,750 words (pipeline media pass).* Run the pass on your Mac (it uses your Pixabay key and takes a long time;
+  start with `--words run walk` to try it), then copy the files and the rows to the server:
+
+```bash
+cd pipeline
+uv run pipeline media --words run walk          # or without --words for the full pass (many Pixabay requests)
+uv run pipeline export-local                    # builds data/out/dictionary.sqlite from the media pass (image_url per sense)
+uv run pipeline link-media --media-dir data/media   # media rows + links into the server Postgres, through the SSH tunnel
+rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/
+```
+
+  `link-media` only adds `media` rows (file name, size, photographer, Pixabay page) and sets `media_id` on senses that have none.
+  It never changes text and never replaces media a sense already has, so admin edits are safe (`import-to-postgres` skips
+  words that are already there, so it cannot do this job). The files can be copied before or after the rows; an address works as soon as both exist. File names from the pipeline
+  are like `run_1.mp4` (no hash). Do not replace a file under the same name later, because the browser and the
+  app may keep the old one for a year; use a new name.
+- `import-to-postgres` reads sizes from `--media-dir` (default: `media/` next to the sqlite file) and `export` copies
+  the files named in Postgres from `--media-dir` (default `data/media`) into `data/out/media/`.
+
 ## Troubleshooting
 
 | Problem | Fix |
 |---|---|
 | Compose says `Set CLAUDE_API_KEY in .env` | `.env` is missing or the value is empty. Run compose from the `backend/` folder. |
 | Backend stays "unhealthy" | Read `logs backend`. Often a wrong `DB_PASSWORD` (the volume keeps the old one) or too little RAM. |
+| Admin page is blank after a reload | The Caddy block is missing `try_files {path} /index.html`. |
 | App cannot connect | Test the URL with `curl` from your laptop. Check DNS, the firewall, and that the URL starts with `https://`. |
 | Deploy fails with `Not possible to fast-forward` | Someone changed files in `~/saynata` on the server. Run `git status` there, then `git checkout -- .` to drop the changes. |
 | Deploy fails with `Host key verification failed` | `VPS_KNOWN_HOSTS` is wrong or the server was rebuilt. Run `ssh-keyscan` again and update the secret. |
+| Pipeline cannot connect to `DATABASE_URL` | Is the SSH tunnel open? Does the port in the URL match `-L`? Is the compose file the new one (`docker compose -f docker-compose.prod.yml up -d` recreates Postgres with the loopback port; the data stays in the volume)? |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |
