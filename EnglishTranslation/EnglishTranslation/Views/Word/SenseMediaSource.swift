@@ -10,7 +10,8 @@ import Foundation
 /// Where the photo or clip of a sense comes from.
 ///
 /// `Sense.imageUrl` holds one of two things:
-/// - a bundled path from the old data, like `media/run_1.mp4` or `run_1.webp`
+/// - a bundled path from the dictionary file, like `media/run_1.mp4` or `run_1.webp`. Only a few files are inside the
+///   app, so `resolved` sends the other paths to the server (same file name under `/media/`).
 /// - an absolute https address from the backend, like `https://api.loffy.me/media/run_1_3fa9c2d1.mp4`
 nonisolated enum SenseMediaSource: Equatable, Sendable {
     case bundled(path: String)
@@ -37,6 +38,17 @@ nonisolated enum SenseMediaSource: Equatable, Sendable {
         case .bundled(let path): return path.lowercased().hasSuffix(".mp4")
         case .remote(let url): return url.pathExtension.lowercased() == "mp4"
         }
+    }
+
+    /// The source to really load. A bundled path whose file is inside the app stays bundled. Any other bundled path
+    /// becomes the server address `<serverBase>/media/<file>`, so the app does not need to carry every file.
+    /// Returns nil when the file is not in the app and there is no server address. Remote sources stay as they are.
+    func resolved(in bundle: Bundle = .main, serverBase: URL?) -> SenseMediaSource? {
+        guard case .bundled(let path) = self else { return self }
+        if bundledURL(in: bundle) != nil { return self }
+        let fileName = (path as NSString).lastPathComponent
+        guard let serverBase, !fileName.isEmpty, !path.hasSuffix("/") else { return nil }
+        return .remote(serverBase.appending(path: "media").appending(path: fileName))
     }
 
     /// Finds a bundled file for `.bundled`. Tries the path as written, then the `media` folder, then the bundle root.

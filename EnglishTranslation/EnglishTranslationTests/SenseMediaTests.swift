@@ -110,6 +110,50 @@ struct SenseMediaTests {
         #expect(SenseMediaSource.remote(URL(string: "https://x.test/a.webp")!).bundledURL() == nil)
     }
 
+    // MARK: - SenseMediaSource.resolved (bundled words load from the server)
+
+    private static let server = URL(string: "https://api.loffy.me")!
+
+    @Test func bundledPathWithABundledFileUsesTheBundle() throws {
+        let source = try #require(SenseMediaSource(path: "media/dog_1.webp"))
+        #expect(source.resolved(serverBase: Self.server) == source)
+    }
+
+    @Test func bundledPathWithoutABundledFileMapsToTheServer() throws {
+        let source = try #require(SenseMediaSource(path: "media/thirst_1.webp"))
+        let expected = URL(string: "https://api.loffy.me/media/thirst_1.webp")!
+        #expect(source.resolved(serverBase: Self.server) == .remote(expected))
+
+        let clip = try #require(SenseMediaSource(path: "media/fade_1.mp4"))
+        #expect(clip.resolved(serverBase: Self.server)?.isClip == true)
+        // A path without the folder maps to the same address.
+        let bare = try #require(SenseMediaSource(path: "thirst_1.webp"))
+        #expect(bare.resolved(serverBase: Self.server) == .remote(expected))
+    }
+
+    @Test func serverAddressWithASlashAtTheEndGivesTheSameUrl() throws {
+        let source = try #require(SenseMediaSource(path: "media/thirst_1.webp"))
+        let base = URL(string: "https://api.loffy.me/")!
+        #expect(source.resolved(serverBase: base) == .remote(URL(string: "https://api.loffy.me/media/thirst_1.webp")!))
+    }
+
+    @Test func httpsAddressStaysAsItIs() throws {
+        let source = try #require(SenseMediaSource(path: "https://cdn.test/media/a.webp"))
+        #expect(source.resolved(serverBase: Self.server) == source)
+        #expect(source.resolved(serverBase: nil) == source)
+    }
+
+    @Test func badValuesGiveNothing() throws {
+        #expect(SenseMediaSource(path: "") == nil)
+        #expect(SenseMediaSource(path: "http://api.loffy.me/media/a.webp") == nil)
+        // A bundled path with no file in the app and no server address cannot be loaded.
+        let source = try #require(SenseMediaSource(path: "media/thirst_1.webp"))
+        #expect(source.resolved(serverBase: nil) == nil)
+        // A path with no file name at all.
+        let noName = try #require(SenseMediaSource(path: "media/"))
+        #expect(noName.resolved(serverBase: Self.server) == nil)
+    }
+
     // MARK: - MediaFileCache (TASK-51)
 
     /// Counts how many times the fake download ran.

@@ -11,7 +11,8 @@ import SwiftUI
 /// Displays a small visual media asset (WebP photo or looping MP4 action clip) for a dictionary sense.
 /// Placed below the definition to prevent layout shifts.
 ///
-/// The path is a bundled file (old data) or an https address from the backend (TASK-51).
+/// The path is a bundled path or an https address from the backend (TASK-51).
+/// - Bundled path: the file inside the app if it is there, else the same file from the server (`SenseMediaSource.resolved`).
 /// - Server photo: saved in `MediaFileCache`, so it shows again offline after the first view.
 /// - Server clip: streamed by AVPlayer; the file is saved for next time. A saved file plays instead of the stream.
 /// - Loading: the frame keeps its size but is invisible, so nothing jumps. Failed: nothing is shown, no error.
@@ -78,7 +79,13 @@ struct SenseMediaView: View {
         return false
     }
 
-    private func load(_ source: SenseMediaSource) async {
+    private func load(_ firstSource: SenseMediaSource) async {
+        // The server address comes from the same Info.plist value as the backend client.
+        let serverBase = try? AppConfig.backendBaseURL()
+        guard let source = firstSource.resolved(serverBase: serverBase) else {
+            loadState = .failed
+            return
+        }
         switch source {
         case .bundled:
             guard let url = source.bundledURL() else {
