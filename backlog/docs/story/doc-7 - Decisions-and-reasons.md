@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-15 10:02'
+updated_date: '2026-10-15 10:54'
 ---
 # Decisions and reasons
 
@@ -109,6 +109,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-15 | Email codes are saved as an **HMAC** with a server key (not a plain hash), and the access-token key is derived from `USER_JWT_SECRET`, or from `ADMIN_JWT_SECRET`, or random, so the backend always starts | A plain hash of 6 digits can be reversed in a second. Merging auto-deploys, so a missing variable must not break production before SES is ready. | Plain SHA-256; fail at start-up without the secret | Claude |
 | 10-15 | A refresh token that is used twice revokes all sessions of that user | A used token that comes back may have been copied (OWASP refresh token rotation advice). Cost: a flaky network that repeats a refresh signs the user out. | Only reject the second use | Claude |
 | 10-15 | The iOS sign-in screen waits for a mockup. Until it exists, the current app gets 401 for new sentences and uncached words (bundled and cached answers still work) | Rule: mockup before UI code. | Build the screen without a mockup | Developer |
+| 10-15 | **Resend** (resend.com) sends the sign-in code emails (TASK-71), instead of AWS SES. The backend picks Resend when `RESEND_API_KEY` is set, else SES when a from address is set, else the log | SES needs a sandbox exit with a website review, an IAM user and a region setup, which is too complicated for now. Resend needs only domain DNS records (on Cloudflare) and one API key, and its free tier is enough. The SES code stays in the backend as an option. | AWS SES, "for now" (kept as an optional section in doc-11, can come back later) | Developer |
 
 ## Questions answered
 
@@ -119,4 +120,4 @@ go here as questions.
 - 10-14: Why the separate React admin (B) over admin pages inside Spring Boot, and why make the server database the source of truth? Reason not recorded.
 - 10-14: Why images from the server (B), and why the "do not store personal-looking sentences" rule (1)? Reason not recorded.
 - 10-14: Why images option B (AI only for the bad ones)? Reason not recorded.
-- 10-15: Why accounts with an email code and AWS SES (not passwords or Sign in with Apple), why guests may not cause new Claude calls, and why $1 per day? Reason not recorded.
+- 10-15: Why accounts with an email code (not passwords or Sign in with Apple), why guests may not cause new Claude calls, and why $1 per day? Reason not recorded.

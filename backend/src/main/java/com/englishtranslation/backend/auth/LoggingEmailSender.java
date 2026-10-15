@@ -4,8 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The fake sender: writes the code to the log instead of sending an email. Used when SES_FROM_EMAIL is not set
- * (local dev, tests, and production before SES is ready). On a server this puts codes in the log, so a warning
+ * The fake sender: writes the code to the log instead of sending an email. Used when no mail service is set
+ * (local dev, tests, and production before Resend or SES is ready). On a server this puts codes in the log, so a warning
  * is logged at start-up (see EmailConfig).
  */
 public class LoggingEmailSender implements EmailSender {

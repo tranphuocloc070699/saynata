@@ -13,17 +13,29 @@ public class AuthConfig {
     private static final Logger log = LoggerFactory.getLogger(AuthConfig.class);
 
     /**
-     * SES when SES_FROM_EMAIL is set, the logging fake otherwise. The fake keeps the backend starting (and
-     * sign-in testable with the log) before SES is ready. A real deploy without SES logs a warning.
+     * Picks the sender: Resend when RESEND_API_KEY and a from address are set, else SES when a from address is
+     * set, else the logging fake. The fake keeps the backend starting (and sign-in testable with the log) when no
+     * mail service is set up. A real deploy without one logs a warning.
      */
     @Bean
     public EmailSender emailSender(EmailProperties properties) {
-        if (properties.from() == null || properties.from().isBlank()) {
-            log.warn("SES_FROM_EMAIL is not set. Sign-in codes are NOT emailed; they are written to this log. "
-                    + "Set SES_FROM_EMAIL and AWS_REGION (and the AWS keys) to send real email.");
-            return new LoggingEmailSender();
+        String from = properties.fromAddress();
+        boolean hasFrom = !from.isBlank();
+        boolean hasResendKey = properties.resendApiKey() != null && !properties.resendApiKey().isBlank();
+        if (hasResendKey && hasFrom) {
+            log.info("Sign-in codes are sent with Resend from {}.", from);
+            return new ResendEmailSender(properties.resendApiKey().trim(), from);
         }
-        log.info("Sign-in codes are sent with AWS SES from {} (region {}).", properties.from(), properties.region());
-        return new SesEmailSender(properties.from(), properties.region());
+        if (hasResendKey) {
+            log.warn("RESEND_API_KEY is set but EMAIL_FROM is not. Resend is NOT used. Set EMAIL_FROM.");
+        }
+        if (hasFrom) {
+            log.info("Sign-in codes are sent with AWS SES from {} (region {}).", from,
+                    properties.region());
+            return new SesEmailSender(from, properties.region());
+        }
+        log.warn("No email service is set. Sign-in codes are NOT emailed; they are written to this log. "
+                + "Set RESEND_API_KEY and EMAIL_FROM (or SES_FROM_EMAIL and the AWS variables) to send real email.");
+        return new LoggingEmailSender();
     }
 }
