@@ -1,7 +1,8 @@
-import type { Example, ExampleLevel, Sense, SenseMedia, UsageLine, WordEntry, WordItem } from "@/api/types";
+import type { Example, ExampleLevel, Sense, UsageLine, WordEntry, WordItem } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/EntryEditor";
+import { MediaRow } from "@/components/MediaRow";
 import { EntryBrowser, type Chip } from "@/components/EntryBrowser";
 import type { FieldRow } from "@/components/FieldTable";
 
@@ -55,34 +56,13 @@ function detailRows(word: WordItem): FieldRow[] {
     rows.push({ label: "Vietnamese", value: sense.vietnamese });
     rows.push({
       label: "Media",
-      value: <MediaCell media={word.media?.[index]} alt={`${word.word}, sense ${index + 1}`} />,
+      value: <MediaRow word={word} index={index} />,
     });
   });
   rows.push({ label: "Record", heading: true, value: null });
   rows.push({ label: "Model", value: `${word.model} (prompt ${word.promptVersion})` });
   rows.push({ label: "Created", value: word.createdAt });
   return rows;
-}
-
-// The photo (or the muted looping clip) of a sense, with the Pixabay credit under it.
-function MediaCell({ media, alt }: { media: SenseMedia | null | undefined; alt: string }) {
-  if (!media) return <>-</>;
-  return (
-    <div className="space-y-1">
-      {media.kind === "clip" ? (
-        <video src={media.url} aria-label={alt} className="h-24 rounded-md" autoPlay loop muted playsInline />
-      ) : (
-        <img src={media.url} alt={alt} className="h-24 rounded-md" />
-      )}
-      <div className="text-xs text-muted-foreground">
-        {media.kind === "clip" ? "Clip" : "Photo"} by{" "}
-        <a href={media.pageUrl} target="_blank" rel="noreferrer" className="underline">
-          {media.photographer}
-        </a>{" "}
-        on Pixabay
-      </div>
-    </div>
-  );
 }
 
 function WordForm({ draft, setDraft }: { draft: WordEntry; setDraft: (next: WordEntry) => void }) {

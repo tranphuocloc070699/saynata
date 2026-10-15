@@ -21,6 +21,7 @@ import com.englishtranslation.backend.user.UserRepository;
 import com.englishtranslation.backend.word.WordLookup;
 import com.englishtranslation.backend.word.WordLookupRepository;
 import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,6 +78,13 @@ class AdminBundledWordsTest {
     ClaudeService claude;
 
     Cookie adminCookie;
+
+    /** The database is shared with other test classes (AdminContentApiTest counts words), so leave no words behind. */
+    @AfterEach
+    void cleanUp() {
+        backend.deleteAll();
+        bundled.deleteAll();
+    }
 
     @BeforeEach
     void setUp() throws Exception {

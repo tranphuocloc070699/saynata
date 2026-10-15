@@ -57,7 +57,7 @@ class PromptVersionCacheTest {
     }
 
     private TranslationService sentenceService(ClaudeProperties properties) {
-        return new TranslationService(sentences, claude, properties, jsonMapper);
+        return new TranslationService(sentences, claude, properties, jsonMapper, new com.englishtranslation.backend.translation.PersonalTextDetector());
     }
 
     private WordService wordService(ClaudeProperties properties) {

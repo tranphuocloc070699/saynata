@@ -38,6 +38,31 @@ public class SenseMediaReader {
                 + " where s.word_id in (:ids)", wordIds);
     }
 
+    /** Backend words: which senses the admin marked (status "needs_ai"). Word id, then sense position, then status. */
+    public Map<Long, Map<Integer, String>> statusForBackendWords(Collection<Long> lookupIds) {
+        return readStatus("select word_lookup_id as word_id, sense_position, media_status from word_lookup_media"
+                + " where media_status is not null and word_lookup_id in (:ids)", lookupIds);
+    }
+
+    /** Bundled words: the same, from dictionary_sense. */
+    public Map<Long, Map<Integer, String>> statusForBundledWords(Collection<Long> wordIds) {
+        return readStatus("select word_id, position as sense_position, media_status from dictionary_sense"
+                + " where media_status is not null and word_id in (:ids)", wordIds);
+    }
+
+    private Map<Long, Map<Integer, String>> readStatus(String sql, Collection<Long> ids) {
+        Map<Long, Map<Integer, String>> result = new HashMap<>();
+        if (ids.isEmpty()) {
+            return result;
+        }
+        jdbc.sql(sql).param("ids", ids).query((rs, n) -> {
+            result.computeIfAbsent(rs.getLong("word_id"), id -> new HashMap<>())
+                    .put(rs.getInt("sense_position"), rs.getString("media_status"));
+            return null;
+        }).list();
+        return result;
+    }
+
     private Map<Long, Map<Integer, SenseMedia>> read(String sql, Collection<Long> ids) {
         Map<Long, Map<Integer, SenseMedia>> result = new HashMap<>();
         if (ids.isEmpty()) {

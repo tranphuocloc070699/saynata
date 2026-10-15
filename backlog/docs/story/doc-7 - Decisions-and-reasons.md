@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-14 11:22'
+updated_date: '2026-10-14 14:44'
 ---
 # Decisions and reasons
 
@@ -71,6 +71,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-14 | Admin login with a **users table with roles** (ADMIN now; app users later reuse it) | Reason: not recorded (Claude: app users are planned, so one account system from the start). | One admin account from `.env` | Developer chose, Claude recommended |
 | 10-14 | Sense images and clips are **served from the server** (`https://api.loffy.me/media/...`, files on the VPS behind Caddy, rows in Postgres), downloaded by the app once and cached; words that come from the backend get an image when their entry is created (Pixabay) | The developer saw no image for "apple" (a backend word; only 3 sample files existed). Reason for B in the developer's words: not recorded (Claude: works for backend words, keeps the app small, fits the CMS). | A: bundle all media in the app (~20-40 MB, nothing for backend words) | Developer chose B, Claude recommended |
 | 10-14 | Shared sentence cache privacy (TASK-9): keep the cache shared, but **do not store** sentences that look personal (email address, phone number, link, long number); they are still explained, just not cached | Reason: not recorded (Claude: the cache returns one user's text to others; this keeps the cost saving without storing personal data). | Per-user cache (needs logins); keep as is | Developer chose 1, Claude recommended |
+| 10-14 | Images: **Pixabay for every picture sense first; AI-generated images only for the ones the developer marks as bad in the admin** (option B). Style rule: flat simple illustration, one subject, light background, Sage and Teal colours, no text in the picture, no realistic faces; a budget cap on every run | Reason: not recorded (Claude: cheapest, about 150-300 images instead of 1,500-4,000). Provider and budget still to choose after a 20-word trial. | A: AI for all ~1,500 picture senses; C: AI for all senses incl. abstract ones (~3,000-4,000) | Developer chose B from Claude's options |
 
 ## Workflow
 
@@ -98,3 +99,4 @@ go here as questions.
 - Python for the pipeline: Claude's choice in the first brainstorm. Reason not recorded; ask if it matters.
 - 10-14: Why the separate React admin (B) over admin pages inside Spring Boot, and why make the server database the source of truth? Reason not recorded.
 - 10-14: Why images from the server (B), and why the "do not store personal-looking sentences" rule (1)? Reason not recorded.
+- 10-14: Why images option B (AI only for the bad ones)? Reason not recorded.
