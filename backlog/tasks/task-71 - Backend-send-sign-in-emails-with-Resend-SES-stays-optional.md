@@ -5,6 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 10:50'
+updated_date: '2026-10-15 10:55'
 labels:
   - backend
 dependencies: []
@@ -38,3 +39,9 @@ Developer decision 2026-10-15: use Resend for sign-in code emails instead of AWS
 <!-- SECTION:PLAN:BEGIN -->
 1. ResendEmailSender (JDK HttpClient, 10s timeout, one retry). 2. AuthConfig picks Resend over SES over fake; EMAIL_FROM with SES_FROM_EMAIL fallback. 3. Tests with a fake HTTP server. 4. Compose, .env.example, docs, doc-7 row. 5. PR into main.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/65. Implemented ResendEmailSender, sender choice in AuthConfig, tests (285 pass), docs. Test it: Goal: sign-in emails go out with Resend. Steps: follow doc-11 section 10 (Resend setup), set RESEND_API_KEY and EMAIL_FROM=login@loffy.me in the server .env, deploy, curl POST /api/auth/email-code, then Gmail Show original. Expected: 204, mail arrives, DKIM/SPF/DMARC pass; with a wrong key still 204 and the log shows HTTP 401, never the key or code. Without RESEND_API_KEY: fake log sender as before. Automated: ResendEmailSenderTest, EmailSenderConfigTest; cd backend && ./mvnw -B test.
+<!-- SECTION:NOTES:END -->
