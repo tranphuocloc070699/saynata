@@ -57,7 +57,8 @@ class PromptVersionCacheTest {
     }
 
     private TranslationService sentenceService(ClaudeProperties properties) {
-        return new TranslationService(sentences, claude, properties, jsonMapper, new com.englishtranslation.backend.translation.PersonalTextDetector());
+        return new TranslationService(sentences, claude, properties, jsonMapper, new com.englishtranslation.backend.translation.PersonalTextDetector(),
+                org.mockito.Mockito.mock(com.englishtranslation.backend.limits.ClaudeGate.class));
     }
 
     private WordService wordService(ClaudeProperties properties) {
@@ -65,7 +66,8 @@ class PromptVersionCacheTest {
                 new SimpleWords(), org.mockito.Mockito.mock(com.englishtranslation.backend.media.BackendWordMediaService.class),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.media.SenseMediaReader.class),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.dictionary.DictionaryWordRepository.class),
-                new com.englishtranslation.backend.dictionary.BundledEntryReader(jsonMapper));
+                new com.englishtranslation.backend.dictionary.BundledEntryReader(jsonMapper),
+                org.mockito.Mockito.mock(com.englishtranslation.backend.limits.ClaudeGate.class));
     }
 
     @Test

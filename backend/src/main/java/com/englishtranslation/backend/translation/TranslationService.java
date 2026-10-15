@@ -3,6 +3,7 @@ package com.englishtranslation.backend.translation;
 import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.limits.ClaudeGate;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -29,9 +30,11 @@ public class TranslationService {
     private final ClaudeProperties properties;
     private final JsonMapper jsonMapper;
     private final PersonalTextDetector personalTextDetector;
+    private final ClaudeGate gate;
 
     public TranslationService(SentenceTranslationRepository repository, ClaudeService claude, ClaudeProperties properties,
-            JsonMapper jsonMapper, PersonalTextDetector personalTextDetector) {
+            JsonMapper jsonMapper, PersonalTextDetector personalTextDetector, ClaudeGate gate) {
+        this.gate = gate;
         this.repository = repository;
         this.claude = claude;
         this.properties = properties;
@@ -59,7 +62,13 @@ public class TranslationService {
 
     /** The cache rules, shared by both ways in. {@code askClaude} runs only when there is no cached answer. */
     private TranslationResponse translate(String text, TargetLanguage targetLang,
-            Function<String, Explanation> askClaude) {
+            Function<String, Explanation> callClaude) {
+        // Every way to Claude goes through the gate: signed in? budget left? under the user's limit?
+        // It runs only here, after the cache lookup failed, so cache hits stay free for everyone.
+        Function<String, Explanation> askClaude = normalizedText -> {
+            gate.beforeNewCall();
+            return callClaude.apply(normalizedText);
+        };
         String normalized = CacheKeys.normalizeSentence(text);
 
         // Personal text (email, phone, link, long number) is explained, but never saved to

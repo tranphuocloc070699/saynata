@@ -133,15 +133,19 @@ public class ClaudeService {
 
         private final AnthropicClient client;
         private final ClaudeProperties properties;
+        private final ClaudeUsageService usage;
 
-        public ClaudeService(AnthropicClient client, ClaudeProperties properties) {
+        public ClaudeService(AnthropicClient client, ClaudeProperties properties, ClaudeUsageService usage) {
                 this.client = client;
                 this.properties = properties;
+                this.usage = usage;
         }
 
         /** Throws {@link NotEnglishException} when the text is not English, so nothing is cached for it. */
         public Explanation explainSentence(String text, TargetLanguage targetLang) {
-                return toExplanation(readOutput(client.messages().create(sentenceParams(text, targetLang))));
+                StructuredMessage<SentenceAnswer> message = client.messages().create(sentenceParams(text, targetLang));
+                recordUsage(Feature.SENTENCE, message);
+                return toExplanation(readOutput(message));
         }
 
         /**
@@ -158,7 +162,9 @@ public class ClaudeService {
                                 textOf(event).ifPresent(onText);
                         });
                 }
-                return toExplanation(readOutput(accumulator.message(SentenceAnswer.class)));
+                StructuredMessage<SentenceAnswer> message = accumulator.message(SentenceAnswer.class);
+                recordUsage(Feature.SENTENCE, message);
+                return toExplanation(readOutput(message));
         }
 
         /** The JSON text carried by one stream event, if it carries any. */
@@ -214,7 +220,17 @@ public class ClaudeService {
                                 .addUserMessage(userMessage)
                                 .build();
 
-                return readOutput(client.messages().create(params));
+                StructuredMessage<WordEntry> message = client.messages().create(params);
+                recordUsage(Feature.WORD, message);
+                return readOutput(message);
+        }
+
+        /**
+         * Saves the tokens Claude says it used. Done before the answer is read, so a refused or "not English"
+         * answer (which still cost money) is counted too.
+         */
+        private void recordUsage(Feature feature, StructuredMessage<?> message) {
+                usage.record(feature, properties.model(), message.usage().inputTokens(), message.usage().outputTokens());
         }
 
         /** The user message for a sentence. The text is escaped so it cannot close the {@code <text>} tag early. */

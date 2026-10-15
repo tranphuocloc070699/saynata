@@ -16,7 +16,7 @@ import java.time.Instant;
 import java.util.EnumSet;
 import java.util.Set;
 
-/** One account. The password is saved as a bcrypt hash, never as text. */
+/** One account. The admin password is saved as a bcrypt hash, never as text. App users have no password. */
 @Entity
 @Table(name = "users")
 public class User {
@@ -28,7 +28,8 @@ public class User {
     @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(name = "password_hash", nullable = false, length = 100)
+    /** Empty for app users: they sign in with an email code, so they have no password. */
+    @Column(name = "password_hash", length = 100)
     private String passwordHash;
 
     @Column(name = "display_name", nullable = false, length = 100)
@@ -55,6 +56,12 @@ public class User {
         this.createdAt = Instant.now();
     }
 
+    /** A new app user who signed in with an email code for the first time. */
+    public static User appUser(String email) {
+        String name = email.substring(0, email.indexOf('@'));
+        return new User(email, null, name.length() > 100 ? name.substring(0, 100) : name, Role.USER);
+    }
+
     public Long getId() {
         return id;
     }
@@ -73,6 +80,10 @@ public class User {
 
     public Set<Role> getRoles() {
         return roles;
+    }
+
+    public void addRole(Role role) {
+        roles.add(role);
     }
 
     public boolean isAdmin() {

@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-15 04:28'
+updated_date: '2026-10-15 10:08'
 ---
 # Deploy to a VPS
 
@@ -63,6 +63,13 @@ nano .env
 | `PIXABAY_API_KEY` | Optional. Free key from https://pixabay.com/api/docs/ . With it, a new word that is not in the bundle gets a photo or clip in the background (section 9). Empty = no pictures are fetched. |
 | `MEDIA_BASE_URL` | Optional. Public address of the media folder. Default `https://api.loffy.me/media`. |
 | `MEDIA_HOST_DIR` | Optional. Folder on the server with the media files. Default `/var/lib/saynata/media` (section 9). |
+| `USER_JWT_SECRET` | Optional. Signs the sign-in tokens of app users. 32+ characters, `openssl rand -base64 48`. If empty, a key is derived from `ADMIN_JWT_SECRET` (a warning is logged). Set it once and keep it: changing it signs everyone out. |
+| `SES_FROM_EMAIL` | Optional until SES is ready. The "From" address of the sign-in email, on your verified domain, for example `login@yourdomain.com`. **Empty = no email is sent**: each code is only written to the backend log (section 10). |
+| `AWS_REGION` | The AWS region where you set up SES, for example `ap-southeast-1`. Must be the same region as the SES identity. |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The access key of the IAM user that may only send email (section 10). Read by the AWS SDK itself. |
+| `REQUIRE_SIGN_IN` | Optional. `true` (default): a guest cannot cause a new Claude call (401). **Set `REQUIRE_SIGN_IN=false` until the app with sign-in is released**, because the current app sends no token. Rate limits and the daily budget cap still apply to guests' Claude calls while it is false (a guest IP may cause 30 new calls per hour, `LIMIT_CLAUDE_GUEST_IP_MAX`). Remove the line, or set `true`, when the new app is out. |
+| `CLAUDE_DAILY_BUDGET_USD` | Optional. The most Claude may cost per day in US dollars (UTC day). Default `1.00`. At the cap, new explanations stop until midnight UTC; cached words still work. Prices are in `application.properties` (`app.claude.pricing.*`). |
+| `LIMIT_*` | Optional. Rate limits, for example `LIMIT_CLAUDE_USER_HOUR_MAX` (default 60). The full list is in `backend/.env.example`. |
 | `POSTGRES_PORT` | Optional. Port of Postgres on the server's own loopback (`127.0.0.1`), for the dictionary pipeline (section 8). Default 5432. It is never open to the internet. |
 
 The admin API (`/api/admin`, see [Admin API](../features/doc-13%20-%20Admin-API.md)) is for the admin web app.
@@ -308,6 +315,128 @@ rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/
 - `import-to-postgres` reads sizes from `--media-dir` (default: `media/` next to the sqlite file) and `export` copies
   the files named in Postgres from `--media-dir` (default `data/media`) into `data/out/media/`.
 
+## 10. AWS SES setup (sign-in emails)
+
+Saynata sends one kind of email: the 6-digit sign-in code. It goes through Amazon SES on your own domain, so it
+reaches the inbox and not the spam folder. **Merging the accounts code does not need any of this to start**: with
+no `SES_FROM_EMAIL` the backend runs, and each code is only written to its log (a line that starts with
+`[fake email]`; a warning at start-up says so). Sign-in emails really go out only after you finish this section.
+In the meantime, you can read a code on the server with
+`docker compose -f docker-compose.prod.yml logs backend | grep "fake email"` to test sign-in with curl.
+
+Below, `yourdomain.com` is your domain and `REGION` is the AWS region you pick (for example `ap-southeast-1` or
+`us-east-1`). SES is separate in every region: the identity, the sandbox status, the IAM policy and `AWS_REGION`
+must all use the same one. Cost is small: about 0.10 USD per 1,000 emails (check the SES pricing page).
+
+**1. Verify your domain (once)**
+
+1. AWS Console, region `REGION`, open **Amazon SES**, then **Configured identities**, then **Create identity**.
+2. Choose **Domain** and type `yourdomain.com` (or a subdomain such as `mail.yourdomain.com`; a subdomain keeps this
+   mail apart from your normal email). Keep **Easy DKIM** with **RSA_2048_BIT**. Create.
+3. SES shows three **CNAME** records (`xxxx._domainkey.yourdomain.com`). This is **DKIM**: it proves the email really
+   comes from your domain. Add all three at your DNS provider. Copy the name and the value exactly. Some providers add
+   the domain name for you, so do not type it twice.
+4. Wait. The identity changes to **Verified** and DKIM to **Successful**, usually in a few minutes, up to 72 hours.
+
+**2. SPF and DMARC (so Gmail and others trust the mail)**
+
+SPF says which servers may send for your domain. To make SPF line up with your domain, set a **custom MAIL FROM**
+domain. It is optional, but it gives you SPF and DMARC alignment:
+
+1. In the identity, open **Custom MAIL FROM domain** and choose a subdomain, for example `bounce.yourdomain.com`.
+2. Add the two DNS records SES shows: an **MX** record (`10 feedback-smtp.REGION.amazonses.com`) and a **TXT** record
+   for the subdomain: `v=spf1 include:amazonses.com ~all`.
+3. Add a **DMARC** TXT record at `_dmarc.yourdomain.com`. Start gently, and read the reports before you tighten it:
+   `v=DMARC1; p=none; rua=mailto:you@yourdomain.com`. After a few weeks of good mail you can change `p=none` to
+   `p=quarantine`.
+
+If your domain already has an SPF record (`v=spf1 ...`), do not add a second one on the same name. Add
+`include:amazonses.com` to the existing one. (The records above are on subdomains, so this only matters if you put
+SES mail on the main domain.)
+
+**3. Leave the SES sandbox**
+
+A new SES account is in the **sandbox**: it may send only to addresses you verified yourself (and about 200 emails a
+day). Real learners need production access.
+
+1. SES, **Account dashboard**, **Request production access**.
+2. Mail type: **Transactional**. Website: your site or the App Store page. Describe the use: "Saynata is an English
+   learning app. We send one email per sign-in: a 6-digit code the user asked for. No marketing. Volume is low (under
+   1,000 a day). Codes expire in 10 minutes, and the endpoint is rate limited. We watch bounces and complaints."
+3. AWS usually answers within a day. Until then, test with your own verified address (see "How to test").
+
+**4. An IAM user that can only send email**
+
+Never put your root keys or an admin key on the server.
+
+1. IAM, **Policies**, **Create policy**, JSON:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "ses:SendEmail",
+      "Resource": "arn:aws:ses:REGION:YOUR_ACCOUNT_ID:identity/yourdomain.com"
+    }
+  ]
+}
+```
+
+   (The backend uses the SES v2 `SendEmail` call, which needs this single permission. If SES shows another identity
+   in the error, add it to `Resource`.)
+2. IAM, **Users**, **Create user** (for example `saynata-ses`), attach only that policy. No console access.
+3. Open the user, **Security credentials**, **Create access key**, use case **Application running outside AWS**.
+   Copy the access key id and the secret now: AWS shows the secret once.
+
+**5. Put the values in `backend/.env` on the server**
+
+```bash
+USER_JWT_SECRET=...            # openssl rand -base64 48
+SES_FROM_EMAIL=login@yourdomain.com
+AWS_REGION=REGION
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
+```
+
+`SES_FROM_EMAIL` must be on the verified domain (or be a verified address). Then run `./scripts/deploy.sh` (or
+`docker compose -f docker-compose.prod.yml up -d`). The log must now say `Sign-in codes are sent with AWS SES from
+...` and no longer the warning `SES_FROM_EMAIL is not set`. `.env` is git-ignored: do not commit it.
+
+**How to test**
+
+1. In the sandbox, first verify your own address: SES, **Create identity**, **Email address**, click the link in the
+   email AWS sends. Then ask for a code for that address.
+2. Ask for a code:
+
+```bash
+curl -i -X POST https://api.yourdomain.com/api/auth/email-code \
+  -H 'Content-Type: application/json' -d '{"email":"you@example.com"}'
+# HTTP/2 204. The answer is the same whether the email exists or not.
+```
+
+3. The email should arrive in a minute ("Your Saynata sign-in code"). Then sign in with it:
+
+```bash
+curl -s -X POST https://api.yourdomain.com/api/auth/verify \
+  -H 'Content-Type: application/json' -d '{"email":"you@example.com","code":"123456"}'
+# {"accessToken":"...","refreshToken":"...","expiresIn":3600,"user":{"id":1,"email":"you@example.com"}}
+```
+
+4. Use the token: `curl -H "Authorization: Bearer <accessToken>" https://api.yourdomain.com/api/me`.
+5. In Gmail open the mail, then **Show original**: you want `DKIM: PASS`, `SPF: PASS` and `DMARC: PASS`. If one fails,
+   fix the DNS record from step 1 or 2.
+6. No email, and the answer was still 204? The backend never tells the caller about a send error (so nobody can learn
+   which emails exist). Read the log: `docker compose -f docker-compose.prod.yml logs backend | grep "sign-in code"`.
+   Common causes: `Email address is not verified` (sandbox, or `SES_FROM_EMAIL` is not on the verified domain),
+   `not authorized to perform ses:SendEmail` (wrong policy or region), `security token invalid` (wrong keys).
+   You can also use the SES mailbox simulator address `success@simulator.amazonses.com` in the sandbox.
+
+**Keep your sender reputation good.** SES pauses accounts with many bounces or spam complaints. The code endpoint is
+rate limited (5 per hour per IP, 3 per 15 minutes per email), which also limits how much stranger mail it can send.
+Watch **Reputation metrics** in SES now and then. Later you can add a configuration set with bounce notifications.
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -319,4 +448,7 @@ rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/
 | Deploy fails with `Not possible to fast-forward` | Someone changed files in `~/saynata` on the server. Run `git status` there, then `git checkout -- .` to drop the changes. |
 | Deploy fails with `Host key verification failed` | `VPS_KNOWN_HOSTS` is wrong or the server was rebuilt. Run `ssh-keyscan` again and update the secret. |
 | Pipeline cannot connect to `DATABASE_URL` | Is the SSH tunnel open? Does the port in the URL match `-L`? Is the compose file the new one (`docker compose -f docker-compose.prod.yml up -d` recreates Postgres with the loopback port; the data stays in the volume)? |
+| Sign-in works but no email arrives | `SES_FROM_EMAIL` is empty (the code is only in the log), the SES account is still in the sandbox, or the From address is not verified. See section 10, "How to test". |
+| App says it needs a sign-in for a new sentence (401 `sign_in_required`) | The app has no sign-in screen yet (it waits for a mockup). Set `REQUIRE_SIGN_IN=false` in `.env` and redeploy until the app with sign-in is released. Cached sentences and bundled words work either way. |
+| New explanations stop with 503 `daily_limit_reached` | Today's Claude spend reached `CLAUDE_DAILY_BUDGET_USD` (UTC day). See the spend: `GET /api/admin/usage?days=1` with the admin cookie. Raise the cap in `.env` if you want. |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |

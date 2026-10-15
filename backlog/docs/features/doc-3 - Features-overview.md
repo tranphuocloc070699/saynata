@@ -3,7 +3,7 @@ id: doc-3
 title: Features overview
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-15 04:04'
+updated_date: '2026-10-15 10:02'
 ---
 One page per flow: what it does, a diagram, every file and line on the path, the rules that matter,
 what can go wrong, which tests cover it, and what is still missing.
@@ -17,6 +17,7 @@ what can go wrong, which tests cover it, and what is still missing.
 | [Admin API](doc-13%20-%20Admin-API.md) | Backend built (TASK-49.1), used by the admin web app (doc-14) | Backend `/api/admin` |
 | [Admin CMS](doc-14%20-%20Admin-CMS.md) | Web app built (TASK-49.2), tested in a browser against the 49.1 backend | React web app (`admin/`) |
 | [Media and images](doc-15%20-%20Media-and-images.md) | Photos and clips work (pipeline, backend, admin); AI images not built (TASK-53); server loading in the app comes with PR #48 | Python, backend, admin, iOS |
+| [Accounts and limits](doc-17%20-%20Accounts-and-limits.md) | Backend built (TASK-66 to 69): email-code sign-in, sign-in for new Claude calls, rate limits, $1 daily cap. The iOS sign-in screen waits for a mockup | Backend |
 
 Not started yet: **text to speech** (TASK-7), **speech to text with a score** (TASK-8). Add a page when work starts.
 
