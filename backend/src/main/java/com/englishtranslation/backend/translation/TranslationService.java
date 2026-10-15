@@ -26,17 +26,27 @@ public class TranslationService {
     private final ClaudeService claude;
     private final ClaudeProperties properties;
     private final JsonMapper jsonMapper;
+    private final PersonalTextDetector personalTextDetector;
 
     public TranslationService(SentenceTranslationRepository repository, ClaudeService claude, ClaudeProperties properties,
-            JsonMapper jsonMapper) {
+            JsonMapper jsonMapper, PersonalTextDetector personalTextDetector) {
         this.repository = repository;
         this.claude = claude;
         this.properties = properties;
         this.jsonMapper = jsonMapper;
+        this.personalTextDetector = personalTextDetector;
     }
 
     public TranslationResponse translate(String text, TargetLanguage targetLang) {
         String normalized = CacheKeys.normalizeSentence(text);
+
+        // Personal text (email, phone, link, long number) is explained, but never saved to
+        // or read from the shared cache.
+        if (personalTextDetector.looksPersonal(normalized)) {
+            Explanation explanation = claude.explainSentence(normalized, targetLang);
+            return new TranslationResponse(normalized, targetLang, explanation, false);
+        }
+
         String cacheKey = CacheKeys.key("sentence", properties.sentencePromptVersion(), targetLang.code(), normalized);
 
         Optional<SentenceTranslation> saved = repository.findByCacheKey(cacheKey);
