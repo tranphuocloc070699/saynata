@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 07:16'
-updated_date: '2026-10-15 07:16'
+updated_date: '2026-10-15 07:26'
 labels:
   - backend
   - admin
@@ -39,3 +39,9 @@ The Bundled, From backend and CEFR chips only filter the rows already loaded on 
 <!-- SECTION:PLAN:BEGIN -->
 1. Source and CEFR chips become server filters (source eq, cefr as a list). Remove the client matching from EntryBrowser. 2. Vitest: a chip sends the param, no extra pages. 3. doc-14.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/58. Chips are {field, value, combine}; all server filters; source/media one at a time, levels OR-ed (cefr list). Level = first sense (backend column). Test it: admin.loffy.me, press From backend: one request, filtered total, no endless loading, no 'Nothing found'. Automated: admin npm test (infiniteScroll, wordsPage, dataProvider tests).
+<!-- SECTION:NOTES:END -->

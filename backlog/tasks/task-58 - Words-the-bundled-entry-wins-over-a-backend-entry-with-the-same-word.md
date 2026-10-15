@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 07:16'
-updated_date: '2026-10-15 07:16'
+updated_date: '2026-10-15 07:26'
 labels:
   - backend
 dependencies: []
@@ -39,3 +39,9 @@ The admin list shows some words twice, once as Bundled and once as Backend (exam
 <!-- SECTION:PLAN:BEGIN -->
 1. WordService.lookUp checks dictionary_word by lemma first and returns the bundled entry with media: no Claude, no save. 2. Flyway V9 deletes word_lookup rows whose word is a dictionary_word lemma (media links first). 3. Tests for the service and the migration SQL. 4. Docs 5, 13, 15.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/58. WordService answers a bundled lemma from dictionary_word (no Claude, no word_lookup row); Flyway V9 deletes word_lookup rows (and word_lookup_media links) whose word is a bundled lemma. Production loses at least 'run'; 'working' is a form of 'work' (not a lemma) and 'apple' is not bundled, so they stay. Preview SQL: SELECT id, word, needs_review FROM word_lookup WHERE lower(word) IN (SELECT lower(lemma) FROM dictionary_word). Test it: after deploy search 'run' in admin.loffy.me: one row (Bundled). Automated: BundledWordWinsTest, ./mvnw -B test.
+<!-- SECTION:NOTES:END -->

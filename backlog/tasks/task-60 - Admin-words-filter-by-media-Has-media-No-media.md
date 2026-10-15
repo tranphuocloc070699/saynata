@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 07:16'
-updated_date: '2026-10-15 07:16'
+updated_date: '2026-10-15 07:27'
 labels:
   - backend
   - admin
@@ -39,3 +39,9 @@ The developer wants to see which words have a picture or clip and which do not, 
 <!-- SECTION:PLAN:BEGIN -->
 1. Backend: media=with|without in AdminWordService.list with EXISTS subqueries (no view change). 2. Chips Has media and No media, one at a time. 3. Tests both sides; docs 13, 14, 15.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/58. GET /api/admin/words?media=with|without (SQL exists on dictionary_sense.media_id / word_lookup_media.media_id; bad value 400); chips Has media / No media. Test it: admin.loffy.me, press No media then Has media (one at a time); count line shows the filtered total; ?media=some gives 400. Automated: AdminBundledWordsTest.listCanFilterByMedia, admin wordsPage tests.
+<!-- SECTION:NOTES:END -->

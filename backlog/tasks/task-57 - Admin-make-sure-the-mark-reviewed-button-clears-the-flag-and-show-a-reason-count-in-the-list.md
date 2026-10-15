@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 07:16'
-updated_date: '2026-10-15 07:16'
+updated_date: '2026-10-15 07:26'
 labels:
   - backend
   - admin
@@ -42,3 +42,9 @@ After the PR #55 deploy the developer still sees "Two words still need review" (
 <!-- SECTION:PLAN:BEGIN -->
 1. Backend test: mark a backend word reviewed with the request the admin sends (POST, JSON body), read it back (API, list filter, repository). Fix if it does not clear. 2. Show a reason count and tooltip next to the badge in the list row. 3. Vitest, docs 13 and 14.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/58. Root cause: the backend clears the flag (new test). The admin app refreshed 'list' queries but the infinite list lives under 'infinite', so the badge stayed until reload; now invalidates 'all'. Test it: after deploy, reload admin.loffy.me, Needs review chip, see 'N problems' badges (tooltip = reasons), open working and apple: fix with the pencil or press the check button. Expected: badge disappears at once and stays gone after reload. Automated: cd backend && ./mvnw -B test (178 pass); cd admin && npm test && npm run build (41 pass).
+<!-- SECTION:NOTES:END -->
