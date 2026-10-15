@@ -1,15 +1,14 @@
-import { useApiUrl, useCustomMutation, useDelete, useInvalidate, useList, useUpdate, type CrudFilter } from "@refinedev/core";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useApiUrl, useCustomMutation, useDelete, useInfiniteList, useInvalidate, useUpdate, type CrudFilter } from "@refinedev/core";
+import { Loader2, Search } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntryActions } from "@/components/EntryActions";
 import { EntryEditor } from "@/components/EntryEditor";
 import { FieldTable, type FieldRow } from "@/components/FieldTable";
 import { cn } from "@/lib/utils";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 
 export interface Item {
   id: number | string;
@@ -50,7 +49,6 @@ export function EntryBrowser<T extends Item, E>({
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [activeChips, setActiveChips] = useState<string[]>([]);
-  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<T["id"]>();
   const [editing, setEditing] = useState(false);
   const [actionError, setActionError] = useState<string>();
@@ -59,7 +57,6 @@ export function EntryBrowser<T extends Item, E>({
   useEffect(() => {
     const timer = setTimeout(() => {
       setQuery(search.trim());
-      setPage(1);
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
@@ -71,22 +68,49 @@ export function EntryBrowser<T extends Item, E>({
     if (chip.server) filters.push({ field: chip.server.field, operator: "eq", value: chip.server.value });
   }
 
-  const { query: listQuery, result } = useList<T & Record<string, unknown>>({
+  // The query key holds the filters, so a new search or chip starts again at page 1.
+  const { query: listQuery, result } = useInfiniteList<T & Record<string, unknown>>({
     resource,
-    pagination: { currentPage: page, pageSize: PAGE_SIZE },
+    pagination: { currentPage: 1, pageSize: PAGE_SIZE },
     filters,
+    queryOptions: {
+      // The backend sends a total, not a cursor: there is a next page while we hold fewer rows than the total.
+      getNextPageParam: (lastPage, allPages) =>
+        allPages.reduce((count, page) => count + page.data.length, 0) < (lastPage.total ?? 0) ? allPages.length + 1 : undefined,
+    },
   });
+  const pages = result.data?.pages ?? [];
+  const loaded = pages.flatMap((page) => page.data);
+  const hasNextPage = !!result.hasNextPage;
+  const { fetchNextPage, isFetchingNextPage } = listQuery;
 
   // Client chips: same group = any may match (A1-A2 or B1-B2), different groups must all match.
   const clientGroups = new Map<string, Chip<T>[]>();
   for (const chip of chosen) {
     if (chip.client) clientGroups.set(chip.client.group, [...(clientGroups.get(chip.client.group) ?? []), chip]);
   }
-  const items = (result?.data ?? []).filter((item) =>
+  const items = loaded.filter((item) =>
     [...clientGroups.values()].every((group) => group.some((chip) => chip.client!.matches(item as unknown as T))),
   ) as unknown as T[];
-  const total = result?.total ?? 0;
-  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const total = pages[0]?.total ?? 0;
+
+  // When the sentinel row at the end of the list comes into view, load the next page.
+  // It watches again after every page, so a short page (for example with a client chip) keeps loading until the list is full.
+  const listRef = useRef<HTMLUListElement>(null);
+  const sentinelRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasNextPage || isFetchingNextPage || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) fetchNextPage();
+      },
+      { root: listRef.current, rootMargin: "200px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, loaded.length, fetchNextPage]);
+
   const selected = items.find((item) => item.id === selectedId);
 
   const apiUrl = useApiUrl();
@@ -121,7 +145,7 @@ export function EntryBrowser<T extends Item, E>({
 
   function toggleChip(id: string) {
     setActiveChips((current) => (current.includes(id) ? current.filter((c) => c !== id) : [...current, id]));
-    setPage(1);
+    listRef.current?.scrollTo?.({ top: 0 });
   }
 
   return (
@@ -156,7 +180,7 @@ export function EntryBrowser<T extends Item, E>({
           </div>
         </div>
 
-        <ul className="min-h-0 flex-1 overflow-y-auto">
+        <ul ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
           {listQuery.isLoading && <li className="p-4 text-sm text-muted-foreground">Loading...</li>}
           {listQuery.isError && <li className="p-4 text-sm text-destructive">Could not load the list.</li>}
           {!listQuery.isLoading && !listQuery.isError && items.length === 0 && (
@@ -185,20 +209,17 @@ export function EntryBrowser<T extends Item, E>({
               </button>
             </li>
           ))}
+          {hasNextPage && (
+            <li ref={sentinelRef} className="flex justify-center p-3" aria-hidden={!isFetchingNextPage}>
+              {isFetchingNextPage && <Loader2 role="status" aria-label="Loading more" className="h-4 w-4 animate-spin text-muted-foreground" />}
+            </li>
+          )}
         </ul>
 
-        <div className="flex items-center justify-between border-t border-border p-3 text-sm text-muted-foreground">
+        <div className="border-t border-border p-3 text-sm text-muted-foreground">
           <span>
-            {total} total, page {page} of {lastPage}
+            {loaded.length.toLocaleString("en-US")} of {total.toLocaleString("en-US")}
           </span>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="Next page" disabled={page >= lastPage} onClick={() => setPage(page + 1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
       </section>
 

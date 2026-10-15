@@ -3,15 +3,15 @@ id: doc-14
 title: Admin CMS
 type: specification
 created_date: '2026-10-14 11:29'
-updated_date: '2026-10-15 03:53'
+updated_date: '2026-10-15 06:10'
 ---
-> Status: **built against the API contract of TASK-49.1** (the backend part is built in parallel; names may need small changes in `types.ts`). TASK-49.2. Last traced from code: 2026-10-15 (Media row buttons and Pick another panel: TASK-52).
+> Status: **built against the API contract of TASK-49.1** (the backend part is built in parallel; names may need small changes in `types.ts`). TASK-49.2. Last traced from code: 2026-10-15 (infinite scroll in the list: TASK-54; Media row: TASK-52).
 > Spec: F5 Admin CMS (TASK-49). Decisions: doc-7 rows 10-14 (Admin CMS, shadcn/ui + Refine, layout A, users with roles).
 
 ## What it does
 
 A web page for the developer (and later other admins) to check what Claude wrote. After signing in, the left sidebar has Words, Sentences and Media.
-Each page is a split view (layout A): a list with a search box and filter chips on the left, and the selected entry as a plain table of fields on the right.
+Each page is a split view (layout A): a list with a search box and filter chips on the left (it loads 50 more entries when you scroll near the end, TASK-54), and the selected entry as a plain table of fields on the right.
 Three icon-only buttons act on the entry: **Mark reviewed** (check), **Edit** (pencil, a form plus a JSON tab) and **Regenerate** (arrow, asks for confirmation in the page, then deletes the entry so Claude makes it again on the next request).
 In a word's detail, each sense has a **Media row**: the current photo or clip with its Pixabay credit, and three icon-only buttons to fix it (TASK-52): **Pick another** (images), **No image** (image-off) and **Mark for AI** (sparkles). The Media page in the sidebar is still a placeholder.
 
@@ -50,8 +50,9 @@ sequenceDiagram
 | Routes, login guard | [App.tsx:25](../../../admin/src/App.tsx#L25) | Pages inside `Authenticated`; without a login, go to `/login` |
 | Login, check, logout | [authProvider.ts:21](../../../admin/src/providers/authProvider.ts#L21) | `fetch` to `/api/admin/auth/*`; signed in only if `/me` has the ADMIN role; a 401 anywhere logs out ([onError](../../../admin/src/providers/authProvider.ts#L53)) |
 | Data provider | [dataProvider.ts:7](../../../admin/src/providers/dataProvider.ts#L7) | Refine simple-rest on `${VITE_API_URL}/api/admin`, axios with cookies |
-| List, search, chips | [EntryBrowser.tsx:67](../../../admin/src/components/EntryBrowser.tsx#L67) | `q` and `needs_review` go to the backend; Bundled, From backend and A1-A2 / B1-B2 filter the loaded page |
-| Mark reviewed, regenerate, save | [EntryBrowser.tsx:113](../../../admin/src/components/EntryBrowser.tsx#L113) | `POST /{id}/reviewed`, `DELETE /{id}`, `PUT /{id}`; then the list is fetched again |
+| List, search, chips | [EntryBrowser.tsx:72](../../../admin/src/components/EntryBrowser.tsx#L72) | `useInfiniteList`, 50 per page. `q` and `needs_review` go to the backend; Bundled, From backend and A1-A2 / B1-B2 filter the loaded rows. A new search or chip changes the query key, so the list starts again at page 1 |
+| Infinite scroll | [EntryBrowser.tsx:104](../../../admin/src/components/EntryBrowser.tsx#L104) | A sentinel row at the end of the list is watched with `IntersectionObserver` (200px early). When it shows, `fetchNextPage` runs; there is a next page while the loaded rows are fewer than `X-Total-Count`. A spinner row shows while loading; the footer says "120 of 2,750" (no arrows). The selected id lives outside the pages, so it stays selected; after an edit the loaded pages are fetched again in place, without going back to the top |
+| Mark reviewed, regenerate, save | [EntryBrowser.tsx:137](../../../admin/src/components/EntryBrowser.tsx#L113) | `POST /{id}/reviewed`, `DELETE /{id}`, `PUT /{id}`; then the loaded pages are fetched again |
 | Regenerate confirm | [EntryActions.tsx:38](../../../admin/src/components/EntryActions.tsx#L38) | Inline panel; nothing is deleted until the check is pressed |
 | Edit: Form and JSON tabs | [EntryEditor.tsx:32](../../../admin/src/components/EntryEditor.tsx#L32) | One draft; switching to Form parses the JSON and stops with a message if it is not valid |
 | Media row, Pick another panel | [MediaRow.tsx:21](../../../admin/src/components/MediaRow.tsx#L21) | Pick another opens a panel **inline, under the row** (not a dialog) and searches at once with the sense's own words: [search:53](../../../admin/src/components/MediaRow.tsx#L53) calls `GET /media/search?sense=b-12:0`, and the answer fills the search input. 3x2 grid of up to 6 results; a clip has a small "clip" mark; the chosen tile gets an accent outline; the check button ([apply:68](../../../admin/src/components/MediaRow.tsx#L68)) sends the result with `PUT /words/{id}/senses/{n}/media`. [noImage:78](../../../admin/src/components/MediaRow.tsx#L78) is `DELETE` and [markForAi:84](../../../admin/src/components/MediaRow.tsx#L84) is `POST .../mark-for-ai`. After a change the word list is read again. A marked sense shows "Waiting for an AI image". Errors show the backend message under the row. Every write sends `Content-Type: application/json` (the backend needs it). |
@@ -91,6 +92,7 @@ The backend must allow CORS with credentials for `http://localhost:5173` (TASK-4
 | `src/test/dataProvider.test.ts` | List URL (`_start`, `_end`, `_sort`, `_order`, `q`, `needs_review`), `X-Total-Count`, PUT, DELETE, cookies on |
 | `src/test/login.test.tsx` | Login request (method, body, `credentials: include`), 401 message, ADMIN check, login form |
 | `src/test/mediaRow.test.tsx` | Three icon-only buttons, panel opens inline and fills the search input, up to 6 tiles with the clip mark, search again with typed words, apply sends the chosen result (PUT, JSON header), No image (DELETE), Mark for AI (POST), the marked note, the backend error message |
+| `src/test/infiniteScroll.test.tsx` | 50 words first, next page when the end is on screen (fake `IntersectionObserver`), count line "50 of 120" with no arrows, stops at the total, filter change goes back to page 1, selection kept when more load |
 | `src/test/wordsPage.test.tsx` | List and badges, Needs review chip sends `needs_review=true`, source chip, field table, icon buttons, regenerate confirm, edit form and JSON tab |
 
 ## Change checklist
@@ -101,9 +103,9 @@ The backend must allow CORS with credentials for `http://localhost:5173` (TASK-4
 
 ## Known gaps
 
-- Bundled / From backend and CEFR chips filter only the loaded page (20 items) until the backend supports `source` and `cefr` filters.
+- Bundled / From backend and CEFR chips filter only the loaded rows until the backend supports `source` and `cefr` filters.
 - IPA is shown but not edited: the contract says PUT sends the entry only.
-- Media page is a placeholder. The senses marked for AI are only available from the API (`GET /api/admin/media?status=needs_ai`); a list page for them can come with TASK-53.
+- Media page is a placeholder with no list yet; it gets infinite scroll for free when it is built on EntryBrowser (TASK-54). The senses marked for AI are only available from the API (`GET /api/admin/media?status=needs_ai`); a list page for them can come with TASK-53.
 - Pick another was not tried in a real browser with a real Pixabay key yet; the tests use mocked data.
 - No Sentences "bundled" or CEFR chips: sentences have neither.
 - Screens were not checked in a real browser against the real backend yet; the tests use mocked data.
