@@ -20,6 +20,7 @@ struct SentenceWordSheet: View {
     }
 
     @Environment(SpeechPlayer.self) private var speechPlayer
+    @Environment(\.dismiss) private var dismiss
     @State private var phase: Phase = .loading
 
     var body: some View {
@@ -39,6 +40,18 @@ struct SentenceWordSheet: View {
             }
         }
         .background(Theme.Colors.background)
+        // Option A (developer's choice, 2026-10-15): a grabber and a round close button at the top right.
+        // The close button stays in place while the card scrolls. Swiping down still closes the sheet.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack {
+                Spacer()
+                IconButton(systemImage: "xmark", label: "Close", size: .compact) { dismiss() }
+            }
+            .padding(.horizontal, Theme.Spacing.small)
+            .padding(.top, Theme.Spacing.small)
+            .background(Theme.Colors.background)
+        }
+        .presentationDragIndicator(.visible)
         // The word card in this sheet has speakers. Closing the sheet stops them (TASK-46).
         .onDisappear { speechPlayer.stop() }
         .task {
