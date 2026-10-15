@@ -200,6 +200,33 @@ def test_link_media_does_not_replace_media_a_sense_already_has(app_db, pg, media
     assert kept[0] == "other.webp"
 
 
+def test_link_media_skips_senses_the_admin_removed_media_from(app_db, pg, media_dir):
+    postgres.import_dictionary(app_db, pg)
+    pg.execute("UPDATE dictionary_sense SET media_id = NULL")
+    pg.execute("DELETE FROM media")
+    # run: "No image" in the admin (image_type none). apple: "Remove all media" (media_status removed).
+    pg.execute("UPDATE dictionary_sense SET image_type = 'none' WHERE word_id = "
+               "(SELECT id FROM dictionary_word WHERE lemma = 'run')")
+    pg.execute("UPDATE dictionary_sense SET media_status = 'removed' WHERE word_id = "
+               "(SELECT id FROM dictionary_word WHERE lemma = 'apple')")
+    pg.commit()
+
+    assert postgres.link_media(app_db, pg, media_dir=media_dir) == 0
+    assert count(pg, "media") == 0   # no media row is made for a removed sense either
+    assert pg.execute("SELECT count(*) FROM dictionary_sense WHERE media_id IS NOT NULL").fetchone()[0] == 0
+
+
+def test_link_media_still_links_a_sense_that_is_not_removed(app_db, pg, media_dir):
+    postgres.import_dictionary(app_db, pg)
+    pg.execute("UPDATE dictionary_sense SET media_id = NULL")
+    pg.execute("UPDATE dictionary_sense SET media_status = 'removed' WHERE word_id = "
+               "(SELECT id FROM dictionary_word WHERE lemma = 'apple')")
+    pg.commit()
+
+    assert postgres.link_media(app_db, pg, media_dir=media_dir) == 1   # only run
+    assert pg.execute("SELECT count(*) FROM media WHERE file_name = 'run_1.mp4'").fetchone()[0] == 1
+
+
 def test_a_failed_import_changes_nothing(app_db, pg, media_dir):
     # A level that is too long for the column: Postgres refuses it after the words and media were written.
     app_db.execute("UPDATE senses SET cefr = 'MUCH-TOO-LONG' WHERE id = 4")
@@ -269,6 +296,21 @@ def test_export_lists_media_files_it_cannot_find(app_db, pg, media_dir, out_dir)
     # The row still points to the file: the app shows no picture if the file is not in the app.
     assert sqlite3.connect(result.path).execute("SELECT image_url FROM senses WHERE image_query = 'person running'"
                                                 ).fetchone() == ("media/run_1.mp4",)
+
+
+def test_export_writes_no_image_url_for_removed_senses(app_db, pg, media_dir, out_dir):
+    postgres.import_dictionary(app_db, pg, media_dir=media_dir)
+    # Even if a media link is left behind, "none" and "removed" win, so the next app build drops the picture.
+    pg.execute("UPDATE dictionary_sense SET image_type = 'none' WHERE word_id = "
+               "(SELECT id FROM dictionary_word WHERE lemma = 'run')")
+    pg.execute("UPDATE dictionary_sense SET media_status = 'removed' WHERE word_id = "
+               "(SELECT id FROM dictionary_word WHERE lemma = 'apple')")
+    pg.commit()
+
+    result = export.export_from_postgres(pg, media_dir=media_dir)
+
+    assert sqlite3.connect(result.path).execute("SELECT count(*) FROM senses WHERE image_url IS NOT NULL").fetchone() == (0,)
+    assert (result.media_copied, result.media_missing) == (0, [])
 
 
 def test_export_works_on_a_read_only_connection(app_db, pg, media_dir, out_dir, database_url):

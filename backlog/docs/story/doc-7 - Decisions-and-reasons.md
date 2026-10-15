@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-15 13:37'
+updated_date: '2026-10-15 14:43'
 ---
 # Decisions and reasons
 
@@ -115,6 +115,8 @@ Quotes are the developer's words, with spelling fixed.
 | 10-15 | The iOS app keeps working against today's production (`REQUIRE_SIGN_IN=false`): no token means no header, and nothing changes until a 401 comes back | Reason: not recorded. | Release the app only after the backend switch | Developer |
 | 10-15 | **Resend** (resend.com) sends the sign-in code emails (TASK-71), instead of AWS SES. The backend picks Resend when `RESEND_API_KEY` is set, else SES when a from address is set, else the log | SES needs a sandbox exit with a website review, an IAM user and a region setup, which is too complicated for now. Resend needs only domain DNS records (on Cloudflare) and one API key, and its free tier is enough. The SES code stays in the backend as an option. | AWS SES, "for now" (kept as an optional section in doc-11, can come back later) | Developer |
 | 10-15 | Make sentence answers feel faster with three changes done **together** (TASK-73, 74, 75): stream the meaning word by word (`meaning-delta` events); show the offline dictionary word cards at once while Claude works; make one tiny Claude call after start-up to warm the connection. One branch, one PR (`feature/faster-sentences`) | Measured on production: the `meaning` event arrives at 1.3-1.8 s, `done` at 2-2.5 s, and the first call after a restart took 7-9 s. The developer asked for all three together. Any further reason: not recorded. | Doing them one at a time; waiting for a faster model | Developer |
+| 10-15 | **Removing media really takes effect** (TASK-76): add a word-level **Remove all media** in the admin (`DELETE /api/admin/words/{id}/media`), and make No image, Pick another and Remove all **delete the media row and the file** when no other sense uses it. Removed senses are marked (`image_type = none`, `media_status = removed`) so neither the backend job nor the pipeline fills them again | Some words cannot have a good picture. Before, No image only unlinked the file in Postgres, so the app (which holds `media/<file>` in the bundled `dictionary.sqlite`) kept showing it. | Keep the file and send a "removed" list to the app; only hide it in the admin | Developer |
+| 10-15 | Admin words list: a clip **plays on hover** in the 56x42 thumbnail, and a media **full-size viewer** (dark backdrop, caption, Close icon) opens from the Media row and from a Pick-another tile (TASK-77) | Mockup approved by the developer. Reason: not recorded. | Not recorded | Developer |
 
 ## Questions answered
 
