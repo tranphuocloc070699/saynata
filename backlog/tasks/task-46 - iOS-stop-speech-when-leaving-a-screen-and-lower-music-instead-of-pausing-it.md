@@ -1,9 +1,11 @@
 ---
 id: TASK-46
 title: 'iOS: stop speech when leaving a screen, and lower music instead of pausing it'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-14 10:47'
+updated_date: '2026-10-15 06:26'
 labels:
   - ios
   - bug
@@ -34,3 +36,15 @@ Two F3 Listen bugs found in review (2026-10-14). 1) SpeechPlayer (EnglishTransla
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Add .duckOthers to the audio session. 2. Call SpeechPlayer.stop() when the result changes (TranslateView onChange of TranslationState.resultKey), when SentenceWordSheet closes, and on scenePhase background. 3. Unit tests. 4. Update doc-5.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented. 148 tests pass on iPhone 16 Pro (18.5); screenshot of the Examples row checked on the simulator. Test it card: see the PR body (look up 'depend', open Examples: label left, plain speaker right, sentence on line 2; with music playing, tapping a speaker ducks it; speech stops on new search, closing the word sheet, and going to Home).
+<!-- SECTION:NOTES:END -->

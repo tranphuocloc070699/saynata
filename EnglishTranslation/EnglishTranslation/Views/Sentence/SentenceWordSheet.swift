@@ -19,6 +19,7 @@ struct SentenceWordSheet: View {
         case failed(String)
     }
 
+    @Environment(SpeechPlayer.self) private var speechPlayer
     @State private var phase: Phase = .loading
 
     var body: some View {
@@ -38,6 +39,8 @@ struct SentenceWordSheet: View {
             }
         }
         .background(Theme.Colors.background)
+        // The word card in this sheet has speakers. Closing the sheet stops them (TASK-46).
+        .onDisappear { speechPlayer.stop() }
         .task {
             do {
                 phase = .loaded(try await load(info))

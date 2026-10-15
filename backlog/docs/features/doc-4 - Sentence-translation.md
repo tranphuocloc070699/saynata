@@ -176,7 +176,7 @@ cache instead (spec, Decisions).
 
 ## Tests
 
-[SpeechPlayerTests.swift:40-110](../../../EnglishTranslation/EnglishTranslationTests/SpeechPlayerTests.swift#L40-L110): speak, replace, stop, finish, late callbacks and empty text (doc-5 "Listen").
+[SpeechPlayerTests.swift:40-129](../../../EnglishTranslation/EnglishTranslationTests/SpeechPlayerTests.swift#L40-L129): speak, replace, stop, finish, late callbacks and empty text (doc-5 "Listen").
 
 [TranslationRowPreferenceTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationRowPreferenceTests.swift): default collapsed, always open, remember last choice, saved mode, unknown value.
 

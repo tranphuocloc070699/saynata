@@ -16,15 +16,39 @@ struct IconButton: View {
         var circle: CGFloat { self == .compact ? 32 : Theme.minTapTarget }
     }
 
+    /// `circle` is the default round button. `plain` is only the icon: no circle, border or shadow.
+    /// The tap target stays 44 pt. `isPlaying` makes a plain icon use the accent colour.
+    enum Style {
+        case circle, plain
+    }
+
     let systemImage: String
     let label: String
     /// `true` only for the one main action on a screen, such as send.
     var isProminent = false
     var size: Size = .regular
+    var style: Style = .circle
+    /// Only for `.plain`: draws the icon in the accent colour, for example `stop.fill` while speech plays.
+    var isActive = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
+            icon
+                .frame(width: Theme.minTapTarget, height: Theme.minTapTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        if style == .plain {
+            Image(systemName: systemImage)
+                .font(.body)
+                .foregroundStyle(isActive ? Theme.Colors.accent : Theme.Colors.textSecondary)
+        } else {
             Image(systemName: systemImage)
                 .font((size == .compact ? Font.footnote : Font.body).weight(isProminent ? .semibold : .regular))
                 .foregroundStyle(isProminent ? Color.white : Theme.Colors.textSecondary)
@@ -36,11 +60,7 @@ struct IconButton: View {
                     }
                 }
                 .shadow(color: .black.opacity(isProminent ? 0 : 0.05), radius: 4, y: 1)
-                .frame(width: Theme.minTapTarget, height: Theme.minTapTarget)
-                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 }
 
@@ -51,6 +71,8 @@ struct IconButton: View {
         IconButton(systemImage: "mic", label: "Speak") {}
         IconButton(systemImage: "arrow.up", label: "Send", isProminent: true) {}
         IconButton(systemImage: "speaker.wave.2", label: "Listen", size: .compact) {}
+        IconButton(systemImage: "speaker.wave.2", label: "Listen", style: .plain) {}
+        IconButton(systemImage: "stop.fill", label: "Stop", style: .plain, isActive: true) {}
     }
     .padding()
     .background(Theme.Colors.background)

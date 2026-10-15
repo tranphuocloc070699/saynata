@@ -108,4 +108,22 @@ struct SpeechPlayerTests {
         #expect(fake.spoken.map(\.text) == ["Keep playing"])
         #expect(fake.stopCount == stopsBefore)
     }
+
+    // MARK: - Leaving a screen (TASK-46)
+
+    @Test func leavingAScreenCallsStopOnTheSynthesizerAndClearsCurrentID() {
+        let (player, fake) = makePlayer()
+        player.speak("One", id: "a")
+        let stopsBefore = fake.stopCount
+        // The views call stop() from onChange, onDisappear and when the app goes to the background.
+        player.stop()
+        #expect(player.currentID == nil)
+        #expect(fake.stopCount == stopsBefore + 1)
+    }
+
+    @Test func resultKeyChangesWhenTheShownResultChanges() {
+        #expect(TranslationState.idle.resultKey != TranslationState.loading.resultKey)
+        #expect(TranslationState.loadedWord(.apple).resultKey == TranslationState.loadedWord(.apple).resultKey)
+        #expect(TranslationState.loadedWord(.apple).resultKey != TranslationState.loadedWord(.depend).resultKey)
+    }
 }
