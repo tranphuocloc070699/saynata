@@ -47,4 +47,6 @@ Two F3 Listen bugs found in review (2026-10-14). 1) SpeechPlayer (EnglishTransla
 
 <!-- SECTION:NOTES:BEGIN -->
 Implemented. 148 tests pass on iPhone 16 Pro (18.5); screenshot of the Examples row checked on the simulator. Test it card: see the PR body (look up 'depend', open Examples: label left, plain speaker right, sentence on line 2; with music playing, tapping a speaker ducks it; speech stops on new search, closing the word sheet, and going to Home).
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/54
 <!-- SECTION:NOTES:END -->
