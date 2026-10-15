@@ -62,13 +62,33 @@ struct OneTimeCodeField: UIViewRepresentable {
             self.parent = parent
         }
 
-        /// Typing one digit or AutoFill pasting all six: keep digits only, at most `maxLength`.
+        /// Every insert goes through here: a typed digit, Paste, and the code from AutoFill ("From Gmail" / "From
+        /// Mail" above the keyboard). The field's own text is set by hand and the change is reported at once, because
+        /// AutoFill does not always send `.editingChanged`; with only that event the tapped code never arrived.
+        func textField(
+            _ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String
+        ) -> Bool {
+            let current = textField.text ?? ""
+            guard let swiftRange = Range(range, in: current) else { return false }
+            let updated = current.replacingCharacters(in: swiftRange, with: string)
+            apply(updated, to: textField)
+            return false
+        }
+
+        /// A backup for any change that skips the delegate.
         @objc func textChanged(_ field: UITextField) {
-            let digits = String((field.text ?? "").filter(\.isNumber).prefix(parent.maxLength))
+            apply(field.text ?? "", to: field)
+        }
+
+        /// Keeps digits only, at most `maxLength`. A pasted "393 875" or "Code: 393875" still gives 393875.
+        private func apply(_ text: String, to field: UITextField) {
+            let digits = String(text.filter(\.isNumber).prefix(parent.maxLength))
             if field.text != digits {
                 field.text = digits
             }
-            parent.text = digits
+            if parent.text != digits {
+                parent.text = digits
+            }
         }
 
         func textFieldDidBeginEditing(_ textField: UITextField) {
