@@ -14,8 +14,11 @@ import UIKit
 /// See https://developer.apple.com/documentation/security/enabling-password-autofill-on-a-text-input-view
 struct OneTimeCodeField: UIViewRepresentable {
     @Binding var text: String
-    @Binding var isFocused: Bool
     var maxLength: Int
+    /// Opens the number pad once, when the field first appears.
+    var focusOnAppear = true
+    /// Tells the boxes when the field starts or stops editing (to draw the accent border).
+    var onEditingChanged: (Bool) -> Void = { _ in }
 
     func makeUIView(context: Context) -> UITextField {
         let field = UITextField()
@@ -32,6 +35,10 @@ struct OneTimeCodeField: UIViewRepresentable {
         field.accessibilityLabel = "Code"
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        if focusOnAppear {
+            // After the field is in a window, or becomeFirstResponder does nothing.
+            DispatchQueue.main.async { field.becomeFirstResponder() }
+        }
         return field
     }
 
@@ -40,12 +47,8 @@ struct OneTimeCodeField: UIViewRepresentable {
         if field.text != text {
             field.text = text
         }
-        // Focus is changed after this update, so UIKit is not asked to change the first responder mid-layout.
-        if isFocused, !field.isFirstResponder {
-            DispatchQueue.main.async { field.becomeFirstResponder() }
-        } else if !isFocused, field.isFirstResponder {
-            DispatchQueue.main.async { field.resignFirstResponder() }
-        }
+        // Focus is NOT driven from SwiftUI here. An earlier version mirrored a SwiftUI @FocusState, which SwiftUI resets to
+        // false for a UIKit field; that closed the keyboard right after it opened (a white flash, no number pad).
     }
 
     func makeCoordinator() -> Coordinator {
@@ -69,11 +72,11 @@ struct OneTimeCodeField: UIViewRepresentable {
         }
 
         func textFieldDidBeginEditing(_ textField: UITextField) {
-            if !parent.isFocused { parent.isFocused = true }
+            parent.onEditingChanged(true)
         }
 
         func textFieldDidEndEditing(_ textField: UITextField) {
-            if parent.isFocused { parent.isFocused = false }
+            parent.onEditingChanged(false)
         }
     }
 }
