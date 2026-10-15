@@ -58,6 +58,7 @@ uv run pipeline topics candidates   # topic words (apple, giraffe, scarf) into t
 uv run pipeline topics judge --dry-run --limit 50   # 1 Haiku call (under $0.01), prints verdicts, saves nothing
 uv run pipeline topics judge        # Haiku keeps or drops every candidate (~28 calls, under $0.10)
 uv run pipeline topics review       # apply the reviewed drop / move / keep lists in topics.py (no LLM)
+uv run pipeline topics promote      # kept topic words join the words table as pending (no LLM); then generate --limit 1000
 uv run pipeline topics report       # counts and samples per topic; `topics export-tsv` writes data/out/topic_words.tsv
 ```
 

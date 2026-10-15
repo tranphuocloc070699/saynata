@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-15 07:22'
-updated_date: '2026-10-15 08:42'
+updated_date: '2026-10-15 08:46'
 labels:
   - pipeline
   - dictionary
@@ -97,4 +97,6 @@ Agents do not run the paid judge pass: the developer runs it (about 26 calls, un
 2026-10-15: topics.py + CLI (topics candidates | judge | report | export-tsv), topic_words table in pipeline.db, licenses/NOTICE.md, doc-6 section 11, doc-7 row. Real run on a copy of pipeline.db: 1,378 candidates (1,271 first-sense + hand list). Judge not run yet: the developer runs it (about 28 Haiku calls, under $0.10). Remaining: move keep words to the words table, generate, topic column in Postgres + dictionary.sqlite, media, browse by topic.
 
 2026-10-15: full judge run (28 Haiku calls, under $0.10): 980 keep, 398 drop, 0 failed. Reviewed every verdict; topics review applies REVIEW_DROP (47), REVIEW_MOVE (21), REVIEW_KEEP (11). Final: 944 keep, 434 drop. Results live in the worktree's data/pipeline.db copy (topic_words) and data/out/topic_words.tsv.
+
+2026-10-15: topics promote: 944 kept words added to the MAIN pipeline/data/pipeline.db as pending (rank 10001-10944, topic column added; backup pipeline.db.bak-before-topics-2026-10-15). Validation fix: a topic word may use itself and its forms in usage and example sentences (else every usage example of giraffe failed and each word would retry 3 times). Next: developer runs generate (Sonnet, about $12) with this branch's code.
 <!-- SECTION:NOTES:END -->

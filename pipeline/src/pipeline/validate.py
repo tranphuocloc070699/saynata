@@ -7,6 +7,7 @@ inflected forms, so no lemmatizer is needed.
 
 import re
 
+from pipeline.forms import word_forms
 from pipeline.models import EXAMPLE_LEVELS, MAX_USAGE_PER_SENSE, Example, ExampleLevel, Usage, WordEntry
 
 WORD_RE = re.compile(r"[a-zA-Z]+(?:'[a-z]+)?")
@@ -71,8 +72,9 @@ def _plain_word(word: str) -> str:
     return word
 
 
-def usage_problems(item: Usage, vocabulary: set[str]) -> list[str]:
-    """Checks one usage item. An empty list means it is good enough to keep."""
+def usage_problems(item: Usage, vocabulary: set[str], headword_forms: frozenset[str] | set[str] = frozenset()) -> list[str]:
+    """Checks one usage item. An empty list means it is good enough to keep.
+    `headword_forms`: the headword and its forms may always appear (topic words like "giraffe" are not in NGSL)."""
     problems: list[str] = []
     if not item.pattern.strip() or not item.example.strip():
         return ["pattern or example is empty"]
@@ -80,7 +82,7 @@ def usage_problems(item: Usage, vocabulary: set[str]) -> list[str]:
     if pattern_words & BANNED_PLACEHOLDERS:
         problems.append(f"pattern '{item.pattern}' uses sb/sth style placeholders (write someone, something)")
     example = item.example.replace("’", "'")  # curly apostrophe -> straight
-    hard = sorted({_plain_word(w) for w in WORD_RE.findall(example)} - vocabulary - EXAMPLE_EXTRA_WORDS)
+    hard = sorted({_plain_word(w) for w in WORD_RE.findall(example)} - vocabulary - EXAMPLE_EXTRA_WORDS - headword_forms)
     if hard:
         problems.append(f"example '{item.example}' uses hard words {hard}")
     return problems
@@ -96,6 +98,7 @@ def example_problems(example: Example, headword: str, headword_forms: set[str], 
 
     Easy: every word must be in the vocabulary (the same check as usage examples).
     Medium: up to 1 word may be outside it. Harder: up to 2. Every level must contain the headword or one of its forms.
+    The headword and its forms never count as outside words (topic words like "giraffe" are not in NGSL).
     `headword_forms` holds the lemma and its inflected forms, lowercase.
     """
     text = example.text.strip()
@@ -103,7 +106,7 @@ def example_problems(example: Example, headword: str, headword_forms: set[str], 
         return ["example is empty"]
     words = {_plain_word(w) for w in WORD_RE.findall(text.replace("’", "'"))}
     problems: list[str] = []
-    outside = sorted(words - vocabulary - EXAMPLE_EXTRA_WORDS)
+    outside = sorted(words - vocabulary - EXAMPLE_EXTRA_WORDS - headword_forms - {headword.lower()})
     allowed = MAX_OUTSIDE_WORDS[example.level]
     if len(outside) > allowed:
         problems.append(f"{example.level.value} example '{text}' uses hard words {outside}")
@@ -125,6 +128,7 @@ def find_problems(headword: str, entry: WordEntry, vocabulary: set[str], rank: i
     problems: list[str] = []
     if not entry.senses:
         return ["no senses returned"]
+    headword_forms = word_forms(headword)
 
     for number, sense in enumerate(entry.senses, start=1):
         # "a person's name" checks "person": the possessive 's is not a new word.
@@ -144,5 +148,5 @@ def find_problems(headword: str, entry: WordEntry, vocabulary: set[str], rank: i
         if len(sense.usage) > MAX_USAGE_PER_SENSE:
             problems.append(f"sense {number}: {len(sense.usage)} usage items (max {MAX_USAGE_PER_SENSE})")
         for item in sense.usage:
-            problems.extend(f"sense {number}: usage: {problem}" for problem in usage_problems(item, vocabulary))
+            problems.extend(f"sense {number}: usage: {problem}" for problem in usage_problems(item, vocabulary, headword_forms))
     return problems

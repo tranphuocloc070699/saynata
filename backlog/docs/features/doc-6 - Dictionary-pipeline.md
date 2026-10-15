@@ -3,7 +3,7 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-15 08:42'
+updated_date: '2026-10-15 08:46'
 ---
 > Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-15 (topic words, TASK-61; before that Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
 > **Since TASK-49.3 the server Postgres is the source of truth** for the bundled words, senses, forms and media rows. `dictionary.sqlite` is built *from* Postgres by `export`; the generate passes below still fill `data/pipeline.db`.
@@ -83,7 +83,7 @@ sequenceDiagram
 
 ## Step by step
 
-**Parallel:** `generate` runs `_generate_word` ([cli.py:52-74](../../../pipeline/src/pipeline/cli.py#L52-L74)) for 8 words at a time in worker threads ([cli.py:88-93](../../../pipeline/src/pipeline/cli.py#L88-L93)). Workers only do network and LLM work; the main thread is the only one that writes to SQLite, because a `sqlite3` connection must not be shared across threads. Full NGSL on Sonnet 5.5: about 40 minutes.
+**Parallel:** `generate` runs `_generate_word` ([cli.py:53-75](../../../pipeline/src/pipeline/cli.py#L53-L75)) for 8 words at a time in worker threads ([cli.py:89-94](../../../pipeline/src/pipeline/cli.py#L89-L94)). Workers only do network and LLM work; the main thread is the only one that writes to SQLite, because a `sqlite3` connection must not be shared across threads. Full NGSL on Sonnet 5.5: about 40 minutes.
 
 ### 1. Sources: [sources.py](../../../pipeline/src/pipeline/sources.py)
 
@@ -129,13 +129,13 @@ The **defining vocabulary** method from learner dictionaries: a definition may o
 
 | Check | Line | Rule |
 |---|---|---|
-| Vocabulary | [89-94](../../../pipeline/src/pipeline/validate.py#L89-L94) | NGSL lemmas + all forms + numbers/days/months + grammar terms + "someone/something…" + `BASIC_WORDS` ([20-27](../../../pipeline/src/pipeline/validate.py#L20-L27)): 58 basic words NGSL misses (container, rude, queen, tv…). |
-| Hard words | [105-108](../../../pipeline/src/pipeline/validate.py#L105-L108) | Any word outside the vocabulary → problem. A possessive `'s` is removed first, so "person's" is checked as "person". |
-| Headword | [109-111](../../../pipeline/src/pipeline/validate.py#L109-L111) | Can't use the word itself, **except** the top 100 grammar words ("a", "the"). |
-| Length | [112-113](../../../pipeline/src/pipeline/validate.py#L112-L113) | Max 20 words. |
-| Vietnamese / examples | [validate.py:122-147](../../../pipeline/src/pipeline/validate.py#L122-L147) | Vietnamese not empty, at least 2 examples. |
-| Example levels | [example_problems:93-111](../../../pipeline/src/pipeline/validate.py#L93-L111) | Used by the examples pass. Easy: every word must be in the vocabulary (same check as usage examples). Medium: up to 1 word outside it. Harder: up to 2. All levels: the sentence must contain the headword or one of its forms. |
-| Usage | [118-121](../../../pipeline/src/pipeline/validate.py#L118-L121), [74-86](../../../pipeline/src/pipeline/validate.py#L74-L86) | At most 3 items. Each example may only use NGSL words (contractions like "I'm" and "can't" count as their base word; `me`, `my`, `oh` are allowed too). The pattern must not use `sb`/`sth`. |
+| Vocabulary | [91-96](../../../pipeline/src/pipeline/validate.py#L91-L96) | NGSL lemmas + all forms + numbers/days/months + grammar terms + "someone/something…" + `BASIC_WORDS` ([21-28](../../../pipeline/src/pipeline/validate.py#L21-L28)): 58 basic words NGSL misses (container, rude, queen, tv…). |
+| Hard words | [108-111](../../../pipeline/src/pipeline/validate.py#L108-L111) | Any word outside the vocabulary → problem. A possessive `'s` is removed first, so "person's" is checked as "person". |
+| Headword | [112-114](../../../pipeline/src/pipeline/validate.py#L112-L114) | Can't use the word itself, **except** the top 100 grammar words ("a", "the"). |
+| Length | [115-116](../../../pipeline/src/pipeline/validate.py#L115-L116) | Max 20 words. |
+| Vietnamese / examples | [validate.py:125-151](../../../pipeline/src/pipeline/validate.py#L125-L151) | Vietnamese not empty, at least 2 examples. |
+| Example levels | [example_problems:95-114](../../../pipeline/src/pipeline/validate.py#L95-L114) | Used by the examples pass. Easy: every word must be in the vocabulary (same check as usage examples). Medium: up to 1 word outside it. Harder: up to 2. All levels: the sentence must contain the headword or one of its forms, and the headword never counts as an outside word. |
+| Usage | [121-124](../../../pipeline/src/pipeline/validate.py#L121-L124), [75-88](../../../pipeline/src/pipeline/validate.py#L75-L88) | At most 3 items. Each example may only use NGSL words, plus the headword and its forms, because topic words like "giraffe" are not in NGSL (contractions like "I'm" and "can't" count as their base word; `me`, `my`, `oh` are allowed too). The pattern must not use `sb`/`sth`. |
 
 ### 5. Progress table: [store.py](../../../pipeline/src/pipeline/store.py)
 
@@ -154,10 +154,10 @@ stateDiagram-v2
 
 | Part | Line | Note |
 |---|---|---|
-| Schema | [15-28](../../../pipeline/src/pipeline/store.py#L15-L28) | `words(lemma PK, rank, forms, status, prompt_version, attempts, ipa, entry, problems, updated_at)`. |
-| What runs next | [47-57](../../../pipeline/src/pipeline/store.py#L60-L70) | `pending` + `failed` (+ `needs_review` with `--retry-review`) + old-version `done`, ordered by rank. |
-| Save | [68-77](../../../pipeline/src/pipeline/store.py#L81-L90) | `attempts` is **added to**, so `report` shows the total LLM calls. |
-| Save entry only | [60-65](../../../pipeline/src/pipeline/store.py#L73-L78) | Used by the usage pass: replaces only the `entry` JSON. Status, prompt version and attempts stay. |
+| Schema | [15-29](../../../pipeline/src/pipeline/store.py#L15-L29) | `words(lemma PK, rank, forms, status, prompt_version, attempts, ipa, entry, problems, updated_at, topic)`. `topic` is NULL for NGSL words; `connect` adds the column to older databases. |
+| What runs next | [65-75](../../../pipeline/src/pipeline/store.py#L65-L75) | `pending` + `failed` (+ `needs_review` with `--retry-review`) + old-version `done`, ordered by rank. |
+| Save | [86-95](../../../pipeline/src/pipeline/store.py#L86-L95) | `attempts` is **added to**, so `report` shows the total LLM calls. |
+| Save entry only | [78-83](../../../pipeline/src/pipeline/store.py#L78-L83) | Used by the usage pass: replaces only the `entry` JSON. Status, prompt version and attempts stay. |
 
 ### 6. Usage pass: [usage.py](../../../pipeline/src/pipeline/usage.py) (TASK-24)
 
@@ -224,7 +224,7 @@ The tables are made by the backend (Flyway [V6__create_dictionary_tables.sql](..
 | `media` | One row per file: `file_name` (unique, for example `run_1.mp4`), `kind` (`photo` or `clip`), `width`, `height`, `bytes`, `pixabay_id`, `photographer`, `page_url`, `license_note` (Pixabay attribution). **The files are not in Postgres**: they are on disk (on the VPS the folder `/var/lib/saynata/media`, a bind mount into the backend container and served read-only by Caddy at `https://api.loffy.me/media/<file>`, TASK-49.4). |
 | `word_lookup` | Unchanged: the words the backend asked Claude about. |
 
-`uv run pipeline import-to-postgres` ([cli.py:162](../../../pipeline/src/pipeline/cli.py#L162), [import_dictionary:89](../../../pipeline/src/pipeline/postgres.py#L89)) reads the bundled `dictionary.sqlite` and fills the tables in **one transaction** (an error changes nothing):
+`uv run pipeline import-to-postgres` ([cli.py:163](../../../pipeline/src/pipeline/cli.py#L163), [import_dictionary:89](../../../pipeline/src/pipeline/postgres.py#L89)) reads the bundled `dictionary.sqlite` and fills the tables in **one transaction** (an error changes nothing):
 
 | Step | Line | What happens |
 |---|---|---|
@@ -254,7 +254,7 @@ Copy `data/out/dictionary.sqlite` and `data/out/media/` into `EnglishTranslation
 
 ### 11. Topic words: [topics.py](../../../pipeline/src/pipeline/topics.py) (TASK-61)
 
-NGSL is chosen by frequency, so everyday concrete words are missing ("apple", "giraffe", "scarf", "tram"). Topic words add them, each with **one topic**: animals, food and drink, plants, the body, clothes, home, transport, weather, tools and objects, places and the street, nature, people and jobs ([Topic](../../../pipeline/src/pipeline/topics.py#L36)). They live in their own table, `topic_words` ([store.py:31-41](../../../pipeline/src/pipeline/store.py#L31-L41)); the NGSL `words` table is not touched until the developer approves the list.
+NGSL is chosen by frequency, so everyday concrete words are missing ("apple", "giraffe", "scarf", "tram"). Topic words add them, each with **one topic**: animals, food and drink, plants, the body, clothes, home, transport, weather, tools and objects, places and the street, nature, people and jobs ([Topic](../../../pipeline/src/pipeline/topics.py#L36)). They live in their own table, `topic_words` ([store.py:32-42](../../../pipeline/src/pipeline/store.py#L32-L42)); the NGSL `words` table is not touched until the developer approves the list.
 
 ```mermaid
 flowchart LR
@@ -267,6 +267,8 @@ flowchart LR
     J --> TW2[(topic_words: keep / drop + topic + reason)]
     TW2 --> RV[topics review: reviewed drop / move / keep lists]
     RV --> R[topics report / export-tsv]
+    RV --> PR[topics promote: keep words join the words table as pending]
+    PR --> G[generate, the normal Sonnet pass]
 ```
 
 | Step | Line | Rule |
@@ -280,6 +282,7 @@ flowchart LR
 | Judge | [JUDGE_SYSTEM:280-295](../../../pipeline/src/pipeline/topics.py#L280-L295), [fetch_from_claude:303-320](../../../pipeline/src/pipeline/topics.py#L303-L320) | `claude-haiku-5-5`, `effort: low`, structured output `JudgeResult` (word, keep, topic, reason). Keeps a word when its **everyday** meaning is concrete (or a common action or quality of a topic). Drops names (wordfreq has no capital letters, so "charlotte" looks common), rare meanings ("bishop" as a drink), technical and rude words. It may move a word to a better topic. |
 | Clean up | [apply_verdicts:331-340](../../../pipeline/src/pipeline/topics.py#L331-L340), [run_judge:343-370](../../../pipeline/src/pipeline/topics.py#L343-L370) | Verdicts for words not in the batch are ignored; the first verdict per word wins. A failed call or a missing verdict leaves the word as `candidate`, so the next run retries only those. `--dry-run` prints and saves nothing. |
 | Reviewed overrides | [REVIEW_DROP:404-410](../../../pipeline/src/pipeline/topics.py#L404-L410), [apply_review:432-448](../../../pipeline/src/pipeline/topics.py#L432-L448) | A person read every verdict of the first judge run. The judge (Haiku, effort low) mostly keeps the proposed topic even when its own reason disagrees ("queen: royal ruler" stayed in animals) and dropped a few good words (mole, cabin, psychiatrist). `REVIEW_DROP` (47), `REVIEW_MOVE` (21) and `REVIEW_KEEP` (11) are applied on top, so a new judge run followed by `topics review` gives the same list. |
+| Promote | [promote:457-476](../../../pipeline/src/pipeline/topics.py#L457-L476) | Adds every `keep` word to the `words` table as `pending`, with its topic, its forms (lemminflect) and a rank after NGSL (10,001 and up, most common first). Skips words that are already there, so it is safe to run again. Then the normal `generate` pass writes the entries. |
 | Review | [report:373-382](../../../pipeline/src/pipeline/topics.py#L373-L382), [export_tsv:385-395](../../../pipeline/src/pipeline/topics.py#L385-L395) | Counts and samples per topic; `data/out/topic_words.tsv` for a spreadsheet. |
 
 Numbers on 2026-10-15 (Zipf 3.5): **1,378 candidates**. The judge (28 Haiku calls, under $0.10; Haiku 5.5 is $0.10 / $0.50 per million tokens) kept 980; after `topics review`: **944 keep**, 434 drop. Kept per topic: food and drink 160, animals 157, tools and objects 96, home 96, places and the street 80, plants 71, people and jobs 61, clothes 55, transport 56, nature 52, the body 40, weather 20.
@@ -295,17 +298,18 @@ Numbers on 2026-10-15 (Zipf 3.5): **1,378 candidates**. The judge (28 Haiku call
 | `uv run pipeline usage --dry-run --words get make depend` | 3 calls (~$0.01) | Try the usage pass on 3 done words, print the result, save nothing |
 | `uv run pipeline examples --dry-run --words run make get` | 3 calls (~$0.01) | Try the examples pass on 3 done words, print the result, save nothing |
 | `uv run pipeline examples` | Yes, 1 call per word (about $8 for 2,750 words, like the usage pass) | Give every done word 3 levelled examples per sense. Resume-safe; run it again to retry failed words |
-| `uv run pipeline usage` | Yes, 1 call per word (~$8 for 2,750 words) | Add usage to every done word that has none. Resume-safe; run it again to retry failed words ([cli.py:117-128](../../../pipeline/src/pipeline/cli.py#L117-L128)) |
-| `uv run pipeline revalidate` | No | Re-check stored `needs_review` entries after the checks change; passing ones become `done` ([cli.py:98-114](../../../pipeline/src/pipeline/cli.py#L98-L114)) |
+| `uv run pipeline usage` | Yes, 1 call per word (~$8 for 2,750 words) | Add usage to every done word that has none. Resume-safe; run it again to retry failed words ([cli.py:118-129](../../../pipeline/src/pipeline/cli.py#L118-L129)) |
+| `uv run pipeline revalidate` | No | Re-check stored `needs_review` entries after the checks change; passing ones become `done` ([cli.py:99-115](../../../pipeline/src/pipeline/cli.py#L99-L115)) |
 | `uv run pipeline report` | No | Counts per status + the problem list |
 | `uv run pipeline import-to-postgres` | No | One time: copy the bundled `dictionary.sqlite` (+ media facts) into Postgres. Re-run safe; `--overwrite`, `--sqlite`, `--media-dir`, `--database-url` |
 | `uv run pipeline link-media` | No | After the media pass: add its media rows and links to senses in Postgres, changing no text and no existing media. `--sqlite` (default `data/out/dictionary.sqlite`, from `export-local`), `--media-dir`, `--database-url`. Then `rsync` the files to the server (doc-11, section 9) |
 | `uv run pipeline export` | No | Build `data/out/dictionary.sqlite`, `.jsonl` and `media/` from Postgres (read-only). `--media-dir`, `--database-url` |
 | `uv run pipeline export-local` | No | Old: build `dictionary.sqlite` from `data/pipeline.db` |
-| `uv run pipeline topics candidates` | No | Topic word candidates from WordNet + wordfreq into `topic_words` (`--zipf`, default 3.5). Resume-safe ([cli.py:206-228](../../../pipeline/src/pipeline/cli.py#L206-L228)) |
+| `uv run pipeline topics candidates` | No | Topic word candidates from WordNet + wordfreq into `topic_words` (`--zipf`, default 3.5). Resume-safe ([cli.py:207-233](../../../pipeline/src/pipeline/cli.py#L207-L233)) |
 | `uv run pipeline topics judge --dry-run --limit 50` | 1 Haiku call (under $0.01) | Judge 50 candidates, print the verdicts, save nothing |
 | `uv run pipeline topics judge` | Yes, about 28 Haiku calls (under $0.10) | Keep or drop every candidate, with a topic and a reason. Run again to retry failed calls |
 | `uv run pipeline topics review` | No | Apply the reviewed drop / move / keep lists on top of the judge. Safe to run again |
+| `uv run pipeline topics promote` | No | Add the kept topic words to `words` as `pending` (rank 10,001+). Then `uv run pipeline generate --limit 1000` (Sonnet, about $12 for 944 words) |
 | `uv run pipeline topics report` / `topics export-tsv` | No | Counts and samples per topic / `data/out/topic_words.tsv` for review |
 
 ## Tests
@@ -313,11 +317,11 @@ Numbers on 2026-10-15 (Zipf 3.5): **1,378 candidates**. The judge (28 Haiku call
 | Test | Covers |
 |---|---|
 | [test_senses.py](../../../pipeline/tests/test_senses.py) | Drops archaic and form-of senses, keeps both homograph entries, skips names, reads Vietnamese hints |
-| [test_validate.py](../../../pipeline/tests/test_validate.py) | Simple definition passes, hard word and headword reported, missing Vietnamese/examples, numbers and grammar terms allowed, grammar words may use themselves, possessive `'s`, basic words outside NGSL |
+| [test_validate.py](../../../pipeline/tests/test_validate.py) | Simple definition passes, hard word and headword reported, missing Vietnamese/examples, numbers and grammar terms allowed, grammar words may use themselves, possessive `'s`, basic words outside NGSL, a topic word may use itself in its usage and example sentences |
 
 | [test_usage.py](../../../pipeline/tests/test_usage.py) | Usage checks (contractions, hard words, `sb`/`sth`), the pass with a fake LLM (definitions untouched, resume, no retry on error, bad items dropped, max 3, dry run), the prompt has the agreed examples, export stores usage as JSON |
 | [test_examples.py](../../../pipeline/tests/test_examples.py) | Example checks (levels, 2 words outside the list for harder, headword or a form), an example that repeats another one is dropped, the examples pass with a fake LLM (definitions untouched, order, resume, no retry, drops, old examples kept as a fallback, dry run), old string examples load, form types (ran, went, running, apples, runs, …), export stores levels and form types |
-| [test_topics.py](../../../pipeline/tests/test_topics.py) | Topic words with a fake WordNet and a fake judge: topics from lexfile and hypernym, NGSL, blocked, rare and topicless words skipped, the hand list, re-saving keeps judged rows, verdicts for other words ignored, the judge can change the topic, failed calls and missing verdicts are retried, dry run, prompt and TSV, the reviewed overrides (applied on top, safe to run again, lists do not overlap) |
+| [test_topics.py](../../../pipeline/tests/test_topics.py) | Topic words with a fake WordNet and a fake judge: topics from lexfile and hypernym, NGSL, blocked, rare and topicless words skipped, the hand list, re-saving keeps judged rows, verdicts for other words ignored, the judge can change the topic, failed calls and missing verdicts are retried, dry run, prompt and TSV, the reviewed overrides (applied on top, safe to run again, lists do not overlap), promote (rank after NGSL, topic, forms, skips existing words, safe to run again), older databases get the `topic` column |
 
 | [test_postgres.py](../../../pipeline/tests/test_postgres.py) | Import counts match the file (words, senses, forms, media), columns and media facts, Pixabay attribution from `pipeline.db`, import twice changes nothing, admin edits survive a re-import (and `--overwrite` replaces them), a failed import changes nothing, round trip (import then export gives the same schema and rows), word numbering by rank, an edit in Postgres is in the next export, missing media files, read-only connection. Last test: the whole bundled file (2,750 words, 7,779 senses, 5,542 forms) round-trips. |
 
@@ -325,10 +329,10 @@ Run: `uv run pytest` in `pipeline/` (no API key needed). The Postgres tests need
 
 ## Known gaps
 
-- **Topic words stop at the judged list** (TASK-61). Moving `keep` words into the `words` table for `generate`, a `topic` column in Postgres and `dictionary.sqlite`, the media pass and browsing by topic come after the developer reviews the list. Topic words have no NGSL rank yet (`dictionary_word.word_rank` is NOT NULL).
+- **Topic words stop at `pipeline.db`** (TASK-61). `promote` puts them in the `words` table and `generate` writes them, but a `topic` column in Postgres and `dictionary.sqlite`, the import into Postgres, the media pass and browsing by topic are still to do. Their rank (10,001+) is not an NGSL rank.
 
-- **Network errors become `failed` with `attempts=1`**, even when some LLM calls already ran ([cli.py:73-74](../../../pipeline/src/pipeline/cli.py#L73-L74)). `report` undercounts calls for these words.
-- **3 schema errors in a row → `needs_review` with no entry** ([cli.py:60-68](../../../pipeline/src/pipeline/cli.py#L60-L68)). Harmless for export, but `report` shows the schema error as the problem.
+- **Network errors become `failed` with `attempts=1`**, even when some LLM calls already ran ([cli.py:74-75](../../../pipeline/src/pipeline/cli.py#L74-L75)). `report` undercounts calls for these words.
+- **3 schema errors in a row → `needs_review` with no entry** ([cli.py:61-69](../../../pipeline/src/pipeline/cli.py#L61-L69)). Harmless for export, but `report` shows the schema error as the problem.
 - **No sampling control** on Claude 5.5 models. Fine here: the output is generated once and stored, so R3's "same input, same output" holds through the file.
 - **Words from a new `generate` run are not imported into Postgres yet.** `import-to-postgres` reads a `dictionary.sqlite`, not `data/pipeline.db`. Until a pipeline.db import exists, use `export-local` for a fresh run (it does not include admin edits).
 - **Media files are not in Postgres and `import-to-postgres` does not upload them.** Only 3 sample files are in the repo (`Resources/media`). The full set comes with the media pass (TASK-23); copying the folder to the VPS is `rsync` (doc-11, section 9; TASK-49.4 added the volume and Caddy).

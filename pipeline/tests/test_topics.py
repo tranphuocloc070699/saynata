@@ -202,3 +202,34 @@ def test_review_lists_do_not_overlap():
     assert not topics.REVIEW_DROP & set(topics.REVIEW_MOVE)
     assert not topics.REVIEW_DROP & set(topics.REVIEW_KEEP)
     assert not set(topics.REVIEW_MOVE) & set(topics.REVIEW_KEEP)
+
+
+def test_promote_adds_kept_words_after_ngsl_with_topic_and_forms(db):
+    db.execute("INSERT INTO words (lemma, rank, forms) VALUES ('apple', 1200, '[]')")
+    topics.save_candidates(db, [candidate("giraffe"), Candidate("tram", "n", 4.0, Topic.TRANSPORT, "g"),
+                                candidate("charlotte", Topic.FOOD), candidate("apple", Topic.FOOD)])
+    db.execute("UPDATE topic_words SET status = 'keep' WHERE lemma != 'charlotte'")
+    db.execute("UPDATE topic_words SET status = 'drop' WHERE lemma = 'charlotte'")
+
+    assert topics.promote(db) == 2  # apple is already a word, charlotte was dropped
+    rows = {r["lemma"]: r for r in db.execute("SELECT * FROM words")}
+    assert (rows["tram"]["rank"], rows["giraffe"]["rank"]) == (10001, 10002)  # most common first
+    assert rows["giraffe"]["status"] == "pending" and rows["giraffe"]["topic"] == "animals"
+    assert "giraffes" in json.loads(rows["giraffe"]["forms"])
+    assert rows["apple"]["topic"] is None
+    assert topics.promote(db) == 0  # safe to run again
+
+
+def test_old_databases_get_the_topic_column(tmp_path, monkeypatch):
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.execute("CREATE TABLE words (lemma TEXT PRIMARY KEY, rank INTEGER NOT NULL, forms TEXT NOT NULL, "
+                "status TEXT NOT NULL DEFAULT 'pending', prompt_version INTEGER, attempts INTEGER NOT NULL DEFAULT 0, "
+                "ipa TEXT, entry TEXT, problems TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+    old.close()
+    monkeypatch.setattr(store, "DB_PATH", path)
+    connection = store.connect()
+    assert "topic" in {row[1] for row in connection.execute("PRAGMA table_info(words)")}
+    connection.close()

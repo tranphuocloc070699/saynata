@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS words (
     ipa            TEXT,
     entry          TEXT,                   -- JSON WordEntry
     problems       TEXT,                   -- JSON list of failed checks
-    updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
+    updated_at     TEXT DEFAULT CURRENT_TIMESTAMP,
+    topic          TEXT                    -- NULL for NGSL words; one of topics.Topic for topic words (TASK-61)
 );
 
 -- Topic words (TASK-61): candidates from WordNet + wordfreq, then judged by Claude Haiku. See topics.py.
@@ -46,6 +47,10 @@ def connect() -> sqlite3.Connection:
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
     connection.executescript(SCHEMA)
+    # Databases made before TASK-61 have no topic column yet.
+    if "topic" not in {row[1] for row in connection.execute("PRAGMA table_info(words)")}:
+        connection.execute("ALTER TABLE words ADD COLUMN topic TEXT")
+        connection.commit()
     return connection
 
 

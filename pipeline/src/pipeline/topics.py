@@ -446,3 +446,31 @@ def apply_review(connection: sqlite3.Connection) -> dict[str, int]:
         )
     connection.commit()
     return counts
+
+
+# ---------- promote: kept words join the words table for generate ----------
+
+# NGSL ranks go up to about 2,800. Topic words come after them, most common first.
+TOPIC_RANK_START = 10001
+
+
+def promote(connection: sqlite3.Connection) -> int:
+    """Adds every kept topic word to the words table as `pending`, with its topic, forms and a rank after NGSL.
+    Words already in the words table are skipped, so it is safe to run again. Returns how many were added."""
+    from pipeline.forms import word_forms
+
+    existing = {row[0] for row in connection.execute("SELECT lemma FROM words")}
+    rows = connection.execute(
+        "SELECT lemma, topic FROM topic_words WHERE status = 'keep' ORDER BY zipf DESC, lemma"
+    ).fetchall()
+    next_rank = max(TOPIC_RANK_START, (connection.execute("SELECT MAX(rank) FROM words").fetchone()[0] or 0) + 1)
+    added = []
+    for lemma, topic in rows:
+        if lemma in existing:
+            continue
+        forms = sorted(word_forms(lemma) - {lemma})
+        added.append((lemma, next_rank, json.dumps(forms), topic))
+        next_rank += 1
+    connection.executemany("INSERT INTO words (lemma, rank, forms, topic) VALUES (?, ?, ?, ?)", added)
+    connection.commit()
+    return len(added)
