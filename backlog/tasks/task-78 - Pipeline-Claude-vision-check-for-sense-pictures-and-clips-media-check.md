@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 16:18'
-updated_date: '2026-10-15 16:18'
+updated_date: '2026-10-15 19:24'
 labels:
   - pipeline
   - media
@@ -45,3 +45,10 @@ Decision (doc-7, 2026-10-15): check every Pixabay picture and clip with Claude f
 5. Docs: doc-6, doc-15, doc-7 row.
 6. Admin Media row: skipped (needs a mockup and touches AdminWord, its service and the React app).
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/70. Built: Flyway V12 media_check, pipeline/src/pipeline/media_check.py, CLI media-check, 27 tests, docs doc-6/doc-15/doc-7. Admin Media row skipped (needs mockup, touches AdminWord + React). Postgres tests skipped locally (no Postgres).
+Test it: Goal: Claude checks every sense picture, you review, then wrong ones become needs_ai. Steps: 1) open SSH tunnel; 2) cd pipeline && uv run pipeline media-check --limit 50; 3) open data/out/media-check.html; 4) uv run pipeline media-check (full, about 0.35 USD, stops at --max-cost 2); 5) review report; 6) uv run pipeline media-check --apply; 7) check GET /api/admin/media?status=needs_ai. Expected: counts per verdict, cost, wrong list; apply marks wrong only, never unsure. Failure: missing file prints failed and is retried next run. Automated: cd pipeline && uv run pytest; cd backend && ./mvnw -B test.
+<!-- SECTION:NOTES:END -->
