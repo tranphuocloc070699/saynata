@@ -393,3 +393,56 @@ def export_tsv(connection: sqlite3.Connection, path: Path) -> int:
         writer.writerow(["word", "pos", "zipf", "topic", "status", "reason", "wordnet_gloss"])
         writer.writerows(tuple(row) for row in rows)
     return len(rows)
+
+
+# ---------- reviewed overrides (2026-10-15) ----------
+# Read by a person after the judge pass. The judge (Haiku, effort low) mostly keeps the proposed topic even when its
+# own reason disagrees ("queen: royal ruler" stayed in animals), and it dropped a few good words. `topics review`
+# applies these on top of the judge, so a new judge run followed by `topics review` gives the same list again.
+
+# Kept by the judge, but slang, a short form, a rare or abstract meaning, or a duplicate.
+REVIEW_DROP = {
+    "sub", "suck", "auto", "mac", "mini", "babe", "temp", "doc", "piggy", "doggy",
+    "chile", "nutshell", "stein", "spawn", "hind", "sow", "cure", "awake", "slim", "flush", "leak", "exterior",
+    "partition", "destination", "outlet", "pew", "spit", "dell", "cavity", "circuit", "portfolio", "compact",
+    "loop", "scrap", "poker", "puff", "cords", "drawers", "blade", "burr", "bale", "coffin", "eldest",
+    "offspring", "aide", "starve", "brakes",
+}
+# Kept by the judge in the wrong topic.
+REVIEW_MOVE: dict[str, Topic] = {
+    "queen": Topic.PEOPLE,
+    **dict.fromkeys(["zoo", "aquarium", "bakery"], Topic.PLACES),
+    **dict.fromkeys(["drone", "telescope", "compass", "cane", "crane", "stereo"], Topic.TOOLS),
+    "hay": Topic.PLANTS,
+    **dict.fromkeys(["soap", "tub", "toothbrush", "toothpaste", "sunscreen", "lotion"], Topic.HOME),
+    "haircut": Topic.BODY,
+    **dict.fromkeys(["makeup", "cologne"], Topic.CLOTHES),
+    "flame": Topic.NATURE,
+}
+# Dropped by the judge, but everyday words a learner needs.
+REVIEW_KEEP: dict[str, Topic] = {
+    "mole": Topic.ANIMALS,
+    "cabin": Topic.HOME,
+    **dict.fromkeys(["hose", "console", "capsule", "sensor", "radar", "spear"], Topic.TOOLS),
+    "psychiatrist": Topic.PEOPLE,
+    **dict.fromkeys(["salon", "headquarters"], Topic.PLACES),
+}
+
+
+def apply_review(connection: sqlite3.Connection) -> dict[str, int]:
+    """Applies REVIEW_DROP, REVIEW_MOVE and REVIEW_KEEP. Words not in topic_words are skipped. Safe to run again."""
+    groups = {
+        "drop": [("drop", None, "reviewed: drop", word) for word in REVIEW_DROP],
+        "move": [("keep", t.value, f"reviewed: moved to {t.value}", word) for word, t in REVIEW_MOVE.items()],
+        "keep": [("keep", t.value, "reviewed: keep", word) for word, t in REVIEW_KEEP.items()],
+    }
+    counts = {}
+    for kind, updates in groups.items():
+        counts[kind] = sum(
+            connection.execute(
+                "UPDATE topic_words SET status = ?, topic = COALESCE(?, topic), reason = ? WHERE lemma = ?", update
+            ).rowcount
+            for update in updates
+        )
+    connection.commit()
+    return counts

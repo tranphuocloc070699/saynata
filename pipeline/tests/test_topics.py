@@ -180,3 +180,25 @@ def test_export_tsv_has_one_row_per_word(db, tmp_path):
     path = tmp_path / "topic_words.tsv"
     assert topics.export_tsv(db, path) == 2
     assert path.read_text().splitlines()[0].startswith("word\tpos\tzipf\ttopic\tstatus")
+
+
+def test_review_drops_moves_and_restores_on_top_of_the_judge(db, monkeypatch):
+    monkeypatch.setattr(topics, "REVIEW_DROP", {"sub", "not-a-candidate"})
+    monkeypatch.setattr(topics, "REVIEW_MOVE", {"queen": Topic.PEOPLE})
+    monkeypatch.setattr(topics, "REVIEW_KEEP", {"mole": Topic.ANIMALS})
+    topics.save_candidates(db, [candidate("sub", Topic.FOOD), candidate("queen"), candidate("mole", Topic.FOOD),
+                                candidate("giraffe")])
+    db.execute("UPDATE topic_words SET status = 'keep' WHERE lemma IN ('sub', 'queen', 'giraffe')")
+    db.execute("UPDATE topic_words SET status = 'drop' WHERE lemma = 'mole'")
+
+    assert topics.apply_review(db) == {"drop": 1, "move": 1, "keep": 1}
+    rows = {r["lemma"]: (r["status"], r["topic"]) for r in db.execute("SELECT * FROM topic_words")}
+    assert rows == {"sub": ("drop", "food and drink"), "queen": ("keep", "people and jobs"),
+                    "mole": ("keep", "animals"), "giraffe": ("keep", "animals")}
+    assert topics.apply_review(db) == {"drop": 1, "move": 1, "keep": 1}  # running it again changes nothing new
+
+
+def test_review_lists_do_not_overlap():
+    assert not topics.REVIEW_DROP & set(topics.REVIEW_MOVE)
+    assert not topics.REVIEW_DROP & set(topics.REVIEW_KEEP)
+    assert not set(topics.REVIEW_MOVE) & set(topics.REVIEW_KEEP)

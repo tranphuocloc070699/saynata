@@ -18,6 +18,7 @@
     uv run pipeline topics candidates    # topic words from WordNet + wordfreq into topic_words (no LLM)
     uv run pipeline topics judge --dry-run --limit 50   # one Haiku call, prints the verdicts, saves nothing
     uv run pipeline topics judge         # Haiku keeps or drops every candidate (about 27 calls, under $0.10)
+    uv run pipeline topics review        # apply the reviewed drop / move / keep lists on top of the judge (no LLM)
     uv run pipeline topics report        # counts and samples per topic
     uv run pipeline topics export-tsv    # data/out/topic_words.tsv for review
 """
@@ -217,6 +218,9 @@ def topic_words(args) -> None:
         counts = topics.run_judge(db, topics.fetch_from_claude, limit=args.limit, dry_run=args.dry_run)
         print(f"Done: {counts['keep']} keep, {counts['drop']} drop, {counts['no_verdict']} without a verdict, "
               f"{counts['failed_batches']} failed calls (run again to retry those words)")
+    elif args.topics_command == "review":
+        counts = topics.apply_review(db)
+        print(f"Reviewed overrides: {counts['drop']} dropped, {counts['move']} moved, {counts['keep']} restored")
     elif args.topics_command == "report":
         topics.report(db)
     elif args.topics_command == "export-tsv":
@@ -281,6 +285,7 @@ def main() -> None:
     judge_parser = topics_commands.add_parser("judge")
     judge_parser.add_argument("--limit", type=int, default=100000)
     judge_parser.add_argument("--dry-run", action="store_true", help="call Claude and print the verdicts, save nothing")
+    topics_commands.add_parser("review", help="apply the reviewed drop / move / keep lists in topics.py")
     topics_commands.add_parser("report")
     topics_commands.add_parser("export-tsv")
     args = parser.parse_args()
