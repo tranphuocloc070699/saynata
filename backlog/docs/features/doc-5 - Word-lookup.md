@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-15 10:28'
+updated_date: '2026-10-15 11:44'
 ---
-> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-15 (sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
+> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-15 (sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -237,7 +237,7 @@ Tests: [WordLookupTests.swift](../../../EnglishTranslation/EnglishTranslationTes
 
 ## iOS: did you mean (TASK-37)
 
-When the word path fails, the result can show up to 3 close bundled words under the error. Tapping one fills the input and looks it up. Works offline (it only reads the bundle). Last traced: 2026-10-11.
+When the word path fails, the result can show up to 3 suggestions under the error. Tapping one fills the input and looks it up. Works offline (Apple's spell checker and the bundle both run on the device). Last traced: 2026-10-15 (TASK-72: Apple's checker and a looser rule for long words).
 
 ```mermaid
 flowchart TD
@@ -245,7 +245,7 @@ flowchart TD
     C -- "notAnEnglishWord (backend: empty senses)" --> S
     C -- "URLError (offline or backend down; word is not in the bundle)" --> S
     C -- "anything else (422, 502, 400...)" --> NOHELP[".failed with no suggestions"]
-    S["WordLookup.suggestions(for:)"] --> SS["SpellingSuggester: distance 1 (up to 4 letters) or 2, rank, max 3"]
+    S["WordLookup.suggestions(for:)"] --> SS["SpellingSuggester: Apple guesses + close bundled words, max 3"]
     SS --> E{"Any close word?"}
     E -- yes --> CHIPS[".failed(message, spelling:) shows chips"]
     E -- no --> NOHELP
@@ -257,15 +257,16 @@ A real word that is not in the bundle (for example "serendipity") still goes to 
 | Step | File | What happens |
 |---|---|---|
 | Candidates | [DictionaryStore.swift:58-71](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L58-L71) | `spellingCandidates()`: every lemma, plus every form joined to its lemma, with `words.rank`. |
-| Suggest | [SpellingSuggester.swift](../../../EnglishTranslation/EnglishTranslation/Dictionary/SpellingSuggester.swift) | Loads the candidate list on first use and keeps it. Damerau-Levenshtein distance (a swap of two neighbour letters counts as 1), max 1 for words of 4 letters or fewer, 2 for longer. A word that is already bundled gives nothing. One result per lemma (best distance), sorted by distance, then rank (lower = more common), then alphabet. Max 3. |
+| Suggest | [SpellingSuggester.swift:55-75](../../../EnglishTranslation/EnglishTranslation/Dictionary/SpellingSuggester.swift#L55-L75) | Loads the candidate list on first use and keeps it. A word that is already bundled gives nothing. Otherwise it merges, in this order: (1) Apple's guesses that are bundled words, (2) close bundled words, (3) Apple's other guesses (real words that are not bundled; a tap still looks them up). No duplicates, max 3. Close bundled words use Damerau-Levenshtein distance (a swap of two neighbour letters counts as 1), must start with the same letter, and may differ in length by at most the max distance. Max distance ([`maxDistance(forLength:)`](../../../EnglishTranslation/EnglishTranslation/Dictionary/SpellingSuggester.swift#L112)): 1 for 4 letters or fewer, 2 for 5 to 8, a third of the length rounded down for 9 or more (15 letters: 5, so "controlvesation" finds "conversation"). One result per lemma (best distance), sorted by distance, then rank (lower = more common), then alphabet. |
+| Apple's checker | [SpellingSuggester.swift:18-31](../../../EnglishTranslation/EnglishTranslation/Dictionary/SpellingSuggester.swift#L18-L31) | `SpellChecking` protocol (tests use a fake) and `AppleSpellChecker`, which calls `UITextChecker.guesses(forWordRange:in:language: "en_US")`. Only single lowercase words made of letters are kept, and never the typed word. A guess that is a bundled form ("received") shows its base word ("receive"). Good for normal typos (recieve, beatiful, develoment), but it gives nothing for "controlvesation", which is why the bundled match for long words exists. |
 | Ask | [WordLookup.swift:50-52](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L50-L52) | `suggestions(for:)` removes punctuation, then asks the suggester. The protocol has a default that returns nothing, so fakes need no change. |
-| Wire | [TranslatorFactory.swift:28-31](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L28-L31) | One shared suggester for the app, built on the bundled dictionary. |
+| Wire | [TranslatorFactory.swift:24-28](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L28-L31) | One shared suggester for the app, built on the bundled dictionary and `AppleSpellChecker`. |
 | State | [TranslationStore.swift:66-96](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L66-L96) | Only `notAnEnglishWord` and `URLError` ask for suggestions. `.failed(message, spelling: SpellingHelp?)` keeps the old message. `lookUp(suggestion:)` handles a tap. |
 | View | [SpellingSuggestionsView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/SpellingSuggestionsView.swift) | "No word "runj". Did you mean:" and chips in the `LevelChip` style, 44 pt tall, VoiceOver label "Look up run". Shown by [TranslateResultView.swift:26-33](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateResultView.swift#L26-L33). |
 
 Note: a form is suggested by its base word ("rung" is a form of "ring", so "runj" can show "run" and "ring").
 
-Tests: [SpellingSuggesterTests.swift](../../../EnglishTranslation/EnglishTranslationTests/SpellingSuggesterTests.swift) (runj gives run first, aple gives apple, zzzzqq gives none, a correct word is not corrected, swaps, length limits, one result per lemma, max 3, loaded once, and the real bundle), [TranslationStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStoreTests.swift) (suggestions after not-English and offline, none for other errors, a tap looks the word up), [WordLookupTests.swift](../../../EnglishTranslation/EnglishTranslationTests/WordLookupTests.swift).
+Tests: [SpellingSuggesterTests.swift](../../../EnglishTranslation/EnglishTranslationTests/SpellingSuggesterTests.swift) (runj gives run first, aple gives apple, zzzzqq gives none, a correct word is not corrected, swaps, length limits, one result per lemma, max 3, loaded once, and the real bundle; `SpellingSuggesterCheckerTests` with a fake checker: controlvesation gives conversation, recieve gives receive, merge order, no duplicates, max 3, never the typed word, only single lowercase words, distance for 4/8/15 letters, same first letter), [TranslationStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStoreTests.swift) (suggestions after not-English and offline, none for other errors, a tap looks the word up), [WordLookupTests.swift](../../../EnglishTranslation/EnglishTranslationTests/WordLookupTests.swift).
 
 ## iOS word card (v2, TASK-36)
 

@@ -22,7 +22,9 @@ enum TranslatorFactory {
 
     /// "Did you mean" for the bundled dictionary. Reads the word list only when it is first needed.
     private static let spellingSuggester = bundledDictionary.map { dictionary in
-        SpellingSuggester(loadCandidates: { (try? dictionary.spellingCandidates()) ?? [] })
+        SpellingSuggester(
+            loadCandidates: { (try? dictionary.spellingCandidates()) ?? [] },
+            checker: AppleSpellChecker())
     }
 
     /// Word lookup: bundled dictionary, then local cache, then our backend. Throws if `BackendBaseURL` is missing.

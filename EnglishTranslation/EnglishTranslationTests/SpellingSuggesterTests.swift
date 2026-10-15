@@ -91,3 +91,98 @@ struct SpellingSuggesterTests {
         #expect(suggester.suggestions(for: "run").isEmpty)
     }
 }
+
+// MARK: - Apple's checker and long words
+
+/// A fake spell checker: returns the guesses it was given.
+private struct FakeChecker: SpellChecking {
+    var answers: [String: [String]] = [:]
+    func guesses(for word: String) -> [String] { answers[word] ?? [] }
+}
+
+struct SpellingSuggesterCheckerTests {
+    private let words: [SpellingCandidate] = [
+        SpellingCandidate(spelling: "run", lemma: "run", rank: 100),
+        SpellingCandidate(spelling: "rung", lemma: "rung", rank: 2000),
+        SpellingCandidate(spelling: "receive", lemma: "receive", rank: 500),
+        SpellingCandidate(spelling: "received", lemma: "receive", rank: 500),
+        SpellingCandidate(spelling: "conversation", lemma: "conversation", rank: 800),
+        SpellingCandidate(spelling: "convention", lemma: "convention", rank: 3000),
+        SpellingCandidate(spelling: "control", lemma: "control", rank: 400),
+    ]
+
+    private func makeSuggester(_ answers: [String: [String]] = [:]) -> SpellingSuggester {
+        SpellingSuggester(loadCandidates: { words }, checker: FakeChecker(answers: answers))
+    }
+
+    @Test func longWordFindsConversationWithoutAppleHelp() {
+        // 15 letters: up to 5 mistakes. "conversation" is 5 away.
+        #expect(SpellingSuggester.distance("controlvesation", "conversation") == 5)
+        #expect(makeSuggester().suggestions(for: "controlvesation") == ["conversation"])
+    }
+
+    @Test func recieveSuggestsReceive() {
+        #expect(makeSuggester(["recieve": ["receive"]]).suggestions(for: "recieve") == ["receive"])
+    }
+
+    @Test func runjStillSuggestsRunFirst() {
+        // Apple has no answer: the bundled match "run" comes first, then "rung".
+        #expect(makeSuggester().suggestions(for: "runj") == ["run", "rung"])
+    }
+
+    @Test func appleGuessesThatAreBundledComeBeforeCloseMatches() {
+        let suggester = makeSuggester(["runj": ["rung"]])
+        #expect(suggester.suggestions(for: "runj") == ["rung", "run"])
+    }
+
+    @Test func appleGuessesThatAreNotBundledComeLast() {
+        let suggester = makeSuggester(["runj": ["runny", "run"]])
+        #expect(suggester.suggestions(for: "runj") == ["run", "rung", "runny"])
+    }
+
+    @Test func aGuessThatIsAFormSuggestsItsBaseWord() {
+        #expect(makeSuggester(["recieved": ["received"]]).suggestions(for: "recieved") == ["receive"])
+    }
+
+    @Test func correctBundledWordGivesNothingEvenWithAppleGuesses() {
+        #expect(makeSuggester(["run": ["rung"]]).suggestions(for: "run").isEmpty)
+    }
+
+    @Test func resultHasNoDuplicatesAndAtMostThree() {
+        let suggester = makeSuggester(["runj": ["run", "run", "rung", "runs", "runny", "runner", "rune"]])
+        let result = suggester.suggestions(for: "runj")
+        #expect(result.count == 3)
+        #expect(Set(result).count == 3)
+    }
+
+    @Test func theTypedWordIsNeverSuggested() {
+        let suggester = makeSuggester(["runj": ["runj", "RUNJ", "run"]])
+        #expect(suggester.suggestions(for: "runj") == ["run", "rung"])
+        #expect(suggester.suggestions(for: "RUNJ") == ["run", "rung"])
+    }
+
+    @Test func onlySingleLowercaseWordsFromApple() {
+        let suggester = makeSuggester(["zzqx": ["Zack", "run now", "well-known", "don't", "fine"]])
+        #expect(suggester.suggestions(for: "zzqx") == ["fine"])
+    }
+
+    @Test func maxDistanceGrowsWithLength() {
+        #expect(SpellingSuggester.maxDistance(forLength: 4) == 1)
+        #expect(SpellingSuggester.maxDistance(forLength: 5) == 2)
+        #expect(SpellingSuggester.maxDistance(forLength: 8) == 2)
+        #expect(SpellingSuggester.maxDistance(forLength: 9) == 3)
+        #expect(SpellingSuggester.maxDistance(forLength: 15) == 5)
+    }
+
+    @Test func closeBundledWordsNeedTheSameFirstLetter() {
+        // "xonversation" is 1 away from "conversation", but starts with another letter.
+        #expect(makeSuggester().suggestions(for: "xonversation").isEmpty)
+    }
+
+    @Test func bundledDictionarySuggestsConversationForControlvesation() throws {
+        let dictionary = try DictionaryStore.bundled()
+        let suggester = SpellingSuggester(loadCandidates: { (try? dictionary.spellingCandidates()) ?? [] })
+        #expect(suggester.suggestions(for: "controlvesation").contains("conversation"))
+        #expect(suggester.suggestions(for: "controlvesation").count <= 3)
+    }
+}
