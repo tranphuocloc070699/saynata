@@ -15,6 +15,11 @@
     uv run pipeline export               # build data/out/dictionary.sqlite (+ media/) from Postgres
     uv run pipeline link-media           # after the media pass: add its media to senses in Postgres (no text changes)
     uv run pipeline export-local         # old: build dictionary.sqlite from data/pipeline.db
+    uv run pipeline topics candidates    # topic words from WordNet + wordfreq into topic_words (no LLM)
+    uv run pipeline topics judge --dry-run --limit 50   # one Haiku call, prints the verdicts, saves nothing
+    uv run pipeline topics judge         # Haiku keeps or drops every candidate (about 27 calls, under $0.10)
+    uv run pipeline topics report        # counts and samples per topic
+    uv run pipeline topics export-tsv    # data/out/topic_words.tsv for review
 """
 
 import argparse
@@ -197,6 +202,28 @@ def export_from_postgres(args) -> None:
               f"{', '.join(result.media_missing[:3])}. Copy the server media folder there first (--media-dir).")
 
 
+def topic_words(args) -> None:
+    """Topic words (TASK-61): candidates, the Haiku judge, and review. See topics.py."""
+    from pipeline import topics
+
+    db = store.connect()
+    if args.topics_command == "candidates":
+        candidates = topics.build_candidates(topics.ensure_wordnet(), topics.known_words(db), args.zipf)
+        added = topics.save_candidates(db, candidates)
+        print(f"{len(candidates)} candidates, {added} new in topic_words. Next: uv run pipeline topics judge")
+    elif args.topics_command == "judge":
+        print(f"Model: {topics.JUDGE_MODEL}, {topics.JUDGE_BATCH} words per call"
+              f"{', dry run: nothing is saved' if args.dry_run else ''}")
+        counts = topics.run_judge(db, topics.fetch_from_claude, limit=args.limit, dry_run=args.dry_run)
+        print(f"Done: {counts['keep']} keep, {counts['drop']} drop, {counts['no_verdict']} without a verdict, "
+              f"{counts['failed_batches']} failed calls (run again to retry those words)")
+    elif args.topics_command == "report":
+        topics.report(db)
+    elif args.topics_command == "export-tsv":
+        path = export.OUT_DIR / "topic_words.tsv"
+        print(f"Wrote {topics.export_tsv(db, path)} words to {path}")
+
+
 def report() -> None:
     db = store.connect()
     for row in db.execute("SELECT status, COUNT(*) AS n, SUM(attempts) AS calls FROM words GROUP BY status"):
@@ -247,6 +274,15 @@ def main() -> None:
     export_parser = commands.add_parser("export")
     export_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     export_parser.add_argument("--media-dir", default=str(export.MEDIA_DIR), help="folder with the media files to copy")
+    topics_parser = commands.add_parser("topics", help="topic words: candidates, judge, report, export-tsv")
+    topics_commands = topics_parser.add_subparsers(dest="topics_command", required=True)
+    candidates_parser = topics_commands.add_parser("candidates")
+    candidates_parser.add_argument("--zipf", type=float, default=3.5, help="minimum wordfreq Zipf (default 3.5)")
+    judge_parser = topics_commands.add_parser("judge")
+    judge_parser.add_argument("--limit", type=int, default=100000)
+    judge_parser.add_argument("--dry-run", action="store_true", help="call Claude and print the verdicts, save nothing")
+    topics_commands.add_parser("report")
+    topics_commands.add_parser("export-tsv")
     args = parser.parse_args()
 
     if args.command == "preview":
@@ -271,6 +307,8 @@ def main() -> None:
         link_media_to_postgres(args)
     elif args.command == "export":
         export_from_postgres(args)
+    elif args.command == "topics":
+        topic_words(args)
     elif args.command == "export-local":
         path, count, without_usage, without_levels = export.export_from_pipeline_db(store.connect())
         print(f"Exported {count} words to {path}")

@@ -25,6 +25,19 @@ CREATE TABLE IF NOT EXISTS words (
     problems       TEXT,                   -- JSON list of failed checks
     updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Topic words (TASK-61): candidates from WordNet + wordfreq, then judged by Claude Haiku. See topics.py.
+-- status: candidate -> keep | drop. Approved words move to the words table later, for the generate pass.
+CREATE TABLE IF NOT EXISTS topic_words (
+    lemma     TEXT PRIMARY KEY,
+    pos       TEXT NOT NULL,              -- n, v or a
+    zipf      REAL NOT NULL,              -- wordfreq Zipf frequency
+    topic     TEXT NOT NULL,              -- one of topics.Topic
+    gloss     TEXT NOT NULL,              -- the WordNet definition the topic came from
+    status    TEXT NOT NULL DEFAULT 'candidate',
+    reason    TEXT,                       -- the judge's short reason
+    judged_at TEXT
+);
 """
 
 

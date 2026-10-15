@@ -34,6 +34,7 @@ Since TASK-49.3 the **server Postgres** holds the bundled words, senses, forms a
 | `forms.py` | Labels each word form (past tense, plural, ...) with lemminflect |
 | `media.py` | The media pass: fetches & resizes Pixabay photos (320px WebP) and action loops (MP4) |
 | `postgres.py` | Connects to the server Postgres (`DATABASE_URL`) and imports `dictionary.sqlite` into it (one time, re-run safe) |
+| `topics.py` | Topic words (TASK-61): candidates from Open English WordNet + wordfreq, then a Claude Haiku judge (keep or drop, topic) |
 | `export.py` | Builds `dictionary.sqlite` + `dictionary.jsonl` + `media/` from Postgres (read-only). `export-local` is the old export from `data/pipeline.db` |
 
 ## Run
@@ -53,6 +54,10 @@ uv run pipeline media --dry-run --words apple run bank   # preview Pixabay photo
 uv run pipeline media               # download, resize, and cache media for all eligible senses
 uv run pipeline import-to-postgres  # one time: copy the bundled dictionary.sqlite into Postgres (DATABASE_URL in .env)
 uv run pipeline export              # build data/out/dictionary.sqlite and data/out/media/ from Postgres
+uv run pipeline topics candidates   # topic words (apple, giraffe, scarf) into topic_words, no LLM; first run adds WordNet (minutes)
+uv run pipeline topics judge --dry-run --limit 50   # 1 Haiku call (under $0.01), prints verdicts, saves nothing
+uv run pipeline topics judge        # Haiku keeps or drops every candidate (~28 calls, under $0.10)
+uv run pipeline topics report       # counts and samples per topic; `topics export-tsv` writes data/out/topic_words.tsv
 ```
 
 `import-to-postgres` skips words that are already in Postgres, so it is safe to run again and it never overwrites
@@ -82,4 +87,5 @@ Changed the prompt? Bump `PROMPT_VERSION` in `generate.py`, and `generate` redoe
 ## Licenses
 
 NGSL and Wiktionary (via Kaikki) are CC BY-SA. The app must show attribution, and the
-dictionary data we publish is CC BY-SA too.
+dictionary data we publish is CC BY-SA too. Topic words also use Open English WordNet (CC BY 4.0) and wordfreq
+(CC BY-SA data). Every source with its attribution: [licenses/NOTICE.md](licenses/NOTICE.md).
