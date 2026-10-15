@@ -3,7 +3,7 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-15 10:54'
+updated_date: '2026-10-15 13:37'
 ---
 # Accounts and limits
 
@@ -133,7 +133,7 @@ flowchart LR
 
 | Step | File:line | What happens |
 |---|---|---|
-| Table | [V11__create_claude_usage.sql](../../../backend/src/main/resources/db/migration/V11__create_claude_usage.sql) | One row per call: time, model, feature (`SENTENCE`, `WORD`, `ADMIN`), input and output tokens, cost in USD (8 decimals). The cost is saved, so a later price change does not rewrite history. |
+| Table | [V11__create_claude_usage.sql](../../../backend/src/main/resources/db/migration/V11__create_claude_usage.sql) | One row per call: time, model, feature (`SENTENCE`, `WORD`, `ADMIN`, `WARMUP`), input and output tokens, cost in USD (8 decimals). The cost is saved, so a later price change does not rewrite history. |
 | Record | [ClaudeService.recordUsage:232](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L232) | Called for the normal sentence call, the streamed call (the stream accumulator sums the start and end events) and the word call, **before** the answer is read, so a refused or "not English" answer is counted too (it cost money). Never throws. |
 | Cost | [ClaudeUsageService.cost:74](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L74) | `(input x inputPerMtok + output x outputPerMtok) / 1,000,000`. A model with no price in config is counted at the **highest** configured price (never free) and a warning is logged. |
 | Prices | `app.claude.pricing.<model>.input-per-mtok` / `output-per-mtok` in [application.properties](../../../backend/src/main/resources/application.properties) | `claude-haiku-5-5`: $0.10 in, $0.50 out per million tokens (prompts up to 100K tokens; checked 2026-10-15). **Check them when the model or Anthropic's prices change.** |
@@ -191,3 +191,5 @@ The old tests set `app.auth.require-sign-in=false` (and a very high guest IP lim
 - `GET /api/me` does not return a display name or roles.
 - Expired refresh tokens are deleted when someone signs in (a week after they expire), not by a timer.
 - Migration numbers: V10 and V11. If another branch also added a V10 before this merged, renumber one of them.
+
+The start-up warm-up call (TASK-75, `ClaudeWarmUp`) is recorded with `Feature.WARMUP` (about 8 input and 1 output token, a tiny fraction of a cent) and does **not** go through `ClaudeGate`: no sign-in, no budget check, no rate limit, because it is not made for a person.

@@ -23,6 +23,7 @@ struct TranslateView: View {
                 TranslateResultView(
                     state: store.state,
                     targetLanguage: store.targetLanguage,
+                    pendingSentence: store.pendingSentence,
                     onSuggestionTap: { word in Task { await store.lookUp(suggestion: word) } },
                     loadWordEntry: { word in try await store.wordEntry(for: word) })
                     // At least this tall, so the empty space under a short result also hides the keyboard.

@@ -15,6 +15,11 @@ final class TranslationStore {
     /// The language of the translation at the bottom of the result.
     var targetLanguage: TargetLanguage = .vietnamese
     private(set) var state: TranslationState = .idle
+    /// While a sentence waits for Claude: the sentence and its bundled dictionary words, shown at once (TASK-74).
+    /// Nil at all other times.
+    private(set) var pendingSentence: PendingSentence?
+    /// True once the full `meaning` arrived. Late word-by-word pieces are then ignored (TASK-73).
+    private var meaningIsFinal = false
 
     private let makeTranslator: @MainActor () throws -> any Translating
     private let makeWordLookup: @MainActor () throws -> any WordLooking
@@ -112,9 +117,15 @@ final class TranslationStore {
         translator: any Translating
     ) async throws -> Explanation {
         do {
-            return try await translator.explainStreaming(sentence, translatingTo: language) { [weak self] meaning in
-                self?.showMeaning(SentenceMeaning(sentence: sentence, meaning: meaning, language: language))
-            }
+            return try await translator.explainStreaming(
+                sentence,
+                translatingTo: language,
+                onMeaningDelta: { [weak self] piece in
+                    self?.appendToMeaning(piece, sentence: sentence, language: language)
+                },
+                onMeaning: { [weak self] meaning in
+                    self?.showMeaning(SentenceMeaning(sentence: sentence, meaning: meaning, language: language))
+                })
         } catch let error as BackendError where error.isFinalAnswer {
             throw error
         } catch is CancellationError {
@@ -126,8 +137,24 @@ final class TranslationStore {
         }
     }
 
-    /// Shows the meaning that arrived first. Only while the request is still running.
+    /// Adds the next characters of the meaning (TASK-73), so the text grows on screen.
+    /// Ignored once the full meaning is there, and when the request is no longer running.
+    private func appendToMeaning(_ piece: String, sentence: String, language: TargetLanguage) {
+        guard !meaningIsFinal else { return }
+        switch state {
+        case .loading:
+            state = .meaning(SentenceMeaning(sentence: sentence, meaning: piece, language: language))
+        case let .meaning(current):
+            state = .meaning(SentenceMeaning(sentence: sentence, meaning: current.meaning + piece, language: language))
+        case .idle, .loaded, .loadedWord, .failed:
+            break
+        }
+    }
+
+    /// Shows the full meaning. It replaces any text built from pieces, so a missing or late piece never matters.
+    /// Only while the request is still running.
     private func showMeaning(_ meaning: SentenceMeaning) {
+        meaningIsFinal = true
         switch state {
         case .loading, .meaning: state = .meaning(meaning)
         case .idle, .loaded, .loadedWord, .failed: break
@@ -138,11 +165,20 @@ final class TranslationStore {
         // Copy these first. The user can change the picker or the text while we wait.
         let sentence = trimmedInput
         let language = targetLanguage
+        // The bundled dictionary gives each word card its pill and chip, and its words are found offline,
+        // so they can show before Claude answers (TASK-74). No dictionary is fine.
+        let lookup = try? makeWordLookup()
+        meaningIsFinal = false
+        pendingSentence = PendingSentence(
+            sentence: sentence,
+            language: language,
+            localWords: SentenceWordFinder.extraWords(
+                in: sentence, skipping: [], bundledEntry: { lookup?.bundledEntry(for: $0) }))
+        // Loaded or failed: the local cards go. (A loaded result brings its own words, merged with Claude's.)
+        defer { pendingSentence = nil }
         do {
             let translator = try makeTranslator()
             let explanation = try await explainWithFallback(sentence, language: language, translator: translator)
-            // The bundled dictionary gives each word card its pill and chip. No dictionary is fine.
-            let lookup = try? makeWordLookup()
             state = .loaded(SentenceResult(
                 sentence: sentence,
                 explanation: explanation,

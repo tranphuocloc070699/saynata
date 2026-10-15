@@ -89,6 +89,50 @@ struct BackendClientStreamingTests {
         #expect(explanation.translation == "Xin chào, đây là lời chào")
     }
 
+    // MARK: - meaning-delta (TASK-73)
+
+    private static let deltasThenMeaningThenDone = "event:meaning-delta\ndata:{\"text\":\"A \"}\n\n"
+        + "event:meaning-delta\ndata:{\"text\":\"greet\"}\n\n"
+        + "event:meaning\ndata:{\"meaning\":\"A greeting.\"}\n\n"
+        + "event:done\ndata:\(doneData)\n\n"
+
+    @Test(arguments: [1, 5, 10_000])
+    func deltasArriveInOrderBeforeTheMeaning(chunkSize: Int) async throws {
+        ChunkedStubURLProtocol.serve(Self.deltasThenMeaningThenDone, chunkSize: chunkSize)
+        let log = MeaningLog()
+
+        let explanation = try await client.explainStreaming(
+            "Hi",
+            translatingTo: .vietnamese,
+            onMeaningDelta: { log.meanings.append("delta:" + $0) },
+            onMeaning: { log.meanings.append("meaning:" + $0) })
+
+        #expect(log.meanings == ["delta:A ", "delta:greet", "meaning:A greeting."])
+        #expect(explanation.meaning == "A greeting.")
+    }
+
+    @Test func theOldCallIgnoresDeltasAndStillWorks() async throws {
+        ChunkedStubURLProtocol.serve(Self.deltasThenMeaningThenDone)
+        let log = MeaningLog()
+
+        let explanation = try await client.explainStreaming("Hi", translatingTo: .vietnamese) { log.meanings.append($0) }
+
+        #expect(log.meanings == ["A greeting."])
+        #expect(explanation.words.map(\.word) == ["hi"])
+    }
+
+    @Test func aBrokenDeltaEventIsIgnored() async throws {
+        ChunkedStubURLProtocol.serve("event:meaning-delta\ndata:not json\n\nevent:done\ndata:\(Self.doneData)\n\n")
+        let log = MeaningLog()
+
+        let explanation = try await client.explainStreaming(
+            "Hi", translatingTo: .vietnamese,
+            onMeaningDelta: { log.meanings.append($0) }, onMeaning: { log.meanings.append($0) })
+
+        #expect(log.meanings.isEmpty)
+        #expect(explanation.meaning == "A greeting.")
+    }
+
     @Test func aCacheHitSendsOnlyDoneSoThereIsNoMeaningCall() async throws {
         ChunkedStubURLProtocol.serve("event:done\ndata:\(Self.doneData)\n\n")
         let log = MeaningLog()

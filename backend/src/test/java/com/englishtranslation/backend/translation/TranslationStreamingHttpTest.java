@@ -64,6 +64,10 @@ class TranslationStreamingHttpTest {
 
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
+            // The whole meaning came in one piece, so there is one delta first (TASK-73), then the full meaning.
+            assertThat(reader.readLine()).isEqualTo("event:meaning-delta");
+            assertThat(reader.readLine()).isEqualTo("data:{\"text\":\"Xin chào, đây là nghĩa.\"}");
+            assertThat(reader.readLine()).isEmpty();
             assertThat(reader.readLine()).isEqualTo("event:meaning");
             assertThat(reader.readLine()).isEqualTo("data:{\"meaning\":\"Xin chào, đây là nghĩa.\"}");
             clientSawMeaning.countDown();

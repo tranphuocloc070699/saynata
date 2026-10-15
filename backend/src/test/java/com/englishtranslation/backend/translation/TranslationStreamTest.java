@@ -91,15 +91,38 @@ class TranslationStreamTest {
         return names;
     }
 
+    /** What an old app sees: it ignores every event it does not know (here, meaning-delta). */
+    private static List<String> eventsAnOldAppReads(String body) {
+        return eventNames(body).stream().filter(name -> !name.equals("meaning-delta")).toList();
+    }
+
     @Test
-    void meaningComesBeforeDone() throws Exception {
+    void deltasComeFirstThenTheFullMeaningThenDone() throws Exception {
         claudeStreams("He was reluctant to leave", EXPLANATION);
 
         String body = streamBody("He was reluctant to leave");
 
-        assertThat(eventNames(body)).containsExactly("meaning", "done");
+        assertThat(eventNames(body)).containsExactly("meaning-delta", "meaning-delta", "meaning", "done");
         assertThat(body).contains("data:{\"meaning\":\"He did not want to leave.\"}");
-        assertThat(body.indexOf("event:meaning")).isLessThan(body.indexOf("event:done"));
+    }
+
+    @Test
+    void theDeltasAddUpToTheFullMeaning() throws Exception {
+        claudeStreams("He was reluctant to leave", EXPLANATION);
+
+        String body = streamBody("He was reluctant to leave");
+
+        assertThat(body).contains("event:meaning-delta\ndata:{\"text\":\"He did not \"}");
+        assertThat(body).contains("event:meaning-delta\ndata:{\"text\":\"want to leave.\"}");
+    }
+
+    @Test
+    void anOldAppThatIgnoresDeltasStillSeesMeaningThenDone() throws Exception {
+        claudeStreams("He was reluctant to leave", EXPLANATION);
+
+        String body = streamBody("He was reluctant to leave");
+
+        assertThat(eventsAnOldAppReads(body)).containsExactly("meaning", "done");
     }
 
     @Test
@@ -108,7 +131,7 @@ class TranslationStreamTest {
 
         String body = streamBody("He was reluctant to leave");
 
-        String doneLine = body.lines().filter(line -> line.startsWith("data:{\"text\"")).findFirst().orElseThrow();
+        String doneLine = body.lines().filter(line -> line.startsWith("data:{\"text\":\"He was")).findFirst().orElseThrow();
         assertThat(doneLine).isEqualTo("data:{\"text\":\"He was reluctant to leave\",\"targetLang\":\"vi\","
                 + "\"explanation\":{\"meaning\":\"He did not want to leave.\","
                 + "\"words\":[{\"word\":\"reluctant\",\"partOfSpeech\":\"adjective\",\"meaning\":\"not wanting to do something\"}],"
@@ -149,8 +172,8 @@ class TranslationStreamTest {
         String first = streamBody(text);
         String second = streamBody(text);
 
-        assertThat(eventNames(first)).containsExactly("meaning", "done");
-        assertThat(eventNames(second)).containsExactly("meaning", "done");
+        assertThat(eventsAnOldAppReads(first)).containsExactly("meaning", "done");
+        assertThat(eventsAnOldAppReads(second)).containsExactly("meaning", "done");
         assertThat(repository.count()).isZero();
     }
 
@@ -181,7 +204,7 @@ class TranslationStreamTest {
 
         String body = streamBody("Hello there");
 
-        assertThat(eventNames(body)).containsExactly("meaning", "error");
+        assertThat(eventsAnOldAppReads(body)).containsExactly("meaning", "error");
         assertThat(body).contains("data:{\"status\":502,\"message\":\"The translation service is not available. Try again later.\"}");
         assertThat(repository.count()).isZero();
     }

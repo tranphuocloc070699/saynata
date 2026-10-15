@@ -36,6 +36,34 @@ private final class StreamingFake: Translating, @unchecked Sendable {
         streamCalls += 1
         return try await stream(onMeaning)
     }
+
+    /// What the 4-argument call does when a test sets it. Otherwise it works like the 3-argument one.
+    var streamWithDeltas: (@Sendable (_ onDelta: OnMeaning, _ onMeaning: OnMeaning) async throws -> Explanation)?
+
+    func explainStreaming(_ text: String, translatingTo language: TargetLanguage,
+                          onMeaningDelta: @escaping OnMeaning,
+                          onMeaning: @escaping OnMeaning) async throws -> Explanation {
+        guard let streamWithDeltas else {
+            return try await explainStreaming(text, translatingTo: language, onMeaning: onMeaning)
+        }
+        streamCalls += 1
+        return try await streamWithDeltas(onMeaningDelta, onMeaning)
+    }
+}
+
+/// A bundled dictionary with two words: "apples" (a form of "apple") and "like".
+private struct TinyDictionary: WordLooking {
+    func lookUp(_ word: String) async throws -> WordEntry { throw NoDictionary() }
+
+    func bundledEntry(for word: String) -> WordEntry? {
+        let senses = [Sense(pos: "noun", cefr: "A1", simpleDefinition: "a thing", vietnamese: "x", examples: [])]
+        switch word.lowercased() {
+        case "apples": return WordEntry(word: "apple", ipa: nil, senses: senses,
+                                        matchedForm: MatchedForm(text: "apples", type: "plural"))
+        case "like": return WordEntry(word: "like", ipa: nil, senses: senses, matchedForm: nil)
+        default: return nil
+        }
+    }
 }
 
 /// Writes down the store's state each time the fake translator asks, so the test can see the order.
@@ -233,5 +261,215 @@ struct TranslationStoreStreamingTests {
         await store.translate()
 
         #expect(StateProbe.label(store.state) == "loaded")
+    }
+
+    // MARK: - Word by word (TASK-73)
+
+    @Test func theMeaningGrowsFromPiecesThenTheFullMeaningReplacesIt() async {
+        let probe = StateProbe()
+        let translator = StreamingFake { _ in fullAnswer }
+        translator.streamWithDeltas = { onDelta, onMeaning in
+            await onDelta("He did ")
+            await probe.note()
+            await onDelta("not want")
+            await probe.note()
+            await onMeaning("He did not want to leave.")
+            await probe.note()
+            return fullAnswer
+        }
+        let store = makeStore(translator)
+        probe.store = store
+
+        await store.translate()
+
+        #expect(probe.seen == [
+            "meaning: He did ",
+            "meaning: He did not want",
+            "meaning: He did not want to leave.",
+        ])
+        #expect(StateProbe.label(store.state) == "loaded")
+    }
+
+    @Test func theFullMeaningWinsWhenAPieceIsMissing() async {
+        let probe = StateProbe()
+        let translator = StreamingFake { _ in fullAnswer }
+        translator.streamWithDeltas = { onDelta, onMeaning in
+            await onDelta("He did ")
+            // "not want" never arrives
+            await onMeaning("He did not want to leave.")
+            await probe.note()
+            return fullAnswer
+        }
+        let store = makeStore(translator)
+        probe.store = store
+
+        await store.translate()
+
+        #expect(probe.seen == ["meaning: He did not want to leave."])
+    }
+
+    @Test func aLatePieceAfterTheFullMeaningIsIgnored() async {
+        let probe = StateProbe()
+        let translator = StreamingFake { _ in fullAnswer }
+        translator.streamWithDeltas = { onDelta, onMeaning in
+            await onMeaning("He did not want to leave.")
+            await onDelta(" extra")
+            await probe.note()
+            return fullAnswer
+        }
+        let store = makeStore(translator)
+        probe.store = store
+
+        await store.translate()
+
+        #expect(probe.seen == ["meaning: He did not want to leave."])
+    }
+
+    @Test func piecesKeepTheSentenceAndLanguageOfTheRequest() async {
+        let probe = StateProbe()
+        var captured: SentenceMeaning?
+        let translator = StreamingFake { _ in fullAnswer }
+        translator.streamWithDeltas = { onDelta, _ in
+            await onDelta("He ")
+            await MainActor.run { if case let .meaning(partial) = probe.store?.state { captured = partial } }
+            return fullAnswer
+        }
+        let store = makeStore(translator)
+        store.targetLanguage = .korean
+        probe.store = store
+
+        await store.translate()
+
+        #expect(captured == SentenceMeaning(sentence: "He was reluctant to leave", meaning: "He ", language: .korean))
+    }
+
+    @Test func aNewRequestCannotStartWhilePiecesAreArriving() async {
+        let probe = StateProbe()
+        var canTranslate: Bool?
+        let translator = StreamingFake { _ in fullAnswer }
+        translator.streamWithDeltas = { onDelta, _ in
+            await onDelta("He ")
+            await MainActor.run { canTranslate = probe.store?.canTranslate }
+            return fullAnswer
+        }
+        let store = makeStore(translator)
+        probe.store = store
+
+        await store.translate()
+
+        #expect(canTranslate == false)
+    }
+
+    @Test func aFailureAfterSomePiecesShowsTheError() async {
+        let translator = StreamingFake { _ in fullAnswer }
+        translator.streamWithDeltas = { onDelta, _ in
+            await onDelta("He did ")
+            throw BackendError.badStatus(422, detail: "Claude declined to answer this text.")
+        }
+        let store = makeStore(translator)
+
+        await store.translate()
+
+        #expect(StateProbe.label(store.state) == "failed: Claude declined to answer this text. (status 422)")
+    }
+
+    // MARK: - Local word cards at once (TASK-74)
+
+    private func makeStore(_ translator: StreamingFake, dictionary: TinyDictionary) -> TranslationStore {
+        let store = TranslationStore(makeTranslator: { translator }, makeWordLookup: { dictionary })
+        store.inputText = "I like apples"
+        return store
+    }
+
+    @Test func localWordsAreThereBeforeAnyAnswerAndAreRemovedWhenItEnds() async {
+        let probe = StateProbe()
+        var duringLoading: PendingSentence?
+        let translator = StreamingFake { _ in
+            await MainActor.run { duringLoading = probe.store?.pendingSentence }
+            return fullAnswer
+        }
+        let store = makeStore(translator, dictionary: TinyDictionary())
+        probe.store = store
+
+        await store.translate()
+
+        #expect(duringLoading?.sentence == "I like apples")
+        #expect(duringLoading?.localWords.map(\.word) == ["like", "apples"])
+        #expect(store.pendingSentence == nil)
+    }
+
+    @Test func localWordsStayWhilePiecesArriveAndOrderIsStable() async {
+        let probe = StateProbe()
+        var seen: [[String]] = []
+        let translator = StreamingFake { _ in fullAnswer }
+        translator.streamWithDeltas = { onDelta, onMeaning in
+            await onDelta("You ")
+            await MainActor.run { seen.append(probe.store?.pendingSentence?.localWords.map(\.word) ?? []) }
+            await onMeaning("You enjoy apples.")
+            await MainActor.run { seen.append(probe.store?.pendingSentence?.localWords.map(\.word) ?? []) }
+            return fullAnswer
+        }
+        let store = makeStore(translator, dictionary: TinyDictionary())
+        probe.store = store
+
+        await store.translate()
+
+        #expect(seen == [["like", "apples"], ["like", "apples"]])
+    }
+
+    @Test func theResultHasClaudesWordsFirstThenTheLocalOnesWithoutDuplicates() async {
+        let answer = Explanation(
+            meaning: "You enjoy apples.",
+            words: [.init(word: "apples", partOfSpeech: "noun", meaning: "a round fruit")],
+            translation: "x")
+        let translator = StreamingFake { _ in answer }
+        let store = makeStore(translator, dictionary: TinyDictionary())
+
+        await store.translate()
+
+        guard case let .loaded(result) = store.state else {
+            Issue.record("Expected .loaded, got \(StateProbe.label(store.state))")
+            return
+        }
+        // Claude's "apples" first, the local "like" after it, and "apples" is not repeated.
+        #expect(result.words.map(\.word) == ["apples", "like"])
+    }
+
+    @Test func aFailedRequestRemovesTheLocalWordsAndShowsTheError() async {
+        let translator = StreamingFake { _ in
+            throw BackendError.badStatus(422, detail: "This doesn't look like English. Type an English word or sentence.")
+        }
+        let store = makeStore(translator, dictionary: TinyDictionary())
+
+        await store.translate()
+
+        #expect(store.pendingSentence == nil)
+        #expect(StateProbe.label(store.state)
+            == "failed: This doesn't look like English. Type an English word or sentence. (status 422)")
+    }
+
+    @Test func aSentenceWithNoDictionaryWordsHasNoLocalWords() async {
+        var pending: PendingSentence?
+        let probe = StateProbe()
+        let translator = StreamingFake { _ in
+            await MainActor.run { pending = probe.store?.pendingSentence }
+            return fullAnswer
+        }
+        let store = makeStore(translator) // its dictionary throws: no bundled words
+        probe.store = store
+
+        await store.translate()
+
+        #expect(pending?.localWords == [])
+    }
+
+    @Test func aWordSearchHasNoPendingSentence() async {
+        let store = TranslationStore(makeTranslator: { StreamingFake { _ in fullAnswer } },
+                                     makeWordLookup: { TinyDictionary() })
+        store.inputText = "apples"
+
+        await store.translate()
+
+        #expect(store.pendingSentence == nil)
     }
 }

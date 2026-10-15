@@ -3,7 +3,7 @@ id: doc-13
 title: Admin API
 type: specification
 created_date: '2026-10-14 11:28'
-updated_date: '2026-10-15 10:02'
+updated_date: '2026-10-15 13:37'
 ---
 # Admin API
 
@@ -12,7 +12,7 @@ updated_date: '2026-10-15 10:02'
 
 ## What it does
 
-`/api/admin/**` is a small REST API for the admin web app (admin.loffy.me). An admin logs in with email and password, gets a signed cookie, and can then list, search, read, edit, mark as reviewed and delete the words and sentences. Words come from two tables: the **bundled dictionary** (`dictionary_word`, the 2,750 words in the iOS app, source `bundled`) and the words Claude wrote on demand (`word_lookup`, source `backend`). Sentences are `sentence_translation`. Deleting a row is "regenerate": the next public lookup asks Claude again. The public API (`/api/translations`, `/api/translations/stream` (server-sent events, TASK-65, see doc-4), `/api/words/{word}`, `/actuator/health`) needs no admin login. App users have a separate login with an email code and a Bearer token ([Accounts and limits](doc-17%20-%20Accounts-and-limits.md)): a guest gets cached and bundled answers, a new Claude call needs a signed-in user. Streamed sentences are cached in the same `sentence_translation` table, so deleting a row here also "regenerates" them.
+`/api/admin/**` is a small REST API for the admin web app (admin.loffy.me). An admin logs in with email and password, gets a signed cookie, and can then list, search, read, edit, mark as reviewed and delete the words and sentences. Words come from two tables: the **bundled dictionary** (`dictionary_word`, the 2,750 words in the iOS app, source `bundled`) and the words Claude wrote on demand (`word_lookup`, source `backend`). Sentences are `sentence_translation`. Deleting a row is "regenerate": the next public lookup asks Claude again. The public API (`/api/translations`, `/api/translations/stream` (server-sent events: `meaning-delta`, `meaning`, `done`, `error`; TASK-65 and TASK-73, see doc-4), `/api/words/{word}`, `/actuator/health`) needs no admin login. App users have a separate login with an email code and a Bearer token ([Accounts and limits](doc-17%20-%20Accounts-and-limits.md)): a guest gets cached and bundled answers, a new Claude call needs a signed-in user. Streamed sentences are cached in the same `sentence_translation` table, so deleting a row here also "regenerates" them.
 
 ## Big picture
 

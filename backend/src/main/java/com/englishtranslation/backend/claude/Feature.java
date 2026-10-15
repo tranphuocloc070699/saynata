@@ -5,5 +5,7 @@ public enum Feature {
     SENTENCE,
     WORD,
     /** For admin tools that call Claude. None does yet, but the budget cap covers them when one does. */
-    ADMIN
+    ADMIN,
+    /** The tiny call at start-up that warms the connection (TASK-75). It costs about nothing. */
+    WARMUP
 }

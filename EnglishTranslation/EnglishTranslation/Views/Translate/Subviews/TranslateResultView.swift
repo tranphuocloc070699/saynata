@@ -9,6 +9,8 @@ import SwiftUI
 struct TranslateResultView: View {
     let state: TranslationState
     let targetLanguage: TargetLanguage
+    /// The sentence being explained, with its dictionary words found offline (TASK-74). Nil for a word search.
+    var pendingSentence: PendingSentence?
     /// Called when the user taps a "did you mean" word.
     var onSuggestionTap: (String) -> Void = { _ in }
     /// Gets the full word card for a word the user tapped in a sentence result.
@@ -23,9 +25,19 @@ struct TranslateResultView: View {
             Text("Type a word or a sentence, then tap Explain.")
                 .foregroundStyle(.secondary)
         case .loading:
-            ProgressView()
+            if let pendingSentence {
+                // Same header and Meaning card as the result, with a spinner where the meaning will be.
+                SentenceMeaningView(
+                    partial: SentenceMeaning(
+                        sentence: pendingSentence.sentence, meaning: "", language: pendingSentence.language),
+                    localWords: pendingSentence.localWords,
+                    loadWordEntry: loadWordEntry)
+            } else {
+                ProgressView()
+            }
         case let .meaning(partial):
-            SentenceMeaningView(partial: partial)
+            SentenceMeaningView(
+                partial: partial, localWords: pendingSentence?.localWords ?? [], loadWordEntry: loadWordEntry)
         case let .loaded(result):
             // The language comes from the result, not the live picker (TASK-14).
             SentenceResultView(result: result, loadWordEntry: loadWordEntry)

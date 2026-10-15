@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-15 10:54'
+updated_date: '2026-10-15 13:37'
 ---
 # Decisions and reasons
 
@@ -110,6 +110,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-15 | A refresh token that is used twice revokes all sessions of that user | A used token that comes back may have been copied (OWASP refresh token rotation advice). Cost: a flaky network that repeats a refresh signs the user out. | Only reject the second use | Claude |
 | 10-15 | The iOS sign-in screen waits for a mockup. Until it exists, the current app gets 401 for new sentences and uncached words (bundled and cached answers still work) | Rule: mockup before UI code. | Build the screen without a mockup | Developer |
 | 10-15 | **Resend** (resend.com) sends the sign-in code emails (TASK-71), instead of AWS SES. The backend picks Resend when `RESEND_API_KEY` is set, else SES when a from address is set, else the log | SES needs a sandbox exit with a website review, an IAM user and a region setup, which is too complicated for now. Resend needs only domain DNS records (on Cloudflare) and one API key, and its free tier is enough. The SES code stays in the backend as an option. | AWS SES, "for now" (kept as an optional section in doc-11, can come back later) | Developer |
+| 10-15 | Make sentence answers feel faster with three changes done **together** (TASK-73, 74, 75): stream the meaning word by word (`meaning-delta` events); show the offline dictionary word cards at once while Claude works; make one tiny Claude call after start-up to warm the connection. One branch, one PR (`feature/faster-sentences`) | Measured on production: the `meaning` event arrives at 1.3-1.8 s, `done` at 2-2.5 s, and the first call after a restart took 7-9 s. The developer asked for all three together. Any further reason: not recorded. | Doing them one at a time; waiting for a faster model | Developer |
 
 ## Questions answered
 
@@ -121,3 +122,4 @@ go here as questions.
 - 10-14: Why images from the server (B), and why the "do not store personal-looking sentences" rule (1)? Reason not recorded.
 - 10-14: Why images option B (AI only for the bad ones)? Reason not recorded.
 - 10-15: Why accounts with an email code (not passwords or Sign in with Apple), why guests may not cause new Claude calls, and why $1 per day? Reason not recorded.
+- 10-15: Why these three speed changes together (and not one by one)? Only the measurements were given. Reason not recorded.
