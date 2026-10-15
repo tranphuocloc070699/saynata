@@ -14,7 +14,7 @@ enum TranslatorFactory {
 
     /// Our Java backend. The URL comes from `BackendBaseURL` in Info.plist.
     static func makeBackendClient() throws -> any Translating {
-        BackendClient(baseURL: try AppConfig.backendBaseURL(), cache: ResultCache.shared)
+        BackendClient(baseURL: try AppConfig.backendBaseURL(), cache: ResultCache.shared, auth: AccountStore.shared)
     }
 
     /// The bundled dictionary file. Opened once; nil if it cannot be opened.
@@ -29,7 +29,7 @@ enum TranslatorFactory {
     static func makeWordLookup() throws -> any WordLooking {
         WordLookup(
             dictionary: bundledDictionary,
-            backend: BackendClient(baseURL: try AppConfig.backendBaseURL(), cache: ResultCache.shared),
+            backend: BackendClient(baseURL: try AppConfig.backendBaseURL(), cache: ResultCache.shared, auth: AccountStore.shared),
             suggester: spellingSuggester)
     }
 }

@@ -9,6 +9,7 @@ import SwiftUI
 struct TranslateView: View {
     @Environment(TranslationStore.self) private var store
     @Environment(SpeechPlayer.self) private var speechPlayer
+    @Environment(AccountStore.self) private var account
     /// True while the text box has the keyboard (TASK-50).
     @FocusState private var isInputFocused: Bool
 
@@ -36,6 +37,11 @@ struct TranslateView: View {
         .scrollDismissesKeyboard(.interactively)
         // A new search or a new result replaces what is on screen, so the old speech must stop (TASK-46).
         .onChange(of: store.state.resultKey) { speechPlayer.stop() }
+        // The backend said "sign in" (TASK-70). The sheet opens over the result; when the code is right it closes
+        // and the same request runs again.
+        .sheet(isPresented: $store.isSignInSheetOpen) {
+            SignInSheet(account: account) { await store.resumeAfterSignIn() }
+        }
     }
 
     /// A tap outside the text box hides the keyboard. It is "simultaneous", so buttons, folded rows,
@@ -50,4 +56,5 @@ struct TranslateView: View {
     TranslateView()
         .environment(TranslationStore())
         .environment(SpeechPlayer.silent())
+        .environment(AccountStore(secrets: NoSecretStore()))
 }
