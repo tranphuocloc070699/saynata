@@ -14,7 +14,11 @@ import java.util.List;
  * @param media  one item per sense of the entry, in the same order; null for a sense without media.
  *               It carries the Pixabay credit (photographer, page). Empty when the entry cannot be read.
  * @param mediaStatus one item per sense, same order: "needs_ai" when the admin marked the sense for an AI image (TASK-52), else null
+ * @param reviewReasons why the word needs review: the lines of SimpleWords.problems for the current entry, for example
+ *               "sense 1: the definition uses hard words [abstain]". Computed on every read, not stored. Empty when the
+ *               word does not need review, or when the entry is simple enough now (for example after an edit).
  */
 public record AdminWord(String id, String word, WordEntry entry, String ipa, boolean needsReview, String source,
-        String model, String promptVersion, Instant createdAt, List<SenseMedia> media, List<String> mediaStatus) {
+        String model, String promptVersion, Instant createdAt, List<SenseMedia> media, List<String> mediaStatus,
+        List<String> reviewReasons) {
 }

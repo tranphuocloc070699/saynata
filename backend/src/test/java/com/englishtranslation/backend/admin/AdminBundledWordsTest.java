@@ -363,4 +363,41 @@ class AdminBundledWordsTest {
             jdbc.update("delete from media where file_name like 'admin_test_%'");
         }
     }
+
+    /** A backend word whose definition uses the hard word "abstain". */
+    private WordLookup saveHardBackend(String word, boolean needsReview) {
+        String json = "{\"senses\":[{\"pos\":\"verb\",\"cefr\":\"B1\",\"simpleDefinition\":\"to abstain from food\","
+                + "\"vietnamese\":\"x\",\"examples\":[{\"level\":\"easy\",\"text\":\"I " + word + ".\"}],\"usage\":[]}]}";
+        WordLookup row = new WordLookup("key-" + word, word, json, "test-model", "v7", needsReview);
+        row.setCefr("B1");
+        return backend.save(row);
+    }
+
+    @Test
+    void aFlaggedWordCarriesItsReviewReasonsAndACleanWordHasNone() throws Exception {
+        WordLookup hard = saveHardBackend("working", true);
+        WordLookup clean = saveBackend("zebra", "B1", false);
+
+        mockMvc.perform(asAdmin(get("/api/admin/words/w-" + hard.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviewReasons.length()").value(1))
+                .andExpect(jsonPath("$.reviewReasons[0]").value(containsString("sense 1: the definition uses hard words")))
+                .andExpect(jsonPath("$.reviewReasons[0]").value(containsString("abstain")));
+        mockMvc.perform(asAdmin(get("/api/admin/words/w-" + clean.getId())))
+                .andExpect(jsonPath("$.reviewReasons.length()").value(0));
+        // The list items carry them too.
+        mockMvc.perform(asAdmin(get("/api/admin/words?_start=0&_end=10&_sort=word&_order=ASC&needs_review=true")))
+                .andExpect(jsonPath("$[0].word").value("working"))
+                .andExpect(jsonPath("$[0].reviewReasons[0]").value(containsString("abstain")));
+    }
+
+    @Test
+    void reasonsAreRecomputedAfterAnEdit() throws Exception {
+        WordLookup hard = saveHardBackend("working", true);
+        mockMvc.perform(asAdmin(put("/api/admin/words/w-" + hard.getId())).content(ONE_SENSE_ENTRY))
+                .andExpect(status().isOk())
+                // Fixed, but the flag stays until the developer marks it reviewed.
+                .andExpect(jsonPath("$.needsReview").value(true))
+                .andExpect(jsonPath("$.reviewReasons.length()").value(0));
+    }
 }

@@ -3,9 +3,9 @@ id: doc-14
 title: Admin CMS
 type: specification
 created_date: '2026-10-14 11:29'
-updated_date: '2026-10-15 06:10'
+updated_date: '2026-10-15 06:26'
 ---
-> Status: **built against the API contract of TASK-49.1** (the backend part is built in parallel; names may need small changes in `types.ts`). TASK-49.2. Last traced from code: 2026-10-15 (infinite scroll in the list: TASK-54; Media row: TASK-52).
+> Status: **built against the API contract of TASK-49.1** (the backend part is built in parallel; names may need small changes in `types.ts`). TASK-49.2. Last traced from code: 2026-10-15 (infinite scroll in the list: TASK-54; Media row: TASK-52; review reasons: TASK-55).
 > Spec: F5 Admin CMS (TASK-49). Decisions: doc-7 rows 10-14 (Admin CMS, shadcn/ui + Refine, layout A, users with roles).
 
 ## What it does
@@ -56,7 +56,8 @@ sequenceDiagram
 | Regenerate confirm | [EntryActions.tsx:38](../../../admin/src/components/EntryActions.tsx#L38) | Inline panel; nothing is deleted until the check is pressed |
 | Edit: Form and JSON tabs | [EntryEditor.tsx:32](../../../admin/src/components/EntryEditor.tsx#L32) | One draft; switching to Form parses the JSON and stops with a message if it is not valid |
 | Media row, Pick another panel | [MediaRow.tsx:21](../../../admin/src/components/MediaRow.tsx#L21) | Pick another opens a panel **inline, under the row** (not a dialog) and searches at once with the sense's own words: [search:53](../../../admin/src/components/MediaRow.tsx#L53) calls `GET /media/search?sense=b-12:0`, and the answer fills the search input. 3x2 grid of up to 6 results; a clip has a small "clip" mark; the chosen tile gets an accent outline; the check button ([apply:68](../../../admin/src/components/MediaRow.tsx#L68)) sends the result with `PUT /words/{id}/senses/{n}/media`. [noImage:78](../../../admin/src/components/MediaRow.tsx#L78) is `DELETE` and [markForAi:84](../../../admin/src/components/MediaRow.tsx#L84) is `POST .../mark-for-ai`. After a change the word list is read again. A marked sense shows "Waiting for an AI image". Errors show the backend message under the row. Every write sends `Content-Type: application/json` (the backend needs it). |
-| Word fields | [WordsPage.tsx:25](../../../admin/src/pages/WordsPage.tsx#L25) | Table: IPA, sources, each sense (type + CEFR, explanation, 3 examples, usage, Vietnamese last, media) |
+| Review reasons | [ReviewReasons:27](../../../admin/src/pages/WordsPage.tsx#L27) | `reviewReasons` from the API (TASK-55). Under the **Status** row ([WordsPage.tsx:49](../../../admin/src/pages/WordsPage.tsx#L49)) a short list next to the "Needs review" badge; the same list at the top of the edit form ([WordForm:95](../../../admin/src/pages/WordsPage.tsx#L95); `EntryBrowser` passes the selected item as the third argument of `renderForm`, [EntryBrowser.tsx:233](../../../admin/src/components/EntryBrowser.tsx#L233)). When the word needs review but the list is empty it says "No problems found now; press ✓ to mark it reviewed". The flag is never cleared by the page. A reviewed word shows nothing. Sentences have no check yet. |
+| Word fields | [WordsPage.tsx:43](../../../admin/src/pages/WordsPage.tsx#L43) | Table: IPA, sources, each sense (type + CEFR, explanation, 3 examples, usage, Vietnamese last, media) |
 | Sentence fields | [SentencesPage.tsx:13](../../../admin/src/pages/SentencesPage.tsx#L13) | Sentence, simple explanation, words, translation last |
 | API types | [types.ts](../../../admin/src/api/types.ts) | All shapes in one file; change them here when the backend differs |
 
@@ -93,7 +94,7 @@ The backend must allow CORS with credentials for `http://localhost:5173` (TASK-4
 | `src/test/login.test.tsx` | Login request (method, body, `credentials: include`), 401 message, ADMIN check, login form |
 | `src/test/mediaRow.test.tsx` | Three icon-only buttons, panel opens inline and fills the search input, up to 6 tiles with the clip mark, search again with typed words, apply sends the chosen result (PUT, JSON header), No image (DELETE), Mark for AI (POST), the marked note, the backend error message |
 | `src/test/infiniteScroll.test.tsx` | 50 words first, next page when the end is on screen (fake `IntersectionObserver`), count line "50 of 120" with no arrows, stops at the total, filter change goes back to page 1, selection kept when more load |
-| `src/test/wordsPage.test.tsx` | List and badges, Needs review chip sends `needs_review=true`, source chip, field table, icon buttons, regenerate confirm, edit form and JSON tab |
+| `src/test/wordsPage.test.tsx` | List and badges, Needs review chip sends `needs_review=true`, source chip, field table, icon buttons, regenerate confirm, edit form and JSON tab, review reasons (detail and edit form), "No problems found now" hint |
 
 ## Change checklist
 

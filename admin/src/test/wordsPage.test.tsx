@@ -146,4 +146,37 @@ describe("words page", () => {
     const json = JSON.parse((screen.getByLabelText("Entry JSON") as HTMLTextAreaElement).value);
     expect(json.senses[0].simpleDefinition).toBe("To move fast on your legs.");
   });
+
+  it("shows why the word needs review under Status, and at the top of the edit form", async () => {
+    const flagged: WordItem = {
+      ...run,
+      reviewReasons: ["sense 1: the definition uses hard words [abstain]", "sense 2: the easy example 'x' uses hard words [foo]"],
+    };
+    renderWords([flagged]);
+    await userEvent.click(await screen.findByRole("button", { name: /run/ }));
+
+    const entry = screen.getByRole("region", { name: "Entry" });
+    const reasons = within(entry).getByRole("list", { name: "Review reasons" });
+    expect(within(reasons).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(reasons).getByText("sense 1: the definition uses hard words [abstain]")).toBeInTheDocument();
+
+    await userEvent.click(within(entry).getByRole("button", { name: "Edit" }));
+    expect(within(screen.getByRole("region", { name: "Entry" })).getByRole("list", { name: "Review reasons" })).toHaveTextContent("[abstain]");
+  });
+
+  it("says there are no problems now when a flagged word has no reasons, and keeps the flag", async () => {
+    renderWords([{ ...run, reviewReasons: [] }]);
+    await userEvent.click(await screen.findByRole("button", { name: /run/ }));
+
+    const entry = screen.getByRole("region", { name: "Entry" });
+    expect(within(entry).getByText("No problems found now; press ✓ to mark it reviewed")).toBeInTheDocument();
+    expect(within(entry).getByText("Needs review")).toBeInTheDocument();
+    expect(within(entry).queryByRole("list", { name: "Review reasons" })).not.toBeInTheDocument();
+  });
+
+  it("shows no reasons for a word that is already reviewed", async () => {
+    renderWords([{ ...house, reviewReasons: [] }]);
+    await userEvent.click(await screen.findByRole("button", { name: /house/ }));
+    expect(screen.queryByText(/No problems found now/)).not.toBeInTheDocument();
+  });
 });
