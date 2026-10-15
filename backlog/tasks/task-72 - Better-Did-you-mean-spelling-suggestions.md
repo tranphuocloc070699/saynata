@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 11:41'
-updated_date: '2026-10-15 11:41'
+updated_date: '2026-10-15 11:44'
 labels:
   - ios
 dependencies: []
@@ -43,3 +43,9 @@ Typing 'controlvesation' shows 'not an English word' with no suggestions, becaus
 4. Wire UITextChecker in TranslatorFactory (TranslationStore untouched).
 5. Tests with a fake checker + real bundle; update doc-5; check_docs.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/66 . Test it: run the app on iPhone 16 Pro (iOS 18.5). Type controlvesation -> chip 'conversation' (also offline). Type recieve, beatiful -> receive, beautiful. runj -> run first. run and zzzzqq -> no chips. Automated: SpellingSuggesterTests + SpellingSuggesterCheckerTests, 227 tests passed (xcodebuild test ... -only-testing:EnglishTranslationTests).
+<!-- SECTION:NOTES:END -->
