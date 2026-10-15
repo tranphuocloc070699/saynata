@@ -35,6 +35,10 @@ public class WordLookup {
     @Column(name = "needs_review", nullable = false)
     private boolean needsReview;
 
+    /** Level of the first sense (A1 to C2), so the admin list can filter by level. Old rows get it at start-up. */
+    @Column(name = "cefr", length = 8)
+    private String cefr;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -57,11 +61,48 @@ public class WordLookup {
         this.createdAt = Instant.now();
     }
 
+    public String getCefr() {
+        return cefr;
+    }
+
+    public void setCefr(String cefr) {
+        this.cefr = cefr;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getWord() {
+        return word;
+    }
+
+    public String getModel() {
+        return model;
+    }
+
+    public String getPromptVersion() {
+        return promptVersion;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
     public boolean isNeedsReview() {
         return needsReview;
     }
 
+    public void setNeedsReview(boolean needsReview) {
+        this.needsReview = needsReview;
+    }
+
     public String getEntryJson() {
         return entryJson;
+    }
+
+    /** Used by the admin web app when a person fixes the entry. */
+    public void setEntryJson(String entryJson) {
+        this.entryJson = entryJson;
     }
 }

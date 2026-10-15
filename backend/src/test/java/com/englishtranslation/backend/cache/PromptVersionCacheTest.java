@@ -62,7 +62,8 @@ class PromptVersionCacheTest {
 
     private WordService wordService(ClaudeProperties properties) {
         return new WordService(words, claude, properties, jsonMapper, new EnglishWords(), new IpaDictionary(),
-                new SimpleWords());
+                new SimpleWords(), org.mockito.Mockito.mock(com.englishtranslation.backend.media.BackendWordMediaService.class),
+                org.mockito.Mockito.mock(com.englishtranslation.backend.media.SenseMediaReader.class));
     }
 
     @Test
