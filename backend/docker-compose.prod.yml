@@ -55,8 +55,9 @@ services:
       - ${MEDIA_HOST_DIR:-/var/lib/saynata/media}:/app/media
     ports:
       # Port on the server: BACKEND_PORT in .env (default 8081).
-      # With a reverse proxy (Caddy) set BACKEND_BIND=127.0.0.1 so only the proxy can reach it.
-      - "${BACKEND_BIND:-0.0.0.0}:${BACKEND_PORT:-8081}:8081"
+      # Loopback only by default, so only Caddy on the same server can reach it. Docker publishes ports past ufw,
+      # so 0.0.0.0 would open plain http on the internet. Set BACKEND_BIND=0.0.0.0 only on a server without a proxy.
+      - "${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-8081}:8081"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
       interval: 30s
