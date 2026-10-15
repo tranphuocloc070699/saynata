@@ -15,24 +15,30 @@ export interface Item {
   needsReview?: boolean;
 }
 
-export interface Chip<T> {
+// Every chip is a filter the backend applies (a query parameter). Nothing is filtered on the client,
+// because with infinite scroll the client only holds the pages loaded so far.
+export interface Chip {
   id: string;
   label: string;
-  // "server" chips are sent to the backend as a filter. "client" chips filter the loaded page.
-  server?: { field: string; value: string | boolean };
-  client?: { group: string; matches: (item: T) => boolean };
+  field: string; // the query parameter, for example "source" or "cefr"
+  value: string | boolean | string[];
+  // Chips with the same field: "one" (default) = turning one on turns the others off.
+  // "any" = they can be on together and their values are OR-ed into one list (A1-A2 and B1-B2).
+  combine?: "one" | "any";
 }
 
 interface Props<T extends Item, E> {
   resource: "words" | "sentences";
-  chips: Chip<T>[];
+  chips: Chip[];
   itemTitle: (item: T) => string;
   itemSubtitle: (item: T) => string;
+  // A small picture on the left of the row (words list). Without it the row is two lines of text.
+  itemThumb?: (item: T) => ReactNode;
   itemBadges?: (item: T) => ReactNode;
   detailRows: (item: T) => FieldRow[];
   // The JSON the backend stores for this item: what the editor changes and PUT sends.
   editableEntry: (item: T) => E;
-  renderForm: (draft: E, setDraft: (next: E) => void) => ReactNode;
+  renderForm: (draft: E, setDraft: (next: E) => void, item: T) => ReactNode;
 }
 
 // Layout A: list with search and chips on the left, the selected entry as a table on the right.
@@ -41,6 +47,7 @@ export function EntryBrowser<T extends Item, E>({
   chips,
   itemTitle,
   itemSubtitle,
+  itemThumb,
   itemBadges,
   detailRows,
   editableEntry,
@@ -64,8 +71,15 @@ export function EntryBrowser<T extends Item, E>({
   const chosen = chips.filter((chip) => activeChips.includes(chip.id));
   const filters: CrudFilter[] = [];
   if (query) filters.push({ field: "q", operator: "contains", value: query });
-  for (const chip of chosen) {
-    if (chip.server) filters.push({ field: chip.server.field, operator: "eq", value: chip.server.value });
+  for (const field of new Set(chosen.map((chip) => chip.field))) {
+    const sameField = chosen.filter((chip) => chip.field === field);
+    if (sameField[0].combine === "any") {
+      // Levels are OR-ed: the backend gets one list, for example cefr=A1&cefr=A2&cefr=B1&cefr=B2.
+      const values = sameField.flatMap((chip) => chip.value as string[]);
+      filters.push({ field, operator: "in", value: [...new Set(values)] });
+    } else {
+      filters.push({ field, operator: "eq", value: sameField[0].value as string | boolean });
+    }
   }
 
   // The query key holds the filters, so a new search or chip starts again at page 1.
@@ -84,18 +98,12 @@ export function EntryBrowser<T extends Item, E>({
   const hasNextPage = !!result.hasNextPage;
   const { fetchNextPage, isFetchingNextPage } = listQuery;
 
-  // Client chips: same group = any may match (A1-A2 or B1-B2), different groups must all match.
-  const clientGroups = new Map<string, Chip<T>[]>();
-  for (const chip of chosen) {
-    if (chip.client) clientGroups.set(chip.client.group, [...(clientGroups.get(chip.client.group) ?? []), chip]);
-  }
-  const items = loaded.filter((item) =>
-    [...clientGroups.values()].every((group) => group.some((chip) => chip.client!.matches(item as unknown as T))),
-  ) as unknown as T[];
+  const items = loaded as unknown as T[];
+  // The backend counts only the rows that match the search and the chips.
   const total = pages[0]?.total ?? 0;
 
   // When the sentinel row at the end of the list comes into view, load the next page.
-  // It watches again after every page, so a short page (for example with a client chip) keeps loading until the list is full.
+  // It watches again after every page, so a short page keeps loading until the list is full.
   const listRef = useRef<HTMLUListElement>(null);
   const sentinelRef = useRef<HTMLLIElement>(null);
   useEffect(() => {
@@ -125,7 +133,9 @@ export function EntryBrowser<T extends Item, E>({
     setActionError(undefined);
     try {
       await action();
-      await invalidate({ resource, invalidates: ["list", "detail"] });
+      // "all", not "list": the list is an infinite list, which Refine keeps under its own key ("infinite").
+      // With "list" the old rows stayed on screen after a save, a delete or the check button (TASK-57).
+      await invalidate({ resource, invalidates: ["all"] });
       afterwards?.();
     } catch (error) {
       setActionError((error as Error).message || "Something went wrong.");
@@ -143,8 +153,14 @@ export function EntryBrowser<T extends Item, E>({
       () => setEditing(false),
     );
 
-  function toggleChip(id: string) {
-    setActiveChips((current) => (current.includes(id) ? current.filter((c) => c !== id) : [...current, id]));
+  function toggleChip(chip: Chip) {
+    setActiveChips((current) => {
+      if (current.includes(chip.id)) return current.filter((id) => id !== chip.id);
+      // A chip that cannot be combined replaces the other chips of the same field.
+      const keep =
+        chip.combine === "any" ? current : current.filter((id) => chips.find((c) => c.id === id)?.field !== chip.field);
+      return [...keep, chip.id];
+    });
     listRef.current?.scrollTo?.({ top: 0 });
   }
 
@@ -168,7 +184,7 @@ export function EntryBrowser<T extends Item, E>({
               <button
                 key={chip.id}
                 aria-pressed={activeChips.includes(chip.id)}
-                onClick={() => toggleChip(chip.id)}
+                onClick={() => toggleChip(chip)}
                 className={cn(
                   "rounded-full border px-3 py-1 text-xs font-medium",
                   activeChips.includes(chip.id) ? "border-primary bg-accent text-accent-foreground" : "border-border bg-card text-muted-foreground",
@@ -200,12 +216,17 @@ export function EntryBrowser<T extends Item, E>({
                   item.id === selectedId && "bg-muted",
                 )}
               >
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">{itemTitle(item)}</span>
-                  {item.needsReview && <Badge variant="warning">Needs review</Badge>}
-                  {itemBadges?.(item)}
+                <div className="flex items-center gap-3">
+                  {itemThumb?.(item)}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold">{itemTitle(item)}</span>
+                      {item.needsReview && <Badge variant="warning">Needs review</Badge>}
+                      {itemBadges?.(item)}
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
+                  </div>
                 </div>
-                <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
               </button>
             </li>
           ))}
@@ -230,7 +251,7 @@ export function EntryBrowser<T extends Item, E>({
           <EntryEditor
             key={String(selected.id)}
             initial={editableEntry(selected)}
-            renderForm={renderForm}
+            renderForm={(draft, setDraft) => renderForm(draft, setDraft, selected)}
             onSave={save}
             onCancel={() => setEditing(false)}
             error={actionError}

@@ -12,7 +12,7 @@ const makeWord = (id: number): WordItem => ({
   id,
   word: `word${id}`,
   needsReview: id % 2 === 0,
-  source: "bundled",
+  source: id % 3 === 0 ? "backend" : "bundled", // 40 of the 120 words are backend words
   model: "haiku",
   promptVersion: "v3",
   createdAt: "2026-10-14T10:00:00Z",
@@ -23,8 +23,10 @@ const makeWord = (id: number): WordItem => ({
 function renderWords() {
   const all = Array.from({ length: TOTAL }, (_, i) => makeWord(i + 1));
   const getList = vi.fn().mockImplementation(async ({ pagination, filters }) => {
-    const onlyReview = filters?.some((f: { field: string }) => f.field === "needs_review");
-    const rows = onlyReview ? all.filter((w) => w.needsReview) : all;
+    const filter = (field: string) => filters?.find((f: { field: string }) => f.field === field)?.value;
+    const rows = all.filter(
+      (w) => (filter("needs_review") === undefined || w.needsReview) && (filter("source") === undefined || w.source === filter("source")),
+    );
     const { currentPage = 1, pageSize = 10 } = pagination ?? {};
     return { data: rows.slice((currentPage - 1) * pageSize, currentPage * pageSize), total: rows.length };
   });
@@ -110,6 +112,28 @@ describe("infinite scroll", () => {
     expect(last.pagination.currentPage).toBe(1);
     expect(last.filters).toEqual([{ field: "needs_review", operator: "eq", value: true }]);
     expect(screen.queryByText("word51")).not.toBeInTheDocument();
+  });
+
+  it("From backend is a server filter: one request, the filtered total, and no extra pages", async () => {
+    const getList = renderWords();
+    await screen.findByText("word50");
+    scrollToEnd();
+    await screen.findByText("word100"); // 2 pages are loaded
+    const callsBefore = getList.mock.calls.length;
+
+    await userEvent.click(screen.getByRole("button", { name: "From backend" }));
+
+    await screen.findByText("40 of 40");
+    expect(screen.getByText("word3")).toBeInTheDocument();
+    expect(screen.queryByText("word1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Nothing found.")).not.toBeInTheDocument();
+    // One request for page 1 with the source param. The 40 rows are all there is, so nothing more is asked.
+    expect(getList).toHaveBeenCalledTimes(callsBefore + 1);
+    const last = getList.mock.calls.at(-1)![0];
+    expect(last.pagination.currentPage).toBe(1);
+    expect(last.filters).toEqual([{ field: "source", operator: "eq", value: "backend" }]);
+    expect(observers.filter((o) => !o.disconnected)).toHaveLength(0);
+    expect(screen.queryByRole("status", { name: "Loading more" })).not.toBeInTheDocument();
   });
 
   it("keeps the selected word selected when more pages load", async () => {

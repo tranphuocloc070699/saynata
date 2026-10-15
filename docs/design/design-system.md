@@ -69,7 +69,7 @@ color at 14% opacity. Never color alone: the label also has the word ("easy", "m
 
 | Component | Job |
 |---|---|
-| `IconButton` | Round 44 pt button: white with a hairline border, or accent fill (`isProminent`) for the one main action. `size: .compact` draws a 32 pt circle inside the same 44 pt tap target, for rows of text (the speakers on a sense title and on examples, TASK-7) |
+| `IconButton` | Round 44 pt button: white with a hairline border, or accent fill (`isProminent`) for the one main action. `size: .compact` draws a 32 pt circle inside the same 44 pt tap target, for rows of text (the speaker on a sense title, TASK-7). `style: .plain` draws only the icon, with no circle, border or shadow, inside the same 44 pt tap target; `isActive` makes it accent-coloured (the example speaker at the right edge of line 1, `stop.fill` while playing, TASK-48) |
 | `LevelChip` | Pill with word type and CEFR level, for example "adj · B2" |
 | `SenseTitleRow` | Title of a word-card sense: number in a circle, simple explanation (serif), level chip on the right |
 | `FormPill` | Tinted pill with a "return" arrow under the headword when a form was typed: "past tense of run /rʌn/" |

@@ -21,6 +21,7 @@ import com.englishtranslation.backend.dictionary.DictionarySense;
 import com.englishtranslation.backend.dictionary.DictionaryWord;
 import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
 import com.englishtranslation.backend.media.MediaConverter;
+import com.englishtranslation.backend.media.PixabayBusyException;
 import com.englishtranslation.backend.media.PixabayClient;
 import com.englishtranslation.backend.media.PixabayClient.PixabayHit;
 import com.englishtranslation.backend.translation.SentenceTranslationRepository;
@@ -331,6 +332,21 @@ class AdminMediaTest {
         mockMvc.perform(asAdmin(get("/api/admin/words/" + id)))
                 .andExpect(jsonPath("$.media[0].kind").value("photo"));
         assertThat(mediaRows()).isEqualTo(1);
+    }
+
+    @Test
+    void ifPixabayIsBusyTheAdminGetsAClearMessageAndTheOldPictureStays() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        String id = "b-" + run.getId();
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/0/media")).content(chosen("photo", 1)))
+                .andExpect(status().isOk());
+        when(pixabay.download(anyString())).thenThrow(new PixabayBusyException("Pixabay answered 429"));
+
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/0/media")).content(chosen("photo", 2)))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.detail").value("Pixabay is busy right now. Try again in a minute."));
+        mockMvc.perform(asAdmin(get("/api/admin/words/" + id)))
+                .andExpect(jsonPath("$.media[0].kind").value("photo"));
     }
 
     // ---- no image ----

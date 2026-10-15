@@ -3,10 +3,11 @@ id: TASK-48
 title: >-
   iOS: Examples rows: level label and plain speaker on line 1, sentence on line
   2
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-14 10:50'
-updated_date: '2026-10-14 10:54'
+updated_date: '2026-10-15 06:26'
 labels:
   - ios
   - ui
@@ -38,8 +39,18 @@ The developer's phone test (2026-10-14): the Examples row is too narrow, because
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Add IconButton.Style.plain (+ isActive accent). 2. Rebuild WordExamplesSection: line 1 label + speaker at the right edge, line 2 sentence full width (option A). 3. List the style in design-system.md, update doc-5. 4. Screenshot on iPhone 16 Pro.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-10-14: the developer chose mockup Option A (label left, plain speaker at the right edge, sentence on line 2). Build A.
+
+Implemented. 148 tests pass on iPhone 16 Pro (18.5); screenshot of the Examples row checked on the simulator. Test it card: see the PR body (look up 'depend', open Examples: label left, plain speaker right, sentence on line 2; with music playing, tapping a speaker ducks it; speech stops on new search, closing the word sheet, and going to Home).
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/54
 <!-- SECTION:NOTES:END -->

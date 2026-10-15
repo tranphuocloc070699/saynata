@@ -59,3 +59,22 @@ def test_basic_words_outside_ngsl_are_allowed():
 
     vocabulary = build_vocabulary([])
     assert {"container", "rude", "tv"} <= vocabulary
+
+
+def test_a_topic_word_may_use_itself_in_usage_examples():
+    """Topic words (TASK-61) like "giraffe" are not in NGSL. Their own usage example must not fail because of them."""
+    from pipeline.models import Usage, UsageKind
+    from pipeline.validate import usage_problems
+
+    item = Usage(kind=UsageKind.PHRASE, pattern="a tall giraffe", example="The giraffes are tall.")
+    vocabulary = {"the", "are", "tall", "a"}
+    assert usage_problems(item, vocabulary) != []
+    assert usage_problems(item, vocabulary, {"giraffe", "giraffes"}) == []
+
+
+def test_a_topic_word_is_not_an_outside_word_in_its_own_example():
+    from pipeline.models import Example, ExampleLevel
+    from pipeline.validate import example_problems
+
+    easy = Example(level=ExampleLevel.EASY, text="I see a giraffe.")
+    assert example_problems(easy, "giraffe", {"giraffe", "giraffes"}, {"i", "see", "a"}) == []

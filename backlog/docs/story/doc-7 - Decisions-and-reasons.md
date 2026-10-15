@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-14 14:44'
+updated_date: '2026-10-15 07:59'
 ---
 # Decisions and reasons
 
@@ -72,6 +72,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-14 | Sense images and clips are **served from the server** (`https://api.loffy.me/media/...`, files on the VPS behind Caddy, rows in Postgres), downloaded by the app once and cached; words that come from the backend get an image when their entry is created (Pixabay) | The developer saw no image for "apple" (a backend word; only 3 sample files existed). Reason for B in the developer's words: not recorded (Claude: works for backend words, keeps the app small, fits the CMS). | A: bundle all media in the app (~20-40 MB, nothing for backend words) | Developer chose B, Claude recommended |
 | 10-14 | Shared sentence cache privacy (TASK-9): keep the cache shared, but **do not store** sentences that look personal (email address, phone number, link, long number); they are still explained, just not cached | Reason: not recorded (Claude: the cache returns one user's text to others; this keeps the cost saving without storing personal data). | Per-user cache (needs logins); keep as is | Developer chose 1, Claude recommended |
 | 10-14 | Images: **Pixabay for every picture sense first; AI-generated images only for the ones the developer marks as bad in the admin** (option B). Style rule: flat simple illustration, one subject, light background, Sage and Teal colours, no text in the picture, no realistic faces; a budget cap on every run | Reason: not recorded (Claude: cheapest, about 150-300 images instead of 1,500-4,000). Provider and budget still to choose after a 20-word trial. | A: AI for all ~1,500 picture senses; C: AI for all senses incl. abstract ones (~3,000-4,000) | Developer chose B from Claude's options |
+| 10-15 | **Topic words** (TASK-61): add about 1,000-1,400 everyday concrete words NGSL misses (apple, giraffe, scarf, tram), each with one topic. Start from the **first-sense list** (Open English WordNet 2025 + wordfreq Zipf ≥ 3.5, NGSL removed: 1,271 words, 1,378 with a short hand list), then a **Claude Haiku judge** keeps or drops each word (names, rare meanings, technical words) before any Sonnet money is spent | The developer noticed everyday words are missing ("apple" is not in NGSL, because NGSL is chosen by frequency) and asked where to find vocabulary for streets, vegetables, animals and tools. First-sense list: picked the recommended option (cleaner; the any-sense list finds more animals but much more noise). The judge costs under $0.10. | Any-sense list (1,888 words, more noise); copying the Cambridge Young Learners lists (© Cambridge, used only to check coverage); hand-picking every word | Developer chose, Claude recommended |
 
 ## Workflow
 
@@ -90,6 +91,17 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | No stacked PRs; feature branches deleted only after their main PR merges | PR #2 was closed by GitHub when #1's branch was deleted. | Stacked PRs | Claude, after that bug |
 | 10-11 | Guard hook blocks force-push and push to main | Bash deny rules miss forms like `git -C . push`. A hook blocks in every permission mode. Tested. | Deny rules only | Claude |
 | 10-14 | Merge all features (F3 Listen, share extension, sense media, app icon, "an apple") into main before testing on the phone; test later | "I'll install on my phone and test later." Breaks the "merge only after the developer tests" rule for this round. iOS tests ran only on the worker's Mac (Codex: 127 passed) and not after the F3/share-extension merge. | Test each feature first, then merge | Developer |
+| 10-15 | Merge TASK-52 (admin pick-another) into F5 and ship it with F5 untested | One deploy and one test round. Reason: picked the recommended option. | Ship F5 alone, keep #49 open | Developer |
+| 10-15 | Admin web app deployed by GitHub Actions (build on GitHub, rsync admin/dist to the VPS) | "I want to create CI/CD for the admin too." Building on GitHub keeps Node off the VPS and avoids running out of memory. | Build on the VPS with npm | Developer asked, Claude chose the method |
+| 10-15 | Backend port 8081 on loopback only (BACKEND_BIND=127.0.0.1 default) | Security check: Docker opened 8081 past ufw, so clients could skip Caddy and fake X-Forwarded-For. | Keep 0.0.0.0 | Claude, after the developer asked about VPS security |
+| 10-15 | Media for all bundled words with a full Pixabay pass; 727 words with only abstract senses (the, be, of) get none for now | "Implement media or images for all words bundled." Stock photos can't show function words. | AI images for all (TASK-53, costs money) | Developer |
+| 10-15 | Admin lists use infinite scroll | Developer request, so 2,750 words are easy to browse. | Pages with arrows | Developer |
+| 10-15 | Sentence words: the app also adds every content word found in the bundled dictionary, after Claude's hard words (option a) | Developer thought words were missing ("I like apples" showed none). Offline, free, the same every time. | Lower the prompt bar to above A2 (option b) | Developer |
+| 10-15 | Show the needs-review reasons in the admin, worked out when the entry is read | "If it needs review, show the reason." Reading-time reasons need no migration and stay correct after edits. | Store the reasons in a column | Developer asked, Claude chose the method |
+| 10-15 | TASK-48 Examples row: option A (plain speaker at the right edge of line 1, sentence on line 2) | Reason: not recorded. | Option B (speaker right after the label) | Developer |
+| 10-15 | When a word is both bundled and in the backend table (example: "run"), **the bundled entry wins**: `GET /api/words/{word}` answers it from `dictionary_word` and never calls Claude, and a migration deletes the old backend rows | Reason: not recorded (the duplicates appeared because Claude had described "run" before the bundled words were imported into Postgres). | Keep the backend row and hide the bundled one; merge the two entries | Developer |
+| 10-15 | Admin word list: every filter chip is **a server-side filter** (source, level, media), one source and one media filter at a time, levels OR-ed; new chips Has media and No media | Reason: "From backend" on the client kept loading page after page with infinite scroll ("Nothing found" while loading 850 of 2,753). | Keep matching the loaded rows on the client | Developer |
+| 10-15 | App loads bundled words' media from the server with the offline cache; the app stays small. The bundled `dictionary.sqlite` now holds `media/<file>` for 3,372 senses; a path whose file is not inside the app is loaded from `https://api.loffy.me/media/<file>` | Developer's choice: keep the app small. Files are saved on the phone after the first view, so they show offline later. | Bundle all 63 MB of media in the app | Developer |
 
 ## Questions answered
 

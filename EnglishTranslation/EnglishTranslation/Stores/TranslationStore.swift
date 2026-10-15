@@ -46,6 +46,7 @@ final class TranslationStore {
     /// True when the button should be enabled.
     var canTranslate: Bool {
         if case .loading = state { return false }
+        if case .meaning = state { return false } // still waiting for the rest of the answer
         return !trimmedInput.isEmpty && !isOverLimit
     }
 
@@ -102,13 +103,44 @@ final class TranslationStore {
         return try await makeWordLookup().lookUp(word.word)
     }
 
+    /// Streams the answer so the meaning shows first (TASK-65). If the stream breaks before the full answer,
+    /// the old non-streaming call is tried once. A clear "no" from the server (a 4xx, for example "not English")
+    /// is not retried: asking again would give the same answer.
+    private func explainWithFallback(
+        _ sentence: String,
+        language: TargetLanguage,
+        translator: any Translating
+    ) async throws -> Explanation {
+        do {
+            return try await translator.explainStreaming(sentence, translatingTo: language) { [weak self] meaning in
+                self?.showMeaning(SentenceMeaning(sentence: sentence, meaning: meaning, language: language))
+            }
+        } catch let error as BackendError where error.isFinalAnswer {
+            throw error
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError where error.code == .cancelled {
+            throw error
+        } catch {
+            return try await translator.explain(sentence, translatingTo: language)
+        }
+    }
+
+    /// Shows the meaning that arrived first. Only while the request is still running.
+    private func showMeaning(_ meaning: SentenceMeaning) {
+        switch state {
+        case .loading, .meaning: state = .meaning(meaning)
+        case .idle, .loaded, .loadedWord, .failed: break
+        }
+    }
+
     private func explainSentence() async {
         // Copy these first. The user can change the picker or the text while we wait.
         let sentence = trimmedInput
         let language = targetLanguage
         do {
             let translator = try makeTranslator()
-            let explanation = try await translator.explain(sentence, translatingTo: language)
+            let explanation = try await explainWithFallback(sentence, language: language, translator: translator)
             // The bundled dictionary gives each word card its pill and chip. No dictionary is fine.
             let lookup = try? makeWordLookup()
             state = .loaded(SentenceResult(

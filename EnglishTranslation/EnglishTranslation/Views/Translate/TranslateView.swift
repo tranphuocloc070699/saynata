@@ -8,6 +8,7 @@ import SwiftUI
 /// The main screen. Only puts the subviews together; each part lives in `Subviews/`.
 struct TranslateView: View {
     @Environment(TranslationStore.self) private var store
+    @Environment(SpeechPlayer.self) private var speechPlayer
     /// True while the text box has the keyboard (TASK-50).
     @FocusState private var isInputFocused: Bool
 
@@ -33,6 +34,8 @@ struct TranslateView: View {
         }
         // Drag the result to hide the keyboard.
         .scrollDismissesKeyboard(.interactively)
+        // A new search or a new result replaces what is on screen, so the old speech must stop (TASK-46).
+        .onChange(of: store.state.resultKey) { speechPlayer.stop() }
     }
 
     /// A tap outside the text box hides the keyboard. It is "simultaneous", so buttons, folded rows,
@@ -46,4 +49,5 @@ struct TranslateView: View {
 #Preview {
     TranslateView()
         .environment(TranslationStore())
+        .environment(SpeechPlayer.silent())
 }

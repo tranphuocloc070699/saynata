@@ -36,9 +36,16 @@ const run: WordItem = {
 const house: WordItem = { ...run, id: 2, word: "house", needsReview: false, source: "bundled" };
 
 function renderWords(words: WordItem[]) {
+  // A fake backend: it applies the filters it is sent, like the real list endpoint does.
   const getList = vi.fn().mockImplementation(async ({ filters }) => {
-    const onlyReview = filters?.some((f: { field: string }) => f.field === "needs_review");
-    const data = onlyReview ? words.filter((w) => w.needsReview) : words;
+    const filter = (field: string) => filters?.find((f: { field: string }) => f.field === field)?.value;
+    const data = words.filter(
+      (w) =>
+        (filter("needs_review") === undefined || w.needsReview) &&
+        (filter("source") === undefined || w.source === filter("source")) &&
+        (filter("cefr") === undefined || filter("cefr").includes(w.entry.senses[0].cefr)) &&
+        (filter("media") === undefined || (filter("media") === "with") === !!w.media?.some(Boolean)),
+    );
     return { data, total: data.length };
   });
   const dataProvider = { getList, getApiUrl: () => "https://api.test/api/admin" } as unknown as DataProvider;
@@ -74,12 +81,113 @@ describe("words page", () => {
     expect(screen.getByText("run")).toBeInTheDocument();
   });
 
-  it("filters by source on the loaded page", async () => {
-    renderWords([run, house]);
+  it("sends the source chip to the backend and shows only what the backend returns", async () => {
+    const getList = renderWords([run, house]);
     await screen.findByText("house");
+    getList.mockClear();
+
     await userEvent.click(screen.getByRole("button", { name: "Bundled" }));
-    expect(screen.queryByText("run")).not.toBeInTheDocument();
+
+    await vi.waitFor(() => expect(screen.queryByText("run")).not.toBeInTheDocument());
     expect(screen.getByText("house")).toBeInTheDocument();
+    expect(getList).toHaveBeenCalledTimes(1);
+    expect(getList.mock.calls[0][0].filters).toEqual([{ field: "source", operator: "eq", value: "bundled" }]);
+  });
+
+  it("Bundled and From backend work one at a time", async () => {
+    const getList = renderWords([run, house]);
+    await screen.findByText("house");
+
+    await userEvent.click(screen.getByRole("button", { name: "Bundled" }));
+    await userEvent.click(screen.getByRole("button", { name: "From backend" }));
+
+    await vi.waitFor(() => expect(screen.queryByText("house")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Bundled" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "From backend" })).toHaveAttribute("aria-pressed", "true");
+    expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "source", operator: "eq", value: "backend" }]);
+  });
+
+  it("OR-s the level chips into one cefr list and combines them with the source chip", async () => {
+    const getList = renderWords([run, house]);
+    await screen.findByText("house");
+
+    await userEvent.click(screen.getByRole("button", { name: "A1-A2" }));
+    await userEvent.click(screen.getByRole("button", { name: "B1-B2" }));
+    await userEvent.click(screen.getByRole("button", { name: "Bundled" }));
+
+    await vi.waitFor(() =>
+      expect(getList.mock.calls.at(-1)![0].filters).toEqual([
+        { field: "source", operator: "eq", value: "bundled" },
+        { field: "cefr", operator: "in", value: ["A1", "A2", "B1", "B2"] },
+      ]),
+    );
+    // Turning a level chip off leaves the other one.
+    await userEvent.click(screen.getByRole("button", { name: "A1-A2" }));
+    await vi.waitFor(() =>
+      expect(getList.mock.calls.at(-1)![0].filters).toContainEqual({ field: "cefr", operator: "in", value: ["B1", "B2"] }),
+    );
+  });
+
+  it("sends media=with or media=without, one at a time", async () => {
+    const getList = renderWords([run, house]);
+    await screen.findByText("house");
+
+    await userEvent.click(screen.getByRole("button", { name: "Has media" }));
+    await vi.waitFor(() =>
+      expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "media", operator: "eq", value: "with" }]),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "No media" }));
+    await vi.waitFor(() =>
+      expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "media", operator: "eq", value: "without" }]),
+    );
+    expect(screen.getByRole("button", { name: "Has media" })).toHaveAttribute("aria-pressed", "false");
+
+    // Pressing the active chip again removes the filter.
+    await userEvent.click(screen.getByRole("button", { name: "No media" }));
+    await vi.waitFor(() => expect(getList.mock.calls.at(-1)![0].filters).toEqual([]));
+  });
+
+  it("shows a reason count with the reasons as a tooltip next to the badge of a flagged word", async () => {
+    const flagged: WordItem = { ...run, reviewReasons: ["sense 1: the definition uses hard words [abstain]", "sense 2: x [foo]"] };
+    const one: WordItem = { ...run, id: 3, word: "apple", reviewReasons: ["sense 1: y [bar]"] };
+    const none: WordItem = { ...run, id: 4, word: "working", reviewReasons: [] };
+    renderWords([flagged, one, house, none]);
+    const list = await screen.findByRole("list");
+
+    const two = await within(list).findByText("2 problems");
+    expect(two).toHaveAttribute("title", "sense 1: the definition uses hard words [abstain]\nsense 2: x [foo]");
+    expect(within(list).getByText("1 problem")).toBeInTheDocument();
+    expect(within(list).getByText("0 problems")).toHaveAttribute("title", "No problems found now; press ✓ to mark it reviewed");
+    // house is reviewed: no count.
+    expect(within(list).getAllByText(/problem/)).toHaveLength(3);
+  });
+
+  it("mark reviewed posts to the backend, then the list is loaded again without the flag", async () => {
+    let flagged = true;
+    const getList = vi.fn().mockImplementation(async () => ({ data: [{ ...run, needsReview: flagged }], total: 1 }));
+    const custom = vi.fn().mockImplementation(async () => {
+      flagged = false;
+      return { data: { ...run, needsReview: false } };
+    });
+    const dataProvider = { getList, custom, getApiUrl: () => "https://api.test/api/admin" } as unknown as DataProvider;
+    render(
+      <MemoryRouter>
+        <Refine dataProvider={dataProvider} options={{ disableTelemetry: true }}>
+          <WordsPage />
+        </Refine>
+      </MemoryRouter>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: /run/ }));
+    const listRegion = screen.getByRole("region", { name: "List" });
+    // The filter chip and the badge of the row both say "Needs review".
+    expect(within(listRegion).getAllByText("Needs review")).toHaveLength(2);
+
+    await userEvent.click(screen.getByRole("button", { name: "Mark reviewed" }));
+
+    await vi.waitFor(() => expect(within(listRegion).getAllByText("Needs review")).toHaveLength(1));
+    expect(custom).toHaveBeenCalledWith(expect.objectContaining({ url: "https://api.test/api/admin/words/1/reviewed", method: "post" }));
+    expect(screen.queryByText(/problem/)).not.toBeInTheDocument();
   });
 
   it("shows the selected word as a table of fields with three icon buttons", async () => {
@@ -145,5 +253,38 @@ describe("words page", () => {
     await userEvent.click(screen.getByRole("tab", { name: "JSON" }));
     const json = JSON.parse((screen.getByLabelText("Entry JSON") as HTMLTextAreaElement).value);
     expect(json.senses[0].simpleDefinition).toBe("To move fast on your legs.");
+  });
+
+  it("shows why the word needs review under Status, and at the top of the edit form", async () => {
+    const flagged: WordItem = {
+      ...run,
+      reviewReasons: ["sense 1: the definition uses hard words [abstain]", "sense 2: the easy example 'x' uses hard words [foo]"],
+    };
+    renderWords([flagged]);
+    await userEvent.click(await screen.findByRole("button", { name: /run/ }));
+
+    const entry = screen.getByRole("region", { name: "Entry" });
+    const reasons = within(entry).getByRole("list", { name: "Review reasons" });
+    expect(within(reasons).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(reasons).getByText("sense 1: the definition uses hard words [abstain]")).toBeInTheDocument();
+
+    await userEvent.click(within(entry).getByRole("button", { name: "Edit" }));
+    expect(within(screen.getByRole("region", { name: "Entry" })).getByRole("list", { name: "Review reasons" })).toHaveTextContent("[abstain]");
+  });
+
+  it("says there are no problems now when a flagged word has no reasons, and keeps the flag", async () => {
+    renderWords([{ ...run, reviewReasons: [] }]);
+    await userEvent.click(await screen.findByRole("button", { name: /run/ }));
+
+    const entry = screen.getByRole("region", { name: "Entry" });
+    expect(within(entry).getByText("No problems found now; press ✓ to mark it reviewed")).toBeInTheDocument();
+    expect(within(entry).getByText("Needs review")).toBeInTheDocument();
+    expect(within(entry).queryByRole("list", { name: "Review reasons" })).not.toBeInTheDocument();
+  });
+
+  it("shows no reasons for a word that is already reviewed", async () => {
+    renderWords([{ ...house, reviewReasons: [] }]);
+    await userEvent.click(await screen.findByRole("button", { name: /house/ }));
+    expect(screen.queryByText(/No problems found now/)).not.toBeInTheDocument();
   });
 });
