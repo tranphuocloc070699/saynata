@@ -101,6 +101,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-15 | TASK-48 Examples row: option A (plain speaker at the right edge of line 1, sentence on line 2) | Reason: not recorded. | Option B (speaker right after the label) | Developer |
 | 10-15 | When a word is both bundled and in the backend table (example: "run"), **the bundled entry wins**: `GET /api/words/{word}` answers it from `dictionary_word` and never calls Claude, and a migration deletes the old backend rows | Reason: not recorded (the duplicates appeared because Claude had described "run" before the bundled words were imported into Postgres). | Keep the backend row and hide the bundled one; merge the two entries | Developer |
 | 10-15 | Admin word list: every filter chip is **a server-side filter** (source, level, media), one source and one media filter at a time, levels OR-ed; new chips Has media and No media | Reason: "From backend" on the client kept loading page after page with infinite scroll ("Nothing found" while loading 850 of 2,753). | Keep matching the loaded rows on the client | Developer |
+| 10-15 | App loads bundled words' media from the server with the offline cache; the app stays small. The bundled `dictionary.sqlite` now holds `media/<file>` for 3,372 senses; a path whose file is not inside the app is loaded from `https://api.loffy.me/media/<file>` | Developer's choice: keep the app small. Files are saved on the phone after the first view, so they show offline later. | Bundle all 63 MB of media in the app | Developer |
 
 ## Questions answered
 

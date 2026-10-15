@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-15 07:25'
+updated_date: '2026-10-15 07:55'
 ---
-> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-15 (a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
+> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-15 (media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -352,3 +352,44 @@ bad word → 400, Claude refused → 422, Claude down → 502. A word that is no
 - **The word list can miss a real word** (new slang, rare names). Such a word shows "not an English word" until the list is updated (regenerate `scowl-70.txt` at app.aspell.net/create, see `SCOWL-LICENSE.txt`).
 - **No check that the senses match the headword.** If the word is on the list but Claude describes another word, it is still saved. Only the prompt rule guards this.
 - **Own prompt version:** `app.claude.word-prompt-version`, separate from the sentence one (TASK-15). Changing `WORD_PROMPT`? Bump it, or old entries keep being served.
+
+## Media row (photo or clip under the sense title)
+
+Last traced: 2026-10-15 (TASK-23, TASK-47, TASK-51; a bundled word's media loads from the server). A sense with `imageUrl` shows one small photo (WebP) or a muted looping clip (MP4) between the title row and the folded rows ([WordCardView.swift:68-71](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L68-L71)). The frame is always 240 x 135, so the card never jumps. It is hidden from VoiceOver.
+
+`Sense.imageUrl` holds one of two things. `SenseMediaSource` ([SenseMediaSource.swift:15-56](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaSource.swift#L15-L56)) tells them apart:
+
+| Value | Example | Where the file comes from |
+|---|---|---|
+| Bundled path (dictionary.sqlite) | `media/run_1.mp4`, `dog_1.webp` | The app bundle (`Resources/media`) if the file is there (only 3 files are). Otherwise the server, `https://api.loffy.me/media/<file>`, then the disk cache, like an https address. The server address is `AppConfig.backendBaseURL()`. |
+| https address (backend, TASK-49.4) | `https://api.loffy.me/media/run_1_3fa9c2d1.mp4` | The server, then the disk cache. A photo shows offline after its first view. Plain http and other schemes are ignored (nothing is shown). |
+
+The JSON key is `imageUrl` from the backend and `image_url` in older data; both decode ([WordEntry.swift:47-90](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordEntry.swift#L47-L90)). `DictionaryStore` reads `senses.image_url` only when the column exists, else `imageUrl` is nil ([DictionaryStore.swift:104-122](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L104-L122)). The backend leaves `imageUrl` out when a sense has no media, so both cases work.
+
+```mermaid
+flowchart TD
+    V["SenseMediaView(path)"] --> S{"SenseMediaSource(path)"}
+    S -- "empty, http, other" --> NONE["Nothing shown"]
+    S -- bundled --> BF{"File in bundle?"}
+    BF -- yes --> SHOW["Photo or clip"]
+    BF -- no --> MAP["Server address: BackendBaseURL/media/file"] --> S2{"photo or clip"}
+    S2 -- photo --> PC
+    S2 -- clip --> CC
+    S -- "https photo" --> PC{"In MediaFileCache?"}
+    PC -- yes --> SHOW
+    PC -- no --> DL["Download, save, trim cache"]
+    DL -- ok --> SHOW
+    DL -- fail --> NONE
+    S -- "https clip" --> CC{"Saved file?"}
+    CC -- yes --> SHOW
+    CC -- no --> STREAM["AVPlayer streams the URL; file saved in the background"] --> SHOW
+```
+
+| Step | File | What happens |
+|---|---|---|
+| Load | [SenseMediaView.swift:81-113](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L81-L113) | `loadState`: loading (frame kept, opacity 0), photo, clip, or failed. Failed removes the view: no media, no error text. |
+| Disk cache | [MediaFileCache.swift:13-122](../../../EnglishTranslation/EnglishTranslation/Views/Word/MediaFileCache.swift#L13-L122) | Folder `Caches/SenseMedia`, name = sha256 of the address + extension (AVPlayer needs `.mp4`). Limit 50 MB: the file used longest ago is removed first. A file bigger than a quarter of the limit is not saved. One download per address at a time. A photo is shown offline after its first view. A clip is saved after its first play, so the second play uses the saved file. |
+| Clip player | [SenseMediaView.swift:115-178](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L115-L178) | `LoopingPlayerUIView` uses an empty `AVQueuePlayer()` plus `AVPlayerLooper(templateItem:)` (Apple's pattern, no stutter at the first loop). Muted. If the looper status is `.failed`, the media is hidden. |
+| Play only when seen | [SenseMediaView.swift:49-52](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L49-L52) | `onScrollVisibilityChange(threshold: 0.33)` (iOS 18) sets `isOnScreen`. The clip plays only when `isOnScreen` and `scenePhase == .active`; it pauses when scrolled away or when the app goes to the background. |
+
+Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTests/SenseMediaTests.swift) (Sense decoding, `image_url` column, bundled path vs https, cache hit, offline, failure, size limit). Not covered by tests: the visibility and background rule (needs a real scroll view), checked by hand in the PR card.
