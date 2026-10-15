@@ -11,6 +11,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.LongConsumer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -19,6 +21,8 @@ import tools.jackson.databind.json.JsonMapper;
  * Talks to https://pixabay.com/api/ . Same searches as pipeline/src/pipeline/media.py.
  * Pixabay allows 100 requests per 60 seconds. We wait at least 1.5 seconds between requests (40 per minute),
  * and the media executor has one thread, so we stay well below the limit.
+ * The key is shared (admin search, background jobs, a media pass), so Pixabay can still answer 429. Then we try again:
+ * 3 tries in all, with a pause between them, and about 10 seconds of waiting at most (TASK-63).
  */
 @Component
 public class HttpPixabayClient implements PixabayClient {
@@ -28,18 +32,33 @@ public class HttpPixabayClient implements PixabayClient {
     private static final long MIN_GAP_MILLIS = 1500;
     private static final int MAX_BYTES = 30 * 1024 * 1024;
 
+    private static final int MAX_TRIES = 3;
+    private static final long FIRST_PAUSE_MILLIS = 1000;
+    private static final long MAX_TOTAL_PAUSE_MILLIS = 10_000;
+
     private final MediaProperties properties;
     private final JsonMapper jsonMapper;
-    private final HttpClient http = HttpClient.newBuilder()
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
+    private final HttpClient http;
+    private final LongConsumer sleeper;
+    private final long minGapMillis;
 
     private long lastCallAt = 0;
 
+    @Autowired
     public HttpPixabayClient(MediaProperties properties, JsonMapper jsonMapper) {
+        this(properties, jsonMapper,
+                HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(10)).build(),
+                HttpPixabayClient::sleep, MIN_GAP_MILLIS);
+    }
+
+    /** For tests: a fake HTTP client and a sleeper that does not really wait. */
+    HttpPixabayClient(MediaProperties properties, JsonMapper jsonMapper, HttpClient http, LongConsumer sleeper,
+            long minGapMillis) {
         this.properties = properties;
         this.jsonMapper = jsonMapper;
+        this.http = http;
+        this.sleeper = sleeper;
+        this.minGapMillis = minGapMillis;
     }
 
     @Override
@@ -156,7 +175,37 @@ public class HttpPixabayClient implements PixabayClient {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
+    /** Sends the request. On 429 it waits and tries again (see the class comment); after the last try it throws PixabayBusyException. */
     private <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> handler) {
+        long waited = 0;
+        for (int attempt = 1; ; attempt++) {
+            HttpResponse<T> response = sendOnce(request, handler);
+            if (response.statusCode() != 429) {
+                return response;
+            }
+            long pause = pauseBeforeRetry(response, attempt);
+            if (attempt >= MAX_TRIES || waited + pause > MAX_TOTAL_PAUSE_MILLIS) {
+                throw new PixabayBusyException("Pixabay answered 429 (too many requests)");
+            }
+            waited += pause;
+            sleeper.accept(pause);
+        }
+    }
+
+    /** The Retry-After header (seconds) when Pixabay sends one, else 1 s, 2 s, 4 s... */
+    private static long pauseBeforeRetry(HttpResponse<?> response, int attempt) {
+        Optional<String> header = response.headers().firstValue("Retry-After");
+        if (header.isPresent()) {
+            try {
+                return Math.max(0, Long.parseLong(header.get().trim())) * 1000;
+            } catch (NumberFormatException e) {
+                // A date or something else: use our own pause.
+            }
+        }
+        return FIRST_PAUSE_MILLIS << (attempt - 1);
+    }
+
+    private <T> HttpResponse<T> sendOnce(HttpRequest request, HttpResponse.BodyHandler<T> handler) {
         waitForTurn();
         try {
             return http.send(request, handler);
@@ -168,17 +217,21 @@ public class HttpPixabayClient implements PixabayClient {
         }
     }
 
-    /** Waits until at least MIN_GAP_MILLIS have passed since the last request. */
+    /** Waits until at least minGapMillis have passed since the last request. */
     private synchronized void waitForTurn() {
-        long wait = MIN_GAP_MILLIS - (System.currentTimeMillis() - lastCallAt);
+        long wait = minGapMillis - (System.currentTimeMillis() - lastCallAt);
         if (wait > 0) {
-            try {
-                Thread.sleep(wait);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            sleeper.accept(wait);
         }
         lastCallAt = System.currentTimeMillis();
+    }
+
+    private static void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** True only for https on pixabay.com or one of its subdomains (cdn.pixabay.com), not "evilpixabay.com". */
