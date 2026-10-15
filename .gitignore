@@ -9,3 +9,6 @@ IceCubesApp/
 
 # Claude Code worker worktrees
 .claude/worktrees/
+
+# Local device builds (scripts/install-on-phone.sh)
+build/
