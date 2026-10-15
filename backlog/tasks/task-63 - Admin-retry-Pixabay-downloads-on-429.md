@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 07:59'
-updated_date: '2026-10-15 07:59'
+updated_date: '2026-10-15 08:03'
 labels:
   - admin
   - backend
@@ -39,3 +39,9 @@ Picking another image failed with 'Could not download or convert that file'. The
 <!-- SECTION:PLAN:BEGIN -->
 1. HttpPixabayClient: retry on 429 (3 attempts, Retry-After, 10 s budget) in a shared send; PixabayBusyException. 2. AdminMediaService maps it to a busy message. 3. Tests with mocked HttpClient. 4. doc-13, doc-15.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR #60 (one PR for TASK-62, 63, 64): https://github.com/tranphuocloc070699/saynata/pull/60 . Test it on admin.loffy.me after deploy: Pick another image; on Pixabay 429 the app retries 3 times, then shows 'Pixabay is busy right now. Try again in a minute.' Automated: cd backend && ./mvnw -B test (184 pass).
+<!-- SECTION:NOTES:END -->

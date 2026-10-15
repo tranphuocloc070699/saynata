@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 07:59'
-updated_date: '2026-10-15 08:02'
+updated_date: '2026-10-15 08:03'
 labels:
   - admin
 dependencies: []
@@ -44,4 +44,6 @@ The Words list rows were two plain text lines (word, English explanation). The d
 
 <!-- SECTION:NOTES:BEGIN -->
 Done in PR (see TASK-63 notes for link). List API already returns entry + media, so no backend change. Vitest wordRows.test.tsx covers 3 thumbnail states.
+
+PR #60 (one PR for TASK-62, 63, 64): https://github.com/tranphuocloc070699/saynata/pull/60 . Test it on admin.loffy.me after deploy: Words list rows show a 56x42 thumbnail (photo, play icon for a clip, or dash), the bold word with badges, and the Vietnamese meaning on line 2. Automated: cd admin && npm test && npm run build (45 pass).
 <!-- SECTION:NOTES:END -->

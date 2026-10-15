@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 07:59'
-updated_date: '2026-10-15 07:59'
+updated_date: '2026-10-15 08:04'
 labels:
   - admin
 dependencies: []
@@ -38,3 +38,9 @@ After picking another word, the Media row (photo or video, an open Pick another 
 <!-- SECTION:PLAN:BEGIN -->
 1. key MediaRow by word id and sense index; key video by src. 2. Vitest with two words. 3. doc-14.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR #60 (one PR for TASK-62, 63, 64): https://github.com/tranphuocloc070699/saynata/pull/60 . Test it on admin.loffy.me after deploy: select word A, open Pick another, select word B; the panel is closed and B's media shows. Automated: cd admin && npm test (45 pass).
+<!-- SECTION:NOTES:END -->
