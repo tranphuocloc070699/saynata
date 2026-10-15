@@ -3,9 +3,9 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-15 10:28'
+updated_date: '2026-10-15 13:37'
 ---
-> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-15 (TASK-70 sign-in sheet, Bearer token, refresh and retry, coded errors, see doc-17 "iOS app"; TASK-56 extra words from the bundled dictionary; TASK-50 keyboard hides on tap, send and scroll; TASK-65 streaming: the meaning shows as soon as Claude has written it, see "Streaming" below; the line numbers in tables 1-4 are for the non-streaming path and may be a few lines off). Earlier: 2026-10-14 (TASK-9 personal text is never cached; Listen on the sentence header: TASK-7; TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
+> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-15 (TASK-73 the meaning streams word by word, TASK-74 local word cards at once while loading, TASK-75 start-up warm-up; TASK-70 sign-in sheet, Bearer token, refresh and retry, coded errors, see doc-17 "iOS app"; TASK-56 extra words from the bundled dictionary; TASK-50 keyboard hides on tap, send and scroll; TASK-65 streaming: the meaning shows as soon as Claude has written it, see "Streaming" below; the line numbers in tables 1-4 are for the non-streaming path and may be a few lines off). Earlier: 2026-10-14 (TASK-9 personal text is never cached; Listen on the sentence header: TASK-7; TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -167,6 +167,8 @@ cache instead (spec, Decisions).
 
 A new sentence takes 2-3 seconds (sometimes more) and all of that is the one Claude call. So the app no longer waits for the whole answer. It asks `POST /api/translations/stream`. The backend streams Claude's JSON and sends the `meaning` the moment that string is complete. The words and the translation follow in the `done` event. The total time is the same, but the screen changes in under a second. `POST /api/translations` is unchanged for old app versions, and the new app uses it as a fallback.
 
+TASK-73 goes one step further: while Claude writes the `meaning` string, the backend sends `meaning-delta` events with the new characters, so the text starts to appear at the first token and grows word by word. The full `meaning` event still follows and always wins over the pieces. Old app versions ignore the unknown event and keep working.
+
 The prompt did not change (so the cache is not emptied). Claude already writes the fields in this order: `isEnglish`, `meaning`, `words`, `translation`. The stream relies on that order.
 
 ```mermaid
@@ -179,7 +181,8 @@ sequenceDiagram
     participant CS as ClaudeService
     participant CL as Claude API
 
-    ST->>BC: explainStreaming(text, language, onMeaning)
+    Note over ST: before the call: SentenceWordFinder finds the dictionary words offline (pendingSentence, TASK-74)
+    ST->>BC: explainStreaming(text, language, onMeaningDelta, onMeaning)
     BC->>BC: local ResultCache hit? return it (no network, no meaning call)
     BC->>TC: POST /api/translations/stream (Accept: text/event-stream)
     TC-->>BC: 200 + Cache-Control: no-cache, X-Accel-Buffering: no
@@ -193,11 +196,16 @@ sequenceDiagram
         loop JSON text pieces
             CL-->>CS: text delta
             CS-->>TS: onText(piece)
-            TS->>TS: JsonStringFieldReader.feed(piece)
+            TS->>TS: MeaningStream.feed(piece) (JsonStringFieldReader)
+            opt new meaning characters and 50 ms passed
+                TS-->>TC: onMeaningDelta("new characters")
+                TC-->>BC: event: meaning-delta  {"text": "..."}
+                BC-->>ST: onMeaningDelta, state = .meaning (text grows)
+            end
         end
-        TS-->>TC: onMeaning("...") when the closing quote of "meaning" arrives
+        TS-->>TC: last waiting delta, then onMeaning("...") when the closing quote of "meaning" arrives
         TC-->>BC: event: meaning  {"meaning": "..."}
-        BC-->>ST: onMeaning, state = .meaning
+        BC-->>ST: onMeaning (the full text replaces the pieces), state = .meaning
         CL-->>CS: end of stream
         CS->>CS: MessageAccumulator, parse SentenceAnswer, isEnglish false = NotEnglishException
         CS-->>TS: Explanation
@@ -213,19 +221,24 @@ sequenceDiagram
 
 | Part | File | What happens |
 |---|---|---|
-| Endpoint | [TranslationController.java:61-71](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationController.java#L61-L71) | `POST /api/translations/stream`, `text/event-stream;charset=UTF-8`. An `SseEmitter` filled from another thread (`SimpleAsyncTaskExecutor`). Headers `Cache-Control: no-cache` and `X-Accel-Buffering: no` so a proxy does not hold the events. Validation (400) is the same as the old endpoint. |
-| Events | [TranslationController.java:73-111](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationController.java#L73-L111) | `meaning` `{"meaning"}` (cache misses only), `done` (the full `TranslationResponse`, byte for byte the old JSON), `error` `{"status","message"}`. A cache hit sends only `done`. A failed send (the app went away) is ignored so the answer is still cached. |
+| Endpoint | [TranslationController.java:63-73](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationController.java#L61-L71) | `POST /api/translations/stream`, `text/event-stream;charset=UTF-8`. An `SseEmitter` filled from another thread (`SimpleAsyncTaskExecutor`). Headers `Cache-Control: no-cache` and `X-Accel-Buffering: no` so a proxy does not hold the events. Validation (400) is the same as the old endpoint. |
+| Events | [TranslationController.java:75-115](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationController.java#L75-L115) | `meaning-delta` `{"text"}` (the new characters, about one per 50 ms, cache misses only; TASK-73), `meaning` `{"meaning"}` (the full text, cache misses only), `done` (the full `TranslationResponse`, byte for byte the old JSON), `error` `{"status","message"}`. A cache hit sends only `done`. A failed send (the app went away) is ignored so the answer is still cached. |
 | Not English | same | `NotEnglishException` and a Claude refusal become `error` with status 422 and the same message as the old 422. **There is no `done` for them** (a `TranslationResponse` has no "not English" form), and nothing is cached. The empty `meaning` of a not-English answer is not sent as a `meaning` event. |
 | Other failures | same | Anything else (Claude down, bad key, a bug) is `error` with status 502 and "The translation service is not available. Try again later." No internal detail is sent. |
-| Cache rules | [TranslationService.java:54-65](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationService.java#L54-L65) | `translateStreaming` and `translate` share one private method, so personal text (never cached), cache hit, miss, save and the race rule are the same. Only the Claude call differs. |
-| Meaning reader | [JsonStringFieldReader.java](../../../backend/src/main/java/com/englishtranslation/backend/translation/JsonStringFieldReader.java) | Not a JSON parser. It watches quotes, escapes (`\"`, `\\`, `\n`, `\uXXXX`) and `{ [` depth, and returns the value of the top-level `meaning` key once, when its closing quote arrives. The `meaning` keys inside `words` are deeper, so they are ignored. The final text is still parsed by Jackson as before. |
+| Cache rules | [TranslationService.java:50-72](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationService.java#L50-L72) | `translateStreaming` and `translate` share one private method, so personal text (never cached), cache hit, miss, save and the race rule are the same. Only the Claude call differs. |
+| Meaning reader | [JsonStringFieldReader.java](../../../backend/src/main/java/com/englishtranslation/backend/translation/JsonStringFieldReader.java) | Not a JSON parser. It watches quotes, escapes (`\"`, `\\`, `\n`, `\uXXXX`) and `{ [` depth, and returns the value of the top-level `meaning` key once, when its closing quote arrives. The `meaning` keys inside `words` are deeper, so they are ignored. `drainDelta()` gives the new characters of that value while its string is still open (TASK-73): the text is already decoded, so an escape is never cut in half, and a high surrogate (the first half of an emoji) waits for its second half. The final text is still parsed by Jackson as before. |
+| Delta throttle | [MeaningStream.java](../../../backend/src/main/java/com/englishtranslation/backend/translation/MeaningStream.java) | Sits between the Claude pieces and the controller. Asks `JsonStringFieldReader` for the new meaning characters, joins them, and sends at most one delta per 50 ms. When the closing quote arrives it sends what is still waiting, then the full meaning. A blank meaning (not English) sends nothing. |
 | Claude call | [ClaudeService.java:156-169](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L156-L169) | `createStreaming` with the same params as `explainSentence` (`sentenceParams`). Each text delta goes to `onText`. A `MessageAccumulator` builds the final message, then the same `readOutput` and `toExplanation` checks run (refusal, not English). |
 | iOS parser | [SSEParser.swift](../../../EnglishTranslation/EnglishTranslation/Network/SSEParser.swift) | Takes bytes in any chunk size, waits for a full line (also inside a multi-byte character), an empty line ends an event. Ignores comments and `id`/`retry`. |
-| iOS client | [BackendClient.swift:106-170](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L106-L170) | `explainStreaming`: local cache first. Then `URLSession.bytes`, read line by line (`bytes.lines` would drop the empty lines that end events). `meaning` calls `onMeaning`. `done` decodes, **saves that JSON in `ResultCache`** (the same entry the old endpoint uses) and returns. `error` throws `BackendError.badStatus(status, message)`. An early end throws `.streamEnded`. |
-| iOS store | [TranslationStore.swift:106-135](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L106-L135) | `explainWithFallback`: stream; if it fails and the error is **not** a 4xx (`BackendError.isFinalAnswer`) or a cancel, call the old `explain` once. If that fails too, `.failed(...)` as before. A 422 is not retried. The meaning sets `state = .meaning(SentenceMeaning)` only while the request is still running. |
-| iOS screen | [SentenceMeaningView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceMeaningView.swift) | Same header and Meaning card as the full result, with a small `ProgressView` where the Words will be. `MeaningCard` gets `translation: nil`, so the target-language row is missing until `.loaded`. |
+| iOS client | [BackendClient.swift:106-190](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L106-L170) | `explainStreaming`: local cache first. Then `URLSession.bytes`, read line by line (`bytes.lines` would drop the empty lines that end events). `meaning-delta` calls `onMeaningDelta` (a broken one is ignored), `meaning` calls `onMeaning`. `done` decodes, **saves that JSON in `ResultCache`** (the same entry the old endpoint uses) and returns. `error` throws `BackendError.badStatus(status, message)`. An early end throws `.streamEnded`. |
+| iOS store | [TranslationStore.swift:106-185](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L106-L135) | `explainWithFallback`: stream; if it fails and the error is **not** a 4xx (`BackendError.isFinalAnswer`) or a cancel, call the old `explain` once. If that fails too, `.failed(...)` as before. A 422 is not retried. A delta adds its text to `state = .meaning(...)` (`appendToMeaning`); the full `meaning` replaces the text and sets `meaningIsFinal`, so a late or missing piece never matters (`showMeaning`). Both only change the state while the request is still running. |
+| Local words | [TranslationStore.swift:164-185](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L164-L185), [PendingSentence.swift](../../../EnglishTranslation/EnglishTranslation/Translation/PendingSentence.swift) | When a sentence is sent, before any network call, `SentenceWordFinder` finds its bundled dictionary words (offline) and the store keeps them in `pendingSentence`. They are removed when the request ends (loaded or failed). The loaded `SentenceResult` merges as before: Claude's words first, then the local words, no duplicates; the local cards keep their order. |
+| iOS screen | [SentenceMeaningView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceMeaningView.swift) | Used for `.loading` (with `pendingSentence`) and for `.meaning`. Same header and Meaning card as the full result. Before any text the card shows a spinner (`MeaningCard` with an empty meaning); while the text grows there is a small `ProgressView` under the card. Below it, the local word cards (`SentenceWordsSection`, the same section and compact cards as the result). `MeaningCard` gets `translation: nil`, so the target-language row is missing until `.loaded`. |
+| Words section | [SentenceWordsSection.swift](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceWordsSection.swift) | The "Words" heading, the cards and the sheet for a tapped word. Shared by the loading screen, the growing-meaning screen and `SentenceResultView`. |
 
-Tests: `JsonStringFieldReaderTest` (escaped quotes, unicode, split at every position, keys in `words`), `TranslationStreamTest` (meaning before done, cache hit gives only done, not English, errors, headers, UTF-8), `TranslationStreamingHttpTest` (a real Tomcat: the meaning reaches the client while Claude is still "working"), `ClaudeServiceStreamingTest` (fake SDK stream events), `SSEParserTests` (events split across chunks), `BackendClientStreamingTests`, `TranslationStoreStreamingTests` (loading, meaning, loaded; fallback).
+Tests: `JsonStringFieldReaderTest` (escaped quotes, unicode, split at every position, keys in `words`, deltas cut at every position, no cut surrogate pair), `MeaningStreamTest` (throttle, flush before `meaning`, blank meaning), `ClaudeWarmUpTest` and `ClaudeServiceWarmUpTest` (warm-up, TASK-75), `TranslationStreamTest` (meaning before done, cache hit gives only done, not English, errors, headers, UTF-8), `TranslationStreamingHttpTest` (a real Tomcat: the meaning reaches the client while Claude is still "working"), `ClaudeServiceStreamingTest` (fake SDK stream events), `SSEParserTests` (events split across chunks), `BackendClientStreamingTests`, `TranslationStoreStreamingTests` (loading, meaning, loaded; fallback; growing text, full meaning wins, local words at once and removed on failure, merge order).
+
+Warm-up (TASK-75): on `ApplicationReadyEvent`, `ClaudeWarmUp` runs one 1-token Claude call on a background thread (not in tests, not without a key; `app.claude.warm-up=false` turns it off) and logs `Claude warm-up done in N ms`. It is recorded as `WARMUP` usage and skips the daily cap. `ClaudeConfig` keeps 5 idle HTTPS connections for 10 minutes.
 
 Measure it: `BASE_URL=http://localhost:8081 python3 backend/scripts/measure_stream.py` prints, for 3 new sentences, the time to the `meaning` event and to `done`, and the old endpoint's time for comparison (real Claude calls, a few cents).
 

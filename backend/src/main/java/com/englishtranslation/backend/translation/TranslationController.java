@@ -49,6 +49,8 @@ public class TranslationController {
     /**
      * The same answer as {@link #translate}, as a stream of server-sent events (TASK-65):
      * <ul>
+     * <li>{@code meaning-delta}: {@code {"text": "..."}}, the new characters of the meaning while Claude writes it,
+     * about every 50 ms (TASK-73). Old apps ignore events they do not know;</li>
      * <li>{@code meaning}: {@code {"meaning": "..."}} as soon as Claude has written the meaning (cache misses only);</li>
      * <li>{@code done}: the full {@link TranslationResponse}, the same JSON as the old endpoint;</li>
      * <li>{@code error}: {@code {"status": 422, "message": "..."}} when the answer cannot be made. Sign-in, rate
@@ -73,6 +75,7 @@ public class TranslationController {
     private void runStream(TranslationRequest request, SseEmitter emitter) {
         try {
             TranslationResponse response = service.translateStreaming(request.text(), request.targetLang(),
+                    delta -> send(emitter, "meaning-delta", Map.of("text", delta)),
                     meaning -> send(emitter, "meaning", Map.of("meaning", meaning)));
             send(emitter, "done", response);
         } catch (Exception e) {

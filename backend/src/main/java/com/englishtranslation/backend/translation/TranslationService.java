@@ -46,17 +46,23 @@ public class TranslationService {
         return translate(text, targetLang, normalized -> claude.explainSentence(normalized, targetLang));
     }
 
-    /**
-     * Same as {@link #translate}, but a Claude call is streamed: {@code onMeaning} gets the simple English
-     * meaning as soon as Claude has written it, before the words and the translation are done.
-     * On a cache hit it is never called. The return value is the same as {@link #translate} gives.
-     */
+    /** Same as the four-argument version, for callers that do not want the word-by-word text. */
     public TranslationResponse translateStreaming(String text, TargetLanguage targetLang, Consumer<String> onMeaning) {
+        return translateStreaming(text, targetLang, delta -> {
+        }, onMeaning);
+    }
+
+    /**
+     * Same as {@link #translate}, but a Claude call is streamed. While Claude writes the simple English meaning,
+     * {@code onMeaningDelta} gets its new characters (about every 50 ms). {@code onMeaning} gets the whole meaning
+     * once it is complete, before the words and the translation are done.
+     * On a cache hit neither is called. The return value is the same as {@link #translate} gives.
+     */
+    public TranslationResponse translateStreaming(String text, TargetLanguage targetLang,
+            Consumer<String> onMeaningDelta, Consumer<String> onMeaning) {
         return translate(text, targetLang, normalized -> {
-            JsonStringFieldReader meaningReader = new JsonStringFieldReader("meaning");
-            return claude.explainSentenceStreaming(normalized, targetLang, piece -> meaningReader.feed(piece)
-                    .filter(meaning -> !meaning.isBlank()) // a not-English answer has an empty meaning
-                    .ifPresent(onMeaning));
+            MeaningStream meaningStream = new MeaningStream(onMeaningDelta, onMeaning);
+            return claude.explainSentenceStreaming(normalized, targetLang, meaningStream::feed);
         });
     }
 

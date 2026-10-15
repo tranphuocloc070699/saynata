@@ -37,6 +37,11 @@ private struct MeaningEvent: Decodable {
     let meaning: String
 }
 
+/// The `meaning-delta` event: the new characters of the meaning (TASK-73).
+private struct MeaningDeltaEvent: Decodable {
+    let text: String
+}
+
 /// The `error` event of `POST /api/translations/stream`. `status` is the HTTP status the old endpoint would use.
 /// `code` is only there for the coded errors of doc-17 (`sign_in_required`, `rate_limited`, `daily_limit_reached`).
 private struct StreamErrorEvent: Decodable {
@@ -134,6 +139,16 @@ struct BackendClient: Translating, WordFetching {
         translatingTo language: TargetLanguage,
         onMeaning: @escaping @MainActor @Sendable (String) -> Void
     ) async throws -> Explanation {
+        try await explainStreaming(text, translatingTo: language, onMeaningDelta: { _ in }, onMeaning: onMeaning)
+    }
+
+    /// Same, and `onMeaningDelta` gets the new characters of the meaning from each `meaning-delta` event (TASK-73).
+    func explainStreaming(
+        _ text: String,
+        translatingTo language: TargetLanguage,
+        onMeaningDelta: @escaping @MainActor @Sendable (String) -> Void,
+        onMeaning: @escaping @MainActor @Sendable (String) -> Void
+    ) async throws -> Explanation {
         let key = CacheKeys.sentenceKey(text, targetLang: language.code)
         if let saved = await savedExplanation(forKey: key) {
             return saved
@@ -147,7 +162,7 @@ struct BackendClient: Translating, WordFetching {
 
         // A 401 with a token means the token ended: refresh once and ask again (inside `withAuthRetry`).
         return try await withAuthRetry { token in
-            try await readStream(request, token: token, key: key, onMeaning: onMeaning)
+            try await readStream(request, token: token, key: key, onMeaningDelta: onMeaningDelta, onMeaning: onMeaning)
         }
     }
 
@@ -156,6 +171,7 @@ struct BackendClient: Translating, WordFetching {
         _ request: URLRequest,
         token: String?,
         key: String,
+        onMeaningDelta: @escaping @MainActor @Sendable (String) -> Void,
         onMeaning: @escaping @MainActor @Sendable (String) -> Void
     ) async throws -> Explanation {
         let (bytes, response) = try await session.bytes(for: authorized(request, token: token))
@@ -177,7 +193,7 @@ struct BackendClient: Translating, WordFetching {
             let events = parser.feed(line)
             line.removeAll(keepingCapacity: true)
             for event in events {
-                if let explanation = try await handle(event, key: key, onMeaning: onMeaning) {
+                if let explanation = try await handle(event, key: key, onMeaningDelta: onMeaningDelta, onMeaning: onMeaning) {
                     return explanation
                 }
             }
@@ -189,10 +205,16 @@ struct BackendClient: Translating, WordFetching {
     private func handle(
         _ event: SSEEvent,
         key: String,
+        onMeaningDelta: @MainActor @Sendable (String) -> Void,
         onMeaning: @MainActor @Sendable (String) -> Void
     ) async throws -> Explanation? {
         let data = Data(event.data.utf8)
         switch event.name {
+        case "meaning-delta":
+            if let delta = try? JSONDecoder().decode(MeaningDeltaEvent.self, from: data) {
+                await onMeaningDelta(delta.text)
+            }
+            return nil
         case "meaning":
             if let meaning = try? JSONDecoder().decode(MeaningEvent.self, from: data) {
                 await onMeaning(meaning.meaning)

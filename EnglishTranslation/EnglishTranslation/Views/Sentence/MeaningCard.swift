@@ -25,11 +25,17 @@ struct MeaningCard: View {
                 .foregroundStyle(Theme.Colors.textSecondary)
                 .textCase(.uppercase)
 
-            Text(meaning)
-                .font(.system(.body, design: .serif))
-                .foregroundStyle(Theme.Colors.textPrimary)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if meaning.isEmpty {
+                // Nothing written yet (TASK-74): a spinner where the meaning will appear.
+                ProgressView()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text(meaning)
+                    .font(.system(.body, design: .serif))
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
             // No translation yet (the answer is still streaming): the row appears when the full result arrives.
             if let translation {

@@ -15,8 +15,6 @@ struct SentenceResultView: View {
         return entry
     }
 
-    @State private var openedWord: SentenceWordInfo?
-
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.large) {
             SentenceHeader(sentence: result.sentence)
@@ -26,21 +24,9 @@ struct SentenceResultView: View {
                 translation: result.explanation.translation,
                 language: result.language)
 
-            if !result.words.isEmpty {
-                VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-                    Text("Words")
-                        .font(.headline)
-                        .foregroundStyle(Theme.Colors.textPrimary)
-                    ForEach(result.words) { info in
-                        SentenceWordCard(info: info) { openedWord = info }
-                    }
-                }
-            }
+            SentenceWordsSection(words: result.words, language: result.language, loadWordEntry: loadWordEntry)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .sheet(item: $openedWord) { info in
-            SentenceWordSheet(info: info, targetLanguage: result.language, load: loadWordEntry)
-        }
     }
 }
 

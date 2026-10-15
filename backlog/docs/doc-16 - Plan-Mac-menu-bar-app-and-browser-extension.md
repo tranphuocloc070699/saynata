@@ -3,7 +3,7 @@ id: doc-16
 title: Plan - Mac menu-bar app and browser extension
 type: specification
 created_date: '2026-10-15 08:48'
-updated_date: '2026-10-15 08:48'
+updated_date: '2026-10-15 13:37'
 ---
 # Plan: Mac menu-bar app and browser extension
 
@@ -109,7 +109,9 @@ sequenceDiagram
 - Network to the VPS: about 30 ms. A cached sentence: about 50 ms on the server.
 - A new sentence: 1.9–2.7 s, sometimes up to 9 s. **All of it is the Claude call** (Haiku 5.5 writes the meaning, the words and the translation in one answer). Nothing is shown until the full JSON arrives.
 - Fixes, biggest first:
-  1. **Stream the answer:** the backend streams Claude's output (SSE), and the app shows the meaning as soon as it's complete. The words and the translation fill in after. The total time stays the same, but the screen changes in under a second.
+  1. **Stream the answer:** the backend streams Claude's output (SSE), and the app shows the meaning as soon as it's complete (TASK-65). Since TASK-73 it also sends `meaning-delta` events, so the meaning text grows word by word from the first token. The words and the translation fill in after. The total time stays the same, but the screen changes much earlier.
   2. **A shorter answer:** fewer words in the words list (only really hard ones, at most 5), shorter word meanings.
-  3. **Show the app's own dictionary words at once** (TASK-56): they're local and appear before Claude answers.
+  3. **Show the app's own dictionary words at once** (TASK-56 finds them; TASK-74 shows them while Claude works): they're local and appear before Claude answers.
   4. **Prompt caching** on the long system prompt, if it's over the minimum cacheable size for the model.
+  5. **Warm up after start-up** (TASK-75): the first call after a backend restart took 7-9 s (a cold HTTPS connection and a cold JVM). The backend now makes one tiny Claude call (1 output token) in the background when it is ready, and keeps up to 5 connections open for 10 minutes. It is logged as `Claude warm-up done in N ms`.
+- Where the time goes now: about 1.2 s is Claude's time to first token. That part cannot be streamed away; the local word cards (TASK-74) and the growing text (TASK-73) only fill the wait.

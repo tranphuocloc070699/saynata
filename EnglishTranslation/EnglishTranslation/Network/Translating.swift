@@ -18,9 +18,28 @@ protocol Translating: Sendable {
         translatingTo language: TargetLanguage,
         onMeaning: @escaping @MainActor @Sendable (String) -> Void
     ) async throws -> Explanation
+
+    /// Same as the call above, and `onMeaningDelta` is also called with the new characters of the meaning while it
+    /// is being written (TASK-73). The `onMeaning` call that follows has the complete text and always wins.
+    func explainStreaming(
+        _ text: String,
+        translatingTo language: TargetLanguage,
+        onMeaningDelta: @escaping @MainActor @Sendable (String) -> Void,
+        onMeaning: @escaping @MainActor @Sendable (String) -> Void
+    ) async throws -> Explanation
 }
 
 extension Translating {
+    /// A translator that cannot send the meaning word by word just does not call `onMeaningDelta`.
+    func explainStreaming(
+        _ text: String,
+        translatingTo language: TargetLanguage,
+        onMeaningDelta: @escaping @MainActor @Sendable (String) -> Void,
+        onMeaning: @escaping @MainActor @Sendable (String) -> Void
+    ) async throws -> Explanation {
+        try await explainStreaming(text, translatingTo: language, onMeaning: onMeaning)
+    }
+
     /// A translator that cannot stream just waits for the whole answer.
     func explainStreaming(
         _ text: String,

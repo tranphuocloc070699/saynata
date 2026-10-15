@@ -9,6 +9,9 @@ import java.util.Optional;
  * string is closed, long before the rest of the JSON has been written. Feed the pieces in order with
  * {@link #feed(String)}; it gives the value back once, the moment the closing quote arrives.
  *
+ * While the string is still open, {@link #drainDelta()} gives the new characters, so the app can show
+ * the meaning as it grows.
+ *
  * This is not a full JSON parser. It only keeps track of what it needs: whether we are inside a string,
  * how deep we are in { } and [ ], and which top-level key was just read. Words inside the "words" list
  * also have a "meaning" key, but they are deeper than level 1, so they are ignored. The final answer is
@@ -28,6 +31,8 @@ public class JsonStringFieldReader {
     private int unicodeValue = 0;
     private StringKind stringKind = StringKind.NONE;
     private final StringBuilder current = new StringBuilder();
+    /** How much of {@code current} (the wanted value) was already handed out by {@link #drainDelta()}. */
+    private int deltaStart = 0;
 
     /** The last top-level key we read, until the next comma. */
     private String lastKey = null;
@@ -48,6 +53,29 @@ public class JsonStringFieldReader {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * The new characters of the wanted value since the last call (empty when there are none).
+     * Text is already decoded: an escape like backslash-n or backslash-u is never cut in half, because it
+     * is only added to the text when it is complete. A high surrogate (the first half of an emoji) is held
+     * back until its second half arrives. When the value is complete, everything left is given out.
+     */
+    public String drainDelta() {
+        boolean readingValue = inString && stringKind == StringKind.WANTED_VALUE;
+        if (!readingValue && !finished) {
+            return "";
+        }
+        int end = current.length();
+        if (!finished && end > deltaStart && Character.isHighSurrogate(current.charAt(end - 1))) {
+            end--;
+        }
+        if (end <= deltaStart) {
+            return "";
+        }
+        String delta = current.substring(deltaStart, end);
+        deltaStart = end;
+        return delta;
     }
 
     /** Returns the finished value, or null while there is more to read. */
@@ -107,6 +135,7 @@ public class JsonStringFieldReader {
             case '"' -> {
                 inString = true;
                 current.setLength(0);
+                deltaStart = 0;
                 stringKind = kindOfNewString();
             }
             case '{', '[' -> depth++;

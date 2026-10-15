@@ -3,6 +3,7 @@ package com.englishtranslation.backend.claude;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.core.http.StreamResponse;
 import com.anthropic.helpers.MessageAccumulator;
+import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.RawMessageStreamEvent;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
@@ -186,6 +187,22 @@ public class ClaudeService {
                                                 .build())
                                 .addUserMessage(sentenceMessage(text, targetLang))
                                 .build();
+        }
+
+        /**
+         * One tiny call (1 output token) that opens the HTTPS connection and warms the JVM paths, so the first
+         * real sentence is not slow (TASK-75). The usage is recorded; the daily budget is NOT checked, because
+         * the cost is about zero and the call is not made for a person.
+         */
+        public void warmUp() {
+                MessageCreateParams params = MessageCreateParams.builder()
+                                .model(properties.model())
+                                .maxTokens(1L)
+                                .addUserMessage("Hi")
+                                .build();
+                Message message = client.messages().create(params);
+                usage.record(Feature.WARMUP, properties.model(), message.usage().inputTokens(),
+                                message.usage().outputTokens());
         }
 
         /** The 422 rule: a "not English" flag from the model becomes an exception. */

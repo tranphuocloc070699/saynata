@@ -3,7 +3,7 @@ id: doc-9
 title: Progress timeline
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-15 10:29'
+updated_date: '2026-10-15 13:37'
 ---
 # Progress timeline
 
@@ -22,6 +22,7 @@ A dated story of the project, for the video. Add a line at the end of each worki
 | 2026-10-14 (evening) | First run on a real iPhone 13: HTTPS backend at api.loffy.me (Caddy + Let's Encrypt), the app pointed at it (PR #38, found by Codex from device logs: the app was calling localhost). F3 Listen, the share sheet and "an apple" approved after the phone test; the Translate-button integration is parked until a paid Apple account. Decisions: stop the 50,000-word plan ("it costs too much money"), an admin CMS (React + Refine + shadcn/ui, users with roles), the server database as the source of truth, images served from the server, no caching of personal-looking sentences. Conventions written into CLAUDE.md. Three cloud workers started (admin API, admin web app, cache privacy) while the developer was away. | A phone test beats every review: one log line showed the whole bug. |
 | 2026-10-15 | Backend accounts and cost protection built: sign in with an email code (AWS SES), guests get only cached and bundled answers, a $1 per day Claude cap counted from real token usage, and rate limits. The iOS sign-in screen waits for a mockup. | Protecting the wallet before the app has real users. |
 | 2026-10-15 (evening) | The mockup was approved (option A) and the iOS side of accounts was built (TASK-70): a sign-in sheet that opens when the backend says "sign in", the code in six boxes, tokens in the Keychain, refresh and retry, and Sign out and Delete account in Settings. After a right code the first request runs again by itself. | The app asks for an account only at the moment it is needed. |
+| 2026-10-15 (evening) | Sentence answers made faster, three changes in one PR: the meaning now streams word by word (`meaning-delta`), the offline dictionary word cards show at once while Claude works, and the backend makes one tiny Claude call after start-up to warm the connection. | New sentences took 2-2.5 s and the first call after a restart 7-9 s; most of it is Claude's time to first token. |
 
 ## Numbers to show
 
