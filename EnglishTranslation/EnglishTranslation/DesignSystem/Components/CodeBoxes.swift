@@ -6,7 +6,8 @@
 import SwiftUI
 
 /// Six boxes for a one-time code (TASK-70). It is ONE text field, drawn as boxes: the field sits on top of them with
-/// clear text, so a tap anywhere opens the number pad and `.textContentType(.oneTimeCode)` lets Mail fill the code.
+/// clear text, so a tap anywhere opens the number pad. The field is `OneTimeCodeField` (UIKit, `.oneTimeCode`), so
+/// the code from Mail fills it.
 /// The box that comes next gets the accent border (focus is one of the places the accent may be used).
 struct CodeBoxes: View {
     @Binding var code: String
@@ -20,15 +21,12 @@ struct CodeBoxes: View {
                     box(at: index)
                 }
             }
-            TextField("", text: $code)
-                .keyboardType(.numberPad)
-                .textContentType(.oneTimeCode)
-                .focused(isFocused)
-                .autocorrectionDisabled()
-                // Hidden text and caret: the boxes draw the digits.
-                .foregroundStyle(.clear)
-                .tint(.clear)
-                .accessibilityLabel("Code")
+            // A UIKit field, so the code iOS shows above the keyboard (AutoFill "From Mail") really fills it.
+            OneTimeCodeField(
+                text: $code,
+                isFocused: Binding(get: { isFocused.wrappedValue }, set: { isFocused.wrappedValue = $0 }),
+                maxLength: length)
+                .frame(maxWidth: .infinity, minHeight: 56)
                 .accessibilityValue(code.isEmpty ? "Empty" : code)
         }
     }
