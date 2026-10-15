@@ -45,9 +45,10 @@ final class AppleSpeechSynthesizer: NSObject, SpeechSynthesizing {
     }
 
     /// `.playback` + `.spokenAudio` makes speech play even when the silent switch is on.
+    /// `.duckOthers` makes music and other audio quieter while we speak, instead of pausing it.
     private func prepareAudioSession() {
         let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .spokenAudio)
+        try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
         try? session.setActive(true)
     }
 }
@@ -74,7 +75,7 @@ extension AppleSpeechSynthesizer: AVSpeechSynthesizerDelegate {
         }
     }
 
-    /// Gives audio back to music and other apps after speech ends.
+    /// Gives audio back to music and other apps after speech ends (they return to full volume).
     private func deactivateAudioSession() {
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }

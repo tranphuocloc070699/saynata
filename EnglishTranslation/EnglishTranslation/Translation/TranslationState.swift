@@ -23,6 +23,22 @@ enum TranslationState {
 
 }
 
+extension TranslationState {
+    /// Changes when the screen shows something else (a new search, a new word or sentence).
+    /// Views watch it with `onChange` to stop speech that belongs to the old result.
+    var resultKey: String {
+        switch self {
+        case .idle: "idle"
+        case .loading: "loading"
+        // Same key as `.loaded`, so the meaning turning into the full result does not stop speech.
+        case let .meaning(partial): "sentence:\(partial.sentence)"
+        case let .loaded(result): "sentence:\(result.sentence)"
+        case let .loadedWord(entry): "word:\(entry.word)"
+        case let .failed(message, _): "failed:\(message)"
+        }
+    }
+}
+
 /// "Did you mean" for a word that was not found: what the user typed and up to 3 close words.
 struct SpellingHelp: Equatable {
     let typedWord: String
