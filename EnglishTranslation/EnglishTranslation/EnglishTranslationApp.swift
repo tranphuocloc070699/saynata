@@ -9,6 +9,8 @@ import SwiftUI
 struct EnglishTranslationApp: App {
     @State private var store = TranslationStore()
     @State private var speechPlayer = SpeechPlayer()
+    /// The same object the backend client reads the token from (`TranslatorFactory`), so a sign-in shows everywhere.
+    @State private var account = AccountStore.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -16,6 +18,7 @@ struct EnglishTranslationApp: App {
             ContentView()
                 .environment(store)
                 .environment(speechPlayer)
+                .environment(account)
                 // Stop reading when the app is sent to the background (TASK-46).
                 .onChange(of: scenePhase) {
                     if scenePhase == .background { speechPlayer.stop() }

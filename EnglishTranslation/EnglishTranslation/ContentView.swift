@@ -15,4 +15,5 @@ struct ContentView: View {
     ContentView()
         .environment(TranslationStore())
         .environment(SpeechPlayer.silent())
+        .environment(AccountStore(secrets: NoSecretStore()))
 }

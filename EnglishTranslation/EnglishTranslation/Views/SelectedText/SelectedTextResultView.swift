@@ -57,6 +57,13 @@ struct SelectedTextResultView: View {
                 TranslateResultView(state: store.state, targetLanguage: store.targetLanguage) { word in
                     Task { await store.lookUp(suggestion: word) }
                 }
+                // The extensions cannot share the app's sign-in (a free Apple ID has no shared Keychain group),
+                // so they are guests. They send the user to the app to sign in (doc-17, known gaps).
+                if store.textNeedingSignIn != nil {
+                    Text("Sign in from the Saynata app to explain new text.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
             }
         } else {
             textHeader("", quoted: false)
