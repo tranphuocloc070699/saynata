@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-15 10:02'
+updated_date: '2026-10-15 10:29'
 ---
 # Decisions and reasons
 
@@ -109,6 +109,10 @@ Quotes are the developer's words, with spelling fixed.
 | 10-15 | Email codes are saved as an **HMAC** with a server key (not a plain hash), and the access-token key is derived from `USER_JWT_SECRET`, or from `ADMIN_JWT_SECRET`, or random, so the backend always starts | A plain hash of 6 digits can be reversed in a second. Merging auto-deploys, so a missing variable must not break production before SES is ready. | Plain SHA-256; fail at start-up without the secret | Claude |
 | 10-15 | A refresh token that is used twice revokes all sessions of that user | A used token that comes back may have been copied (OWASP refresh token rotation advice). Cost: a flaky network that repeats a refresh signs the user out. | Only reject the second use | Claude |
 | 10-15 | The iOS sign-in screen waits for a mockup. Until it exists, the current app gets 401 for new sentences and uncached words (bundled and cached answers still work) | Rule: mockup before UI code. | Build the screen without a mockup | Developer |
+| 10-15 | **Sign-in screen, option A (mockup approved):** a bottom sheet with a grabber opens in place over the result when the backend answers `sign_in_required`. Step 1: email and a round icon-only send button. Step 2: six digit boxes (one text field, `.oneTimeCode`) and a "Send a new code" link. After a right code the sheet closes and **the original request runs again by itself** (TASK-70) | Reason: not recorded. | Other mockup options | Developer |
+| 10-15 | iOS keeps the access and refresh tokens in the **Keychain** (not UserDefaults). One refresh and one retry on a 401 for an ended token; a refused refresh signs the user out on the device | Reason: not recorded. | UserDefaults | Developer |
+| 10-15 | The Share and Translation extensions **act as guests** for now and send the user to the app when sign-in is needed | A free Apple ID cannot sign App Groups or Keychain access groups (`scripts/install-on-phone.sh`), so the extensions cannot read the app's tokens. Known gap, solved with a paid account. | Sign in inside each extension | Developer |
+| 10-15 | The iOS app keeps working against today's production (`REQUIRE_SIGN_IN=false`): no token means no header, and nothing changes until a 401 comes back | Reason: not recorded. | Release the app only after the backend switch | Developer |
 
 ## Questions answered
 
