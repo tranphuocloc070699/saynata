@@ -10,7 +10,8 @@ import SwiftUI
 /// The translation already comes from the backend, so unlike the word card it needs no on-device translation.
 struct MeaningCard: View {
     let meaning: String
-    let translation: String
+    /// Nil while the answer is still streaming: the folded row is left out until it is there.
+    let translation: String?
     /// The language the translation was made in. It titles the folded row.
     let language: TargetLanguage
 
@@ -30,15 +31,18 @@ struct MeaningCard: View {
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            FoldedRow(title: language.title, isExpanded: $isTranslationOpen) {
-                Text(translation)
-                    .font(.body)
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .onChange(of: isTranslationOpen) { _, isOpen in
-                TranslationRowPreference().rowChanged(isOpen: isOpen)
+            // No translation yet (the answer is still streaming): the row appears when the full result arrives.
+            if let translation {
+                FoldedRow(title: language.title, isExpanded: $isTranslationOpen) {
+                    Text(translation)
+                        .font(.body)
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .onChange(of: isTranslationOpen) { _, isOpen in
+                    TranslationRowPreference().rowChanged(isOpen: isOpen)
+                }
             }
         }
         .cardSurface()

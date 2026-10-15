@@ -1,0 +1,223 @@
+package com.englishtranslation.backend.translation;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.claude.NotEnglishException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+/** POST /api/translations/stream (TASK-65), with a fake streaming Claude. */
+@SpringBootTest(properties = "app.claude.api-key=test-key")
+@AutoConfigureMockMvc
+class TranslationStreamTest {
+
+    @Autowired
+    MockMvc mockMvc;
+
+    @Autowired
+    SentenceTranslationRepository repository;
+
+    @MockitoBean
+    ClaudeService claude;
+
+    @BeforeEach
+    void cleanDatabase() {
+        repository.deleteAll();
+    }
+
+    private static final Explanation EXPLANATION = new Explanation(
+            "He did not want to leave.",
+            List.of(new Explanation.Word("reluctant", "adjective", "not wanting to do something")),
+            "Anh ấy không muốn đi.");
+
+    /** Claude's JSON answer, cut into pieces the way a stream would. */
+    private static final List<String> PIECES = List.of(
+            "{\"isEnglish\":tr", "ue,\"meaning\":\"He did not ", "want to leave.\",\"wo",
+            "rds\":[{\"word\":\"reluctant\",\"meaning\":\"x\"}],\"translation\":\"...\"}");
+
+    /** Makes the fake Claude stream PIECES and return `result`. */
+    private void claudeStreams(String text, Explanation result) {
+        when(claude.explainSentenceStreaming(eq(text), eq(TargetLanguage.VI), any())).thenAnswer(call -> {
+            Consumer<String> onText = call.getArgument(2);
+            PIECES.forEach(onText);
+            return result;
+        });
+    }
+
+    /** Sends the request, waits for the stream to end, and returns the whole body. */
+    private String streamBody(String text) throws Exception {
+        MvcResult started = mockMvc.perform(post("/api/translations/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM)
+                        .content("{\"text\": \"" + text + "\", \"targetLang\": \"vi\"}"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        started.getAsyncResult(10_000);
+        return mockMvc.perform(asyncDispatch(started))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+    }
+
+    /** The event names, in the order they were sent. */
+    private static List<String> eventNames(String body) {
+        List<String> names = new ArrayList<>();
+        for (String line : body.split("\n")) {
+            if (line.startsWith("event:")) {
+                names.add(line.substring("event:".length()).trim());
+            }
+        }
+        return names;
+    }
+
+    @Test
+    void meaningComesBeforeDone() throws Exception {
+        claudeStreams("He was reluctant to leave", EXPLANATION);
+
+        String body = streamBody("He was reluctant to leave");
+
+        assertThat(eventNames(body)).containsExactly("meaning", "done");
+        assertThat(body).contains("data:{\"meaning\":\"He did not want to leave.\"}");
+        assertThat(body.indexOf("event:meaning")).isLessThan(body.indexOf("event:done"));
+    }
+
+    @Test
+    void doneHasTheSameJsonAsTheOldEndpoint() throws Exception {
+        claudeStreams("He was reluctant to leave", EXPLANATION);
+
+        String body = streamBody("He was reluctant to leave");
+
+        String doneLine = body.lines().filter(line -> line.startsWith("data:{\"text\"")).findFirst().orElseThrow();
+        assertThat(doneLine).isEqualTo("data:{\"text\":\"He was reluctant to leave\",\"targetLang\":\"vi\","
+                + "\"explanation\":{\"meaning\":\"He did not want to leave.\","
+                + "\"words\":[{\"word\":\"reluctant\",\"partOfSpeech\":\"adjective\",\"meaning\":\"not wanting to do something\"}],"
+                + "\"translation\":\"Anh ấy không muốn đi.\"},\"cached\":false}");
+    }
+
+    @Test
+    void theAnswerIsSavedSoTheNextRequestIsOnlyDone() throws Exception {
+        claudeStreams("He was reluctant to leave", EXPLANATION);
+
+        streamBody("He was reluctant to leave");
+        String second = streamBody("He was reluctant to leave");
+
+        assertThat(repository.count()).isEqualTo(1);
+        assertThat(eventNames(second)).containsExactly("done");
+        assertThat(second).contains("\"cached\":true");
+    }
+
+    @Test
+    void aCacheHitSendsOnlyDoneAndNeverCallsClaude() throws Exception {
+        // Fill the cache through the normal (non-streaming) path first.
+        when(claude.explainSentence("I love you", TargetLanguage.VI)).thenReturn(EXPLANATION);
+        mockMvc.perform(post("/api/translations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"text\": \"I love you\", \"targetLang\": \"vi\"}")).andExpect(status().isOk());
+
+        String body = streamBody("I love you");
+
+        assertThat(eventNames(body)).containsExactly("done");
+        verify(claude, never()).explainSentenceStreaming(any(), any(), any());
+    }
+
+    @Test
+    void personalTextStillStreamsButIsNeverCached() throws Exception {
+        String text = "Email me at john@example.com";
+        claudeStreams(text, EXPLANATION);
+
+        String first = streamBody(text);
+        String second = streamBody(text);
+
+        assertThat(eventNames(first)).containsExactly("meaning", "done");
+        assertThat(eventNames(second)).containsExactly("meaning", "done");
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void textThatIsNotEnglishGivesAnErrorEventAndIsNotCached() throws Exception {
+        // A not-English answer has an empty meaning, so no meaning event is sent.
+        when(claude.explainSentenceStreaming(eq("asdkj qwe zzxq"), eq(TargetLanguage.VI), any())).thenAnswer(call -> {
+            Consumer<String> onText = call.getArgument(2);
+            onText.accept("{\"isEnglish\":false,\"meaning\":\"\",\"words\":[],\"translation\":\"\"}");
+            throw new NotEnglishException();
+        });
+
+        String body = streamBody("asdkj qwe zzxq");
+
+        assertThat(eventNames(body)).containsExactly("error");
+        assertThat(body).contains("data:{\"status\":422,\"message\":\"This doesn't look like English. "
+                + "Type an English word or sentence.\"}");
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void aFailureAfterTheMeaningGivesAnErrorEvent() throws Exception {
+        when(claude.explainSentenceStreaming(eq("Hello there"), eq(TargetLanguage.VI), any())).thenAnswer(call -> {
+            Consumer<String> onText = call.getArgument(2);
+            PIECES.forEach(onText);
+            throw new IllegalStateException("connection lost");
+        });
+
+        String body = streamBody("Hello there");
+
+        assertThat(eventNames(body)).containsExactly("meaning", "error");
+        assertThat(body).contains("data:{\"status\":502,\"message\":\"The translation service is not available. Try again later.\"}");
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void theErrorEventDoesNotShowInternalDetails() throws Exception {
+        when(claude.explainSentenceStreaming(eq("Hello there"), eq(TargetLanguage.VI), any()))
+                .thenThrow(new IllegalStateException("secret internal detail"));
+
+        String body = streamBody("Hello there");
+
+        assertThat(eventNames(body)).containsExactly("error");
+        assertThat(body).doesNotContain("secret internal detail");
+    }
+
+    @Test
+    void theResponseCannotBeBufferedByAProxy() throws Exception {
+        claudeStreams("He was reluctant to leave", EXPLANATION);
+
+        MvcResult started = mockMvc.perform(post("/api/translations/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"He was reluctant to leave\", \"targetLang\": \"vi\"}"))
+                .andExpect(request().asyncStarted())
+                .andExpect(header().string("Cache-Control", "no-cache"))
+                .andExpect(header().string("X-Accel-Buffering", "no"))
+                .andReturn();
+        started.getAsyncResult(10_000);
+
+        assertThat(started.getResponse().getContentType()).startsWith("text/event-stream");
+    }
+
+    @Test
+    void badInputIsStillRejectedWithA400() throws Exception {
+        mockMvc.perform(post("/api/translations/stream")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"   \", \"targetLang\": \"vi\"}"))
+                .andExpect(status().isBadRequest());
+    }
+}

@@ -24,6 +24,8 @@ struct TranslateResultView: View {
                 .foregroundStyle(.secondary)
         case .loading:
             ProgressView()
+        case let .meaning(partial):
+            SentenceMeaningView(partial: partial)
         case let .loaded(result):
             // The language comes from the result, not the live picker (TASK-14).
             SentenceResultView(result: result, loadWordEntry: loadWordEntry)
