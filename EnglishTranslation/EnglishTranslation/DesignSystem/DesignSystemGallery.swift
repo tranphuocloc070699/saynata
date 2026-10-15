@@ -16,6 +16,7 @@ struct DesignSystemGallery: View {
                 componentsSection
                 wordCardSample
                 sentenceCardsSample
+                codeBoxesSample
             }
             .padding(Theme.Spacing.large)
         }
@@ -109,6 +110,17 @@ struct DesignSystemGallery: View {
                 WordCardView(entry: .depend)
                 WordCardCompactView(entry: .depend)
             }
+        }
+    }
+
+    // MARK: - Code boxes
+
+    @State private var sampleCode = "48"
+
+    /// The one-time code boxes of the sign-in sheet (TASK-70). Tap them and type.
+    private var codeBoxesSample: some View {
+        TitledSection(title: "Code boxes") {
+            CodeBoxes(code: $sampleCode, focusOnAppear: false)
         }
     }
 

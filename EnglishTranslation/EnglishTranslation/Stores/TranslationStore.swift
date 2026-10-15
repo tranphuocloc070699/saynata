@@ -21,6 +21,12 @@ final class TranslationStore {
     /// True once the full `meaning` arrived. Late word-by-word pieces are then ignored (TASK-73).
     private var meaningIsFinal = false
 
+    /// The text whose request the server refused because the user is a guest (401 `sign_in_required`, TASK-70).
+    /// Set when that happens, cleared by the next `translate()`. The extensions read it to say "Open Saynata to sign in".
+    private(set) var textNeedingSignIn: String?
+    /// True while the sign-in sheet is open over the result. Only the app's main screen opens it.
+    var isSignInSheetOpen = false
+
     private let makeTranslator: @MainActor () throws -> any Translating
     private let makeWordLookup: @MainActor () throws -> any WordLooking
 
@@ -64,6 +70,7 @@ final class TranslationStore {
     func translate() async {
         guard canTranslate else { return }
         state = .loading
+        textNeedingSignIn = nil
         if let word = CacheKeys.wordQuery(trimmedInput) {
             await lookUpWord(word)
         } else {
@@ -77,6 +84,8 @@ final class TranslationStore {
             let wordLookup = try makeWordLookup()
             lookup = wordLookup
             state = .loadedWord(try await wordLookup.lookUp(word))
+        } catch BackendError.signInRequired {
+            askForSignIn(text: word)
         } catch {
             state = .failed(error.localizedDescription, spelling: spellingHelp(for: word, after: error, lookup: lookup))
         }
@@ -93,6 +102,27 @@ final class TranslationStore {
         let typedWord = CacheKeys.normalizeWord(word)
         let words = lookup.suggestions(for: typedWord)
         return words.isEmpty ? nil : SpellingHelp(typedWord: typedWord, suggestions: words)
+    }
+
+    /// The server said a guest cannot get this answer. Keep the text, show the message, and open the sign-in sheet.
+    private func askForSignIn(text: String) {
+        textNeedingSignIn = text
+        state = .failed(BackendError.signInRequired.localizedDescription)
+        isSignInSheetOpen = true
+    }
+
+    /// The user closed the sheet without signing in. The message stays in the result area.
+    func cancelSignIn() {
+        isSignInSheetOpen = false
+    }
+
+    /// The user signed in: close the sheet and run the original request again, so the result appears.
+    /// Does nothing more when the sheet was opened from Settings (no request was waiting).
+    func resumeAfterSignIn() async {
+        isSignInSheetOpen = false
+        guard let text = textNeedingSignIn else { return }
+        inputText = text
+        await translate()
     }
 
     /// The user tapped a "did you mean" word: put it in the input and look it up.
@@ -184,6 +214,8 @@ final class TranslationStore {
                 explanation: explanation,
                 language: language,
                 bundledEntry: { lookup?.bundledEntry(for: $0) }))
+        } catch BackendError.signInRequired {
+            askForSignIn(text: sentence)
         } catch {
             state = .failed(error.localizedDescription)
         }

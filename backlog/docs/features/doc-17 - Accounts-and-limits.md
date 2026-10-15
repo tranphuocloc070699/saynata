@@ -7,7 +7,7 @@ updated_date: '2026-10-15 13:37'
 ---
 # Accounts and limits
 
-> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS sign-in screen is not built: it waits for a mockup. Last traced from code: 2026-10-15.
+> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Last traced from code: 2026-10-15.
 > Why: doc-7 rows of 2026-10-15. Related: [Admin API](doc-13%20-%20Admin-API.md) (the admin has its own cookie login), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Word lookup](doc-5%20-%20Word-lookup.md), the Resend and SES setup in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md) (sections 10 and 11).
 
 ## What it does
@@ -23,8 +23,8 @@ the bundled words (on the device) and anything already in the shared cache. Clau
 | Signed in | Works | Calls Claude (if the budget and the user limit allow) |
 | Anyone, budget used up | Works | 503 `daily_limit_reached` |
 
-The current iOS app sends no token yet. With the default (`REQUIRE_SIGN_IN=true`), **a new sentence or an uncached word from the app gives 401** until the sign-in screen exists.
-**Switch `REQUIRE_SIGN_IN`:** set `REQUIRE_SIGN_IN=false` in `backend/.env` until the app with sign-in is released. Then a guest miss does call Claude, but it still goes through `ClaudeGate`: the daily budget cap applies (503 `daily_limit_reached`), and so does a per-IP limit for guests' new calls (30 per hour by default, 429 `rate_limited`), so one guest cannot burn the budget alone. Bundled words and cached answers work in both modes. Set it back to `true` (or remove the line) when the new app is out.
+An iOS app **without** the sign-in screen sends no token. With the default (`REQUIRE_SIGN_IN=true`), **a new sentence or an uncached word from such an app gives 401**. The app with TASK-70 shows the sign-in sheet instead.
+**Switch `REQUIRE_SIGN_IN`:** keep `REQUIRE_SIGN_IN=false` in `backend/.env` until the app with sign-in is released. Then a guest miss does call Claude, but it still goes through `ClaudeGate`: the daily budget cap applies (503 `daily_limit_reached`), and so does a per-IP limit for guests' new calls (30 per hour by default, 429 `rate_limited`), so one guest cannot burn the budget alone. Bundled words and cached answers work in both modes. Set it back to `true` (or remove the line) when the new app is out.
 
 ## Big picture
 
@@ -155,6 +155,51 @@ flowchart LR
 
 The body is Spring problem details (`type`, `title`, `status`, `detail`) plus `code`. The app should switch on `code`, not on the text.
 
+## iOS app (TASK-70)
+
+The app signs in with the email code, keeps the tokens in the **Keychain**, sends `Authorization: Bearer` on translations, the stream and words, and shows the sign-in sheet when the backend answers `sign_in_required`. A guest with no token sends no header, so against a backend with `REQUIRE_SIGN_IN=false` nothing changes until a 401 comes back.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant S as TranslationStore
+    participant B as BackendClient
+    participant A as AccountStore
+    participant API as Backend
+    U->>S: Explain "Hello there"
+    S->>B: explainStreaming
+    B->>A: accessToken() (nil for a guest)
+    B->>API: POST /api/translations/stream
+    API-->>B: 401 sign_in_required
+    B-->>S: BackendError.signInRequired
+    S->>S: keep the text, state = failed, open the sheet
+    U->>A: email, then the 6-digit code (SignInModel)
+    A->>API: POST /api/auth/email-code, then /api/auth/verify
+    API-->>A: tokens, saved in the Keychain
+    A-->>S: resumeAfterSignIn()
+    S->>B: the same text again, now with Bearer
+    B->>API: POST /api/translations/stream
+    API-->>S: the explanation
+    Note over B,API: Later, an ended access token: 401, refresh once, send again (see below)
+```
+
+| Part | File:line | What happens |
+|---|---|---|
+| Keychain | [SecretStore.swift:22](../../../EnglishTranslation/EnglishTranslation/Account/SecretStore.swift#L22) | `KeychainSecretStore` (SecItem, `AfterFirstUnlockThisDeviceOnly`) behind the small `SecretStoring` protocol, so tests use a fake. The whole session (access token, refresh token, user) is **one JSON item** under the key `session`, saved and deleted in one step. No access group (see known gaps). |
+| Calls | [AuthClient.swift:28](../../../EnglishTranslation/EnglishTranslation/Account/AuthClient.swift#L28) | `requestCode`, `verify`, `refresh`, `signOut`, `deleteAccount` (`DELETE /api/me` with the Bearer). A failed reply becomes an `AuthError` ([AuthModels.swift:31](../../../EnglishTranslation/EnglishTranslation/Account/AuthModels.swift#L31)): the `code` is read first, then the status (`invalid_code`, `invalid_refresh_token`, `invalid_email`, `admin_account`, 429 with `Retry-After`). |
+| Account | [AccountStore.swift:24](../../../EnglishTranslation/EnglishTranslation/Account/AccountStore.swift#L24) | `@Observable`, one shared instance (`AccountStore.shared`, also given to the views with `.environment`). Loads the session from the Keychain at start. `signIn` saves the tokens. `signOut` clears the device first, then tells the server (a failed call is ignored). `deleteAccount` calls `DELETE /api/me` (an ended token is refreshed once), then signs out locally; an admin account (403) stays signed in and shows the server message. |
+| Refresh | [AccountStore.swift:102](../../../EnglishTranslation/EnglishTranslation/Account/AccountStore.swift#L102) | `refreshedAccessToken(replacing:)`. If the session already has another token, it returns that one. Requests that fail together **share one refresh task**, because the server accepts each refresh token once and a second use would revoke every session (doc-17 "Refresh"). If the server says `invalid_refresh_token`, the user is **signed out locally** and the call returns nil. A network error is thrown and the session stays, so one bad connection does not sign the user out. |
+| Bearer and retry | [BackendClient.swift:280](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L280) | `withAuthRetry`: runs the request with the token; on 401 **with a token**, refreshes once and runs it again. The stream goes through it too, also for an `error` event with status 401. A guest's 401 (no token) goes straight to the caller. After a failed refresh the caller gets `signInRequired`, which opens the sheet. Only one retry, so a server that keeps saying 401 cannot loop. |
+| Errors | [BackendClient.swift:86](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L86) | `BackendError.make` reads the `code` of the body (or of the stream event), then the status: `signInRequired`, `rateLimited(retryAfter:)`, `dailyLimitReached(message:)`, else `badStatus`. All three new ones are final answers, so the stream is not retried on the old endpoint. |
+| Store | [TranslationStore.swift:103](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L103) | On `signInRequired` (a sentence, or a word that is not bundled and not cached): keeps the text (`textNeedingSignIn`), sets `.failed("Sign in to get a new explanation.")` and opens the sheet (`isSignInSheetOpen`). After sign-in, `resumeAfterSignIn()` runs **the same text** again, even if the user typed something else meanwhile. Closing the sheet leaves the message in the result area. |
+| Sheet | [SignInSheet.swift:11](../../../EnglishTranslation/EnglishTranslation/Views/Account/SignInSheet.swift#L11), [SignInModel.swift:12](../../../EnglishTranslation/EnglishTranslation/Account/SignInModel.swift#L12), [CodeBoxes.swift:11](../../../EnglishTranslation/EnglishTranslation/DesignSystem/Components/CodeBoxes.swift#L11) | A bottom sheet with a grabber, opened by [TranslateView](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift) over the result. Step 1: "Sign in to explain new sentences", "Saved words still work without an account.", an email field and a round icon-only send button (label "Send code"). Step 2: "Enter the code", "We sent 6 numbers to <email>", six boxes that are **one text field** with `.oneTimeCode` (Mail fills it), and a "Send a new code" text link. The 6th digit checks the code by itself. Pictures: [step 1](../../../docs/design/signin-sheet-step1-email.png), [step 2](../../../docs/design/signin-sheet-step2-code.png). |
+| Code errors | [SignInModel.swift:107](../../../EnglishTranslation/EnglishTranslation/Account/SignInModel.swift#L107) | The server answers every bad code with the same `invalid_code`, so the app counts the wrong tries itself: 1 to 4 give "That code is wrong or has expired. Try again, or send a new code."; the 5th gives "Too many tries. Send a new code." (the server locks the code after 5). "Send a new code" starts the count again. A 429 shows "Too many requests. Try again in N minutes." |
+| Result area | [BackendClient.swift:49](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L49) | `daily_limit_reached` shows the **server's message** as it is. `rate_limited` shows "Too many requests. Try again in N minutes." (`Retry-After` in whole minutes, rounded up; "in a little while" when there is no header, as in a stream event). |
+| Settings | [SettingsView.swift:82](../../../EnglishTranslation/EnglishTranslation/Views/Settings/SettingsView.swift#L82) | "Account" section on top. Signed out: a **Sign in** row (opens the same sheet, with no request waiting). Signed in: the email, **Sign out**, **Delete account** (confirmation dialog, then `DELETE /api/me`, then local sign out). A failed delete shows its reason under the section. |
+| Extensions | [SelectedTextResultView.swift:62](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L62) | The Share and Translation extensions have their own empty Keychain, so they are **guests**. When a request needs sign-in they show "Sign in from the Saynata app to explain new text." The share sheet already has the "Open in Saynata" button, and the app then asks for the sign-in itself. The extensions never open the sheet. |
+
+Tests: `KeychainSecretStoreTests` (the real simulator Keychain, own service name), `AuthClientTests` (fake server, bodies, error mapping, Retry-After), `AccountStoreTests` (save, reload, sign out, refresh, shared refresh, failed refresh signs out, network error keeps the session, delete account), `BackendClientAuthTests` (header on translations, stream and words, 401 then refresh then retry for each, only one retry, guest 401, 429, 503, stream `error` events with codes), `SignInFlowTests` (401 then sheet then verify then the same request runs again, for a sentence and a word; cancel; wrong code; daily limit and rate limit in the result area), `SignInModelTests` (steps, digits only, auto-check at 6, wrong tries, resend). The fake server and Keychain are in `AccountTestSupport.swift`.
+
 ## Tests
 
 | Test file | What it covers |
@@ -180,7 +225,11 @@ The old tests set `app.auth.require-sign-in=false` (and a very high guest IP lim
 
 ## Known gaps
 
-- The iOS app has no sign-in screen yet (it waits for a mockup). With `REQUIRE_SIGN_IN=true` a new sentence or uncached word from the app gives 401; use `REQUIRE_SIGN_IN=false` until the app with sign-in is released.
+- Old iOS builds have no sign-in screen. With `REQUIRE_SIGN_IN=true` a new sentence or uncached word from such a build gives 401; keep `REQUIRE_SIGN_IN=false` until the app with sign-in (TASK-70) is released.
+- **The Share and Translation extensions are guests (TASK-70).** They would need a shared Keychain access group to read the app's tokens, and a free Apple ID cannot sign access groups or App Groups (`scripts/install-on-phone.sh`, `FreeAccount.entitlements`). So an extension shows "Sign in from the Saynata app" when a request needs sign-in. With a paid account: add the same `keychain-access-groups` entry to the three entitlements files, set `kSecAttrAccessGroup` in `KeychainSecretStore`, and let the extension open the sheet.
+- The sentence word sheet (tap a word in a result) does not offer sign-in: a guest sees "Sign in to get a new explanation." there. Type the word in the main box to get the sheet.
+- The code errors "wrong" and "expired" look the same to the app (one `invalid_code`), so the sheet cannot say which one it was.
+- Real emails only go out after SES is set up (doc-11, section 10). Until then read the code in the backend log on the VPS: `docker compose -f docker-compose.prod.yml logs backend | grep "fake email"`.
 - With `REQUIRE_SIGN_IN=false`, many guests behind different IPs can still use up the $1 budget together; the cap then stops everyone's new calls until midnight UTC.
 - Sign-in emails go out only after `RESEND_API_KEY` and `EMAIL_FROM` are set (doc-11, section 10), or SES is set up (section 11). Before that, codes are only in the backend log.
 - A Resend send that fails (after the one retry) is only logged: the learner sees "code sent" and gets nothing. Check the log and the Resend Logs page.

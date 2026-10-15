@@ -3,11 +3,11 @@ id: doc-10
 title: Share extension
 type: specification
 created_date: '2026-10-11 15:35'
-updated_date: '2026-10-14 09:12'
+updated_date: '2026-10-15 10:29'
 ---
 # Share extension and Translate button
 
-> Status: **working** (TASK-30 share extension, TASK-42 Translate button). Listen reads aloud (F3, TASK-7). Last traced from code: 2026-10-14.
+> Status: **working** (TASK-30 share extension, TASK-42 Translate button). Listen reads aloud (F3, TASK-7). Last traced from code: 2026-10-15 (TASK-70: the extensions are guests).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Builds on [Word lookup](doc-5%20-%20Word-lookup.md) and [Sentence translation](doc-4%20-%20Sentence-translation.md).
 
 ## What it does
@@ -85,6 +85,7 @@ Run: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -
 - The share row shows the app's name and its placeholder icon: the extension has no icon of its own.
 - On a real device, the App Group needs the capability in Xcode (see the PR). Until then the two caches are separate.
 - The app itself does not apply the 500-character limit before calling the backend (the backend answers 400).
+- **The extensions are guests (TASK-70).** The app keeps its sign-in tokens in its own Keychain. Sharing them needs a Keychain access group, and a free Apple ID cannot sign access groups or App Groups (`scripts/install-on-phone.sh`). So when the backend answers `sign_in_required`, the share sheet and the Translate sheet show "Sign in from the Saynata app to explain new text." and never open the sign-in sheet. The share sheet's "Open in Saynata" button opens the app with the same text, and the app asks for the sign-in itself. Bundled and cached words still work in the extensions. See [Accounts and limits](doc-17%20-%20Accounts-and-limits.md#ios-app-task-70).
 
 ## Translate button (default translation app)
 
