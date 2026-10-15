@@ -8,6 +8,7 @@ import com.englishtranslation.backend.media.SenseMediaReader;
 import com.englishtranslation.backend.word.WordEntry;
 import com.englishtranslation.backend.word.WordLookup;
 import com.englishtranslation.backend.word.WordLookupRepository;
+import com.englishtranslation.backend.word.SimpleWords;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -64,9 +65,11 @@ public class AdminWordService {
     private final JsonMapper jsonMapper;
     private final EntryParser parser;
     private final SenseMediaReader mediaReader;
+    private final SimpleWords simpleWords;
 
     public AdminWordService(JdbcClient jdbc, DictionaryWordRepository dictionary, WordLookupRepository lookups,
-            JsonMapper jsonMapper, EntryParser parser, SenseMediaReader mediaReader) {
+            JsonMapper jsonMapper, EntryParser parser, SenseMediaReader mediaReader, SimpleWords simpleWords) {
+        this.simpleWords = simpleWords;
         this.mediaReader = mediaReader;
         this.jdbc = jdbc;
         this.dictionary = dictionary;
@@ -185,7 +188,7 @@ public class AdminWordService {
             Map<Integer, String> status = (id.bundled() ? bundledStatus : backendStatus).getOrDefault(id.number(), Map.of());
             words.add(new AdminWord(row.itemId(), row.word(), entry, row.ipa(), row.needsReview(), row.source(),
                     row.model(), row.promptVersion(), row.createdAt(), mediaPerSense(entry, media),
-                    statusPerSense(entry, status)));
+                    statusPerSense(entry, status), reviewReasons(entry, row.word(), row.needsReview())));
         }
         return words;
     }
@@ -316,7 +319,8 @@ public class AdminWordService {
         return new AdminWord("b-" + word.getId(), word.getLemma(), entry, word.getIpa(),
                 word.isNeedsReview(), AdminWordId.BUNDLED, word.getModel(), word.getPromptVersion(),
                 word.getCreatedAt(), media, statusPerSense(entry, mediaReader.statusForBundledWords(List.of(word.getId()))
-                        .getOrDefault(word.getId(), Map.of())));
+                        .getOrDefault(word.getId(), Map.of())),
+                reviewReasons(entry, word.getLemma(), word.isNeedsReview()));
     }
 
     private AdminWord toAdminWord(WordLookup lookup) {
@@ -326,7 +330,19 @@ public class AdminWordService {
         return new AdminWord("w-" + lookup.getId(), lookup.getWord(), entry, null,
                 lookup.isNeedsReview(), AdminWordId.BACKEND, lookup.getModel(), lookup.getPromptVersion(),
                 lookup.getCreatedAt(), media, statusPerSense(entry, mediaReader.statusForBackendWords(List.of(lookup.getId()))
-                        .getOrDefault(lookup.getId(), Map.of())));
+                        .getOrDefault(lookup.getId(), Map.of())),
+                reviewReasons(entry, lookup.getWord(), lookup.isNeedsReview()));
+    }
+
+    /**
+     * Why the word needs review, checked on the entry as it is now (so it is right after an edit too).
+     * Empty when the word is not flagged, when the entry cannot be read, or when it is simple enough now.
+     */
+    private List<String> reviewReasons(WordEntry entry, String word, boolean needsReview) {
+        if (!needsReview || entry == null) {
+            return List.of();
+        }
+        return simpleWords.problems(entry, word);
     }
 
     /** One item per sense, in the order of the entry: the media, or null when the sense has none. */

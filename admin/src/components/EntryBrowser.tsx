@@ -32,7 +32,7 @@ interface Props<T extends Item, E> {
   detailRows: (item: T) => FieldRow[];
   // The JSON the backend stores for this item: what the editor changes and PUT sends.
   editableEntry: (item: T) => E;
-  renderForm: (draft: E, setDraft: (next: E) => void) => ReactNode;
+  renderForm: (draft: E, setDraft: (next: E) => void, item: T) => ReactNode;
 }
 
 // Layout A: list with search and chips on the left, the selected entry as a table on the right.
@@ -230,7 +230,7 @@ export function EntryBrowser<T extends Item, E>({
           <EntryEditor
             key={String(selected.id)}
             initial={editableEntry(selected)}
-            renderForm={renderForm}
+            renderForm={(draft, setDraft) => renderForm(draft, setDraft, selected)}
             onSave={save}
             onCancel={() => setEditing(false)}
             error={actionError}

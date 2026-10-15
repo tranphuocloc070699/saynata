@@ -22,13 +22,40 @@ const chips: Chip<WordItem>[] = [
   cefrChip("B1-B2", ["B1", "B2"]),
 ];
 
+// Why a word needs review: the lines from the backend, or a hint when the entry is fine now.
+// The flag is never cleared here. The developer decides, with the check button.
+function ReviewReasons({ word }: { word: WordItem }) {
+  if (!word.needsReview) return null;
+  const reasons = word.reviewReasons ?? [];
+  if (reasons.length === 0) {
+    return <p className="text-sm text-muted-foreground">No problems found now; press ✓ to mark it reviewed</p>;
+  }
+  return (
+    <ul aria-label="Review reasons" className="list-disc space-y-1 pl-5 text-sm">
+      {reasons.map((reason) => (
+        <li key={reason}>{reason}</li>
+      ))}
+    </ul>
+  );
+}
+
 // Same order as the app: explanation, examples, usage, then Vietnamese last.
 function detailRows(word: WordItem): FieldRow[] {
   const rows: FieldRow[] = [
     { label: "Word", value: word.word },
     { label: "IPA", value: word.ipa ?? "-" },
     { label: "Source", value: word.source === "bundled" ? "Bundled in the app" : "From the backend" },
-    { label: "Status", value: word.needsReview ? <Badge variant="warning">Needs review</Badge> : "Reviewed" },
+    {
+      label: "Status",
+      value: word.needsReview ? (
+        <div className="space-y-2">
+          <Badge variant="warning">Needs review</Badge>
+          <ReviewReasons word={word} />
+        </div>
+      ) : (
+        "Reviewed"
+      ),
+    },
   ];
   word.entry.senses.forEach((sense, index) => {
     rows.push({ label: `Sense ${index + 1}`, heading: true, value: null });
@@ -65,7 +92,7 @@ function detailRows(word: WordItem): FieldRow[] {
   return rows;
 }
 
-function WordForm({ draft, setDraft }: { draft: WordEntry; setDraft: (next: WordEntry) => void }) {
+function WordForm({ draft, setDraft, word }: { draft: WordEntry; setDraft: (next: WordEntry) => void; word: WordItem }) {
   const changeSense = (index: number, patch: Partial<Sense>) =>
     setDraft({ senses: draft.senses.map((s, i) => (i === index ? { ...s, ...patch } : s)) });
 
@@ -85,6 +112,12 @@ function WordForm({ draft, setDraft }: { draft: WordEntry; setDraft: (next: Word
 
   return (
     <div className="space-y-6">
+      {word.needsReview && (
+        <div className="space-y-2 rounded-md border border-border bg-card p-4">
+          <Badge variant="warning">Needs review</Badge>
+          <ReviewReasons word={word} />
+        </div>
+      )}
       <p className="text-xs text-muted-foreground">IPA is shown in the table but is not changed here (the backend saves only the entry).</p>
       {draft.senses.map((sense, i) => (
         <fieldset key={i} className="space-y-3 rounded-md border border-border bg-card p-4">
@@ -140,7 +173,7 @@ export function WordsPage() {
       itemBadges={(word) => <Badge variant="outline">{word.source === "bundled" ? "Bundled" : "Backend"}</Badge>}
       detailRows={detailRows}
       editableEntry={(word) => word.entry}
-      renderForm={(draft, setDraft) => <WordForm draft={draft} setDraft={setDraft} />}
+      renderForm={(draft, setDraft, word) => <WordForm draft={draft} setDraft={setDraft} word={word} />}
     />
   );
 }
