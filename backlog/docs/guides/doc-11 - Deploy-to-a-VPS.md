@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-14 12:19'
+updated_date: '2026-10-15 04:28'
 ---
 # Deploy to a VPS
 
@@ -157,6 +157,9 @@ After CI passes on `main`, [.github/workflows/deploy.yml](../../../.github/workf
 over SSH, moves `~/saynata` to the commit CI tested (`git merge --ff-only`), and runs
 [backend/scripts/deploy.sh](../../../backend/scripts/deploy.sh). That script runs `docker compose up -d --build --wait`,
 so the run turns red if the backend does not become healthy, and it prints the last backend logs.
+A second job, `deploy-admin`, then builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
+`ADMIN_API_URL` repository variable, default `https://api.loffy.me`) and copies `admin/dist` to the server with
+`rsync --delete` (section 8). The VPS needs `rsync`, but no Node.
 You can also start it by hand: Actions tab, **Deploy**, **Run workflow**.
 Until the secrets below exist, the workflow does nothing and stays green.
 
@@ -197,7 +200,7 @@ The admin CMS ([Admin CMS](../features/doc-14%20-%20Admin-CMS.md)) is only stati
 at `api.loffy.me` stays the same (its `/api/admin/**` login and CORS for `https://admin.loffy.me` come from TASK-49.1).
 
 1. DNS: add an `A` record `admin.loffy.me` that points to the server, like `api.loffy.me`.
-2. Build (on the server, or on your Mac and copy `admin/dist`). It needs Node 20 or newer:
+2. Build. The Deploy workflow does this for you after every push to main (section 7). By hand, on the server or on your Mac (then copy `admin/dist`), with Node 20 or newer:
 
 ```bash
 cd ~/saynata/admin
@@ -219,7 +222,7 @@ admin.loffy.me {
 
 4. Run `sudo systemctl reload caddy`, then open `https://admin.loffy.me` and sign in.
 
-To update after a `git pull`, run step 2 again and nothing else: Caddy reads the new files at once, no restart.
+Updates are automatic: the `deploy-admin` job replaces `admin/dist` after each push to main, and Caddy reads the new files at once, no restart. By hand, run step 2 again.
 The Caddy user must be able to read the folder (`chmod -R o+rX ~/saynata/admin/dist`, and `chmod o+x` on each parent folder).
 CI builds and tests the admin app on every pull request (`admin` job in `.github/workflows/ci.yml`).
 

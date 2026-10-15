@@ -1,6 +1,6 @@
 name: Deploy
 
-# Deploys the backend to the VPS after CI passes on main. Can also be started by hand (Actions tab).
+# Deploys the backend, then the admin web app, to the VPS after CI passes on main. Can also be started by hand (Actions tab).
 # Setup and secrets: backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md, section "Auto deploy".
 on:
   workflow_run:
@@ -44,3 +44,57 @@ jobs:
           ssh -i ~/.ssh/deploy_key -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=yes \
             "${VPS_USER:-root}@$VPS_HOST" \
             "set -e; cd ${VPS_APP_DIR:-saynata}; git fetch -q origin main; git merge --ff-only $SHA; backend/scripts/deploy.sh"
+
+  # The admin app is only static files. It is built here, not on the VPS (no Node there, and a small VPS can run out
+  # of memory during the build), then copied into admin/dist on the server, where Caddy serves it (doc-11, section 8).
+  # It runs after the backend job, because that job moves the server's repo to this commit first.
+  deploy-admin:
+    name: Deploy admin web app to VPS
+    needs: deploy
+    runs-on: ubuntu-latest
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+    steps:
+      - name: Skip when VPS secrets are not set
+        if: env.VPS_HOST == '' || env.VPS_SSH_KEY == ''
+        run: echo "::notice::VPS secrets are not set, so the admin app was not deployed. See doc-11, section Auto deploy."
+      - uses: actions/checkout@v4
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - name: Build
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        working-directory: admin
+        env:
+          # The backend address baked into the build. Change it with the ADMIN_API_URL repository variable.
+          VITE_API_URL: ${{ vars.ADMIN_API_URL || 'https://api.loffy.me' }}
+        run: |
+          npm ci
+          npm run build
+      - name: Copy admin/dist to the VPS
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh_cmd="ssh -i $HOME/.ssh/deploy_key -p ${VPS_PORT:-22} -o StrictHostKeyChecking=yes"
+          target="${VPS_USER:-root}@$VPS_HOST"
+          dist="${VPS_APP_DIR:-saynata}/admin/dist"
+          $ssh_cmd "$target" "mkdir -p $dist"
+          # --delete removes old hashed files, so the folder holds only this build.
+          rsync -az --delete -e "$ssh_cmd" admin/dist/ "$target:$dist/"
+          # Caddy runs as its own user and must be able to read the files.
+          $ssh_cmd "$target" "chmod -R o+rX $dist"
+          echo "Admin app deployed to $dist."
