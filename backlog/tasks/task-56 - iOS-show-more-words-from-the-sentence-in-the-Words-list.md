@@ -47,4 +47,6 @@ Today the sentence result shows only the words Claude listed as difficult for B1
 
 <!-- SECTION:NOTES:BEGIN -->
 Added SentenceWordFinder (NLTagger lexicalClass), SentenceWordInfo(sentenceWord:entry:), SentenceResult appends extras after Claude's words. 9 new tests. NaturalLanguage tagging dropped she/to/the on the simulator. Note: be/have/do are always skipped, even as main verbs (simple rule). doc-4 updated.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/56 . Test it: Explain 'She ran to the shops'; Words show Claude's words first, then ran (past tense of run) and shops, no she/to/the.
 <!-- SECTION:NOTES:END -->

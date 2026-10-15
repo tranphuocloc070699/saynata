@@ -50,4 +50,6 @@ Developer request (2026-10-14): when the user taps outside the text input, the k
 
 <!-- SECTION:NOTES:BEGIN -->
 Done in PR (branch feature/keyboard-and-sentence-words). @FocusState in TranslateView; tap gesture is simultaneous and sits on the options and the result area, not on the text box (a first try on the whole ScrollView also hid the keyboard on a tap inside the box, found on the simulator). Send clears focus. scrollDismissesKeyboard(.interactively). Simulator (iPhone 16 Pro, hardware keyboard on): tap inside keeps focus, tap outside ends it. Result-area taps/selection need a check on a real iPhone.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/56 . Test it: see the PR body (steps 1-6).
 <!-- SECTION:NOTES:END -->
