@@ -8,6 +8,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -42,31 +44,66 @@ public class HttpPixabayClient implements PixabayClient {
 
     @Override
     public Optional<PixabayHit> findPhoto(String query) {
-        JsonNode top = firstHit(PHOTO_URL, query);
-        if (top == null) {
-            return Optional.empty();
-        }
-        String url = text(top, "webformatURL");
-        if (url.isEmpty()) {
-            url = text(top, "largeImageURL");
-        }
-        return url.isEmpty() ? Optional.empty() : Optional.of(hit("photo", top, url));
+        List<JsonNode> found = hits(PHOTO_URL, query, 3);
+        return found.isEmpty() ? Optional.empty() : photoHit(found.get(0));
     }
 
     @Override
     public Optional<PixabayHit> findClip(String query) {
-        JsonNode top = firstHit(VIDEO_URL, query);
-        if (top == null) {
-            return Optional.empty();
+        List<JsonNode> found = hits(VIDEO_URL, query, 3);
+        return found.isEmpty() ? Optional.empty() : clipHit(found.get(0));
+    }
+
+    /** Photos first, then up to 2 clips. If one kind has less, the other fills the free places. */
+    @Override
+    public List<PixabayHit> search(String query, int limit) {
+        List<PixabayHit> photos = new ArrayList<>();
+        for (JsonNode node : hits(PHOTO_URL, query, Math.max(limit, 3))) {
+            photoHit(node).ifPresent(photos::add);
         }
+        List<PixabayHit> clips = new ArrayList<>();
+        for (JsonNode node : hits(VIDEO_URL, query, 3)) {
+            clipHit(node).ifPresent(clips::add);
+        }
+        int clipCount = Math.min(clips.size(), Math.min(2, limit));
+        int photoCount = Math.min(photos.size(), limit - clipCount);
+        // Not enough photos: more clips take the free places.
+        clipCount = Math.min(clips.size(), limit - photoCount);
+        List<PixabayHit> result = new ArrayList<>(photos.subList(0, photoCount));
+        result.addAll(clips.subList(0, clipCount));
+        return result;
+    }
+
+    private Optional<PixabayHit> photoHit(JsonNode node) {
+        String url = text(node, "webformatURL");
+        if (url.isEmpty()) {
+            url = text(node, "largeImageURL");
+        }
+        String preview = text(node, "previewURL");
+        return url.isEmpty() ? Optional.empty() : Optional.of(hit("photo", node, url, preview.isEmpty() ? url : preview));
+    }
+
+    private Optional<PixabayHit> clipHit(JsonNode node) {
         // Small sizes first: quick to download and to convert.
         for (String size : new String[] {"tiny", "small", "medium"}) {
-            String url = text(top.path("videos").path(size), "url");
+            String url = text(node.path("videos").path(size), "url");
             if (!url.isEmpty()) {
-                return Optional.of(hit("clip", top, url));
+                return Optional.of(hit("clip", node, url, clipPreview(node)));
             }
         }
         return Optional.empty();
+    }
+
+    /** The video thumbnail: Pixabay gives one per size, or we build it from picture_id (Pixabay's video host). */
+    private static String clipPreview(JsonNode node) {
+        for (String size : new String[] {"medium", "small", "tiny"}) {
+            String thumbnail = text(node.path("videos").path(size), "thumbnail");
+            if (!thumbnail.isEmpty()) {
+                return thumbnail;
+            }
+        }
+        String pictureId = text(node, "picture_id");
+        return pictureId.isEmpty() ? "" : "https://i.vimeocdn.com/video/" + pictureId + "_295x166.jpg";
     }
 
     @Override
@@ -87,23 +124,28 @@ public class HttpPixabayClient implements PixabayClient {
         return response.body();
     }
 
-    private JsonNode firstHit(String baseUrl, String query) {
+    private List<JsonNode> hits(String baseUrl, String query, int perPage) {
         String url = baseUrl + "?key=" + encode(properties.pixabayApiKey()) + "&q=" + encode(query)
-                + "&safesearch=true&order=popular&per_page=3" + (baseUrl.equals(PHOTO_URL) ? "&image_type=photo" : "");
+                + "&safesearch=true&order=popular&per_page=" + perPage
+                + (baseUrl.equals(PHOTO_URL) ? "&image_type=photo" : "");
         HttpResponse<String> response = send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(15)).build(),
                 HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {
             // The URL has the API key in it, so it is not part of the message.
             throw new IllegalStateException("Pixabay search answered " + response.statusCode());
         }
+        List<JsonNode> result = new ArrayList<>();
         JsonNode hits = jsonMapper.readTree(response.body()).path("hits");
-        return hits.isArray() && !hits.isEmpty() ? hits.get(0) : null;
+        if (hits.isArray()) {
+            hits.forEach(result::add);
+        }
+        return result;
     }
 
-    private PixabayHit hit(String kind, JsonNode top, String downloadUrl) {
+    private PixabayHit hit(String kind, JsonNode top, String downloadUrl, String previewUrl) {
         String photographer = text(top, "user");
         return new PixabayHit(kind, top.path("id").asLong(), downloadUrl,
-                photographer.isEmpty() ? "Unknown" : photographer, text(top, "pageURL"));
+                photographer.isEmpty() ? "Unknown" : photographer, text(top, "pageURL"), previewUrl);
     }
 
     private static String text(JsonNode node, String field) {
@@ -140,7 +182,7 @@ public class HttpPixabayClient implements PixabayClient {
     }
 
     /** True only for https on pixabay.com or one of its subdomains (cdn.pixabay.com), not "evilpixabay.com". */
-    static boolean isPixabayAddress(URI uri) {
+    public static boolean isPixabayAddress(URI uri) {
         String host = uri.getHost();
         return "https".equals(uri.getScheme()) && host != null
                 && (host.equals("pixabay.com") || host.endsWith(".pixabay.com"));

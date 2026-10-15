@@ -50,6 +50,23 @@ export interface WordItem {
   createdAt: string;
   // One item per sense, same order as entry.senses; null when a sense has no media.
   media?: (SenseMedia | null)[];
+  // One item per sense: "needs_ai" when the sense is marked for an AI image, else null (TASK-52).
+  mediaStatus?: (string | null)[];
+}
+
+// One Pixabay result in the "Pick another" panel (TASK-52). Send it back as the body of PUT .../media.
+export interface MediaSearchResult {
+  kind: "photo" | "clip";
+  pixabayId: number;
+  previewUrl: string;
+  downloadUrl: string;
+  photographer: string;
+  pageUrl: string;
+}
+
+export interface MediaSearchResponse {
+  query: string; // the search words that were used
+  results: MediaSearchResult[];
 }
 
 export interface SentenceWord {

@@ -3,9 +3,11 @@ id: TASK-52
 title: >-
   Admin: replace a sense image (pick another Pixabay result, no image, or mark
   for AI)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-14 14:44'
+updated_date: '2026-10-15 03:42'
 labels:
   - backend
   - web
@@ -37,3 +39,14 @@ Decision (doc-7, 2026-10-14, images option B): Pixabay first; the developer fixe
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Flyway V8: media_status column on dictionary_sense and word_lookup_media.
+2. PixabayClient.search (up to 6 photo+clip results with preview); MediaStore (download, convert, save media row) extracted from BackendWordMediaService and reused.
+3. Admin API: GET /api/admin/media/search?sense=b-12:0&q=, PUT/DELETE /api/admin/words/{id}/senses/{n}/media, POST .../media/mark-for-ai, GET /api/admin/media?status=needs_ai. ADMIN only (existing rule), search rate limited (30 per 5 min per admin).
+4. Admin web app: inline panel under the Media row (approved option A), icon-only buttons with aria-labels.
+5. Tests: backend with fake Pixabay + auth checks; Vitest for the panel.
+6. Update doc-13, doc-14; check_docs; PR into feature/f5-cms.
+<!-- SECTION:PLAN:END -->

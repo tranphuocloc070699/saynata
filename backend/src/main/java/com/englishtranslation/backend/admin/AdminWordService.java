@@ -175,13 +175,17 @@ public class AdminWordService {
         }
         Map<Long, Map<Integer, SenseMedia>> bundledMedia = mediaReader.forBundledWords(bundledIds);
         Map<Long, Map<Integer, SenseMedia>> backendMedia = mediaReader.forBackendWords(backendIds);
+        Map<Long, Map<Integer, String>> bundledStatus = mediaReader.statusForBundledWords(bundledIds);
+        Map<Long, Map<Integer, String>> backendStatus = mediaReader.statusForBackendWords(backendIds);
         List<AdminWord> words = new ArrayList<>();
         for (ListRow row : rows) {
             AdminWordId id = AdminWordId.parse(row.itemId());
             WordEntry entry = (id.bundled() ? bundledEntries : backendEntries).get(id.number());
             Map<Integer, SenseMedia> media = (id.bundled() ? bundledMedia : backendMedia).getOrDefault(id.number(), Map.of());
+            Map<Integer, String> status = (id.bundled() ? bundledStatus : backendStatus).getOrDefault(id.number(), Map.of());
             words.add(new AdminWord(row.itemId(), row.word(), entry, row.ipa(), row.needsReview(), row.source(),
-                    row.model(), row.promptVersion(), row.createdAt(), mediaPerSense(entry, media)));
+                    row.model(), row.promptVersion(), row.createdAt(), mediaPerSense(entry, media),
+                    statusPerSense(entry, status)));
         }
         return words;
     }
@@ -311,7 +315,8 @@ public class AdminWordService {
                 .getOrDefault(word.getId(), Map.of()));
         return new AdminWord("b-" + word.getId(), word.getLemma(), entry, word.getIpa(),
                 word.isNeedsReview(), AdminWordId.BUNDLED, word.getModel(), word.getPromptVersion(),
-                word.getCreatedAt(), media);
+                word.getCreatedAt(), media, statusPerSense(entry, mediaReader.statusForBundledWords(List.of(word.getId()))
+                        .getOrDefault(word.getId(), Map.of())));
     }
 
     private AdminWord toAdminWord(WordLookup lookup) {
@@ -320,7 +325,8 @@ public class AdminWordService {
                 .getOrDefault(lookup.getId(), Map.of()));
         return new AdminWord("w-" + lookup.getId(), lookup.getWord(), entry, null,
                 lookup.isNeedsReview(), AdminWordId.BACKEND, lookup.getModel(), lookup.getPromptVersion(),
-                lookup.getCreatedAt(), media);
+                lookup.getCreatedAt(), media, statusPerSense(entry, mediaReader.statusForBackendWords(List.of(lookup.getId()))
+                        .getOrDefault(lookup.getId(), Map.of())));
     }
 
     /** One item per sense, in the order of the entry: the media, or null when the sense has none. */
@@ -332,5 +338,16 @@ public class AdminWordService {
             }
         }
         return media;
+    }
+
+    /** One item per sense, in the order of the entry: "needs_ai" when the admin marked it, else null. */
+    private List<String> statusPerSense(WordEntry entry, Map<Integer, String> byPosition) {
+        List<String> status = new ArrayList<>();
+        if (entry != null) {
+            for (int i = 0; i < entry.senses().size(); i++) {
+                status.add(byPosition.get(i));
+            }
+        }
+        return status;
     }
 }
