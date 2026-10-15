@@ -3,6 +3,9 @@ package com.englishtranslation.backend.word;
 import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.dictionary.BundledEntryReader;
+import com.englishtranslation.backend.dictionary.DictionaryWord;
+import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
 import com.englishtranslation.backend.media.BackendWordMediaService;
 import com.englishtranslation.backend.media.SenseMedia;
 import com.englishtranslation.backend.media.SenseMediaReader;
@@ -31,11 +34,16 @@ public class WordService {
     private final SimpleWords simpleWords;
     private final BackendWordMediaService mediaService;
     private final SenseMediaReader mediaReader;
+    private final DictionaryWordRepository bundled;
+    private final BundledEntryReader bundledReader;
 
     public WordService(WordLookupRepository repository, ClaudeService claude, ClaudeProperties properties,
             JsonMapper jsonMapper, EnglishWords englishWords,
             IpaDictionary ipaDictionary, SimpleWords simpleWords,
-            BackendWordMediaService mediaService, SenseMediaReader mediaReader) {
+            BackendWordMediaService mediaService, SenseMediaReader mediaReader,
+            DictionaryWordRepository bundled, BundledEntryReader bundledReader) {
+        this.bundled = bundled;
+        this.bundledReader = bundledReader;
         this.mediaService = mediaService;
         this.mediaReader = mediaReader;
         this.simpleWords = simpleWords;
@@ -49,6 +57,13 @@ public class WordService {
 
     public WordResponse lookUp(String word) {
         String normalized = CacheKeys.normalizeWord(word);
+
+        // A bundled word is answered from its own entry. The bundled entry wins (TASK-58): Claude is not
+        // called and no word_lookup row is made, so a word is never in both lists.
+        Optional<DictionaryWord> bundledWord = bundled.findWithSensesByLemma(normalized);
+        if (bundledWord.isPresent()) {
+            return bundledResponse(normalized, bundledWord.get());
+        }
 
         // Not a real word: answer "no senses" (the app shows "not an English word") without calling Claude.
         // Nothing is saved, so a later update of the word list can fix a missing word.
@@ -89,6 +104,20 @@ public class WordService {
             WordLookup first = repository.findByCacheKey(cacheKey).orElseThrow(() -> e);
             return response(normalized, readEntry(first), true, mediaOf(first.getId()));
         }
+    }
+
+    /** The reply for a bundled word: its entry and media from Postgres, cached = true (nothing was generated). */
+    private WordResponse bundledResponse(String word, DictionaryWord bundledWord) {
+        WordEntry entry = bundledReader.read(bundledWord);
+        Map<Integer, SenseMedia> media;
+        try {
+            media = mediaReader.forBundledWords(List.of(bundledWord.getId())).getOrDefault(bundledWord.getId(), Map.of());
+        } catch (RuntimeException e) {
+            log.warn("Could not read the media of dictionary_word {}: {}", bundledWord.getId(), e.toString());
+            media = Map.of();
+        }
+        String ipa = bundledWord.getIpa() != null ? bundledWord.getIpa() : ipaDictionary.ipaFor(word);
+        return new WordResponse(word, WordEntryView.of(entry, media), true, ipa);
     }
 
     /** Asks Claude once more, naming the problems. If that call fails, we keep the first entry. */

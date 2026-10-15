@@ -43,9 +43,10 @@ public class AdminWordController {
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "needs_review", required = false) Boolean needsReview,
             @RequestParam(name = "source", required = false) String source,
-            @RequestParam(name = "cefr", required = false) List<String> cefr) {
+            @RequestParam(name = "cefr", required = false) List<String> cefr,
+            @RequestParam(name = "media", required = false) String media) {
         AdminWordService.WordPage page = service.list(
-                AdminListParams.likePattern(q), needsReview, source, cefr,
+                AdminListParams.likePattern(q), needsReview, source, cefr, media,
                 AdminListParams.pageable(start, end, sort, order, SORT_FIELDS));
         return ResponseEntity.ok()
                 .header("X-Total-Count", String.valueOf(page.total()))

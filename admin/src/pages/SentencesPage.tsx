@@ -5,8 +5,8 @@ import { Field } from "@/components/EntryEditor";
 import { EntryBrowser, type Chip } from "@/components/EntryBrowser";
 import type { FieldRow } from "@/components/FieldTable";
 
-const chips: Chip<SentenceItem>[] = [
-  { id: "needs-review", label: "Needs review", server: { field: "needs_review", value: true } },
+const chips: Chip[] = [
+  { id: "needs-review", label: "Needs review", field: "needs_review", value: true },
 ];
 
 // Same order as the app: the sentence, the simple explanation, the words, the translation last.
