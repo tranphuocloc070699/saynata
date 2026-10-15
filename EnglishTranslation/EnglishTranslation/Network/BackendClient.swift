@@ -162,7 +162,7 @@ struct BackendClient: Translating, WordFetching {
 
         // A 401 with a token means the token ended: refresh once and ask again (inside `withAuthRetry`).
         return try await withAuthRetry { token in
-            try await readStream(request, token: token, key: key, onMeaning: onMeaning)
+            try await readStream(request, token: token, key: key, onMeaningDelta: onMeaningDelta, onMeaning: onMeaning)
         }
     }
 
@@ -171,6 +171,7 @@ struct BackendClient: Translating, WordFetching {
         _ request: URLRequest,
         token: String?,
         key: String,
+        onMeaningDelta: @escaping @MainActor @Sendable (String) -> Void,
         onMeaning: @escaping @MainActor @Sendable (String) -> Void
     ) async throws -> Explanation {
         let (bytes, response) = try await session.bytes(for: authorized(request, token: token))
