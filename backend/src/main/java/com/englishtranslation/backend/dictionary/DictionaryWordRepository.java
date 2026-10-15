@@ -14,4 +14,8 @@ public interface DictionaryWordRepository extends JpaRepository<DictionaryWord, 
 
     @EntityGraph(attributePaths = "senses")
     Optional<DictionaryWord> findWithSensesById(Long id);
+
+    /** The bundled word with this lemma (lower case), with its senses. Empty when the word is not bundled. */
+    @EntityGraph(attributePaths = "senses")
+    Optional<DictionaryWord> findWithSensesByLemma(String lemma);
 }

@@ -46,8 +46,9 @@ export function MediaRow({ word, index }: Props) {
     }
   }
 
-  // The word list is read again, so the new picture shows at once.
-  const refresh = () => invalidate({ resource: "words", invalidates: ["list", "detail"] });
+  // The word list is read again, so the new picture shows at once. "all" is needed: the list is an infinite list,
+  // and Refine's "list" key does not reach it (TASK-57).
+  const refresh = () => invalidate({ resource: "words", invalidates: ["all"] });
 
   // words is the search text; empty means "use the sense's own search words" (the backend answers with them).
   const search = (words: string) =>

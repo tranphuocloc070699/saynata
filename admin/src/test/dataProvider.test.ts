@@ -33,6 +33,25 @@ describe("data provider", () => {
     expect(result.data).toEqual([{ id: 1 }]);
   });
 
+  it("sends a list filter as repeated params, and the source and media filters as plain params", async () => {
+    const get = vi.spyOn(httpClient, "get").mockResolvedValue({ data: [], headers: { "x-total-count": "0" } });
+
+    await provider.getList({
+      resource: "words",
+      pagination: { currentPage: 1, pageSize: 50 },
+      filters: [
+        { field: "source", operator: "eq", value: "bundled" },
+        { field: "cefr", operator: "in", value: ["A1", "A2"] },
+        { field: "media", operator: "eq", value: "without" },
+      ],
+    });
+
+    expect(get).toHaveBeenCalledWith(
+      "https://api.test/api/admin/words?_end=50&_start=0&cefr=A1&cefr=A2&media=without&source=bundled",
+      expect.anything(),
+    );
+  });
+
   it("gets one word by id", async () => {
     const get = vi.spyOn(httpClient, "get").mockResolvedValue({ data: { id: 7 }, headers: {} });
     await provider.getOne({ resource: "words", id: 7 });

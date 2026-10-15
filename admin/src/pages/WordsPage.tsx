@@ -8,18 +8,18 @@ import type { FieldRow } from "@/components/FieldTable";
 
 const LEVELS: ExampleLevel[] = ["easy", "medium", "harder"];
 
-const cefrChip = (label: string, levels: string[]): Chip<WordItem> => ({
-  id: label,
-  label,
-  client: { group: "cefr", matches: (word) => word.entry.senses.some((sense) => levels.includes(sense.cefr)) },
-});
+// Every chip is sent to the backend (a query parameter). Source and media: one at a time. Levels: OR-ed.
+// The level is the level of the first sense (the backend column, same as in the list).
+const cefrChip = (label: string, levels: string[]): Chip => ({ id: label, label, field: "cefr", value: levels, combine: "any" });
 
-const chips: Chip<WordItem>[] = [
-  { id: "needs-review", label: "Needs review", server: { field: "needs_review", value: true } },
-  { id: "bundled", label: "Bundled", client: { group: "source", matches: (word) => word.source === "bundled" } },
-  { id: "backend", label: "From backend", client: { group: "source", matches: (word) => word.source === "backend" } },
+const chips: Chip[] = [
+  { id: "needs-review", label: "Needs review", field: "needs_review", value: true },
+  { id: "bundled", label: "Bundled", field: "source", value: "bundled" },
+  { id: "backend", label: "From backend", field: "source", value: "backend" },
   cefrChip("A1-A2", ["A1", "A2"]),
   cefrChip("B1-B2", ["B1", "B2"]),
+  { id: "has-media", label: "Has media", field: "media", value: "with" },
+  { id: "no-media", label: "No media", field: "media", value: "without" },
 ];
 
 // Why a word needs review: the lines from the backend, or a hint when the entry is fine now.
@@ -36,6 +36,19 @@ function ReviewReasons({ word }: { word: WordItem }) {
         <li key={reason}>{reason}</li>
       ))}
     </ul>
+  );
+}
+
+// In the list row, next to the "Needs review" badge: how many problems, and the reasons in the tooltip.
+function ReasonCount({ word }: { word: WordItem }) {
+  if (!word.needsReview) return null;
+  const reasons = word.reviewReasons ?? [];
+  const label = `${reasons.length} ${reasons.length === 1 ? "problem" : "problems"}`;
+  const tooltip = reasons.length ? reasons.join("\n") : "No problems found now; press ✓ to mark it reviewed";
+  return (
+    <Badge variant="outline" title={tooltip}>
+      {label}
+    </Badge>
   );
 }
 
@@ -170,7 +183,12 @@ export function WordsPage() {
       chips={chips}
       itemTitle={(word) => word.word}
       itemSubtitle={(word) => word.entry.senses[0]?.simpleDefinition ?? ""}
-      itemBadges={(word) => <Badge variant="outline">{word.source === "bundled" ? "Bundled" : "Backend"}</Badge>}
+      itemBadges={(word) => (
+        <>
+          <Badge variant="outline">{word.source === "bundled" ? "Bundled" : "Backend"}</Badge>
+          <ReasonCount word={word} />
+        </>
+      )}
       detailRows={detailRows}
       editableEntry={(word) => word.entry}
       renderForm={(draft, setDraft, word) => <WordForm draft={draft} setDraft={setDraft} word={word} />}
