@@ -23,7 +23,21 @@ CREATE TABLE IF NOT EXISTS words (
     ipa            TEXT,
     entry          TEXT,                   -- JSON WordEntry
     problems       TEXT,                   -- JSON list of failed checks
-    updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
+    updated_at     TEXT DEFAULT CURRENT_TIMESTAMP,
+    topic          TEXT                    -- NULL for NGSL words; one of topics.Topic for topic words (TASK-61)
+);
+
+-- Topic words (TASK-61): candidates from WordNet + wordfreq, then judged by Claude Haiku. See topics.py.
+-- status: candidate -> keep | drop. Approved words move to the words table later, for the generate pass.
+CREATE TABLE IF NOT EXISTS topic_words (
+    lemma     TEXT PRIMARY KEY,
+    pos       TEXT NOT NULL,              -- n, v or a
+    zipf      REAL NOT NULL,              -- wordfreq Zipf frequency
+    topic     TEXT NOT NULL,              -- one of topics.Topic
+    gloss     TEXT NOT NULL,              -- the WordNet definition the topic came from
+    status    TEXT NOT NULL DEFAULT 'candidate',
+    reason    TEXT,                       -- the judge's short reason
+    judged_at TEXT
 );
 """
 
@@ -33,6 +47,10 @@ def connect() -> sqlite3.Connection:
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
     connection.executescript(SCHEMA)
+    # Databases made before TASK-61 have no topic column yet.
+    if "topic" not in {row[1] for row in connection.execute("PRAGMA table_info(words)")}:
+        connection.execute("ALTER TABLE words ADD COLUMN topic TEXT")
+        connection.commit()
     return connection
 
 
