@@ -3,9 +3,11 @@ id: TASK-47
 title: >-
   iOS: sense media clips play only when visible, loop without stutter, with
   tests and docs
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-14 10:47'
+updated_date: '2026-10-15 03:39'
 labels:
   - ios
   - bug
@@ -36,3 +38,13 @@ Follow-ups from the TASK-23 review (2026-10-14), file EnglishTranslation/English
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. LoopingPlayerUIView: empty AVQueuePlayer() + AVPlayerLooper(templateItem:).
+2. Play only while about a third visible (onScrollVisibilityChange threshold 0.33) and scenePhase is active; pause otherwise.
+3. Tests: Sense imageUrl/image_url decode, encode imageUrl, nil when missing; DictionaryStore image_url column present/absent.
+4. Describe the media row in doc-5, update Last traced.
+Done together with TASK-51 in branch fix/task-47-51-media (same file).
+<!-- SECTION:PLAN:END -->

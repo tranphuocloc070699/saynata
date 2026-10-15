@@ -1,9 +1,11 @@
 ---
 id: TASK-51
 title: 'iOS: load sense images and clips from the server URL, with an offline cache'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-14 11:22'
+updated_date: '2026-10-15 03:39'
 labels:
   - ios
   - media
@@ -34,3 +36,12 @@ Decision (doc-7, 2026-10-14, option B). SenseMediaView (EnglishTranslation/Engli
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. SenseMediaSource: a path is bundled or an https URL (other schemes ignored). Server format: absolute https://api.loffy.me/media/<word>_<n>_<hash>.webp|.mp4 (from PR #46, WordEntryView + MediaProperties.urlFor).
+2. MediaFileCache (actor): files in Caches/SenseMedia, name = sha256(url)+extension, size limit 50 MB (oldest file removed first), one download per URL at a time, injected downloader for tests.
+3. SenseMediaView: remote photo = cache then download; hidden (space kept) while loading, nothing on failure. Remote clip = AVPlayer streams the URL, cache fills after first play, next play uses the file.
+4. Tests for source parsing and cache. Update doc-5.
+<!-- SECTION:PLAN:END -->
