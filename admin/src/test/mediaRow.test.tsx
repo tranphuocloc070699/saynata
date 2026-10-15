@@ -164,3 +164,83 @@ describe("media row", () => {
     expect(screen.getByRole("region", { name: "Pick another image (sense 1)" })).toBeInTheDocument();
   });
 });
+
+describe("full-size viewer (TASK-77)", () => {
+  const get = vi.spyOn(httpClient, "get");
+  beforeEach(() => {
+    get.mockResolvedValue({ data: { query: "person running", results: [result(1), result(2, "clip"), result(3)] } });
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it("opens from the photo in the Media row with the right source and caption", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "View run, sense 1 full size" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("img", { name: "run · sense 1" })).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.webp");
+    expect(dialog).toHaveTextContent("run · sense 1 · Photo by Jane Photo on Pixabay");
+    expect(within(dialog).getByRole("link", { name: "Jane Photo" })).toHaveAttribute("href", "https://pixabay.com/photos/x-1/");
+    expect(within(dialog).getByRole("button", { name: "Close" })).toHaveTextContent("");
+  });
+
+  it("plays a clip with controls, muted until the viewer unmutes", async () => {
+    renderRow({ ...word, media: [{ url: "https://api.loffy.me/media/run_1_ab.mp4", kind: "clip", photographer: "Pat Maker", pageUrl: "https://pixabay.com/videos/x-2/" }] });
+    await userEvent.click(screen.getByRole("button", { name: "View run, sense 1 full size" }));
+
+    const dialog = await screen.findByRole("dialog");
+    const video = within(dialog).getByLabelText("run · sense 1") as HTMLVideoElement;
+    expect(video.tagName).toBe("VIDEO");
+    expect(video).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.mp4");
+    expect(video.controls).toBe(true);
+    expect(video.muted).toBe(true);
+    expect(dialog).toHaveTextContent("run · sense 1 · Clip by Pat Maker on Pixabay");
+  });
+
+  it("closes with Esc and gives the focus back to the clicked media", async () => {
+    renderRow();
+    const opener = screen.getByRole("button", { name: "View run, sense 1 full size" });
+    await userEvent.click(opener);
+    await screen.findByRole("dialog");
+
+    await userEvent.keyboard("{Escape}");
+
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await vi.waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it("closes with the Close button", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "View run, sense 1 full size" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Close" }));
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("closes with a click on the dark backdrop", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "View run, sense 1 full size" }));
+    await screen.findByRole("dialog");
+
+    await userEvent.click(screen.getByTestId("lightbox-backdrop"));
+
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("opens a Pick-another result from its own zoom button, and a click on the tile still selects it", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
+    await screen.findByRole("button", { name: "Result 2, clip by Person 2" });
+
+    await userEvent.click(screen.getByRole("button", { name: "View result 2 full size" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText("run · sense 1")).toHaveAttribute("src", "https://cdn.pixabay.com/x/2");
+    expect(dialog).toHaveTextContent("run · sense 1 · Clip by Person 2 on Pixabay");
+    // Zooming did not select the tile.
+    expect(screen.getByRole("button", { name: "Result 2, clip by Person 2", hidden: true })).toHaveAttribute("aria-pressed", "false");
+
+    await userEvent.keyboard("{Escape}");
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: "Result 2, clip by Person 2" }));
+    expect(screen.getByRole("button", { name: "Result 2, clip by Person 2" })).toHaveAttribute("aria-pressed", "true");
+  });
+});

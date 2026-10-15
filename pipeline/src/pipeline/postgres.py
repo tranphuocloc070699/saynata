@@ -203,7 +203,8 @@ def link_media(
     import_dictionary skips words that are already in Postgres, so it cannot bring in media for them, and
     --overwrite would replace edits made in the admin. This only touches the media: it adds the media rows
     and sets media_id on a sense that has none. A sense that already has media is left alone, and no text changes.
-    Returns how many senses were linked.
+    A sense the admin removed the media of (image_type 'none' or media_status 'removed', TASK-76) is skipped,
+    so a removed picture does not come back from an older dictionary.sqlite. Returns how many senses were linked.
     """
     attribution, _ = read_media_metadata(pipeline_db)
     app_db.row_factory = sqlite3.Row
@@ -215,6 +216,14 @@ def link_media(
                WHERE s.image_url IS NOT NULL ORDER BY w.id, s.position"""
         ).fetchall()
         for row in rows:
+            cursor.execute(
+                """SELECT s.image_type, s.media_status FROM dictionary_sense s JOIN dictionary_word w ON w.id = s.word_id
+                   WHERE w.lemma = %s AND s.position = %s""",
+                (row["lemma"], row["position"]),
+            )
+            state = cursor.fetchone()
+            if state is None or state[0] == "none" or state[1] == "removed":
+                continue   # not in Postgres, or the admin removed its media: do not make a media row either
             file_name = row["image_url"].removeprefix(MEDIA_PREFIX)
             width, height, size = file_facts(media_dir, file_name)
             meta = attribution.get(file_name, {})

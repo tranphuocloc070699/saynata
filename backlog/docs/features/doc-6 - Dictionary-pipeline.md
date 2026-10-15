@@ -3,9 +3,9 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-15 08:46'
+updated_date: '2026-10-15 14:43'
 ---
-> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-15 (topic words, TASK-61; before that Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
+> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-15 (`link-media` and `export` skip senses the admin removed media from: TASK-76; topic words, TASK-61; before that Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
 > **Since TASK-49.3 the server Postgres is the source of truth** for the bundled words, senses, forms and media rows. `dictionary.sqlite` is built *from* Postgres by `export`; the generate passes below still fill `data/pipeline.db`.
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
 
@@ -302,8 +302,8 @@ Numbers on 2026-10-15 (Zipf 3.5): **1,378 candidates**. The judge (28 Haiku call
 | `uv run pipeline revalidate` | No | Re-check stored `needs_review` entries after the checks change; passing ones become `done` ([cli.py:99-115](../../../pipeline/src/pipeline/cli.py#L99-L115)) |
 | `uv run pipeline report` | No | Counts per status + the problem list |
 | `uv run pipeline import-to-postgres` | No | One time: copy the bundled `dictionary.sqlite` (+ media facts) into Postgres. Re-run safe; `--overwrite`, `--sqlite`, `--media-dir`, `--database-url` |
-| `uv run pipeline link-media` | No | After the media pass: add its media rows and links to senses in Postgres, changing no text and no existing media. `--sqlite` (default `data/out/dictionary.sqlite`, from `export-local`), `--media-dir`, `--database-url`. Then `rsync` the files to the server (doc-11, section 9) |
-| `uv run pipeline export` | No | Build `data/out/dictionary.sqlite`, `.jsonl` and `media/` from Postgres (read-only). `--media-dir`, `--database-url` |
+| `uv run pipeline link-media` | No | After the media pass: add its media rows and links to senses in Postgres, changing no text and no existing media. It also skips a sense with `image_type = 'none'` or `media_status = 'removed'` (the admin removed its media, TASK-76), so a removed picture does not come back from an older file. `--sqlite` (default `data/out/dictionary.sqlite`, from `export-local`), `--media-dir`, `--database-url`. Then `rsync` the files to the server (doc-11, section 9) |
+| `uv run pipeline export` | No | Build `data/out/dictionary.sqlite`, `.jsonl` and `media/` from Postgres (read-only). A sense with `image_type = 'none'` or `media_status = 'removed'` gets no `image_url` (TASK-76). `--media-dir`, `--database-url` |
 | `uv run pipeline export-local` | No | Old: build `dictionary.sqlite` from `data/pipeline.db` |
 | `uv run pipeline topics candidates` | No | Topic word candidates from WordNet + wordfreq into `topic_words` (`--zipf`, default 3.5). Resume-safe ([cli.py:207-233](../../../pipeline/src/pipeline/cli.py#L207-L233)) |
 | `uv run pipeline topics judge --dry-run --limit 50` | 1 Haiku call (under $0.01) | Judge 50 candidates, print the verdicts, save nothing |

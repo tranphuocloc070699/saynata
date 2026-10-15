@@ -1,4 +1,5 @@
 import { Play } from "lucide-react";
+import { useEffect, useRef } from "react";
 import type { Example, ExampleLevel, Sense, UsageLine, WordEntry, WordItem } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Input, Textarea } from "@/components/ui/input";
@@ -53,11 +54,42 @@ function ReasonCount({ word }: { word: WordItem }) {
   );
 }
 
-// The small picture of a list row (about 56x42): the photo of the first sense, a play icon for a clip (a video does
-// not play in the list), or a quiet dash when the word has no media. Photos load lazily, so a long list stays light.
-function Thumb({ word }: { word: WordItem }) {
+// A clip plays in the thumbnail while the mouse is over the row. The <video> exists only then (the list holds
+// at most one), so 50 rows never load 50 clips. Leaving unmounts it: pause, back to the start, the still shows again.
+function HoverClip({ url }: { url: string }) {
+  const video = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const element = video.current;
+    // play() can fail (no codec, the page is hidden): the still stays, nothing else to do.
+    try {
+      void element?.play()?.catch(() => undefined);
+    } catch {
+      // not supported here (for example a test browser)
+    }
+    return () => {
+      element?.pause();
+      if (element) element.currentTime = 0;
+    };
+  }, []);
+  return (
+    <video
+      ref={video}
+      src={url}
+      preload="auto"
+      muted
+      loop
+      playsInline
+      aria-hidden
+      className="absolute inset-0 h-full w-full bg-muted object-cover"
+    />
+  );
+}
+
+// The small picture of a list row (about 56x42): the photo of the first sense, a play icon for a clip (it plays on
+// hover), or a quiet dash when the word has no media. Photos load lazily, so a long list stays light.
+function Thumb({ word, hovered }: { word: WordItem; hovered: boolean }) {
   const media = word.media?.[0];
-  const box = "flex h-[42px] w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground";
+  const box = "relative flex h-[42px] w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground";
   if (media?.kind === "photo") {
     return (
       <span className={box}>
@@ -69,6 +101,7 @@ function Thumb({ word }: { word: WordItem }) {
     return (
       <span className={box} role="img" aria-label={`${word.word} clip`}>
         <Play className="h-4 w-4" aria-hidden />
+        {hovered && <HoverClip url={media.url} />}
       </span>
     );
   }
@@ -211,7 +244,8 @@ export function WordsPage() {
       chips={chips}
       itemTitle={(word) => word.word}
       itemSubtitle={(word) => word.entry.senses[0]?.vietnamese ?? ""}
-      itemThumb={(word) => <Thumb word={word} />}
+      itemThumb={(word, hovered) => <Thumb word={word} hovered={hovered} />}
+      hasMedia={(word) => !!word.media?.some(Boolean)}
       itemBadges={(word) => (
         <>
           <Badge variant="outline">{word.source === "bundled" ? "Bundled" : "Backend"}</Badge>

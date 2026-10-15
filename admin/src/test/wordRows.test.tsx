@@ -1,8 +1,8 @@
 import { Refine, type DataProvider } from "@refinedev/core";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SenseMedia, WordItem } from "@/api/types";
 import { httpClient } from "@/providers/dataProvider";
 import { WordsPage } from "@/pages/WordsPage";
@@ -44,6 +44,7 @@ function renderWords(words: WordItem[]) {
       </Refine>
     </MemoryRouter>,
   );
+  return getList;
 }
 
 async function row(name: string) {
@@ -106,5 +107,126 @@ describe("media row per word (TASK-64)", () => {
     expect(clip.tagName).toBe("VIDEO");
     expect(clip).toHaveAttribute("src", "https://api.loffy.me/media/run.mp4");
     expect(within(entry).getByRole("link", { name: "By run.mp4" })).toBeInTheDocument();
+  });
+});
+
+describe("hover to play a clip in the list (TASK-77)", () => {
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play");
+  const pause = vi.spyOn(HTMLMediaElement.prototype, "pause");
+  const walkWord = word(4, "walk", "đi bộ", media("clip", "walk.mp4"));
+
+  beforeEach(() => {
+    play.mockReset().mockResolvedValue(undefined);
+    pause.mockReset().mockImplementation(() => undefined);
+  });
+
+  it("plays the clip muted and looping while the mouse is over the row, then pauses and shows the still again", async () => {
+    renderWords([clipWord, walkWord]);
+    const run = await row("run");
+    expect(document.querySelectorAll("video")).toHaveLength(0);
+
+    await userEvent.hover(run);
+
+    const video = run.querySelector("video") as HTMLVideoElement;
+    expect(video).toHaveAttribute("src", "https://api.loffy.me/media/run.mp4");
+    expect(video.muted).toBe(true);
+    expect(video.loop).toBe(true);
+    expect(play).toHaveBeenCalledTimes(1);
+    // The still (play icon) is still under the video.
+    expect(within(run).getByRole("img", { name: "run clip" })).toBeInTheDocument();
+
+    await userEvent.unhover(run);
+
+    expect(pause).toHaveBeenCalled();
+    expect(run.querySelector("video")).toBeNull();
+  });
+
+  it("has a video in one row at a time", async () => {
+    renderWords([clipWord, walkWord]);
+    const run = await row("run");
+    const walk = await row("walk");
+
+    await userEvent.hover(run);
+    expect(document.querySelectorAll("video")).toHaveLength(1);
+
+    await userEvent.hover(walk);
+    expect(run.querySelector("video")).toBeNull();
+    expect(walk.querySelector("video")).not.toBeNull();
+    expect(document.querySelectorAll("video")).toHaveLength(1);
+  });
+
+  it("does nothing on hover for a photo or a word without media", async () => {
+    renderWords([photoWord, plainWord]);
+    await userEvent.hover(await row("apple"));
+    await userEvent.hover(await row("idea"));
+    expect(document.querySelectorAll("video")).toHaveLength(0);
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it("does nothing for a touch pointer", async () => {
+    renderWords([clipWord]);
+    const run = await row("run");
+    // A tap on a phone: the pointer that enters the row is a finger.
+    fireEvent.pointerEnter(run, { pointerType: "touch" });
+    expect(run.querySelector("video")).toBeNull();
+    expect(play).not.toHaveBeenCalled();
+  });
+});
+
+describe("remove all media of a word (TASK-76)", () => {
+  const del = vi.spyOn(httpClient, "delete");
+  afterEach(() => vi.clearAllMocks());
+
+  it("is an icon-only button next to the other header buttons, and disabled when the word has no media", async () => {
+    renderWords([plainWord]);
+    await userEvent.click(await row("idea"));
+    const entry = screen.getByRole("region", { name: "Entry" });
+    const button = within(entry).getByRole("button", { name: "Remove all media" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveTextContent("");
+    expect(button.querySelector("svg")).not.toBeNull();
+  });
+
+  it("asks first, then sends DELETE, and the list and the Media rows show no media afterwards", async () => {
+    const words = [{ ...photoWord }, { ...clipWord }];
+    del.mockImplementation(async () => {
+      words[0] = { ...words[0], media: [null], mediaStatus: ["removed"] };
+      return { data: {} };
+    });
+    const getList = renderWords(words);
+    await userEvent.click(await row("apple"));
+    const entry = screen.getByRole("region", { name: "Entry" });
+    expect(within(entry).getByRole("img", { name: "apple, sense 1" })).toBeInTheDocument();
+
+    await userEvent.click(within(entry).getByRole("button", { name: "Remove all media" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("Remove the pictures and clips of all senses of apple? The app stops showing them.");
+    expect(del).not.toHaveBeenCalled();
+
+    // Cancel changes nothing.
+    await userEvent.click(screen.getByRole("button", { name: "Cancel remove all media" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(del).not.toHaveBeenCalled();
+
+    const callsBefore = getList.mock.calls.length;
+    await userEvent.click(within(entry).getByRole("button", { name: "Remove all media" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm remove all media" }));
+
+    await vi.waitFor(() => expect(del).toHaveBeenCalledTimes(1));
+    expect(del.mock.calls[0][0]).toBe(`${API}/words/1/media`);
+    // The infinite list is read again (PR #58), so the thumbnail and the Media row change.
+    await vi.waitFor(() => expect(getList.mock.calls.length).toBeGreaterThan(callsBefore));
+    await vi.waitFor(() => expect(within(entry).queryByRole("img", { name: "apple, sense 1" })).not.toBeInTheDocument());
+    expect(within(await row("apple")).getByLabelText("No media")).toBeInTheDocument();
+    expect(within(entry).getByRole("button", { name: "Remove all media" })).toBeDisabled();
+  });
+
+  it("shows the message when the backend refuses", async () => {
+    del.mockRejectedValue(new Error("Request failed with status code 404"));
+    renderWords([photoWord]);
+    await userEvent.click(await row("apple"));
+    const entry = screen.getByRole("region", { name: "Entry" });
+    await userEvent.click(within(entry).getByRole("button", { name: "Remove all media" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm remove all media" }));
+    expect(await within(entry).findByRole("alert")).toHaveTextContent("Request failed with status code 404");
   });
 });

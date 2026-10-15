@@ -1,9 +1,10 @@
 import { useApiUrl, useInvalidate } from "@refinedev/core";
-import { Check, ImageOff, Images, Search, Sparkles, X } from "lucide-react";
+import { Check, ImageOff, Images, Maximize2, Search, Sparkles, X } from "lucide-react";
 import { useState } from "react";
 import type { MediaSearchResponse, MediaSearchResult, SenseMedia, WordItem } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MediaLightbox, type LightboxMedia } from "@/components/MediaLightbox";
 import { httpClient } from "@/providers/dataProvider";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,8 @@ export function MediaRow({ word, index }: Props) {
   const [chosen, setChosen] = useState<number>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  // The full-size viewer: the photo or clip that was clicked (the current one or a search result).
+  const [viewing, setViewing] = useState<LightboxMedia | null>(null);
 
   async function run(action: () => Promise<unknown>, afterwards?: () => void) {
     setBusy(true);
@@ -91,7 +94,7 @@ export function MediaRow({ word, index }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
-        <MediaCell media={media} alt={senseLabel} />
+        <MediaCell media={media} alt={senseLabel} onOpen={() => media && setViewing(media)} />
         <div className="flex shrink-0 gap-2" role="group" aria-label={`Media actions (sense ${index + 1})`}>
           <Button
             variant="outline"
@@ -151,7 +154,7 @@ export function MediaRow({ word, index }: Props) {
           {results && results.length > 0 && (
             <ul className="grid grid-cols-3 gap-2">
               {results.map((result, i) => (
-                <li key={`${result.kind}-${result.pixabayId}`}>
+                <li key={`${result.kind}-${result.pixabayId}`} className="relative">
                   <button
                     type="button"
                     aria-label={`Result ${i + 1}, ${result.kind} by ${result.photographer}`}
@@ -166,6 +169,18 @@ export function MediaRow({ word, index }: Props) {
                     {result.kind === "clip" && (
                       <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">clip</span>
                     )}
+                  </button>
+                  {/* A separate button, so a click on the tile still selects it. */}
+                  <button
+                    type="button"
+                    aria-label={`View result ${i + 1} full size`}
+                    title="View full size"
+                    onClick={() =>
+                      setViewing({ url: result.downloadUrl, kind: result.kind, photographer: result.photographer, pageUrl: result.pageUrl })
+                    }
+                    className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded bg-black/70 text-white hover:bg-black/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Maximize2 className="h-3 w-3" />
                   </button>
                 </li>
               ))}
@@ -185,20 +200,30 @@ export function MediaRow({ word, index }: Props) {
           {error}
         </p>
       )}
+
+      <MediaLightbox media={viewing} label={`${word.word} · sense ${index + 1}`} onClose={() => setViewing(null)} />
     </div>
   );
 }
 
 // The photo (or the muted looping clip) of a sense, with the Pixabay credit under it.
-function MediaCell({ media, alt }: { media: SenseMedia | null | undefined; alt: string }) {
+function MediaCell({ media, alt, onOpen }: { media: SenseMedia | null | undefined; alt: string; onOpen: () => void }) {
   if (!media) return <span>-</span>;
   return (
     <div className="space-y-1">
+      <button
+        type="button"
+        aria-label={`View ${alt} full size`}
+        title="View full size"
+        onClick={onOpen}
+        className="block cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
       {media.kind === "clip" ? (
         <video key={media.url} src={media.url} aria-label={alt} className="h-24 rounded-md" autoPlay loop muted playsInline />
       ) : (
         <img src={media.url} alt={alt} className="h-24 rounded-md" />
       )}
+      </button>
       <div className="text-xs text-muted-foreground">
         {media.kind === "clip" ? "Clip" : "Photo"} by{" "}
         <a href={media.pageUrl} target="_blank" rel="noreferrer" className="underline">

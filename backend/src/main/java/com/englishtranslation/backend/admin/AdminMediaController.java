@@ -59,6 +59,12 @@ public class AdminMediaController {
         return service.clear(id, position);
     }
 
+    /** No media for any sense of the word (TASK-76). Returns the changed word. */
+    @DeleteMapping("/words/{id}/media")
+    public AdminWord removeAll(@PathVariable String id) {
+        return service.removeAllMedia(id);
+    }
+
     @PostMapping("/words/{id}/senses/{position}/media/mark-for-ai")
     public AdminWord markForAi(@PathVariable String id, @PathVariable int position) {
         return service.markForAi(id, position);

@@ -20,6 +20,7 @@ import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.dictionary.DictionarySense;
 import com.englishtranslation.backend.dictionary.DictionaryWord;
 import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
+import com.englishtranslation.backend.media.BackendWordMediaService;
 import com.englishtranslation.backend.media.MediaConverter;
 import com.englishtranslation.backend.media.PixabayBusyException;
 import com.englishtranslation.backend.media.PixabayClient;
@@ -28,6 +29,7 @@ import com.englishtranslation.backend.translation.SentenceTranslationRepository;
 import com.englishtranslation.backend.user.Role;
 import com.englishtranslation.backend.user.User;
 import com.englishtranslation.backend.user.UserRepository;
+import com.englishtranslation.backend.word.WordEntry;
 import com.englishtranslation.backend.word.WordLookup;
 import com.englishtranslation.backend.word.WordLookupRepository;
 import jakarta.servlet.http.Cookie;
@@ -85,6 +87,8 @@ class AdminMediaTest {
     AdminTokenService tokens;
     @Autowired
     JdbcTemplate jdbc;
+    @Autowired
+    BackendWordMediaService mediaJob;
 
     @MockitoBean
     ClaudeService claude;
@@ -172,6 +176,17 @@ class AdminMediaTest {
     private static String chosen(String kind, long id) {
         return "{\"kind\":\"" + kind + "\",\"pixabayId\":" + id + ",\"downloadUrl\":\"https://cdn.pixabay.com/x/" + id
                 + "\",\"photographer\":\"Jane Photo\",\"pageUrl\":\"https://pixabay.com/" + kind + "s/x-" + id + "/\"}";
+    }
+
+    private List<String> files() throws IOException {
+        try (var listing = Files.list(mediaDir)) {
+            return listing.map(file -> file.getFileName().toString()).toList();
+        }
+    }
+
+    private String fileOfSense(long wordId, int position) {
+        return jdbc.queryForObject("select m.file_name from media m join dictionary_sense s on s.media_id = m.id"
+                + " where s.word_id = ? and s.position = ?", String.class, wordId, position);
     }
 
     private int mediaRows() {
@@ -288,7 +303,9 @@ class AdminMediaTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.media[0].kind").value("clip"))
                 .andExpect(jsonPath("$.media[0].url").value(org.hamcrest.Matchers.endsWith(".mp4")));
-        assertThat(mediaRows()).isEqualTo(2);
+        // The first picture is not used any more, so its row and file are gone (TASK-76).
+        assertThat(mediaRows()).isEqualTo(1);
+        assertThat(files()).hasSize(1);
     }
 
     @Test
@@ -439,5 +456,169 @@ class AdminMediaTest {
         mockMvc.perform(asAdmin(post("/api/admin/words/w-999999/senses/0/media/mark-for-ai"))).andExpect(status().isNotFound());
         mockMvc.perform(asAdmin(put("/api/admin/words/b-" + run.getId() + "/senses/2/media")).content(chosen("photo", 1)))
                 .andExpect(status().isNotFound());
+    }
+
+    // ---- the file is really deleted (TASK-76) ----
+
+    @Test
+    void noImageDeletesTheRowAndTheFileWhenNothingElseUsesIt() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        String id = "b-" + run.getId();
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/0/media")).content(chosen("photo", 1)))
+                .andExpect(status().isOk());
+        String fileName = fileOfSense(run.getId(), 0);
+        assertThat(mediaDir.resolve(fileName)).exists();
+
+        mockMvc.perform(asAdmin(delete("/api/admin/words/" + id + "/senses/0/media"))).andExpect(status().isOk());
+
+        assertThat(mediaDir.resolve(fileName)).doesNotExist();
+        assertThat(mediaRows()).isZero();
+    }
+
+    @Test
+    void noImageKeepsTheFileWhileAnotherSenseStillUsesIt() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        WordLookup zebra = saveBackend("zebra");
+        String id = "b-" + run.getId();
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/0/media")).content(chosen("photo", 1)))
+                .andExpect(status().isOk());
+        String fileName = fileOfSense(run.getId(), 0);
+        // A backend sense and a second bundled sense use the same media row.
+        jdbc.update("update dictionary_sense set media_id = (select media_id from dictionary_sense where word_id = ? and position = 0)"
+                + " where word_id = ? and position = 1", run.getId(), run.getId());
+        jdbc.update("insert into word_lookup_media (word_lookup_id, sense_position, media_id, created_at)"
+                + " values (?, 0, (select media_id from dictionary_sense where word_id = ? and position = 0), now())",
+                zebra.getId(), run.getId());
+
+        mockMvc.perform(asAdmin(delete("/api/admin/words/" + id + "/senses/0/media"))).andExpect(status().isOk());
+        assertThat(mediaDir.resolve(fileName)).exists();
+        assertThat(mediaRows()).isEqualTo(1);
+
+        mockMvc.perform(asAdmin(delete("/api/admin/words/" + id + "/senses/1/media"))).andExpect(status().isOk());
+        assertThat(mediaDir.resolve(fileName)).exists();
+
+        // The last sense lets go: now the file goes.
+        mockMvc.perform(asAdmin(delete("/api/admin/words/w-" + zebra.getId() + "/senses/0/media"))).andExpect(status().isOk());
+        assertThat(mediaDir.resolve(fileName)).doesNotExist();
+        assertThat(mediaRows()).isZero();
+    }
+
+    @Test
+    void aFileThatIsAlreadyMissingIsNotAnError() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        String id = "b-" + run.getId();
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/0/media")).content(chosen("photo", 1)))
+                .andExpect(status().isOk());
+        Files.delete(mediaDir.resolve(fileOfSense(run.getId(), 0)));
+
+        mockMvc.perform(asAdmin(delete("/api/admin/words/" + id + "/senses/0/media")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.media[0]").doesNotExist());
+        assertThat(mediaRows()).isZero();
+    }
+
+    @Test
+    void pickingAnotherDeletesTheOldFileButPickingTheSameOneAgainKeepsIt() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        String id = "b-" + run.getId();
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/0/media")).content(chosen("photo", 1)))
+                .andExpect(status().isOk());
+        String first = fileOfSense(run.getId(), 0);
+
+        // Same Pixabay result again: same content, same file name, so nothing is deleted.
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/0/media")).content(chosen("photo", 1)))
+                .andExpect(status().isOk());
+        assertThat(mediaDir.resolve(first)).exists();
+        assertThat(fileOfSense(run.getId(), 0)).isEqualTo(first);
+
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/0/media")).content(chosen("clip", 2)))
+                .andExpect(status().isOk());
+        assertThat(mediaDir.resolve(first)).doesNotExist();
+        assertThat(mediaDir.resolve(fileOfSense(run.getId(), 0))).exists();
+    }
+
+    // ---- remove all media of a word (TASK-76) ----
+
+    @Test
+    void removeAllMediaOfABundledWordClearsEverySenseAndDeletesTheFiles() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        String id = "b-" + run.getId();
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/0/media")).content(chosen("photo", 1))).andExpect(status().isOk());
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/1/media")).content(chosen("clip", 2))).andExpect(status().isOk());
+        assertThat(files()).hasSize(2);
+        mockMvc.perform(asAdmin(post("/api/admin/words/" + id + "/senses/1/media/mark-for-ai"))).andExpect(status().isOk());
+
+        mockMvc.perform(asAdmin(delete("/api/admin/words/" + id + "/media")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.media[0]").doesNotExist())
+                .andExpect(jsonPath("$.media[1]").doesNotExist())
+                .andExpect(jsonPath("$.mediaStatus[0]").value("removed"))
+                .andExpect(jsonPath("$.mediaStatus[1]").value("removed"));
+
+        assertThat(files()).isEmpty();
+        assertThat(mediaRows()).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from dictionary_sense where word_id = ? and image_type = 'none'"
+                + " and media_status = 'removed' and media_id is null", Integer.class, run.getId())).isEqualTo(2);
+    }
+
+    @Test
+    void removeAllMediaOfABackendWordMarksEverySenseEvenWithoutAClaimRow() throws Exception {
+        WordLookup zebra = saveBackend("zebra");
+        String id = "w-" + zebra.getId();
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/0/media")).content(chosen("photo", 1))).andExpect(status().isOk());
+        assertThat(files()).hasSize(1);
+
+        mockMvc.perform(asAdmin(delete("/api/admin/words/" + id + "/media")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.media[0]").doesNotExist())
+                .andExpect(jsonPath("$.mediaStatus[0]").value("removed"));
+
+        assertThat(files()).isEmpty();
+        assertThat(mediaRows()).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from word_lookup_media where word_lookup_id = ?"
+                + " and media_id is null and media_status = 'removed'", Integer.class, zebra.getId())).isEqualTo(1);
+    }
+
+    @Test
+    void removeAllMediaKeepsAFileThatAnotherWordStillUses() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        DictionaryWord walk = saveBundled("walk", "walk picture");
+        mockMvc.perform(asAdmin(put("/api/admin/words/b-" + run.getId() + "/senses/0/media")).content(chosen("photo", 1)))
+                .andExpect(status().isOk());
+        jdbc.update("update dictionary_sense set media_id = (select media_id from dictionary_sense where word_id = ? and position = 0)"
+                + " where word_id = ? and position = 0", run.getId(), walk.getId());
+
+        mockMvc.perform(asAdmin(delete("/api/admin/words/b-" + run.getId() + "/media"))).andExpect(status().isOk());
+
+        assertThat(files()).hasSize(1);
+        assertThat(fileOfSense(walk.getId(), 0)).isNotNull();
+    }
+
+    @Test
+    void theBackgroundJobDoesNotFillARemovedSenseAgain() throws Exception {
+        WordLookup zebra = saveBackend("zebra");
+        mockMvc.perform(asAdmin(delete("/api/admin/words/w-" + zebra.getId() + "/media"))).andExpect(status().isOk());
+
+        WordEntry entry = new WordEntry(List.of(new WordEntry.Sense("noun", "B1", "an animal", "x",
+                List.of(new WordEntry.Example("easy", "A zebra.")), List.of())));
+        mediaJob.fetch(zebra.getId(), "zebra", entry);
+
+        verify(pixabay, never()).findPhoto(anyString());
+        verify(pixabay, never()).findClip(anyString());
+        assertThat(files()).isEmpty();
+    }
+
+    @Test
+    void removeAllMediaNeedsTheAdminRoleAndAnExistingWord() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        mockMvc.perform(delete("/api/admin/words/b-" + run.getId() + "/media").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized());
+        User plain = users.save(new User("plain@example.com", passwordEncoder.encode("another-long-password"), "Plain", Role.USER));
+        Cookie cookie = new Cookie("saynata_admin", tokens.createToken(plain.getId()));
+        mockMvc.perform(delete("/api/admin/words/b-" + run.getId() + "/media").cookie(cookie).contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(asAdmin(delete("/api/admin/words/b-999999/media"))).andExpect(status().isNotFound());
+        mockMvc.perform(asAdmin(delete("/api/admin/words/w-999999/media"))).andExpect(status().isNotFound());
     }
 }

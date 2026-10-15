@@ -131,7 +131,7 @@ def export_from_postgres(pg: psycopg.Connection, media_dir: Path = MEDIA_DIR) ->
         words = cursor.fetchall()
         cursor.execute(
             """SELECT s.word_id, s.pos, s.cefr, s.simple_definition, s.vietnamese, s.examples_json, s.usage_json,
-                      s.image_type, s.image_query, m.file_name
+                      s.image_type, s.image_query, m.file_name, s.media_status
                FROM dictionary_sense s LEFT JOIN media m ON m.id = s.media_id
                ORDER BY s.word_id, s.position"""
         )
@@ -155,10 +155,12 @@ def export_from_postgres(pg: psycopg.Connection, media_dir: Path = MEDIA_DIR) ->
             form_count += len(forms_of.get(pg_id, []))
             jsonl_senses = []
             for position, sense in enumerate(senses_of.get(pg_id, [])):
-                pos, cefr, definition, vietnamese, examples, usage, image_type, image_query, file_name = sense
+                pos, cefr, definition, vietnamese, examples, usage, image_type, image_query, file_name, media_status = sense
                 # Parse and write again, so the text is always the same format, also after an admin edit.
                 examples_json = json.dumps(json.loads(examples), ensure_ascii=False)
                 usage_json = json.dumps(json.loads(usage), ensure_ascii=False)
+                if image_type == "none" or media_status == "removed":
+                    file_name = None   # the admin removed the media (TASK-76): the next app build must not point to it
                 image_url = MEDIA_URL_PREFIX + file_name if file_name else None
                 if file_name:
                     media_files.append(file_name)

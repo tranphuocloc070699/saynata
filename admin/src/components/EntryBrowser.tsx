@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { EntryActions } from "@/components/EntryActions";
 import { EntryEditor } from "@/components/EntryEditor";
 import { FieldTable, type FieldRow } from "@/components/FieldTable";
+import { httpClient } from "@/providers/dataProvider";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 50;
@@ -33,8 +34,11 @@ interface Props<T extends Item, E> {
   itemTitle: (item: T) => string;
   itemSubtitle: (item: T) => string;
   // A small picture on the left of the row (words list). Without it the row is two lines of text.
-  itemThumb?: (item: T) => ReactNode;
+  // hovered is true while the mouse is over the row (a mouse, not a finger): the words list plays a clip then.
+  itemThumb?: (item: T, hovered: boolean) => ReactNode;
   itemBadges?: (item: T) => ReactNode;
+  // Words only (TASK-76): when set, the header gets a Remove all media button. It is disabled when this says false.
+  hasMedia?: (item: T) => boolean;
   detailRows: (item: T) => FieldRow[];
   // The JSON the backend stores for this item: what the editor changes and PUT sends.
   editableEntry: (item: T) => E;
@@ -49,6 +53,7 @@ export function EntryBrowser<T extends Item, E>({
   itemSubtitle,
   itemThumb,
   itemBadges,
+  hasMedia,
   detailRows,
   editableEntry,
   renderForm,
@@ -59,6 +64,8 @@ export function EntryBrowser<T extends Item, E>({
   const [selectedId, setSelectedId] = useState<T["id"]>();
   const [editing, setEditing] = useState(false);
   const [actionError, setActionError] = useState<string>();
+  // Only one row is hovered at a time (the words list plays that row's clip).
+  const [hoveredId, setHoveredId] = useState<T["id"]>();
 
   // Wait a moment after typing before asking the backend.
   useEffect(() => {
@@ -147,6 +154,11 @@ export function EntryBrowser<T extends Item, E>({
   const markReviewed = () =>
     run(() => post({ url: `${apiUrl}/${resource}/${selectedId}/reviewed`, method: "post", values: {} }));
   const regenerate = () => run(() => remove({ resource, id: selectedId! }), () => setSelectedId(undefined));
+  // DELETE /words/{id}/media. The backend needs a JSON Content-Type on every write. run() reads the list again.
+  const removeMedia = () =>
+    run(() =>
+      httpClient.delete(`${apiUrl}/${resource}/${selectedId}/media`, { data: {}, headers: { "Content-Type": "application/json" } }),
+    );
   const save = (entry: E) =>
     run(
       () => update({ resource, id: selectedId!, values: entry as object, meta: { method: "put" } }),
@@ -206,6 +218,9 @@ export function EntryBrowser<T extends Item, E>({
             <li key={item.id}>
               <button
                 aria-pressed={item.id === selectedId}
+                // A finger tap also sends mouse events on a phone; only a real mouse or pen counts as hover.
+                onPointerEnter={(e) => e.pointerType !== "touch" && setHoveredId(item.id)}
+                onPointerLeave={() => setHoveredId((current) => (current === item.id ? undefined : current))}
                 onClick={() => {
                   setSelectedId(item.id);
                   setEditing(false);
@@ -217,7 +232,7 @@ export function EntryBrowser<T extends Item, E>({
                 )}
               >
                 <div className="flex items-center gap-3">
-                  {itemThumb?.(item)}
+                  {itemThumb?.(item, hoveredId === item.id)}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold">{itemTitle(item)}</span>
@@ -266,6 +281,7 @@ export function EntryBrowser<T extends Item, E>({
                 onMarkReviewed={markReviewed}
                 onEdit={() => setEditing(true)}
                 onRegenerate={regenerate}
+                removeMedia={hasMedia ? { word: itemTitle(selected), hasMedia: hasMedia(selected), onConfirm: removeMedia } : undefined}
               />
             </div>
             <FieldTable rows={detailRows(selected)} />

@@ -3,11 +3,11 @@ id: doc-15
 title: Media and images
 type: specification
 created_date: '2026-10-15 04:02'
-updated_date: '2026-10-15 10:02'
+updated_date: '2026-10-15 14:43'
 ---
 # Media and images
 
-> Status: **working for photos and clips from Pixabay** (TASK-23, 49.3, 49.4, 52). AI images are not built yet (TASK-53). The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-15 (the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
+> Status: **working for photos and clips from Pixabay** (TASK-23, 49.3, 49.4, 52). AI images are not built yet (TASK-53). The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-15 (removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
 > Why: a small picture or a short clip helps a learner remember a meaning (doc-1, Vision and spec). Postgres on the server is the source of truth for content (doc-7).
 
 ## What it does
@@ -146,7 +146,7 @@ sequenceDiagram
 
 Env: `MEDIA_DIR` (folder), `MEDIA_BASE_URL` (public address), `PIXABAY_API_KEY` (empty means no job). Details of the word flow are in [Word lookup](doc-5%20-%20Word-lookup.md).
 
-## 3. Admin: fix one sense (TASK-52)
+## 3. Admin: fix one sense (TASK-52) and remove media for real (TASK-76)
 
 In a word's detail, each sense has a media row with three icon buttons: **Pick another**, **No image** and **Mark for AI**. A sense is named by the word id and the position: `b-12:0` is the first sense of bundled word 12, `w-45:2` is the third sense of backend word 45. The screens are described in [Admin CMS](doc-14%20-%20Admin-CMS.md), the login and rules in [Admin API](doc-13%20-%20Admin-API.md).
 
@@ -174,17 +174,61 @@ sequenceDiagram
 
 | Button | Endpoint | File:line | What happens |
 |---|---|---|---|
-| (search) | `GET /api/admin/media/search?sense=b-12:0&q=` | [controller:33](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L33), [AdminMediaService.search:77](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L77) | Up to 6 results (usually 2 clips and the rest photos). With an empty `q`, it uses the sense's `image_query`, or the headword. The answer says which words it used. |
-| Pick another | `PUT /api/admin/words/{id}/senses/{n}/media` | [controller:51](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L51), [replace:100](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L100) | The result comes from the browser, so [checked:260](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L260) only accepts Pixabay https addresses. Then `MediaStore.save`, then the link. A sense that was "no image" gets `image_type = photo` again. |
-| No image | `DELETE .../media` | [controller:57](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L57), [clear:123](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L123) | `media_id` becomes null. For a bundled sense, `image_type = none` tells the pipeline not to fetch again. For a backend word the claim row stays, so the job does not fetch again. |
-| Mark for AI | `POST .../media/mark-for-ai` | [controller:62](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L62), [markForAi:136](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L136) | Sets `media_status = needs_ai`. The old picture stays until an AI image replaces it (TASK-53). Picking another picture clears the status. |
-| (list) | `GET /api/admin/media?status=needs_ai` | [controller:44](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L44), [listByStatus:154](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L154) | All marked senses, from both tables. Any other status is a 400. |
+| (search) | `GET /api/admin/media/search?sense=b-12:0&q=` | [controller:33](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L33), [AdminMediaService.search:91](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L91) | Up to 6 results (usually 2 clips and the rest photos). With an empty `q`, it uses the sense's `image_query`, or the headword. The answer says which words it used. |
+| Pick another | `PUT /api/admin/words/{id}/senses/{n}/media` | [controller:51](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L51), [replace:114](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L114) | The result comes from the browser, so [checked:325](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L325) only accepts Pixabay https addresses. Then `MediaStore.save`, then the link. A sense that was "no image" gets `image_type = photo` again. |
+| No image | `DELETE .../media` | [controller:57](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L57), [clear:143](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L143) | `media_id` becomes null. For a bundled sense, `image_type = none` tells the pipeline not to fetch again. For a backend word the claim row stays, so the job does not fetch again. |
+| Mark for AI | `POST .../media/mark-for-ai` | [controller:62](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L62), [markForAi:198](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L198) | Sets `media_status = needs_ai`. The old picture stays until an AI image replaces it (TASK-53). Picking another picture clears the status. |
+| Remove all media | `DELETE /api/admin/words/{id}/media` | [controller:63](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L63), [removeAllMedia:163](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L163) | TASK-76. Every sense of the word (bundled or backend) loses its media in one transaction and gets `media_status = removed`. A bundled sense also gets `image_type = none`; a backend sense gets a claim row, so the background job never fills it. Then the unused files are deleted (next section). |
+| (list) | `GET /api/admin/media?status=needs_ai` | [controller:44](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L44), [listByStatus:216](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L216) | All marked senses, from both tables. Any other status is a 400. |
 
 Shared details:
 
 - **Search rate limit:** [MediaSearchRateLimiter:19-20](../../../backend/src/main/java/com/englishtranslation/backend/admin/MediaSearchRateLimiter.java#L19-L20) allows 30 searches in 5 minutes per admin, kept in memory (a restart clears it). One search is two Pixabay calls, and Pixabay allows 100 per minute for our whole key.
-- **Backend words without a claim row:** [ensureBackendRow:205](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L205) makes the `word_lookup_media` row when it is missing (the background job only makes rows for 3 senses).
-- **Old files stay on disk.** A replaced picture is not deleted; only its link changes.
+- **Backend words without a claim row:** [ensureBackendRow:267](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L267) makes the `word_lookup_media` row when it is missing (the background job only makes rows for 3 senses).
+- **Old files are deleted when nothing uses them (TASK-76).** See the flow below.
+
+### Removing media for real (TASK-76)
+
+Before TASK-76, "No image" only unlinked the media in Postgres. The file stayed in `MEDIA_DIR`, and the app's bundled `dictionary.sqlite` still says `image_url = media/<file>`, so the app kept loading `https://api.loffy.me/media/<file>` and showed the picture. Now the file is deleted, the address answers 404, and the app already shows nothing when a download fails.
+
+```mermaid
+sequenceDiagram
+    participant Web as Admin web app
+    participant S as AdminMediaService
+    participant DB as Postgres
+    participant C as MediaCleanup
+    participant FS as MEDIA_DIR
+    Web->>S: No image / Pick another / Remove all media
+    S->>DB: read old media ids, then unlink (one transaction for Remove all)
+    DB-->>S: committed
+    S->>C: deleteIfUnused(old ids)
+    C->>DB: delete from media where id = ? and no sense uses it
+    alt a row was deleted
+        C->>FS: delete the file (a missing file is only logged)
+    else another sense still uses it
+        C-->>S: nothing deleted
+    end
+    S-->>Web: the changed word
+```
+
+| Step | File:line | What happens |
+|---|---|---|
+| Collect the old ids | [currentMediaId:189](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L189) | Read before the sense is changed. |
+| Check and delete the row | [MediaCleanup.deleteOne:46](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaCleanup.java#L46) | One `delete from media ... and not exists (dictionary_sense) and not exists (word_lookup_media)`. Zero rows deleted means someone still uses it. |
+| Delete the file | [deleteFile:62](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaCleanup.java#L62) | `Files.deleteIfExists`. A missing file is logged. A path outside the media folder is refused. An I/O error is logged and does not fail the request. |
+| Same pick again | [replace:114](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L114) | The same Pixabay result gives the same file name and the same row (`MediaStore.save`), which is still linked, so it is kept. |
+| Job race | [fetchOneSense:116](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L116) | The job links its file only if the sense is not `removed`; otherwise it deletes the file it just made. |
+
+A removed sense is not filled again:
+
+- **Backend job:** the claim row exists, so `claim()` fails and Pixabay is never asked.
+- **Pipeline `link-media`:** skips a sense with `image_type = 'none'` or `media_status = 'removed'` before it even makes a media row ([postgres.py:225](../../../pipeline/src/pipeline/postgres.py#L225)). Without this, the next `link-media` from an older `dictionary.sqlite` would bring the picture back.
+- **Pipeline `export`:** writes no `image_url` for such a sense, even if a link was left behind ([export.py:162](../../../pipeline/src/pipeline/export.py#L162)), so the next app build drops the picture from the bundled file.
+- `uv run pipeline media` works on `data/pipeline.db`, which knows nothing about admin changes. It may fetch a file again for a removed sense in that old database, but `link-media` ignores it. (The pipeline media pass already skips `image_type = 'none'`.)
+
+**A phone that already has the picture keeps showing it.** `MediaFileCache` (Caches/SenseMedia, 50 MB) saves each downloaded file by its address, and a saved file is used before the network, so a phone that opened the word before keeps the picture until the cache is cleared (iOS may also clear Caches by itself when space is low; deleting and installing the app clears it). Fresh installs and new devices ask the server, get 404 and show nothing.
+
+**Could the iOS HTTP cache also keep serving it?** Yes, as a second layer. Caddy sends `Cache-Control: public, max-age=31536000, immutable`, and `URLSession.shared` has a default `URLCache` (a few MB in memory, 10 MB on disk), so a recent response can be answered without asking the server. It matters only in the short time before that entry is evicted; the permanent copy is the `MediaFileCache` one. Follow-up idea (not built): make `MediaFileCache` check removal cheaply. The smallest fix is to send a `HEAD` request for a cached file at most once a day (or when the word card opens), and delete the saved copy on 404. A bigger option: send a "removed files" list in the word response. The bundled-in-app samples (`dog_1.webp`, `run_1.mp4`, `tree_1.webp`) are inside the app and also stay until the next app build.
 
 ## 4. iOS: how the app shows media
 
@@ -230,9 +274,11 @@ Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTes
 | [WordImageUrlTest](../../../backend/src/test/java/com/englishtranslation/backend/media/WordImageUrlTest.java) | `imageUrl` is absolute, the field is missing when there is no media, a new word is answered first. |
 | [FfmpegMediaConverterTest](../../../backend/src/test/java/com/englishtranslation/backend/media/FfmpegMediaConverterTest.java) | Big photo becomes a small WebP, video becomes a short MP4, bad input fails with a clear message. Needs ffmpeg on the machine. |
 | [HttpPixabayClientTest](../../../backend/src/test/java/com/englishtranslation/backend/media/HttpPixabayClientTest.java) | Only Pixabay hosts over https are accepted. A fake HTTP client: 429 then 200 succeeds (one 1 s pause), 429 three times gives `PixabayBusyException`, `Retry-After` is used, a `Retry-After` past the budget gives up at once, other errors are not tried again (TASK-63). |
-| [AdminMediaTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaTest.java) | Login and role, search (6 results, default words, rate limit, errors), pick, remove, mark for AI, list, 404. |
+| [AdminMediaTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaTest.java) | Login and role, search (6 results, default words, rate limit, errors), pick, remove, mark for AI, list, 404. TASK-76: the file and row are deleted when unused and kept while another sense (bundled or backend) uses them, a missing file is fine, picking another deletes the old file, Remove all media for a bundled word and a backend word (also without a claim row), the background job does not fill a removed sense, only ADMIN may call it. |
 | [test_media.py](../../../pipeline/tests/test_media.py) | `needs_media`, file names, WebP resize, dry run, the pass with a fake fetcher. |
-| [mediaRow.test.tsx](../../../admin/src/test/mediaRow.test.tsx) | The admin buttons and the Pick another panel. |
+| [test_postgres.py](../../../pipeline/tests/test_postgres.py) | TASK-76: `link-media` skips `none` and `removed` senses and makes no media row for them; `export` writes no `image_url` for them. Needs `TEST_DATABASE_URL`. |
+| [mediaRow.test.tsx](../../../admin/src/test/mediaRow.test.tsx) | The admin buttons and the Pick another panel, the full-size viewer (TASK-77). |
+| [wordRows.test.tsx](../../../admin/src/test/wordRows.test.tsx) | Thumbnails, hover to play, Remove all media (TASK-76, TASK-77). |
 
 Run: `cd backend && ./mvnw -B test`, `cd pipeline && uv run pytest`, `cd admin && npm test`. iOS: `SenseMediaTests.swift` (command in doc-2).
 
@@ -262,6 +308,8 @@ AI images plug in at `media_status = needs_ai` (set by Mark for AI, listed by `G
 - Pipeline file names have no hash (`run_1.mp4`). Caddy caches every file for a year as `immutable`. If you rsync a different picture under the same name, phones may keep the old one.
 - A picture an admin picks for a bundled sense changes Postgres, but the app learns the new file name only after the next `export` and a new app build (the sqlite file in the app holds the paths). A new file under the same name is also held by the one-year phone and Caddy caches.
 - The first view of a bundled word's picture needs the network. A word the user never opened online has no picture offline.
-- Old files are never deleted from `/var/lib/saynata/media` (replaced pictures, removed words).
+- Files of a **deleted word** (Regenerate) and of the Flyway V9 clean-up are still not deleted from `/var/lib/saynata/media`. Replaced and removed pictures are (TASK-76).
+- A phone that cached a picture before an admin removed it keeps showing it until its cache is cleared (see the TASK-76 section). Follow-up idea: check cached files with `HEAD` and delete them on 404.
+- The pipeline media pass (`data/pipeline.db`) does not know about admin removals; `link-media` and `export` protect the result.
 - Pixabay credit (photographer, page) is stored and sent to the admin, but the iOS card does not show it yet.
 - The Media page of the admin web app is still a placeholder (see doc-14).

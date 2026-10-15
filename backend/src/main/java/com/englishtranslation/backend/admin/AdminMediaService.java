@@ -1,6 +1,7 @@
 package com.englishtranslation.backend.admin;
 
 import com.englishtranslation.backend.media.HttpPixabayClient;
+import com.englishtranslation.backend.media.MediaCleanup;
 import com.englishtranslation.backend.media.MediaProperties;
 import com.englishtranslation.backend.media.MediaStore;
 import com.englishtranslation.backend.media.PixabayBusyException;
@@ -13,11 +14,15 @@ import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -32,6 +37,8 @@ public class AdminMediaService {
 
     static final int MAX_RESULTS = 6;
     static final String NEEDS_AI = "needs_ai";
+    /** The admin removed the media of the sense: it must not be filled again (TASK-76). */
+    public static final String REMOVED = "removed";
     static final String BUSY_MESSAGE = "Pixabay is busy right now. Try again in a minute.";
 
     /** One Pixabay result. previewUrl is for the small picture in the admin; downloadUrl is what we fetch if it is chosen. */
@@ -62,15 +69,20 @@ public class AdminMediaService {
     private final MediaSearchRateLimiter rateLimiter;
     private final AdminWordService words;
     private final JdbcClient jdbc;
+    private final MediaCleanup cleanup;
+    private final TransactionTemplate transaction;
 
     public AdminMediaService(PixabayClient pixabay, MediaStore store, MediaProperties properties,
-            MediaSearchRateLimiter rateLimiter, AdminWordService words, JdbcClient jdbc) {
+            MediaSearchRateLimiter rateLimiter, AdminWordService words, JdbcClient jdbc, MediaCleanup cleanup,
+            PlatformTransactionManager transactionManager) {
         this.pixabay = pixabay;
         this.store = store;
         this.properties = properties;
         this.rateLimiter = rateLimiter;
         this.words = words;
         this.jdbc = jdbc;
+        this.cleanup = cleanup;
+        this.transaction = new TransactionTemplate(transactionManager);
     }
 
     // ---- search ----
@@ -115,12 +127,15 @@ public class AdminMediaService {
             log.warn("Could not save the chosen media for {} sense {}: {}", wordId, position + 1, e.toString());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not download or convert that file. Try another one.");
         }
+        Long oldMediaId = currentMediaId(id, position);
         link(id, position, mediaId, null);
         if (id.bundled()) {
             // A sense that was "no image" has a picture again.
             jdbc.sql("update dictionary_sense set image_type = 'photo' where word_id = :word and position = :position"
                     + " and image_type = 'none'").param("word", id.number()).param("position", position).update();
         }
+        // The old file is deleted when no other sense uses it. If the same file was picked again, it is still linked.
+        cleanup.deleteIfUnused(oldMediaId == null ? Set.of() : Set.of(oldMediaId));
         return words.get(id.text());
     }
 
@@ -128,13 +143,55 @@ public class AdminMediaService {
     public AdminWord clear(String wordId, int position) {
         AdminWordId id = AdminWordId.parse(wordId);
         findSense(id, position);
+        Long oldMediaId = currentMediaId(id, position);
         link(id, position, null, null);
         if (id.bundled()) {
             // Tells the pipeline too: this sense wants no image.
             jdbc.sql("update dictionary_sense set image_type = 'none' where word_id = :word and position = :position")
                     .param("word", id.number()).param("position", position).update();
         }
+        // The app downloads the file by its name, so it must be gone (the app then shows nothing).
+        cleanup.deleteIfUnused(oldMediaId == null ? Set.of() : Set.of(oldMediaId));
         return words.get(id.text());
+    }
+
+    /**
+     * No media for any sense of the word (TASK-76). Every sense is marked "removed": a bundled sense also gets
+     * image_type = none, a backend sense gets a claim row, so neither the pipeline nor the background job fills it
+     * again. The senses change in one transaction; the files that no sense uses any more are deleted afterwards.
+     */
+    public AdminWord removeAllMedia(String wordId) {
+        AdminWordId id = AdminWordId.parse(wordId);
+        AdminWord word = words.get(id.text()); // 404 when the word is missing
+        List<Long> oldMediaIds = transaction.execute(status -> {
+            if (id.bundled()) {
+                List<Long> old = jdbc.sql("select media_id from dictionary_sense where word_id = :word and media_id is not null")
+                        .param("word", id.number()).query(Long.class).list();
+                jdbc.sql("update dictionary_sense set media_id = null, image_type = 'none', media_status = :status"
+                        + " where word_id = :word").param("status", REMOVED).param("word", id.number()).update();
+                return old;
+            }
+            int senses = word.entry() == null ? 0 : word.entry().senses().size();
+            for (int position = 0; position < senses; position++) {
+                ensureBackendRow(id.number(), position);
+            }
+            List<Long> old = jdbc.sql("select media_id from word_lookup_media where word_lookup_id = :word and media_id is not null")
+                    .param("word", id.number()).query(Long.class).list();
+            jdbc.sql("update word_lookup_media set media_id = null, media_status = :status where word_lookup_id = :word")
+                    .param("status", REMOVED).param("word", id.number()).update();
+            return old;
+        });
+        cleanup.deleteIfUnused(oldMediaIds == null ? List.of() : oldMediaIds);
+        return words.get(id.text());
+    }
+
+    /** The media row the sense uses now, or null. */
+    private Long currentMediaId(AdminWordId id, int position) {
+        String sql = id.bundled()
+                ? "select media_id from dictionary_sense where word_id = :word and position = :position"
+                : "select media_id from word_lookup_media where word_lookup_id = :word and sense_position = :position";
+        return jdbc.sql(sql).param("word", id.number()).param("position", position).query(Long.class).list()
+                .stream().filter(Objects::nonNull).findFirst().orElse(null);
     }
 
     /** media_status = needs_ai. The current picture stays until an AI image replaces it (TASK-53). */

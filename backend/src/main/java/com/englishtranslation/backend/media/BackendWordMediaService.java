@@ -32,13 +32,15 @@ public class BackendWordMediaService {
     private final MediaStore store;
     private final MediaProperties properties;
     private final JdbcClient jdbc;
+    private final MediaCleanup cleanup;
 
     public BackendWordMediaService(PixabayClient pixabay, MediaStore store, MediaProperties properties,
-            JdbcClient jdbc) {
+            JdbcClient jdbc, MediaCleanup cleanup) {
         this.pixabay = pixabay;
         this.store = store;
         this.properties = properties;
         this.jdbc = jdbc;
+        this.cleanup = cleanup;
     }
 
     /** Called by WordService after the new entry is saved. Returns at once; the work runs on the "media-" thread. */
@@ -110,9 +112,15 @@ public class BackendWordMediaService {
             return;
         }
         long mediaId = store.save(word, position, hit.get());
-        jdbc.sql("update word_lookup_media set media_id = :media where word_lookup_id = :lookup"
-                + " and sense_position = :position")
+        // Not when an admin removed the media of this sense while we were downloading (TASK-76).
+        int linked = jdbc.sql("update word_lookup_media set media_id = :media where word_lookup_id = :lookup"
+                + " and sense_position = :position and coalesce(media_status, '') <> 'removed'")
                 .param("media", mediaId).param("lookup", lookupId).param("position", position).update();
+        if (linked == 0) {
+            log.info("Media of '{}' sense {} was removed meanwhile, deleting the new file", word, position + 1);
+            cleanup.deleteIfUnused(java.util.List.of(mediaId));
+            return;
+        }
         log.info("Saved media {} for '{}' sense {}", mediaId, word, position + 1);
     }
 }
