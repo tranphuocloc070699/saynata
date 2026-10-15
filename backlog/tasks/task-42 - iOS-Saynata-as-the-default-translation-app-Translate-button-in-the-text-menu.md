@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-11 15:39'
-updated_date: '2026-10-14 11:18'
+updated_date: '2026-10-14 11:25'
 labels:
   - ios
 dependencies:
@@ -48,4 +48,6 @@ Developer request 2026-10-11: tapping Translate on selected text in any app shou
 PR: https://github.com/tranphuocloc070699/saynata/pull/27. Test it. Goal: Translate on selected text opens Saynata. Steps: run EnglishTranslation scheme on iPhone 16 Pro iOS 18.5; Settings > Apps > Default Apps > Translation (Saynata listed); Safari, long-press a word, > arrow, Translate, Continue. Expected: consent sheet, then word card; sentence gives sentence result; >500 chars gives limit message. Checked on simulator: listed and opens. Real iPhone and signing (restricted capability, may need paid Team) not verified; steps in PR. Automated: 104 tests pass, no new logic.
 
 2026-10-14 phone test: Saynata does NOT appear in Settings > Apps > Default Apps > Translation. Likely cause: the com.apple.developer.translation-app entitlement was removed for the Personal Team build (local stash 'Personal Team entitlements'); a free Personal Team cannot sign this restricted capability. Blocked until a paid Apple Developer Program account (and, if Apple requires it, approval of the capability). Also needs iOS 18.4+.
+
+2026-10-14: the developer parked this ('leave TASK-42 for later') until a paid Apple Developer account.
 <!-- SECTION:NOTES:END -->
