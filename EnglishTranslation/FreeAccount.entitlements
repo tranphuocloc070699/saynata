@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Used only by scripts/install-on-phone.sh for a free Apple ID (Personal Team), which cannot sign
+     App Groups or the Default Translation App capability. Without them the app and the share extension keep
+     separate caches (ResultCache.cacheFolder), and Saynata cannot be the system translation app (TASK-42). -->
+<plist version="1.0">
+<dict/>
+</plist>
