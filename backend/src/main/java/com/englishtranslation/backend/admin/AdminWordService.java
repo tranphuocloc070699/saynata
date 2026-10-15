@@ -1,5 +1,6 @@
 package com.englishtranslation.backend.admin;
 
+import com.englishtranslation.backend.dictionary.BundledEntryReader;
 import com.englishtranslation.backend.dictionary.DictionarySense;
 import com.englishtranslation.backend.dictionary.DictionaryWord;
 import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
@@ -8,6 +9,7 @@ import com.englishtranslation.backend.media.SenseMediaReader;
 import com.englishtranslation.backend.word.WordEntry;
 import com.englishtranslation.backend.word.WordLookup;
 import com.englishtranslation.backend.word.WordLookupRepository;
+import com.englishtranslation.backend.word.SimpleWords;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -24,7 +26,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -49,6 +50,15 @@ public class AdminWordService {
             "promptVersion", List.of("prompt_version"),
             "createdAt", List.of("created_at"));
 
+    /**
+     * SQL for "this row of admin_word_list has media": a bundled word keeps the link on dictionary_sense.media_id,
+     * a backend word on word_lookup_media.media_id. A claim row without a file (media_id null) does not count.
+     */
+    private static final String HAS_MEDIA = "((source = 'bundled' and exists (select 1 from dictionary_sense s"
+            + " where s.word_id = admin_word_list.source_id and s.media_id is not null))"
+            + " or (source = 'backend' and exists (select 1 from word_lookup_media x"
+            + " where x.word_lookup_id = admin_word_list.source_id and x.media_id is not null)))";
+
     /** One page of words and how many words match in all (for X-Total-Count). */
     public record WordPage(List<AdminWord> words, long total) {
     }
@@ -64,9 +74,14 @@ public class AdminWordService {
     private final JsonMapper jsonMapper;
     private final EntryParser parser;
     private final SenseMediaReader mediaReader;
+    private final SimpleWords simpleWords;
+    private final BundledEntryReader bundledReader;
 
     public AdminWordService(JdbcClient jdbc, DictionaryWordRepository dictionary, WordLookupRepository lookups,
-            JsonMapper jsonMapper, EntryParser parser, SenseMediaReader mediaReader) {
+            JsonMapper jsonMapper, EntryParser parser, SenseMediaReader mediaReader, SimpleWords simpleWords,
+            BundledEntryReader bundledReader) {
+        this.bundledReader = bundledReader;
+        this.simpleWords = simpleWords;
         this.mediaReader = mediaReader;
         this.jdbc = jdbc;
         this.dictionary = dictionary;
@@ -82,12 +97,17 @@ public class AdminWordService {
      * @param needsReview   null = both
      * @param source        null = both, else "bundled" or "backend"
      * @param cefr          empty = every level, else levels like A1, B2 (the level of the first sense)
+     * @param media         null = both, "with" = some sense has media, "without" = no sense has media
      * @param pageable      from AdminListParams.pageable; its sort names are the keys of sortColumns()
      */
-    public WordPage list(String likePattern, Boolean needsReview, String source, List<String> cefr, Pageable pageable) {
+    public WordPage list(String likePattern, Boolean needsReview, String source, List<String> cefr, String media,
+            Pageable pageable) {
         List<String> levels = checkLevels(cefr);
         if (source != null && !source.equals(AdminWordId.BUNDLED) && !source.equals(AdminWordId.BACKEND)) {
             throw new InvalidAdminRequestException("source must be one of: backend, bundled.");
+        }
+        if (media != null && !media.equals("with") && !media.equals("without")) {
+            throw new InvalidAdminRequestException("media must be one of: with, without.");
         }
 
         StringBuilder where = new StringBuilder(" where lower(word) like :like escape '\\'");
@@ -104,6 +124,10 @@ public class AdminWordService {
         if (!levels.isEmpty()) {
             where.append(" and cefr in (:cefr)");
             params.put("cefr", levels);
+        }
+        if (media != null) {
+            // A word has media when any of its senses points to a media row.
+            where.append(media.equals("with") ? " and " + HAS_MEDIA : " and not " + HAS_MEDIA);
         }
 
         long total = jdbc.sql("select count(*) from admin_word_list" + where)
@@ -185,7 +209,7 @@ public class AdminWordService {
             Map<Integer, String> status = (id.bundled() ? bundledStatus : backendStatus).getOrDefault(id.number(), Map.of());
             words.add(new AdminWord(row.itemId(), row.word(), entry, row.ipa(), row.needsReview(), row.source(),
                     row.model(), row.promptVersion(), row.createdAt(), mediaPerSense(entry, media),
-                    statusPerSense(entry, status)));
+                    statusPerSense(entry, status), reviewReasons(entry, row.word(), row.needsReview())));
         }
         return words;
     }
@@ -285,14 +309,7 @@ public class AdminWordService {
 
     private WordEntry readBundledEntry(DictionaryWord word) {
         try {
-            List<WordEntry.Sense> senses = new ArrayList<>();
-            for (DictionarySense sense : word.getSenses()) {
-                senses.add(new WordEntry.Sense(sense.getPos(), sense.getCefr(), sense.getSimpleDefinition(),
-                        sense.getVietnamese(),
-                        jsonMapper.readValue(sense.getExamplesJson(), new TypeReference<List<WordEntry.Example>>() { }),
-                        jsonMapper.readValue(sense.getUsageJson(), new TypeReference<List<WordEntry.Usage>>() { })));
-            }
-            return new WordEntry(senses);
+            return bundledReader.read(word);
         } catch (RuntimeException e) {
             log.warn("dictionary_word {} has examples or usage JSON that cannot be read: {}", word.getId(), e.toString());
             return null;
@@ -316,7 +333,8 @@ public class AdminWordService {
         return new AdminWord("b-" + word.getId(), word.getLemma(), entry, word.getIpa(),
                 word.isNeedsReview(), AdminWordId.BUNDLED, word.getModel(), word.getPromptVersion(),
                 word.getCreatedAt(), media, statusPerSense(entry, mediaReader.statusForBundledWords(List.of(word.getId()))
-                        .getOrDefault(word.getId(), Map.of())));
+                        .getOrDefault(word.getId(), Map.of())),
+                reviewReasons(entry, word.getLemma(), word.isNeedsReview()));
     }
 
     private AdminWord toAdminWord(WordLookup lookup) {
@@ -326,7 +344,19 @@ public class AdminWordService {
         return new AdminWord("w-" + lookup.getId(), lookup.getWord(), entry, null,
                 lookup.isNeedsReview(), AdminWordId.BACKEND, lookup.getModel(), lookup.getPromptVersion(),
                 lookup.getCreatedAt(), media, statusPerSense(entry, mediaReader.statusForBackendWords(List.of(lookup.getId()))
-                        .getOrDefault(lookup.getId(), Map.of())));
+                        .getOrDefault(lookup.getId(), Map.of())),
+                reviewReasons(entry, lookup.getWord(), lookup.isNeedsReview()));
+    }
+
+    /**
+     * Why the word needs review, checked on the entry as it is now (so it is right after an edit too).
+     * Empty when the word is not flagged, when the entry cannot be read, or when it is simple enough now.
+     */
+    private List<String> reviewReasons(WordEntry entry, String word, boolean needsReview) {
+        if (!needsReview || entry == null) {
+            return List.of();
+        }
+        return simpleWords.problems(entry, word);
     }
 
     /** One item per sense, in the order of the entry: the media, or null when the sense has none. */

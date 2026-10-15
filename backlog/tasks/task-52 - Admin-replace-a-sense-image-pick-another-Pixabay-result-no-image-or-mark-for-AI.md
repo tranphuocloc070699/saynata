@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-14 14:44'
-updated_date: '2026-10-15 03:54'
+updated_date: '2026-10-15 06:21'
 labels:
   - backend
   - web
@@ -27,7 +27,7 @@ Decision (doc-7, 2026-10-14, images option B): Pixabay first; the developer fixe
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Mockup for the pick-another panel approved by the developer before UI code
+- [x] #1 Mockup for the pick-another panel approved by the developer before UI code
 - [ ] #2 Pick another: shows up to 6 Pixabay results for the sense; choosing one replaces the image (file + media row) for bundled and backend words
 - [ ] #3 No image: the sense has no media afterwards; Mark for AI: the sense is listed by GET /api/admin/media?status=needs_ai
 - [ ] #4 Only ADMIN can call these endpoints; Pixabay calls are rate limited; tests cover each path

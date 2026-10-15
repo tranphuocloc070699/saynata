@@ -12,6 +12,8 @@ enum TranslationState {
     case idle
     ///The request is in flight
     case loading
+    ///A sentence is still in flight, but its simple English meaning has already arrived (streaming, TASK-65)
+    case meaning(SentenceMeaning)
     ///The request worked. Holds the sentence, its explanation and the language it was made in
     case loaded(SentenceResult)
     ///A single word was looked up. Holds the dictionary entry
@@ -28,6 +30,8 @@ extension TranslationState {
         switch self {
         case .idle: "idle"
         case .loading: "loading"
+        // Same key as `.loaded`, so the meaning turning into the full result does not stop speech.
+        case let .meaning(partial): "sentence:\(partial.sentence)"
         case let .loaded(result): "sentence:\(result.sentence)"
         case let .loadedWord(entry): "word:\(entry.word)"
         case let .failed(message, _): "failed:\(message)"

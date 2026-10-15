@@ -1,6 +1,9 @@
 package com.englishtranslation.backend.claude;
 
 import com.anthropic.client.AnthropicClient;
+import com.anthropic.core.http.StreamResponse;
+import com.anthropic.helpers.MessageAccumulator;
+import com.anthropic.models.messages.RawMessageStreamEvent;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
 import com.anthropic.models.messages.StopReason;
@@ -10,6 +13,8 @@ import com.anthropic.models.messages.StructuredOutputConfig;
 import com.englishtranslation.backend.translation.Explanation;
 import com.englishtranslation.backend.translation.TargetLanguage;
 import com.englishtranslation.backend.word.WordEntry;
+import java.util.Optional;
+import java.util.function.Consumer;
 import org.springframework.stereotype.Service;
 
 /**
@@ -136,7 +141,36 @@ public class ClaudeService {
 
         /** Throws {@link NotEnglishException} when the text is not English, so nothing is cached for it. */
         public Explanation explainSentence(String text, TargetLanguage targetLang) {
-                StructuredMessageCreateParams<SentenceAnswer> params = MessageCreateParams.builder()
+                return toExplanation(readOutput(client.messages().create(sentenceParams(text, targetLang))));
+        }
+
+        /**
+         * Same request as {@link #explainSentence}, but Claude's answer is streamed. Every piece of JSON text is
+         * given to {@code onText} as soon as it arrives. When the stream ends, the whole answer is read and
+         * checked exactly as in {@link #explainSentence}. Throws {@link NotEnglishException} too.
+         */
+        public Explanation explainSentenceStreaming(String text, TargetLanguage targetLang, Consumer<String> onText) {
+                MessageAccumulator accumulator = MessageAccumulator.create();
+                try (StreamResponse<RawMessageStreamEvent> stream = client.messages()
+                                .createStreaming(sentenceParams(text, targetLang))) {
+                        stream.stream().forEach(event -> {
+                                accumulator.accumulate(event);
+                                textOf(event).ifPresent(onText);
+                        });
+                }
+                return toExplanation(readOutput(accumulator.message(SentenceAnswer.class)));
+        }
+
+        /** The JSON text carried by one stream event, if it carries any. */
+        private static Optional<String> textOf(RawMessageStreamEvent event) {
+                return event.contentBlockDelta()
+                                .map(blockDelta -> blockDelta.delta())
+                                .flatMap(delta -> delta.text().map(textDelta -> textDelta.text())
+                                                .or(() -> delta.inputJson().map(json -> json.partialJson())));
+        }
+
+        private StructuredMessageCreateParams<SentenceAnswer> sentenceParams(String text, TargetLanguage targetLang) {
+                return MessageCreateParams.builder()
                                 .model(properties.model())
                                 .maxTokens(4000L)
                                 .system(SENTENCE_PROMPT)
@@ -146,8 +180,6 @@ public class ClaudeService {
                                                 .build())
                                 .addUserMessage(sentenceMessage(text, targetLang))
                                 .build();
-
-                return toExplanation(readOutput(client.messages().create(params)));
         }
 
         /** The 422 rule: a "not English" flag from the model becomes an exception. */

@@ -126,4 +126,14 @@ struct SpeechPlayerTests {
         #expect(TranslationState.loadedWord(.apple).resultKey == TranslationState.loadedWord(.apple).resultKey)
         #expect(TranslationState.loadedWord(.apple).resultKey != TranslationState.loadedWord(.depend).resultKey)
     }
+
+    @Test func resultKeyStaysTheSameWhenAStreamedMeaningBecomesTheFullResult() {
+        let meaning = SentenceMeaning(sentence: "I run.", meaning: "x", language: .vietnamese)
+        let explanation = Explanation(meaning: "x", words: [], translation: "y")
+        let loaded = SentenceResult(
+            sentence: "I run.", explanation: explanation, language: .vietnamese,
+            bundledEntry: { _ in nil })
+        #expect(TranslationState.meaning(meaning).resultKey == TranslationState.loaded(loaded).resultKey)
+        #expect(TranslationState.meaning(meaning).resultKey != TranslationState.loading.resultKey)
+    }
 }

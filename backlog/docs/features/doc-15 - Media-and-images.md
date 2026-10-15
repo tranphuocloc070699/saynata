@@ -3,11 +3,11 @@ id: doc-15
 title: Media and images
 type: specification
 created_date: '2026-10-15 04:02'
-updated_date: '2026-10-15 04:03'
+updated_date: '2026-10-15 08:46'
 ---
 # Media and images
 
-> Status: **working for photos and clips from Pixabay** (TASK-23, 49.3, 49.4, 52). AI images are not built yet (TASK-53). The iOS side on this branch only shows files inside the app; loading from the server comes with PR #48 (TASK-47 and 51). Last traced from code: 2026-10-15.
+> Status: **working for photos and clips from Pixabay** (TASK-23, 49.3, 49.4, 52). AI images are not built yet (TASK-53). The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-15 (the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
 > Why: a small picture or a short clip helps a learner remember a meaning (doc-1, Vision and spec). Postgres on the server is the source of truth for content (doc-7).
 
 ## What it does
@@ -84,14 +84,14 @@ sequenceDiagram
 | Search Pixabay | [search_pixabay_photo:69](../../../pipeline/src/pipeline/media.py#L69), [search_pixabay_video:101](../../../pipeline/src/pipeline/media.py#L101) | `safesearch`, `order=popular`, top 3 hits, take the first. Waits 0.8 s between calls ([_wait_for_rate_limit:46](../../../pipeline/src/pipeline/media.py#L46)). |
 | Resize | [resize_and_save_webp:140](../../../pipeline/src/pipeline/media.py#L140), [transcode_and_save_mp4:151](../../../pipeline/src/pipeline/media.py#L151) | Photo: 320 px wide WebP, quality 80, with Pillow. Clip: short muted MP4 loop, with ffmpeg. |
 | Save the file | [process_word_media:256](../../../pipeline/src/pipeline/media.py#L256) | File name is `<word>_<sense number>.webp` or `.mp4` in `data/media/`. The credit (photographer, page) goes into `pipeline.db`. |
-| The pass | [run_pass:347](../../../pipeline/src/pipeline/media.py#L347), command in [cli.py:144](../../../pipeline/src/pipeline/cli.py#L144) | `uv run pipeline media [--words run walk] [--workers 4] [--dry-run]`. Uses your Pixabay key (`PIXABAY_API_KEY` in `pipeline/.env`). A full pass is many Pixabay requests and takes a long time. |
-| Old export | [export_from_pipeline_db:52](../../../pipeline/src/pipeline/export.py#L52), command at [cli.py:274](../../../pipeline/src/pipeline/cli.py#L274) | `export-local` builds `dictionary.sqlite` from `pipeline.db`. Each sense gets `image_url = "media/<file>"` ([export.py:78-80](../../../pipeline/src/pipeline/export.py#L78-L80)). |
-| Link into Postgres | [link_media:195](../../../pipeline/src/pipeline/postgres.py#L195), command at [cli.py:177](../../../pipeline/src/pipeline/cli.py#L177) | Reads those `image_url` values and adds `media` rows. It sets `media_id` only on senses that have none, and never changes text. So admin edits are safe. |
+| The pass | [run_pass:347](../../../pipeline/src/pipeline/media.py#L347), command in [cli.py:151](../../../pipeline/src/pipeline/cli.py#L151) | `uv run pipeline media [--words run walk] [--workers 4] [--dry-run]`. Uses your Pixabay key (`PIXABAY_API_KEY` in `pipeline/.env`). A full pass is many Pixabay requests and takes a long time. |
+| Old export | [export_from_pipeline_db:52](../../../pipeline/src/pipeline/export.py#L52), command at [cli.py:323](../../../pipeline/src/pipeline/cli.py#L323) | `export-local` builds `dictionary.sqlite` from `pipeline.db`. Each sense gets `image_url = "media/<file>"` ([export.py:78-80](../../../pipeline/src/pipeline/export.py#L78-L80)). |
+| Link into Postgres | [link_media:195](../../../pipeline/src/pipeline/postgres.py#L195), command at [cli.py:184](../../../pipeline/src/pipeline/cli.py#L184) | Reads those `image_url` values and adds `media` rows. It sets `media_id` only on senses that have none, and never changes text. So admin edits are safe. |
 | Copy the files | rsync, see [doc-11 section 9](../guides/doc-11%20-%20Deploy-to-a-VPS.md) | `rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/`. The rows say a file exists; rsync puts it there. |
-| Import (one time) | [import_dictionary:89](../../../pipeline/src/pipeline/postgres.py#L89), command at [cli.py:157](../../../pipeline/src/pipeline/cli.py#L157) | The first copy of the bundled dictionary into Postgres. It also creates `media` rows. It reads file sizes from `--media-dir`. |
-| Export from Postgres | [export_from_postgres:117](../../../pipeline/src/pipeline/export.py#L117), [copy_media:191](../../../pipeline/src/pipeline/export.py#L191), command at [cli.py:189](../../../pipeline/src/pipeline/cli.py#L189) | Builds `data/out/dictionary.sqlite` and copies the files that senses use into `data/out/media/`. Files missing from `--media-dir` are listed as a warning. |
+| Import (one time) | [import_dictionary:89](../../../pipeline/src/pipeline/postgres.py#L89), command at [cli.py:164](../../../pipeline/src/pipeline/cli.py#L164) | The first copy of the bundled dictionary into Postgres. It also creates `media` rows. It reads file sizes from `--media-dir`. |
+| Export from Postgres | [export_from_postgres:117](../../../pipeline/src/pipeline/export.py#L117), [copy_media:191](../../../pipeline/src/pipeline/export.py#L191), command at [cli.py:196](../../../pipeline/src/pipeline/cli.py#L196) | Builds `data/out/dictionary.sqlite` and copies the files that senses use into `data/out/media/`. Files missing from `--media-dir` are listed as a warning. |
 
-Then the developer copies `dictionary.sqlite` and the media folder into the app (`EnglishTranslation/EnglishTranslation/Resources`). The bundled words use these files without the network. How the run works from the start is in [Dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md).
+Then the developer copies only `dictionary.sqlite` into the app (`EnglishTranslation/EnglishTranslation/Resources`). The media files stay on the server (63 MB; the app does not carry them, see doc-7, 2026-10-15). The app loads `media/<file>` from `https://api.loffy.me/media/<file>` and saves it on the phone. How the run works from the start is in [Dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md).
 
 ## 2. Backend: new words
 
@@ -129,16 +129,17 @@ sequenceDiagram
 
 | Step | File:line | What happens |
 |---|---|---|
-| Start the job | [WordService.java:85](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L85), [startMediaJob:123](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L123) | Called after the new word is saved. If it fails to start, it is logged and the answer is still sent. |
+| Start the job | [WordService.java:100](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L100), [startMediaJob:152](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L152) | Called after the new word is saved. If it fails to start, it is logged and the answer is still sent. |
 | One worker thread | [MediaConfig.mediaExecutor:21](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaConfig.java#L21) | One thread, queue of 50. A full queue drops the job: the word works, it only has no picture. |
 | The job | [fetchInBackground:46](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L46), [fetch:55](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L55) | Does nothing when `PIXABAY_API_KEY` is empty. Takes the first 3 senses. Every error is caught, so the word answer never breaks. |
 | Photo or clip | [kindFor:75](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L75) | Verb: clip (photo if there is no clip). Noun or adjective: photo. Other types (adverb, "the") get nothing. |
 | Claim first | [claim:88](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L88) | A row in `word_lookup_media` is inserted before Pixabay is asked. So Pixabay is asked once per sense, even when it finds nothing. To try again, delete the word in the admin. |
 | Rate limit | [MIN_GAP_MILLIS:28](../../../backend/src/main/java/com/englishtranslation/backend/media/HttpPixabayClient.java#L28), [waitForTurn:172](../../../backend/src/main/java/com/englishtranslation/backend/media/HttpPixabayClient.java#L172) | At least 1.5 s between Pixabay requests (40 per minute; Pixabay allows 100). With one worker thread we stay far below the limit. Downloads only come from `pixabay.com` over https. |
+| Pixabay 429 | [send:179](../../../backend/src/main/java/com/englishtranslation/backend/media/HttpPixabayClient.java#L179), [pauseBeforeRetry:196](../../../backend/src/main/java/com/englishtranslation/backend/media/HttpPixabayClient.java#L196), [PixabayBusyException](../../../backend/src/main/java/com/englishtranslation/backend/media/PixabayBusyException.java) | TASK-63. One Pixabay key is shared by the admin search, the background job and a media pass, so Pixabay can still answer 429 (too many requests). Every Pixabay call (search and download) is tried **3 times in all**. The pause is the `Retry-After` header (seconds) when there is one, else 1 s, then 2 s. The waiting adds up to at most 10 s; a `Retry-After` that would go past that gives up at once. After the last try the client throws `PixabayBusyException`. Other errors (500, 404...) are not tried again. |
 | Download, convert, save | [MediaStore.save:44](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaStore.java#L44), [FfmpegMediaConverter:16-27](../../../backend/src/main/java/com/englishtranslation/backend/media/FfmpegMediaConverter.java#L16-L27) | Photo: WebP, max 320 px wide, quality 80. Clip: 3 s, no sound, H.264 MP4, `+faststart`. The name is `<word>_<n>_<8 hex of sha256>.<ext>`, so a new picture is always a new name. If the row cannot be saved, the file is removed. |
 | Link to the sense | [fetchOneSense:100](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L100) | Sets `word_lookup_media.media_id`. |
 | Tables | [V7](../../../backend/src/main/resources/db/migration/V7__create_word_lookup_media.sql), [V8](../../../backend/src/main/resources/db/migration/V8__add_media_status.sql) | `word_lookup_media (word_lookup_id, sense_position, media_id, media_status)`. A deleted word deletes its rows. Bundled words use `dictionary_sense.media_id` and `media_status` instead. |
-| Read for the answer | [SenseMediaReader.forBackendWords:26](../../../backend/src/main/java/com/englishtranslation/backend/media/SenseMediaReader.java#L26), [WordService.mediaOf:113](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L113) | Joins `word_lookup_media` to `media`. A read problem is logged and ignored. |
+| Read for the answer | [SenseMediaReader.forBackendWords:26](../../../backend/src/main/java/com/englishtranslation/backend/media/SenseMediaReader.java#L26), [WordService.mediaOf:142](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L142) | Joins `word_lookup_media` to `media`. A read problem is logged and ignored. |
 | The address | [MediaProperties.urlFor:18](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaProperties.java#L18), [application.properties:41-45](../../../backend/src/main/resources/application.properties#L41-L45) | `imageUrl` = `app.media.base-url` + `/` + file name. Default base URL: `https://api.loffy.me/media`. |
 | The JSON | [WordEntryView.of:17](../../../backend/src/main/java/com/englishtranslation/backend/word/WordEntryView.java#L17) | Adds `imageUrl` to a sense that has media. It is left out when there is none, so old app versions see nothing new. |
 | Serve the file | Caddy, see [doc-11 section 9](../guides/doc-11%20-%20Deploy-to-a-VPS.md); folder mount in [docker-compose.prod.yml:49-55](../../../backend/docker-compose.prod.yml#L49-L55) | `handle_path /media/*` reads `/var/lib/saynata/media` and adds `Cache-Control: public, max-age=31536000, immutable` (one year). The backend writes to the folder; Caddy only reads it. |
@@ -187,28 +188,21 @@ Shared details:
 
 ## 4. iOS: how the app shows media
 
-On this branch the app only shows files that are **inside the app**. The word card calls the view for each sense that has an `imageUrl`.
+The word card calls `SenseMediaView(path:)` for each sense that has an `imageUrl`. The path can be a bundled path (`media/run_1.mp4`, what `dictionary.sqlite` stores) or an https address (what the backend sends). Last traced: 2026-10-15 (TASK-47, TASK-51).
 
 | Step | File:line | What happens |
 |---|---|---|
-| Read the field | [WordEntry.swift:48](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordEntry.swift#L48) | `Sense.imageUrl` is decoded from the backend JSON (`imageUrl`) and from the bundled file (`image_url`). |
-| Bundled words | [DictionaryStore.swift:40](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L40), [:106](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L106) | Reads the `senses.image_url` column (for example `media/run_1.mp4`) when the file has it. |
+| Read the field | [WordEntry.swift:48](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordEntry.swift#L48), [DictionaryStore.swift:106](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L106) | `Sense.imageUrl` is decoded from the backend JSON (`imageUrl`) and from the bundled file (`senses.image_url`, for example `media/run_1.mp4`). |
 | Show it | [WordCardView.swift:68](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L68) | Under the sense title row, `SenseMediaView(path:)` is shown if the sense has an `imageUrl`. |
-| Find the file | [SenseMediaView.swift:41](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L41) | `resolveMediaURL` looks in the app bundle only: the path as written, then the `media` folder, then the bundle root. |
-| Photo or clip | [SenseMediaView.swift:13](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L13) | A path ending in `.mp4` plays in a looping, muted player ([LoopingPlayerUIView:68](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L68)). Anything else is a 240 x 135 photo. |
+| Read the path | [SenseMediaSource.swift:16-40](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaSource.swift#L16-L40) | `SenseMediaSource(path:)` gives `.bundled(path)` or `.remote(https URL)`. Empty text and plain `http` give nothing. It tells a clip from a photo by the file extension. |
+| Choose bundle or server | [SenseMediaSource.swift:42-52](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaSource.swift#L42-L52) | `resolved(serverBase:)`: a bundled path whose file is inside the app stays bundled (only `dog_1.webp`, `run_1.mp4`, `tree_1.webp` are). Any other bundled path becomes `<server>/media/<file name>`. The server address is `AppConfig.backendBaseURL()`, the same `BackendBaseURL` Info.plist value the backend client uses, so it is not written twice. |
+| Load | [SenseMediaView.swift:82-105](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L82-L105) | Bundled file: used directly. Server photo: `MediaFileCache` downloads it once and saves it, so it shows again offline. Server clip: a saved file plays if there is one; else AVPlayer streams the address and the file is saved in the background. |
+| Disk cache | [MediaFileCache.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/MediaFileCache.swift) | `Caches/SenseMedia`, **50 MB**, least recently used files go first. A file bigger than a quarter of the cache is not kept. Two views that ask for the same address share one download. iOS may delete Caches, which is fine: files are downloaded again. |
+| Frame and failure | [SenseMediaView.swift:40-52](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L40-L52) | The frame is always 240 x 135 and invisible while loading, so nothing jumps. If loading fails (offline and not saved yet, 404, bad path), the whole view disappears: no error text, no empty box. |
+| Clip player | [SenseMediaView.swift:123-185](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L123-L185) | An empty `AVQueuePlayer` plus `AVPlayerLooper(templateItem:)` (no stutter at the loop point), muted. If the looper status is `.failed`, the media is hidden. |
+| Play only when seen | [SenseMediaView.swift:51](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L51) | `onScrollVisibilityChange(threshold: 0.33)` and `scenePhase`: a clip plays only when about a third of it is on screen and the app is active. |
 
-A web address (`https://api.loffy.me/media/...`) is not a bundled file, so on this branch nothing is shown for words from the backend. The view then shows no error and no empty box.
-
-### Coming in PR #48 (TASK-47 + 51)
-
-These files are **not on this branch yet**, so they are named as plain text, not links. They were read from `origin/fix/task-47-51-media`. Real links will be added when PR #48 merges.
-
-- `SenseMediaSource.swift`: reads `Sense.imageUrl` as either a bundled path or an absolute **https** address. Plain `http` is refused. It also tells a clip from a photo by the file extension.
-- `MediaFileCache.swift`: a disk cache in `Caches/SenseMedia`, **50 MB**, least recently used files go first. A file bigger than a quarter of the cache is not kept. Two views that ask for the same address share one download. iOS may delete Caches, which is fine: files are downloaded again.
-- `SenseMediaView.swift` (new version): a server photo is downloaded once and saved, so it shows again offline. A server clip plays from the network at once, and is saved in the background for next time. While loading, the frame keeps its size but is invisible, so nothing jumps. If loading fails, nothing is shown.
-- **Clip looper fix:** the player now starts from an empty `AVQueuePlayer` and lets `AVPlayerLooper` add the items. This stops the stutter at the loop point.
-- **Play only when visible:** a clip plays only when about a third of it is on screen and the app is active (`onScrollVisibilityChange` and `scenePhase`). Otherwise it pauses.
-- Tests: `SenseMediaTests.swift`.
+Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTests/SenseMediaTests.swift) (Sense decoding, `image_url` column, bundled path vs https, a bundled file uses the bundle, a bundled path without a file maps to the server URL, https stays as it is, bad values give nothing, cache hit, offline, failure, size limit). The visibility rule needs a real scroll view, so it is checked by hand in the PR card.
 
 ## Errors
 
@@ -216,6 +210,7 @@ These files are **not on this branch yet**, so they are named as plain text, not
 |---|---|---|
 | `PIXABAY_API_KEY` empty | Background job, admin | Job does nothing and claims nothing. Admin search, pick: 503 "Pixabay is not set up". |
 | Pixabay has no result | Background job | The claim row stays with no `media_id`. Pixabay is not asked again for that sense. |
+| Pixabay is busy (429 on all 3 tries) | `HttpPixabayClient.send` | `PixabayBusyException`. Admin pick or search: 503 "Pixabay is busy right now. Try again in a minute." and the old picture stays. Job: logged like any other failed download. |
 | Download or ffmpeg fails | `MediaStore.save` | No file and no row are left. Job: logged, next sense runs. Admin pick: 502 "Could not download or convert that file", the old picture stays. |
 | Pixabay does not answer | Admin search | 502 "Pixabay did not answer". |
 | More than 30 searches in 5 minutes | Admin search | 429 "Too many searches". |
@@ -223,7 +218,8 @@ These files are **not on this branch yet**, so they are named as plain text, not
 | Sense does not exist | Admin | 404. |
 | Job queue is full (50 waiting) | `mediaExecutor` | Job dropped, the word has no picture. |
 | File missing in `/var/lib/saynata/media` | Caddy | 404 for the file. The app shows nothing for that sense. |
-| Bundled file missing in the app | iOS | Nothing is shown. |
+| Bundled path, file not in the app, and the server has no such file | iOS | The app asks the server (404), then shows nothing. |
+| Offline, file never saved on the phone | iOS | Nothing is shown. It appears after a first view with the network. |
 
 ## Tests
 
@@ -233,12 +229,12 @@ These files are **not on this branch yet**, so they are named as plain text, not
 | [NoPixabayKeyTest](../../../backend/src/test/java/com/englishtranslation/backend/media/NoPixabayKeyTest.java) | Without a key, Pixabay is never called and nothing is claimed. |
 | [WordImageUrlTest](../../../backend/src/test/java/com/englishtranslation/backend/media/WordImageUrlTest.java) | `imageUrl` is absolute, the field is missing when there is no media, a new word is answered first. |
 | [FfmpegMediaConverterTest](../../../backend/src/test/java/com/englishtranslation/backend/media/FfmpegMediaConverterTest.java) | Big photo becomes a small WebP, video becomes a short MP4, bad input fails with a clear message. Needs ffmpeg on the machine. |
-| [HttpPixabayClientTest](../../../backend/src/test/java/com/englishtranslation/backend/media/HttpPixabayClientTest.java) | Only Pixabay hosts over https are accepted. |
+| [HttpPixabayClientTest](../../../backend/src/test/java/com/englishtranslation/backend/media/HttpPixabayClientTest.java) | Only Pixabay hosts over https are accepted. A fake HTTP client: 429 then 200 succeeds (one 1 s pause), 429 three times gives `PixabayBusyException`, `Retry-After` is used, a `Retry-After` past the budget gives up at once, other errors are not tried again (TASK-63). |
 | [AdminMediaTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaTest.java) | Login and role, search (6 results, default words, rate limit, errors), pick, remove, mark for AI, list, 404. |
 | [test_media.py](../../../pipeline/tests/test_media.py) | `needs_media`, file names, WebP resize, dry run, the pass with a fake fetcher. |
 | [mediaRow.test.tsx](../../../admin/src/test/mediaRow.test.tsx) | The admin buttons and the Pick another panel. |
 
-Run: `cd backend && ./mvnw -B test`, `cd pipeline && uv run pytest`, `cd admin && npm test`. There is no iOS test for media on this branch; PR #48 adds `SenseMediaTests.swift`.
+Run: `cd backend && ./mvnw -B test`, `cd pipeline && uv run pytest`, `cd admin && npm test`. iOS: `SenseMediaTests.swift` (command in doc-2).
 
 ## Change checklist
 
@@ -252,14 +248,20 @@ Run: `cd backend && ./mvnw -B test`, `cd pipeline && uv run pytest`, `cd admin &
 
 AI images plug in at `media_status = needs_ai` (set by Mark for AI, listed by `GET /api/admin/media?status=needs_ai`). A future job reads those senses, makes an image, saves it through `MediaStore` with `source = ai` (plus provider, prompt and cost) on the `media` row, links it, and clears the status.
 
+## Finding words by media (TASK-60)
+
+`GET /api/admin/words?media=with` keeps the words where any sense has a media file, `media=without` the words where no sense has one (doc-13). A bundled word counts through `dictionary_sense.media_id`, a backend word through `word_lookup_media.media_id`. A claim row with no file does not count. The admin has two chips for it, **Has media** and **No media** (doc-14). This is the way to see which bundled words the Pixabay pass has not reached yet: press "No media", and the count line shows how many are left.
+
 ## Known gaps
+
+- Flyway V9 (TASK-58) deleted the `word_lookup` rows of words that are in the bundled dictionary, with their `word_lookup_media` links. The media rows and files of those words stay on disk (same gap as the next lines).
 
 - A new word's first answer has no `imageUrl`. The picture shows from the second lookup (on purpose: the answer must not wait for Pixabay).
 - If the server restarts while jobs wait in the queue, those words get no picture until an admin deletes the word.
 - A sense whose Pixabay search found nothing is never tried again by itself.
 - Pipeline file names have no hash (`run_1.mp4`). Caddy caches every file for a year as `immutable`. If you rsync a different picture under the same name, phones may keep the old one.
-- Bundled words read pictures from the app bundle. A picture an admin picks for a bundled sense changes Postgres, but reaches the app only after the next `export` and a new app build.
+- A picture an admin picks for a bundled sense changes Postgres, but the app learns the new file name only after the next `export` and a new app build (the sqlite file in the app holds the paths). A new file under the same name is also held by the one-year phone and Caddy caches.
+- The first view of a bundled word's picture needs the network. A word the user never opened online has no picture offline.
 - Old files are never deleted from `/var/lib/saynata/media` (replaced pictures, removed words).
-- On this branch, iOS cannot show server `https` media (see PR #48 above).
 - Pixabay credit (photographer, page) is stored and sent to the admin, but the iOS card does not show it yet.
 - The Media page of the admin web app is still a placeholder (see doc-14).

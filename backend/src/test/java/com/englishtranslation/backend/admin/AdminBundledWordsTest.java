@@ -314,6 +314,30 @@ class AdminBundledWordsTest {
     }
 
     @Test
+    void markBackendWordReviewedClearsTheFlagAndItStaysClearedWhenReadBack() throws Exception {
+        // "working" and "apple" are backend words that are flagged in production (TASK-57).
+        WordLookup hard = saveHardBackend("working", true);
+        WordLookup other = saveHardBackend("apple", true);
+
+        // The admin app sends POST /reviewed with an empty JSON object as the body.
+        mockMvc.perform(asAdmin(post("/api/admin/words/w-" + hard.getId() + "/reviewed")).content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.needsReview").value(false))
+                .andExpect(jsonPath("$.reviewReasons.length()").value(0));
+
+        // Read back: the repository, the detail, and the "Needs review" list (only the other word is left).
+        assertThat(backend.findById(hard.getId()).orElseThrow().isNeedsReview()).isFalse();
+        assertThat(jdbc.queryForObject("select needs_review from word_lookup where id = ?", Boolean.class, hard.getId()))
+                .isFalse();
+        mockMvc.perform(asAdmin(get("/api/admin/words/w-" + hard.getId())))
+                .andExpect(jsonPath("$.needsReview").value(false));
+        mockMvc.perform(asAdmin(get("/api/admin/words?needs_review=true")))
+                .andExpect(header().string("X-Total-Count", "1"))
+                .andExpect(jsonPath("$[0].word").value("apple"));
+        assertThat(backend.findById(other.getId()).orElseThrow().isNeedsReview()).isTrue();
+    }
+
+    @Test
     void aBundledWordCannotBeDeleted() throws Exception {
         DictionaryWord run = saveBundled("run", 1, false, "A1");
 
@@ -362,5 +386,89 @@ class AdminBundledWordsTest {
             bundled.deleteAll();
             jdbc.update("delete from media where file_name like 'admin_test_%'");
         }
+    }
+
+    @Test
+    void listCanFilterByMedia() throws Exception {
+        // Any sense with media counts: here only the second sense of "run" has a clip.
+        DictionaryWord run = saveBundled("run", 1, false, "A1", "B1");
+        saveBundled("walk", 2, false, "A1");
+        WordLookup zebra = saveBackend("zebra", "B1", false);
+        WordLookup apple = saveBackend("apple", "A1", false);
+        saveBackend("pear", "A1", false);
+        long clipId = saveMedia("admin_test_media_filter_1.mp4", "clip", "Pat Maker");
+        long photoId = saveMedia("admin_test_media_filter_2.webp", "photo", "Zoe Camera");
+        jdbc.update("update dictionary_sense set media_id = ? where word_id = ? and position = 1", clipId, run.getId());
+        jdbc.update("insert into word_lookup_media (word_lookup_id, sense_position, media_id, created_at)"
+                + " values (?, 0, ?, current_timestamp)", zebra.getId(), photoId);
+        // A claim row with no file (Pixabay found nothing) is not media.
+        jdbc.update("insert into word_lookup_media (word_lookup_id, sense_position, created_at)"
+                + " values (?, 0, current_timestamp)", apple.getId());
+        try {
+            mockMvc.perform(asAdmin(get("/api/admin/words?media=with&_sort=word&_order=ASC")))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("X-Total-Count", "2"))
+                    .andExpect(jsonPath("$[0].word").value("run"))
+                    .andExpect(jsonPath("$[1].word").value("zebra"));
+            mockMvc.perform(asAdmin(get("/api/admin/words?media=without&_sort=word&_order=ASC")))
+                    .andExpect(header().string("X-Total-Count", "3"))
+                    .andExpect(jsonPath("$[0].word").value("apple"))
+                    .andExpect(jsonPath("$[1].word").value("pear"))
+                    .andExpect(jsonPath("$[2].word").value("walk"));
+            // It works together with the other filters and the total follows the filter.
+            mockMvc.perform(asAdmin(get("/api/admin/words?media=with&source=backend")))
+                    .andExpect(header().string("X-Total-Count", "1"))
+                    .andExpect(jsonPath("$[0].word").value("zebra"));
+            mockMvc.perform(asAdmin(get("/api/admin/words?media=without&source=bundled&q=wal")))
+                    .andExpect(header().string("X-Total-Count", "1"))
+                    .andExpect(jsonPath("$[0].word").value("walk"));
+            mockMvc.perform(asAdmin(get("/api/admin/words?media=with&cefr=A1")))
+                    .andExpect(header().string("X-Total-Count", "1"))
+                    .andExpect(jsonPath("$[0].word").value("run"));
+            mockMvc.perform(asAdmin(get("/api/admin/words?media=some")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.detail").value(containsString("media must be one of")));
+        } finally {
+            backend.deleteAll();
+            bundled.deleteAll();
+            jdbc.update("delete from media where file_name like 'admin_test_%'");
+        }
+    }
+
+    /** A backend word whose definition uses the hard word "abstain". */
+    private WordLookup saveHardBackend(String word, boolean needsReview) {
+        String json = "{\"senses\":[{\"pos\":\"verb\",\"cefr\":\"B1\",\"simpleDefinition\":\"to abstain from food\","
+                + "\"vietnamese\":\"x\",\"examples\":[{\"level\":\"easy\",\"text\":\"I " + word + ".\"}],\"usage\":[]}]}";
+        WordLookup row = new WordLookup("key-" + word, word, json, "test-model", "v7", needsReview);
+        row.setCefr("B1");
+        return backend.save(row);
+    }
+
+    @Test
+    void aFlaggedWordCarriesItsReviewReasonsAndACleanWordHasNone() throws Exception {
+        WordLookup hard = saveHardBackend("working", true);
+        WordLookup clean = saveBackend("zebra", "B1", false);
+
+        mockMvc.perform(asAdmin(get("/api/admin/words/w-" + hard.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviewReasons.length()").value(1))
+                .andExpect(jsonPath("$.reviewReasons[0]").value(containsString("sense 1: the definition uses hard words")))
+                .andExpect(jsonPath("$.reviewReasons[0]").value(containsString("abstain")));
+        mockMvc.perform(asAdmin(get("/api/admin/words/w-" + clean.getId())))
+                .andExpect(jsonPath("$.reviewReasons.length()").value(0));
+        // The list items carry them too.
+        mockMvc.perform(asAdmin(get("/api/admin/words?_start=0&_end=10&_sort=word&_order=ASC&needs_review=true")))
+                .andExpect(jsonPath("$[0].word").value("working"))
+                .andExpect(jsonPath("$[0].reviewReasons[0]").value(containsString("abstain")));
+    }
+
+    @Test
+    void reasonsAreRecomputedAfterAnEdit() throws Exception {
+        WordLookup hard = saveHardBackend("working", true);
+        mockMvc.perform(asAdmin(put("/api/admin/words/w-" + hard.getId())).content(ONE_SENSE_ENTRY))
+                .andExpect(status().isOk())
+                // Fixed, but the flag stays until the developer marks it reviewed.
+                .andExpect(jsonPath("$.needsReview").value(true))
+                .andExpect(jsonPath("$.reviewReasons.length()").value(0));
     }
 }

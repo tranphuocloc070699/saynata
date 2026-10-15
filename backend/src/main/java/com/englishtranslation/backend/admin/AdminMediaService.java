@@ -3,6 +3,7 @@ package com.englishtranslation.backend.admin;
 import com.englishtranslation.backend.media.HttpPixabayClient;
 import com.englishtranslation.backend.media.MediaProperties;
 import com.englishtranslation.backend.media.MediaStore;
+import com.englishtranslation.backend.media.PixabayBusyException;
 import com.englishtranslation.backend.media.PixabayClient;
 import com.englishtranslation.backend.media.PixabayClient.PixabayHit;
 import com.englishtranslation.backend.media.SenseMedia;
@@ -31,6 +32,7 @@ public class AdminMediaService {
 
     static final int MAX_RESULTS = 6;
     static final String NEEDS_AI = "needs_ai";
+    static final String BUSY_MESSAGE = "Pixabay is busy right now. Try again in a minute.";
 
     /** One Pixabay result. previewUrl is for the small picture in the admin; downloadUrl is what we fetch if it is chosen. */
     public record SearchResult(String kind, long pixabayId, String previewUrl, String downloadUrl, String photographer,
@@ -106,6 +108,9 @@ public class AdminMediaService {
         long mediaId;
         try {
             mediaId = store.save(sense.word(), position, hit);
+        } catch (PixabayBusyException e) {
+            log.warn("Pixabay is busy, could not save the chosen media for {} sense {}: {}", wordId, position + 1, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, BUSY_MESSAGE);
         } catch (IOException | RuntimeException e) {
             log.warn("Could not save the chosen media for {} sense {}: {}", wordId, position + 1, e.toString());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not download or convert that file. Try another one.");
@@ -250,6 +255,9 @@ public class AdminMediaService {
     private List<PixabayHit> fromPixabay(java.util.function.Supplier<List<PixabayHit>> call) {
         try {
             return call.get();
+        } catch (PixabayBusyException e) {
+            log.warn("Pixabay search failed: {}", e.toString());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, BUSY_MESSAGE);
         } catch (RuntimeException e) {
             log.warn("Pixabay search failed: {}", e.toString());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Pixabay did not answer. Try again later.");
