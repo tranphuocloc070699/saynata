@@ -118,7 +118,7 @@ struct SelectedTextResultView: View {
         switch store.state {
         case let .loadedWord(entry): entry.matchedForm?.text ?? entry.word
         case .loaded: store.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        case .idle, .loading, .failed: nil
+        case .idle, .loading, .meaning, .failed: nil
         }
     }
 
@@ -126,7 +126,7 @@ struct SelectedTextResultView: View {
     private var isExplained: Bool {
         switch store.state {
         case .loaded, .loadedWord: true
-        case .idle, .loading, .failed: false
+        case .idle, .loading, .meaning, .failed: false
         }
     }
 
