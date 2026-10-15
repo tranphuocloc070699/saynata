@@ -69,6 +69,18 @@ struct SettingsView: View {
                         .accessibilityLabel("Close")
                 }
             }
+            // On the NavigationStack, not on the Account section: a sheet on a List row is closed again when the list
+            // redraws its rows (the keyboard opening in the sheet did that), so Sign in closed itself at once.
+            .sheet(isPresented: $isSignInOpen) {
+                SignInSheet(account: account)
+            }
+            .confirmationDialog("Delete your account?", isPresented: $isDeleteConfirmationOpen, titleVisibility: .visible) {
+                Button("Delete account", role: .destructive) {
+                    Task { await deleteAccount() }
+                }
+            } message: {
+                Text("Your account is removed from our server and you are signed out. This cannot be undone.")
+            }
         }
     }
 }
@@ -105,16 +117,6 @@ extension SettingsView {
             }
         }
         .listRowBackground(Theme.Colors.surface)
-        .sheet(isPresented: $isSignInOpen) {
-            SignInSheet(account: account)
-        }
-        .confirmationDialog("Delete your account?", isPresented: $isDeleteConfirmationOpen, titleVisibility: .visible) {
-            Button("Delete account", role: .destructive) {
-                Task { await deleteAccount() }
-            }
-        } message: {
-            Text("Your account is removed from our server and you are signed out. This cannot be undone.")
-        }
     }
 
     private func accountRow(_ title: String, color: Color, action: @escaping () -> Void) -> some View {
