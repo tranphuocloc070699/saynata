@@ -3,6 +3,9 @@ package com.englishtranslation.backend.translation;
 import com.anthropic.errors.AnthropicServiceException;
 import com.englishtranslation.backend.claude.ClaudeRefusedException;
 import com.englishtranslation.backend.claude.NotEnglishException;
+import com.englishtranslation.backend.common.ApiException;
+import com.englishtranslation.backend.limits.CallerContext;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.Valid;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -48,7 +51,8 @@ public class TranslationController {
      * <ul>
      * <li>{@code meaning}: {@code {"meaning": "..."}} as soon as Claude has written the meaning (cache misses only);</li>
      * <li>{@code done}: the full {@link TranslationResponse}, the same JSON as the old endpoint;</li>
-     * <li>{@code error}: {@code {"status": 422, "message": "..."}} when the answer cannot be made.</li>
+     * <li>{@code error}: {@code {"status": 422, "message": "..."}} when the answer cannot be made. Sign-in, rate
+     * limit and daily budget errors also have a {@code code}: sign_in_required, rate_limited, daily_limit_reached.</li>
      * </ul>
      * A cache hit sends only {@code done}. The old endpoint stays for old app versions.
      * The headers tell proxies (Caddy, nginx) not to hold the events back.
@@ -57,7 +61,9 @@ public class TranslationController {
     @PostMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE + ";charset=UTF-8")
     public ResponseEntity<SseEmitter> stream(@Valid @RequestBody TranslationRequest request) {
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
-        executor.execute(() -> runStream(request, emitter));
+        // The stream runs on another thread, which does not know who is asking. Hand the user over.
+        CallerContext.Caller caller = CallerContext.current().orElse(null);
+        executor.execute(() -> CallerContext.runAs(caller, () -> runStream(request, emitter)));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "no-cache")
                 .header("X-Accel-Buffering", "no")
@@ -78,15 +84,18 @@ public class TranslationController {
 
     /** What the app can show, and the HTTP status the old endpoint would have used. */
     private static StreamError describe(Exception e) {
+        if (e instanceof ApiException apiException) {
+            return new StreamError(apiException.status().value(), apiException.getMessage(), apiException.code());
+        }
         if (e instanceof NotEnglishException || e instanceof ClaudeRefusedException) {
-            return new StreamError(422, e.getMessage());
+            return new StreamError(422, e.getMessage(), null);
         }
         if (e instanceof AnthropicServiceException) {
             log.warn("Claude API error while streaming: {}", e.getMessage());
         } else {
             log.error("Streaming a sentence failed", e);
         }
-        return new StreamError(502, "The translation service is not available. Try again later.");
+        return new StreamError(502, "The translation service is not available. Try again later.", null);
     }
 
     /**
@@ -101,6 +110,7 @@ public class TranslationController {
         }
     }
 
-    private record StreamError(int status, String message) {
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private record StreamError(int status, String message, String code) {
     }
 }

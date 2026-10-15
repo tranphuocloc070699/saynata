@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(ClaudeProperties.class)
+@EnableConfigurationProperties({ ClaudeProperties.class, UsageProperties.class })
 public class ClaudeConfig {
 
     @Bean

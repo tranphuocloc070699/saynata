@@ -53,3 +53,43 @@ Content-Type: application/json
 
 ### 10. Error: two words on the word endpoint -> 400
 GET {{baseUrl}}/api/words/two%20words
+
+### Accounts (TASK-66). Without SES_FROM_EMAIL the code is in the backend log ("[fake email]").
+### A. Ask for a code (always 204)
+POST {{baseUrl}}/api/auth/email-code
+Content-Type: application/json
+
+{ "email": "you@example.com" }
+
+### B. Sign in with the code. The answer has accessToken and refreshToken.
+POST {{baseUrl}}/api/auth/verify
+Content-Type: application/json
+
+{ "email": "you@example.com", "code": "123456" }
+
+### C. A new sentence needs the token (a guest gets 401 sign_in_required)
+POST {{baseUrl}}/api/translations
+Content-Type: application/json
+Authorization: Bearer PASTE_ACCESS_TOKEN
+
+{ "text": "A sentence nobody asked before.", "targetLang": "vi" }
+
+### D. Who am I
+GET {{baseUrl}}/api/me
+Authorization: Bearer PASTE_ACCESS_TOKEN
+
+### E. New tokens (the old refresh token stops working)
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "PASTE_REFRESH_TOKEN" }
+
+### F. Sign out
+POST {{baseUrl}}/api/auth/sign-out
+Content-Type: application/json
+
+{ "refreshToken": "PASTE_REFRESH_TOKEN" }
+
+### G. Delete the account and its tokens
+DELETE {{baseUrl}}/api/me
+Authorization: Bearer PASTE_ACCESS_TOKEN

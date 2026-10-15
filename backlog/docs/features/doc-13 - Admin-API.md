@@ -3,16 +3,16 @@ id: doc-13
 title: Admin API
 type: specification
 created_date: '2026-10-14 11:28'
-updated_date: '2026-10-15 09:09'
+updated_date: '2026-10-15 10:02'
 ---
 # Admin API
 
-> Status: **backend built** (TASK-49.1 and TASK-49.3, part of F5 Admin CMS, TASK-49). The admin web app is TASK-49.2. Last traced from code: 2026-10-15 (Pixabay 429 on a pick answers 503 "Pixabay is busy": TASK-63; media per sense: TASK-49.4; replace, remove or mark a sense picture: TASK-52; review reasons: TASK-55; the `media` list filter: TASK-60; the bundled entry wins over a backend entry: TASK-58).
+> Status: **backend built** (TASK-49.1 and TASK-49.3, part of F5 Admin CMS, TASK-49). The admin web app is TASK-49.2. Last traced from code: 2026-10-15 (app user accounts and `GET /api/admin/usage`: TASK-66 to 69, see doc-17; Pixabay 429 on a pick answers 503 "Pixabay is busy": TASK-63; media per sense: TASK-49.4; replace, remove or mark a sense picture: TASK-52; review reasons: TASK-55; the `media` list filter: TASK-60; the bundled entry wins over a backend entry: TASK-58).
 > Why: Postgres on the server is the single source of truth for content (doc-7, 2026-10-14). A person needs a safe way to read, fix and regenerate words and sentences.
 
 ## What it does
 
-`/api/admin/**` is a small REST API for the admin web app (admin.loffy.me). An admin logs in with email and password, gets a signed cookie, and can then list, search, read, edit, mark as reviewed and delete the words and sentences. Words come from two tables: the **bundled dictionary** (`dictionary_word`, the 2,750 words in the iOS app, source `bundled`) and the words Claude wrote on demand (`word_lookup`, source `backend`). Sentences are `sentence_translation`. Deleting a row is "regenerate": the next public lookup asks Claude again. The public API (`/api/translations`, `/api/translations/stream` (server-sent events, TASK-65, see doc-4), `/api/words/{word}`, `/actuator/health`) needs no login. Streamed sentences are cached in the same `sentence_translation` table, so deleting a row here also "regenerates" them.
+`/api/admin/**` is a small REST API for the admin web app (admin.loffy.me). An admin logs in with email and password, gets a signed cookie, and can then list, search, read, edit, mark as reviewed and delete the words and sentences. Words come from two tables: the **bundled dictionary** (`dictionary_word`, the 2,750 words in the iOS app, source `bundled`) and the words Claude wrote on demand (`word_lookup`, source `backend`). Sentences are `sentence_translation`. Deleting a row is "regenerate": the next public lookup asks Claude again. The public API (`/api/translations`, `/api/translations/stream` (server-sent events, TASK-65, see doc-4), `/api/words/{word}`, `/actuator/health`) needs no admin login. App users have a separate login with an email code and a Bearer token ([Accounts and limits](doc-17%20-%20Accounts-and-limits.md)): a guest gets cached and bundled answers, a new Claude call needs a signed-in user. Streamed sentences are cached in the same `sentence_translation` table, so deleting a row here also "regenerates" them.
 
 ## Big picture
 
@@ -28,8 +28,10 @@ flowchart LR
     WORDS --> PG[(Postgres: dictionary_word + word_lookup)]
     SENT --> PG
     AUTH --> PG
-    APP[iOS app] -->|no login| PUB["/api/words, /api/translations"]
+    APP[iOS app] -->|"optional Bearer token"| PUB["/api/words, /api/translations"]
     PUB --> PG
+    ADM2[Admin web app] -->|"cookie"| USAGE["GET /api/admin/usage"]
+    USAGE --> PG
 ```
 
 ## Login
@@ -49,16 +51,16 @@ sequenceDiagram
 
 | Step | File:line | What happens |
 |---|---|---|
-| Accounts | [V5__create_users_and_roles.sql](../../../backend/src/main/resources/db/migration/V5__create_users_and_roles.sql) | Tables `users` (email unique, bcrypt hash) and `user_roles` (role ADMIN now, USER later). Also `sentence_translation.needs_review`. |
+| Accounts | [V5__create_users_and_roles.sql](../../../backend/src/main/resources/db/migration/V5__create_users_and_roles.sql) | Tables `users` (email unique, bcrypt hash) and `user_roles` (ADMIN here; USER for app users, see doc-17). Also `sentence_translation.needs_review`. [V10](../../../backend/src/main/resources/db/migration/V10__create_accounts.sql) lets `password_hash` be empty: an app user has no password, and the admin login treats such a user like an unknown email. |
 | First admin | [AdminBootstrap.java:36](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminBootstrap.java#L36) | At start-up, only when no ADMIN exists: creates one from `ADMIN_EMAIL` + `ADMIN_INITIAL_PASSWORD` (12+ characters). Logs the email, never the password. |
-| Rules | [SecurityConfig.java:36](../../../backend/src/main/java/com/englishtranslation/backend/admin/SecurityConfig.java#L36) | Stateless. Only `/api/admin/**` needs ADMIN (login and logout are open, OPTIONS is open for CORS). Everything else stays open. No login gives 401. |
-| CORS | [SecurityConfig.java:60](../../../backend/src/main/java/com/englishtranslation/backend/admin/SecurityConfig.java#L60) | Only for `/api/admin/**`: `https://admin.loffy.me` and `http://localhost:5173`, with credentials, `X-Total-Count` exposed. |
+| Rules | [SecurityConfig.java:43](../../../backend/src/main/java/com/englishtranslation/backend/admin/SecurityConfig.java#L43) | Stateless. `/api/admin/**` needs ADMIN (login and logout are open, OPTIONS is open for CORS), `/api/me` needs the USER role (doc-17). Everything else stays open. No login gives 401. The Bearer filter for app users never looks at `/api/admin`, and the admin cookie filter never looks at anything else, so the two logins cannot open each other's doors. |
+| CORS | [SecurityConfig.java:71](../../../backend/src/main/java/com/englishtranslation/backend/admin/SecurityConfig.java#L71) | Only for `/api/admin/**`: `https://admin.loffy.me` and `http://localhost:5173`, with credentials, `X-Total-Count` exposed. |
 | Login | [AdminAuthController.java:60](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminAuthController.java#L60) | Same 401 "Wrong email or password." for unknown email, wrong password, or a user without ADMIN. Too many tries: 429. |
 | Rate limit | [LoginRateLimiter.java:24](../../../backend/src/main/java/com/englishtranslation/backend/admin/LoginRateLimiter.java#L24) | In memory, per IP (the real IP from `X-Forwarded-For`, trusted only from a private or loopback proxy such as Caddy). A restart clears it. |
 | Token | [AdminTokenService.java:46](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminTokenService.java#L46) | JWT HS256 with `ADMIN_JWT_SECRET` (32+ characters, or start-up fails), 8 hours, holds only the user id. |
 | Cookie filter | [AdminCookieFilter.java:39](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminCookieFilter.java#L39) | Reads the cookie, checks the token, loads the user from the database and checks the ADMIN role again (so removing an admin works at once). |
 | CSRF | [JsonWritesOnlyFilter.java:19](../../../backend/src/main/java/com/englishtranslation/backend/admin/JsonWritesOnlyFilter.java#L19) | Spring CSRF is off. Instead the cookie is SameSite=Strict, and every POST/PUT/DELETE under `/api/admin` must send `Content-Type: application/json` (else 415). The admin site and the API must share the site `loffy.me` (for example admin.loffy.me and api.loffy.me). |
-| Me, logout | [AdminAuthController.java:83](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminAuthController.java#L83), [:90](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminAuthController.java#L90) | `GET /api/admin/auth/me` gives id, email, display name and roles (for example `["ADMIN"]`). `POST /api/admin/auth/logout` clears the cookie. |
+| Me, logout | [AdminAuthController.java:84](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminAuthController.java#L84), [:91](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminAuthController.java#L91) | `GET /api/admin/auth/me` gives id, email, display name and roles (for example `["ADMIN"]`). `POST /api/admin/auth/logout` clears the cookie. |
 
 ## Words and sentences (Refine simple-rest shape)
 
@@ -111,6 +113,12 @@ sequenceDiagram
 
 Not found: an unknown word or a sense number past the last sense is 404. No `PIXABAY_API_KEY` on the server: 503 "Pixabay is not set up." Pixabay down or slow: 502 "Pixabay did not answer. Try again later."
 
+## Claude usage per day (TASK-67)
+
+`GET /api/admin/usage?days=7` (ADMIN, `days` 1 to 90, default 7) shows what Claude cost, newest day first (UTC days, empty days included):
+`{dailyBudgetUsd, todayUsd, days: [{date, total: {calls, inputTokens, outputTokens, costUsd}, byFeature: {sentence, word, admin}}]}`.
+Code: [AdminUsageController](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminUsageController.java), [ClaudeUsageService.report](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L110). There is no admin screen for it yet. How the cost and the daily cap work: [Accounts and limits](doc-17%20-%20Accounts-and-limits.md). Deleting a word or sentence here ("Regenerate") means the next public lookup asks Claude, so it is covered by the cap and by the sign-in rule like any new call.
+
 ## Errors
 
 | Cause | HTTP | What the admin web app gets |
@@ -128,16 +136,17 @@ Not found: an unknown word or a sense number past the last sense is 404. No `PIX
 | Pixabay says 429 (too many requests) on all 3 tries, in a search or a pick | 503 | "Pixabay is busy right now. Try again in a minute." (TASK-63) |
 | `PIXABAY_API_KEY` empty | 503 | "Pixabay is not set up. Set PIXABAY_API_KEY on the server." |
 | `source`, `cefr` or `media` with a wrong value | 400 | "source must be one of: backend, bundled." / "cefr must be a list of: A1, A2, B1, B2, C1, C2." / "media must be one of: with, without." |
+| `GET /api/admin/usage` with a bad `days` | 200 | `days` is kept between 1 and 90 |
 | `ADMIN_JWT_SECRET` missing (admin enabled) | start-up fails | Log: "Set ADMIN_JWT_SECRET to at least 32 characters". Set `ADMIN_ENABLED=false` to run without the admin API. |
 
 ## Tests
 
-`AdminAuthTest` (login, cookie flags, 401, rate limit, CORS, public endpoints open), `AdminContentApiTest` (list/paging/search/filter, get, update, invalid JSON, reviewed, delete), `AdminBundledWordsTest` (both sources in one list, `source`, `cefr` and `media` filters (TASK-60: a clip on the second sense counts, a claim row without a file does not, both sources, combined with the other filters, bad value is 400), marking a backend word reviewed clears the flag and stays cleared when read back (TASK-57), ids, update of a bundled word keeps the picture fields, validation, reviewed, bundled delete is 400, `media` with the credit for both sources, `reviewReasons` for a flagged word and none for a clean one or after a fixing edit), `AdminMediaTest` (TASK-52: 401 without login and for a user without ADMIN, search with a fake Pixabay, rate limit, pick another for bundled and backend words, non-Pixabay address refused, download error keeps the old picture, Pixabay busy (429) gives 503 with the busy message and keeps the old picture, no image, mark for AI and the `needs_ai` list), `BundledWordWinsTest` (TASK-58, see doc-5), `WordCefrBackfillTest`, `AdminSetupTest` (first admin, secret check, token), `AdminDisabledTest`.
+`AdminAuthTest` (login, cookie flags, 401, rate limit, CORS, public endpoints open), `AdminContentApiTest` (list/paging/search/filter, get, update, invalid JSON, reviewed, delete), `AdminBundledWordsTest` (both sources in one list, `source`, `cefr` and `media` filters (TASK-60: a clip on the second sense counts, a claim row without a file does not, both sources, combined with the other filters, bad value is 400), marking a backend word reviewed clears the flag and stays cleared when read back (TASK-57), ids, update of a bundled word keeps the picture fields, validation, reviewed, bundled delete is 400, `media` with the credit for both sources, `reviewReasons` for a flagged word and none for a clean one or after a fixing edit), `AdminMediaTest` (TASK-52: 401 without login and for a user without ADMIN, search with a fake Pixabay, rate limit, pick another for bundled and backend words, non-Pixabay address refused, download error keeps the old picture, Pixabay busy (429) gives 503 with the busy message and keeps the old picture, no image, mark for AI and the `needs_ai` list), `BundledWordWinsTest` (TASK-58, see doc-5), `WordCefrBackfillTest`, `AdminSetupTest` (first admin, secret check, token), `AdminDisabledTest`, `AdminUsageTest` (TASK-67: login needed, spend by feature, `days` default and cap).
 Run: `cd backend && ./mvnw -B test`.
 
 ## Change checklist
 
-- New env key: also `backend/.env.example`, `backend/docker-compose.prod.yml`, and doc-11.
+- New env key: also `backend/.env.example`, `backend/docker-compose.prod.yml` (it lists env keys by hand), and doc-11.
 - New field in `WordEntry` or `Explanation`: also the checks in `EntryParser`.
 - New column on the word list: also the view `admin_word_list` (a new Flyway migration) and `AdminWordService`.
 - New admin endpoint: it is covered by `/api/admin/**` automatically; add a 401 test.
@@ -150,5 +159,6 @@ Run: `cd backend && ./mvnw -B test`.
 - Deleting a backend word ("Regenerate") also deletes its `word_lookup_media` rows, but the `media` rows and the files stay on the server (the next lookup fetches a new photo). Cleaning them up is a follow-up.
 - Bundled word forms (`dictionary_form`) and the word's IPA cannot be edited through the API yet.
 - The default sort is `id DESC`, which lists bundled words before backend words.
-- Only the ADMIN role is used. The USER role is ready in the tables for app users later.
+- The admin web app does not show the usage report yet (`GET /api/admin/usage` is ready).
+- App users (role USER) sign in with an email code and use a Bearer token; they never get access to `/api/admin` (doc-17). An account that has both roles keeps the admin cookie login for the admin site.
 - Ran on a real PostgreSQL 16 on 2026-10-14 (TASK-49.3): Flyway V1 to V6, the `admin_word_list` view, the filters and a PUT on a bundled word. The automated tests use H2.

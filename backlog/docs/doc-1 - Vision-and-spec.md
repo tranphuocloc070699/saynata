@@ -3,7 +3,7 @@ id: doc-1
 title: Vision and spec
 type: specification
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-15 09:09'
+updated_date: '2026-10-15 10:08'
 ---
 # Spec: EnglishTranslation — translator for a Vietnamese English learner
 
@@ -83,7 +83,7 @@ not call the LLM.
 
 ### R6 — Java backend
 - Spring Boot 4, Java 17, Postgres, Flyway, Claude API (env `CLAUDE_API_KEY`).
-- Stateless. No user accounts in v1.
+- Stateless for the server's own state, no sessions. Accounts (email code sign-in, TASK-66) exist only to limit new Claude calls: see doc-17.
 
 ## Backend API (v1)
 
@@ -92,6 +92,16 @@ not call the LLM.
 | `POST` | `/api/translations` | `{ "text": "...", "targetLang": "vi" }` | `{ text, targetLang, explanation, cached }` |
 | `POST` | `/api/translations/stream` | same body | `text/event-stream` (TASK-65): `meaning` `{ meaning }` as soon as it is written (cache misses), then `done` with the same JSON as `/api/translations`; or `error` `{ status, message }` |
 | `GET`  | `/api/words/{word}` | path: the word | `{ word, entry, cached }` |
+| `POST` | `/api/auth/email-code` | `{ "email": "..." }` | `204` always (a 6-digit code is emailed). `400 invalid_email`, `429 rate_limited` |
+| `POST` | `/api/auth/verify` | `{ "email", "code" }` | `{ accessToken, refreshToken, expiresIn, user: { id, email } }`; `401 invalid_code` |
+| `POST` | `/api/auth/refresh` | `{ "refreshToken" }` | same as verify; the old refresh token stops working; `401 invalid_refresh_token` |
+| `POST` | `/api/auth/sign-out` | `{ "refreshToken" }` | `204` |
+| `GET`, `DELETE` | `/api/me` | header `Authorization: Bearer <accessToken>` | `{ id, email }` / `204` (deletes the account and its tokens) |
+
+**Who may cause a new Claude call (TASK-68).** The three public endpoints take an optional `Authorization: Bearer <accessToken>`. Cache hits and bundled words work for everyone (guests too).
+A request that needs a **new** Claude call without a signed-in user gets `401` (unless the server runs with `REQUIRE_SIGN_IN=false`; guests are then limited per IP and by the daily cap) with `"code": "sign_in_required"` (the stream sends an `error` event with the same `code`).
+When today's Claude spend (UTC day) reaches `app.claude.daily-budget-usd` (default $1.00), a new call gets `503` `daily_limit_reached` and only cached answers work until midnight UTC.
+Too many requests give `429` `rate_limited` with a `Retry-After` header. Details and numbers: [Accounts and limits](features/doc-17%20-%20Accounts-and-limits.md).
 
 `explanation` = `{ meaning, words: [{ word, partOfSpeech, meaning }], translation }`. Only
 `translation` is in `targetLang`; `meaning` and `words` are simple English (difficult = above B1).

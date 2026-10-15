@@ -66,7 +66,8 @@ public class AdminAuthController {
         }
 
         User user = users.findByEmail(request.email().trim().toLowerCase()).orElse(null);
-        String hash = user == null ? dummyHash : user.getPasswordHash();
+        // An app user has no password (null). Treat it like an unknown email: same work, same answer.
+        String hash = user == null || user.getPasswordHash() == null ? dummyHash : user.getPasswordHash();
         boolean passwordOk = passwordEncoder.matches(request.password(), hash);
         // Same answer for "no such email", "wrong password" and "not an admin", so nothing is revealed.
         if (user == null || !passwordOk || !user.isAdmin()) {

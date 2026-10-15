@@ -3,7 +3,7 @@ id: doc-9
 title: Progress timeline
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-14 11:25'
+updated_date: '2026-10-15 10:02'
 ---
 # Progress timeline
 
@@ -20,6 +20,7 @@ A dated story of the project, for the video. Add a line at the end of each worki
 | 2026-10-11 (evening) | First full feature shipped: **F1 Look up a word** merged into main (PR #14) after 17 task PRs from Sonnet workers. Added usage lines (16,043, 1,170 idioms) and levelled examples (22,388) with two paid passes (~$17). The developer's own tests found real bugs (old branch, runk -> drunk, missing IPA, flicker) and changed the design three times through mockups. New rules: feature status with every test request, mockup before UI code, always iPhone 16 Pro. | Testing finds what reviews miss: three bugs only showed up on the simulator. |
 | 2026-10-14 | Hosting decided: ChatGPT said to rewrite the backend in TypeScript for Cloudflare Workers; chose a VPS and kept Spring Boot instead. Added auto deploy (GitHub Actions over SSH after CI). Backend deployed with its .env. **F3 Listen** built by Codex from a Claude-written prompt (speakers on the word, each explanation, each example), reviewed here, and merged with the share extension, sense photos and clips (Pixabay), and the new app icon. All features merged into main before the phone test, by the developer's choice. Old chats archived down to one. | "Do I need to rewrite?" No: pick the host that fits the code you have. |
 | 2026-10-14 (evening) | First run on a real iPhone 13: HTTPS backend at api.loffy.me (Caddy + Let's Encrypt), the app pointed at it (PR #38, found by Codex from device logs: the app was calling localhost). F3 Listen, the share sheet and "an apple" approved after the phone test; the Translate-button integration is parked until a paid Apple account. Decisions: stop the 50,000-word plan ("it costs too much money"), an admin CMS (React + Refine + shadcn/ui, users with roles), the server database as the source of truth, images served from the server, no caching of personal-looking sentences. Conventions written into CLAUDE.md. Three cloud workers started (admin API, admin web app, cache privacy) while the developer was away. | A phone test beats every review: one log line showed the whole bug. |
+| 2026-10-15 | Backend accounts and cost protection built: sign in with an email code (AWS SES), guests get only cached and bundled answers, a $1 per day Claude cap counted from real token usage, and rate limits. The iOS sign-in screen waits for a mockup. | Protecting the wallet before the app has real users. |
 
 ## Numbers to show
 
