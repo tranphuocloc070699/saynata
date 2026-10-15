@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-15 10:16'
-updated_date: '2026-10-15 10:16'
+updated_date: '2026-10-15 10:30'
 labels:
   - ios
   - security
@@ -46,3 +46,9 @@ iOS side of user accounts (backend: PR #63, doc-17). A guest gets bundled and ca
 5. Views: SignInSheet (two steps) + SignInModel, TranslateView sheet, Settings Account section, extension hint (open Saynata).
 6. Tests, simulator screenshots of both steps, docs (doc-17, doc-4, doc-5, design-system, doc-10), check_docs.py, PR.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/64. Built Account/ (Keychain store, AuthClient, AccountStore, SignInModel), Bearer + refresh-once-and-retry in BackendClient, coded errors, sign-in sheet (option A), Settings Account section, extensions stay guests. 284 tests pass on iPhone 16 Pro iOS 18.5. Test it: Goal: a guest asks for a new sentence, the sign-in sheet opens over the result, the email code is typed, the sheet closes and the same request runs again. Steps: 1) against a backend with REQUIRE_SIGN_IN=true, type a new sentence and tap send; 2) sheet shows 'Sign in to explain new sentences'; type an email, tap the arrow; 3) read the code on the VPS: docker compose -f docker-compose.prod.yml logs backend | grep 'fake email'; type it; 4) the explanation appears; 5) Settings > Account shows the email, Sign out, Delete account. Expected: wrong code shows 'That code is wrong or has expired...'; 5 wrong tries show 'Too many tries. Send a new code.'; daily limit shows the server message; rate limit shows 'Try again in N minutes'. With REQUIRE_SIGN_IN=false nothing changes. Automated: xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' -only-testing:EnglishTranslationTests -parallel-testing-enabled NO. Known gaps: extensions are guests (no shared Keychain group on a free Apple ID); word sheet inside a sentence shows only the message, no sign-in sheet.
+<!-- SECTION:NOTES:END -->
