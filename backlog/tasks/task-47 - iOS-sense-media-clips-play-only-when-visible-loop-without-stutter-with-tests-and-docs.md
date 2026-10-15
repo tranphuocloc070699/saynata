@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-14 10:47'
-updated_date: '2026-10-15 03:39'
+updated_date: '2026-10-15 03:45'
 labels:
   - ios
   - bug
@@ -48,3 +48,13 @@ Follow-ups from the TASK-23 review (2026-10-14), file EnglishTranslation/English
 4. Describe the media row in doc-5, update Last traced.
 Done together with TASK-51 in branch fix/task-47-51-media (same file).
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR https://github.com/tranphuocloc070699/saynata/pull/48 (TASK-47 and TASK-51 together). Tests: 164 passed on iPhone 16 Pro iOS 18.5.
+Test it. Goal: bundled media still works, clips play only when visible, server https media shows and works offline.
+Steps now: look up run (clip plays; scroll away pauses; Home pauses), look up dog (photo), a word without media (no box).
+Steps after PR #46 is deployed: curl https://api.loffy.me/api/words/<new word> shows imageUrl https://api.loffy.me/media/<file>; look it up in the app; Airplane mode + restart: photo still shows; failed download shows nothing.
+Automated: SenseMediaTests (xcodebuild test ... -only-testing:EnglishTranslationTests).
+<!-- SECTION:NOTES:END -->
