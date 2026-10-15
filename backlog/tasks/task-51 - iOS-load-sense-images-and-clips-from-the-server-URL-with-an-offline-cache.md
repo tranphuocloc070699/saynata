@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-14 11:22'
-updated_date: '2026-10-15 03:45'
+updated_date: '2026-10-15 07:56'
 labels:
   - ios
   - media
@@ -54,4 +54,8 @@ Test it. Goal: bundled media still works, clips play only when visible, server h
 Steps now: look up run (clip plays; scroll away pauses; Home pauses), look up dog (photo), a word without media (no box).
 Steps after PR #46 is deployed: curl https://api.loffy.me/api/words/<new word> shows imageUrl https://api.loffy.me/media/<file>; look it up in the app; Airplane mode + restart: photo still shows; failed download shows nothing.
 Automated: SenseMediaTests (xcodebuild test ... -only-testing:EnglishTranslationTests).
+
+2026-10-15 (PR #48 extended): bundled words load media from the server. Fresh dictionary.sqlite from Postgres (same schema, image_url on 3,372 senses). SenseMediaSource.resolved(serverBase:) maps a bundled path with no file in the app to AppConfig.backendBaseURL()/media/<file>, then MediaFileCache and AVPlayer. Tests: 169 passed (5 new). Simulator: thirst (photo), fade (clip), dog (bundled) show.
+Test it (new steps): 1. Look up thirst: photo shows. 2. Look up fade: muted clip plays after a moment. 3. Look up dog: photo shows at once. 4. Airplane mode, force-quit, reopen, look up thirst and fade: both still show. Failure case: a word never opened online shows no box and no error text.
+Automated: SenseMediaTests (xcodebuild test ... -only-testing:EnglishTranslationTests). PR: https://github.com/tranphuocloc070699/saynata/pull/48
 <!-- SECTION:NOTES:END -->

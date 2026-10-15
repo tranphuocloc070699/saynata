@@ -3,7 +3,7 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-15 07:25'
+updated_date: '2026-10-15 07:55'
 ---
 > Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-15 (media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -355,14 +355,14 @@ bad word → 400, Claude refused → 422, Claude down → 502. A word that is no
 
 ## Media row (photo or clip under the sense title)
 
-Last traced: 2026-10-15 (TASK-23, TASK-47, TASK-51). A sense with `imageUrl` shows one small photo (WebP) or a muted looping clip (MP4) between the title row and the folded rows ([WordCardView.swift:68-71](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L68-L71)). The frame is always 240 x 135, so the card never jumps. It is hidden from VoiceOver.
+Last traced: 2026-10-15 (TASK-23, TASK-47, TASK-51; a bundled word's media loads from the server). A sense with `imageUrl` shows one small photo (WebP) or a muted looping clip (MP4) between the title row and the folded rows ([WordCardView.swift:68-71](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L68-L71)). The frame is always 240 x 135, so the card never jumps. It is hidden from VoiceOver.
 
 `Sense.imageUrl` holds one of two things. `SenseMediaSource` ([SenseMediaSource.swift:15-56](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaSource.swift#L15-L56)) tells them apart:
 
 | Value | Example | Where the file comes from |
 |---|---|---|
-| Bundled path (old data, dictionary.sqlite) | `media/run_1.mp4`, `dog_1.webp` | The app bundle (`Resources/media`). Works offline. |
-| https address (backend, TASK-49.4) | `https://api.loffy.me/media/run_1_3fa9c2d1.mp4` | The server, then the disk cache. Plain http and other schemes are ignored (nothing is shown). |
+| Bundled path (dictionary.sqlite) | `media/run_1.mp4`, `dog_1.webp` | The app bundle (`Resources/media`) if the file is there (only 3 files are). Otherwise the server, `https://api.loffy.me/media/<file>`, then the disk cache, like an https address. The server address is `AppConfig.backendBaseURL()`. |
+| https address (backend, TASK-49.4) | `https://api.loffy.me/media/run_1_3fa9c2d1.mp4` | The server, then the disk cache. A photo shows offline after its first view. Plain http and other schemes are ignored (nothing is shown). |
 
 The JSON key is `imageUrl` from the backend and `image_url` in older data; both decode ([WordEntry.swift:47-90](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordEntry.swift#L47-L90)). `DictionaryStore` reads `senses.image_url` only when the column exists, else `imageUrl` is nil ([DictionaryStore.swift:104-122](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L104-L122)). The backend leaves `imageUrl` out when a sense has no media, so both cases work.
 
@@ -371,8 +371,10 @@ flowchart TD
     V["SenseMediaView(path)"] --> S{"SenseMediaSource(path)"}
     S -- "empty, http, other" --> NONE["Nothing shown"]
     S -- bundled --> BF{"File in bundle?"}
-    BF -- no --> NONE
     BF -- yes --> SHOW["Photo or clip"]
+    BF -- no --> MAP["Server address: BackendBaseURL/media/file"] --> S2{"photo or clip"}
+    S2 -- photo --> PC
+    S2 -- clip --> CC
     S -- "https photo" --> PC{"In MediaFileCache?"}
     PC -- yes --> SHOW
     PC -- no --> DL["Download, save, trim cache"]

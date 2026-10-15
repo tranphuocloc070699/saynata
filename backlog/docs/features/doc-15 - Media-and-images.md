@@ -3,11 +3,11 @@ id: doc-15
 title: Media and images
 type: specification
 created_date: '2026-10-15 04:02'
-updated_date: '2026-10-15 07:25'
+updated_date: '2026-10-15 07:55'
 ---
 # Media and images
 
-> Status: **working for photos and clips from Pixabay** (TASK-23, 49.3, 49.4, 52). AI images are not built yet (TASK-53). The iOS side on this branch only shows files inside the app; loading from the server comes with PR #48 (TASK-47 and 51). Last traced from code: 2026-10-15 (the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
+> Status: **working for photos and clips from Pixabay** (TASK-23, 49.3, 49.4, 52). AI images are not built yet (TASK-53). The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-15 (the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
 > Why: a small picture or a short clip helps a learner remember a meaning (doc-1, Vision and spec). Postgres on the server is the source of truth for content (doc-7).
 
 ## What it does
@@ -91,7 +91,7 @@ sequenceDiagram
 | Import (one time) | [import_dictionary:89](../../../pipeline/src/pipeline/postgres.py#L89), command at [cli.py:157](../../../pipeline/src/pipeline/cli.py#L157) | The first copy of the bundled dictionary into Postgres. It also creates `media` rows. It reads file sizes from `--media-dir`. |
 | Export from Postgres | [export_from_postgres:117](../../../pipeline/src/pipeline/export.py#L117), [copy_media:191](../../../pipeline/src/pipeline/export.py#L191), command at [cli.py:189](../../../pipeline/src/pipeline/cli.py#L189) | Builds `data/out/dictionary.sqlite` and copies the files that senses use into `data/out/media/`. Files missing from `--media-dir` are listed as a warning. |
 
-Then the developer copies `dictionary.sqlite` and the media folder into the app (`EnglishTranslation/EnglishTranslation/Resources`). The bundled words use these files without the network. How the run works from the start is in [Dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md).
+Then the developer copies only `dictionary.sqlite` into the app (`EnglishTranslation/EnglishTranslation/Resources`). The media files stay on the server (63 MB; the app does not carry them, see doc-7, 2026-10-15). The app loads `media/<file>` from `https://api.loffy.me/media/<file>` and saves it on the phone. How the run works from the start is in [Dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md).
 
 ## 2. Backend: new words
 
@@ -187,28 +187,21 @@ Shared details:
 
 ## 4. iOS: how the app shows media
 
-On this branch the app only shows files that are **inside the app**. The word card calls the view for each sense that has an `imageUrl`.
+The word card calls `SenseMediaView(path:)` for each sense that has an `imageUrl`. The path can be a bundled path (`media/run_1.mp4`, what `dictionary.sqlite` stores) or an https address (what the backend sends). Last traced: 2026-10-15 (TASK-47, TASK-51).
 
 | Step | File:line | What happens |
 |---|---|---|
-| Read the field | [WordEntry.swift:48](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordEntry.swift#L48) | `Sense.imageUrl` is decoded from the backend JSON (`imageUrl`) and from the bundled file (`image_url`). |
-| Bundled words | [DictionaryStore.swift:40](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L40), [:106](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L106) | Reads the `senses.image_url` column (for example `media/run_1.mp4`) when the file has it. |
+| Read the field | [WordEntry.swift:48](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordEntry.swift#L48), [DictionaryStore.swift:106](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift#L106) | `Sense.imageUrl` is decoded from the backend JSON (`imageUrl`) and from the bundled file (`senses.image_url`, for example `media/run_1.mp4`). |
 | Show it | [WordCardView.swift:68](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L68) | Under the sense title row, `SenseMediaView(path:)` is shown if the sense has an `imageUrl`. |
-| Find the file | [SenseMediaView.swift:41](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L41) | `resolveMediaURL` looks in the app bundle only: the path as written, then the `media` folder, then the bundle root. |
-| Photo or clip | [SenseMediaView.swift:13](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L13) | A path ending in `.mp4` plays in a looping, muted player ([LoopingPlayerUIView:68](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L68)). Anything else is a 240 x 135 photo. |
+| Read the path | [SenseMediaSource.swift:16-40](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaSource.swift#L16-L40) | `SenseMediaSource(path:)` gives `.bundled(path)` or `.remote(https URL)`. Empty text and plain `http` give nothing. It tells a clip from a photo by the file extension. |
+| Choose bundle or server | [SenseMediaSource.swift:42-52](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaSource.swift#L42-L52) | `resolved(serverBase:)`: a bundled path whose file is inside the app stays bundled (only `dog_1.webp`, `run_1.mp4`, `tree_1.webp` are). Any other bundled path becomes `<server>/media/<file name>`. The server address is `AppConfig.backendBaseURL()`, the same `BackendBaseURL` Info.plist value the backend client uses, so it is not written twice. |
+| Load | [SenseMediaView.swift:82-105](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L82-L105) | Bundled file: used directly. Server photo: `MediaFileCache` downloads it once and saves it, so it shows again offline. Server clip: a saved file plays if there is one; else AVPlayer streams the address and the file is saved in the background. |
+| Disk cache | [MediaFileCache.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/MediaFileCache.swift) | `Caches/SenseMedia`, **50 MB**, least recently used files go first. A file bigger than a quarter of the cache is not kept. Two views that ask for the same address share one download. iOS may delete Caches, which is fine: files are downloaded again. |
+| Frame and failure | [SenseMediaView.swift:40-52](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L40-L52) | The frame is always 240 x 135 and invisible while loading, so nothing jumps. If loading fails (offline and not saved yet, 404, bad path), the whole view disappears: no error text, no empty box. |
+| Clip player | [SenseMediaView.swift:123-185](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L123-L185) | An empty `AVQueuePlayer` plus `AVPlayerLooper(templateItem:)` (no stutter at the loop point), muted. If the looper status is `.failed`, the media is hidden. |
+| Play only when seen | [SenseMediaView.swift:51](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L51) | `onScrollVisibilityChange(threshold: 0.33)` and `scenePhase`: a clip plays only when about a third of it is on screen and the app is active. |
 
-A web address (`https://api.loffy.me/media/...`) is not a bundled file, so on this branch nothing is shown for words from the backend. The view then shows no error and no empty box.
-
-### Coming in PR #48 (TASK-47 + 51)
-
-These files are **not on this branch yet**, so they are named as plain text, not links. They were read from `origin/fix/task-47-51-media`. Real links will be added when PR #48 merges.
-
-- `SenseMediaSource.swift`: reads `Sense.imageUrl` as either a bundled path or an absolute **https** address. Plain `http` is refused. It also tells a clip from a photo by the file extension.
-- `MediaFileCache.swift`: a disk cache in `Caches/SenseMedia`, **50 MB**, least recently used files go first. A file bigger than a quarter of the cache is not kept. Two views that ask for the same address share one download. iOS may delete Caches, which is fine: files are downloaded again.
-- `SenseMediaView.swift` (new version): a server photo is downloaded once and saved, so it shows again offline. A server clip plays from the network at once, and is saved in the background for next time. While loading, the frame keeps its size but is invisible, so nothing jumps. If loading fails, nothing is shown.
-- **Clip looper fix:** the player now starts from an empty `AVQueuePlayer` and lets `AVPlayerLooper` add the items. This stops the stutter at the loop point.
-- **Play only when visible:** a clip plays only when about a third of it is on screen and the app is active (`onScrollVisibilityChange` and `scenePhase`). Otherwise it pauses.
-- Tests: `SenseMediaTests.swift`.
+Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTests/SenseMediaTests.swift) (Sense decoding, `image_url` column, bundled path vs https, a bundled file uses the bundle, a bundled path without a file maps to the server URL, https stays as it is, bad values give nothing, cache hit, offline, failure, size limit). The visibility rule needs a real scroll view, so it is checked by hand in the PR card.
 
 ## Errors
 
@@ -223,7 +216,8 @@ These files are **not on this branch yet**, so they are named as plain text, not
 | Sense does not exist | Admin | 404. |
 | Job queue is full (50 waiting) | `mediaExecutor` | Job dropped, the word has no picture. |
 | File missing in `/var/lib/saynata/media` | Caddy | 404 for the file. The app shows nothing for that sense. |
-| Bundled file missing in the app | iOS | Nothing is shown. |
+| Bundled path, file not in the app, and the server has no such file | iOS | The app asks the server (404), then shows nothing. |
+| Offline, file never saved on the phone | iOS | Nothing is shown. It appears after a first view with the network. |
 
 ## Tests
 
@@ -238,7 +232,7 @@ These files are **not on this branch yet**, so they are named as plain text, not
 | [test_media.py](../../../pipeline/tests/test_media.py) | `needs_media`, file names, WebP resize, dry run, the pass with a fake fetcher. |
 | [mediaRow.test.tsx](../../../admin/src/test/mediaRow.test.tsx) | The admin buttons and the Pick another panel. |
 
-Run: `cd backend && ./mvnw -B test`, `cd pipeline && uv run pytest`, `cd admin && npm test`. There is no iOS test for media on this branch; PR #48 adds `SenseMediaTests.swift`.
+Run: `cd backend && ./mvnw -B test`, `cd pipeline && uv run pytest`, `cd admin && npm test`. iOS: `SenseMediaTests.swift` (command in doc-2).
 
 ## Change checklist
 
@@ -264,8 +258,8 @@ AI images plug in at `media_status = needs_ai` (set by Mark for AI, listed by `G
 - If the server restarts while jobs wait in the queue, those words get no picture until an admin deletes the word.
 - A sense whose Pixabay search found nothing is never tried again by itself.
 - Pipeline file names have no hash (`run_1.mp4`). Caddy caches every file for a year as `immutable`. If you rsync a different picture under the same name, phones may keep the old one.
-- Bundled words read pictures from the app bundle. A picture an admin picks for a bundled sense changes Postgres, but reaches the app only after the next `export` and a new app build.
+- A picture an admin picks for a bundled sense changes Postgres, but the app learns the new file name only after the next `export` and a new app build (the sqlite file in the app holds the paths). A new file under the same name is also held by the one-year phone and Caddy caches.
+- The first view of a bundled word's picture needs the network. A word the user never opened online has no picture offline.
 - Old files are never deleted from `/var/lib/saynata/media` (replaced pictures, removed words).
-- On this branch, iOS cannot show server `https` media (see PR #48 above).
 - Pixabay credit (photographer, page) is stored and sent to the admin, but the iOS card does not show it yet.
 - The Media page of the admin web app is still a placeholder (see doc-14).
