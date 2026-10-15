@@ -1,3 +1,4 @@
+import { Play } from "lucide-react";
 import type { Example, ExampleLevel, Sense, UsageLine, WordEntry, WordItem } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Input, Textarea } from "@/components/ui/input";
@@ -52,6 +53,32 @@ function ReasonCount({ word }: { word: WordItem }) {
   );
 }
 
+// The small picture of a list row (about 56x42): the photo of the first sense, a play icon for a clip (a video does
+// not play in the list), or a quiet dash when the word has no media. Photos load lazily, so a long list stays light.
+function Thumb({ word }: { word: WordItem }) {
+  const media = word.media?.[0];
+  const box = "flex h-[42px] w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground";
+  if (media?.kind === "photo") {
+    return (
+      <span className={box}>
+        <img src={media.url} alt={`${word.word} photo`} loading="lazy" className="h-full w-full object-cover" />
+      </span>
+    );
+  }
+  if (media?.kind === "clip") {
+    return (
+      <span className={box} role="img" aria-label={`${word.word} clip`}>
+        <Play className="h-4 w-4" aria-hidden />
+      </span>
+    );
+  }
+  return (
+    <span className={box} aria-label="No media">
+      -
+    </span>
+  );
+}
+
 // Same order as the app: explanation, examples, usage, then Vietnamese last.
 function detailRows(word: WordItem): FieldRow[] {
   const rows: FieldRow[] = [
@@ -96,7 +123,8 @@ function detailRows(word: WordItem): FieldRow[] {
     rows.push({ label: "Vietnamese", value: sense.vietnamese });
     rows.push({
       label: "Media",
-      value: <MediaRow word={word} index={index} />,
+      // The key resets the row (open panel, results, error) when another word or sense is shown (TASK-64).
+      value: <MediaRow key={`${word.id}:${index}`} word={word} index={index} />,
     });
   });
   rows.push({ label: "Record", heading: true, value: null });
@@ -182,7 +210,8 @@ export function WordsPage() {
       resource="words"
       chips={chips}
       itemTitle={(word) => word.word}
-      itemSubtitle={(word) => word.entry.senses[0]?.simpleDefinition ?? ""}
+      itemSubtitle={(word) => word.entry.senses[0]?.vietnamese ?? ""}
+      itemThumb={(word) => <Thumb word={word} />}
       itemBadges={(word) => (
         <>
           <Badge variant="outline">{word.source === "bundled" ? "Bundled" : "Backend"}</Badge>
