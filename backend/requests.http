@@ -54,7 +54,7 @@ Content-Type: application/json
 ### 10. Error: two words on the word endpoint -> 400
 GET {{baseUrl}}/api/words/two%20words
 
-### Accounts (TASK-66). Without SES_FROM_EMAIL the code is in the backend log ("[fake email]").
+### Accounts (TASK-66). Without RESEND_API_KEY (or a from address) the code is in the backend log ("[fake email]").
 ### A. Ask for a code (always 204)
 POST {{baseUrl}}/api/auth/email-code
 Content-Type: application/json

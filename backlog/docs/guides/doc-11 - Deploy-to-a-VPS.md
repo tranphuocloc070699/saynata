@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-15 10:08'
+updated_date: '2026-10-15 10:54'
 ---
 # Deploy to a VPS
 
@@ -64,9 +64,11 @@ nano .env
 | `MEDIA_BASE_URL` | Optional. Public address of the media folder. Default `https://api.loffy.me/media`. |
 | `MEDIA_HOST_DIR` | Optional. Folder on the server with the media files. Default `/var/lib/saynata/media` (section 9). |
 | `USER_JWT_SECRET` | Optional. Signs the sign-in tokens of app users. 32+ characters, `openssl rand -base64 48`. If empty, a key is derived from `ADMIN_JWT_SECRET` (a warning is logged). Set it once and keep it: changing it signs everyone out. |
-| `SES_FROM_EMAIL` | Optional until SES is ready. The "From" address of the sign-in email, on your verified domain, for example `login@yourdomain.com`. **Empty = no email is sent**: each code is only written to the backend log (section 10). |
-| `AWS_REGION` | The AWS region where you set up SES, for example `ap-southeast-1`. Must be the same region as the SES identity. |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The access key of the IAM user that may only send email (section 10). Read by the AWS SDK itself. |
+| `RESEND_API_KEY` | Optional until Resend is ready. A "Sending access" API key from resend.com (section 10). With `EMAIL_FROM` it makes the backend send sign-in emails with Resend. |
+| `EMAIL_FROM` | The "From" address of the sign-in email, on your verified domain, for example `login@loffy.me`. **No key and no from address = no email is sent**: each code is only written to the backend log (section 10). |
+| `SES_FROM_EMAIL` | Optional, for later. The older name of `EMAIL_FROM`, used for AWS SES when `RESEND_API_KEY` is empty (section 11). |
+| `AWS_REGION` | Only for SES. The AWS region where you set up SES, for example `ap-southeast-1`. Must be the same region as the SES identity. |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The access key of the IAM user that may only send email (section 11). Read by the AWS SDK itself. |
 | `REQUIRE_SIGN_IN` | Optional. `true` (default): a guest cannot cause a new Claude call (401). **Set `REQUIRE_SIGN_IN=false` until the app with sign-in is released**, because the current app sends no token. Rate limits and the daily budget cap still apply to guests' Claude calls while it is false (a guest IP may cause 30 new calls per hour, `LIMIT_CLAUDE_GUEST_IP_MAX`). Remove the line, or set `true`, when the new app is out. |
 | `CLAUDE_DAILY_BUDGET_USD` | Optional. The most Claude may cost per day in US dollars (UTC day). Default `1.00`. At the cap, new explanations stop until midnight UTC; cached words still work. Prices are in `application.properties` (`app.claude.pricing.*`). |
 | `LIMIT_*` | Optional. Rate limits, for example `LIMIT_CLAUDE_USER_HOUR_MAX` (default 60). The full list is in `backend/.env.example`. |
@@ -315,7 +317,101 @@ rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/
 - `import-to-postgres` reads sizes from `--media-dir` (default: `media/` next to the sqlite file) and `export` copies
   the files named in Postgres from `--media-dir` (default `data/media`) into `data/out/media/`.
 
-## 10. AWS SES setup (sign-in emails)
+## 10. Resend setup (sign-in emails)
+
+Saynata sends one kind of email: the 6-digit sign-in code. We send it with [Resend](https://resend.com) on your own
+domain. Resend is simpler than AWS SES: you only add DNS records and make one API key. The free plan is enough
+for now. **Merging does not need any of this to start**: with no `RESEND_API_KEY` the backend runs and each code is
+only written to its log (a line that starts with `[fake email]`; a warning at start-up says so). You can read a code
+with `docker compose -f docker-compose.prod.yml logs backend | grep "fake email"`.
+
+Which sender is used (decided at start-up, and logged): `RESEND_API_KEY` and `EMAIL_FROM` set, then **Resend**;
+else a from address set (`EMAIL_FROM`, or the older `SES_FROM_EMAIL`), then **AWS SES** (section 11); else the log.
+
+Below the domain is `loffy.me`. Use yours if it is different.
+
+**1. Sign up and add the domain**
+
+1. Sign up at https://resend.com (free).
+2. Open **Domains**, then **Add Domain**, type `loffy.me`. Pick a region near your server.
+3. Resend shows DNS records. Their exact names and values are on that page, so copy them from there. You should see:
+   - **DKIM**: a TXT record at `resend._domainkey` (a long value that starts with `p=`). It proves the email
+     really comes from your domain.
+   - **SPF**: a TXT record at `send` (so `send.loffy.me`), value like `v=spf1 include:amazonses.com ~all`.
+   - **MX**: an MX record at `send` (so `send.loffy.me`), priority 10, pointing to a Resend mail server.
+
+**2. Add the records in Cloudflare**
+
+1. Cloudflare, your domain, **DNS**, **Records**, **Add record**. Add each record from Resend: the same type, name
+   and value.
+2. Set **Proxy status** to **DNS only** (grey cloud) for every one of them. Email records cannot be proxied.
+3. Cloudflare adds the domain name for you. Type `resend._domainkey` and `send`, not the full names.
+4. These records do not clash with your SES records. They use `resend._domainkey` and `send.loffy.me`, while SES
+   uses `loffy.me`, `mail.loffy.me` and its own DKIM CNAMEs. Leave the SES records as they are. Keep your existing
+   `_dmarc` record (`p=quarantine`): it covers Resend mail too.
+
+**3. Wait for Verified**
+
+Back in Resend, click **Verify DNS Records**. The domain changes to **Verified**, usually in a few minutes (it
+can take longer). If a record stays red, check the name and value, and that the cloud is grey.
+
+**4. Make an API key**
+
+1. Resend, **API Keys**, **Create API Key**.
+2. Name: `saynata-backend`. Permission: **Sending access**. Domain: `loffy.me`.
+3. Copy the key now (it starts with `re_`). Resend shows it once.
+
+**5. Put the values in `.env` on the server**
+
+```bash
+nano /var/www/saynata/backend/.env
+```
+
+```bash
+RESEND_API_KEY=re_...
+EMAIL_FROM=login@loffy.me
+```
+
+`EMAIL_FROM` must be on the verified domain. `.env` is git-ignored: do not commit it. Then deploy:
+`cd /var/www/saynata/backend && ./scripts/deploy.sh` (or merge to main, which deploys by itself, see section 7).
+The log must now say `Sign-in codes are sent with Resend from login@loffy.me.` and no longer `No email service is set`.
+
+**How to test**
+
+1. Ask for a code (use your own address):
+
+```bash
+curl -i -X POST https://api.loffy.me/api/auth/email-code \
+  -H 'Content-Type: application/json' -d '{"email":"you@gmail.com"}'
+# HTTP/2 204. The answer is 204 whether the send worked or not.
+```
+
+2. The email "Your Saynata sign-in code" should arrive in a minute. Check spam if not.
+3. In Gmail open the mail, then the three dots, **Show original**. You want `DKIM: PASS`, `SPF: PASS` and
+   `DMARC: PASS`. If one fails, fix the DNS record from step 2.
+4. Sign in with the code:
+
+```bash
+curl -s -X POST https://api.loffy.me/api/auth/verify \
+  -H 'Content-Type: application/json' -d '{"email":"you@gmail.com","code":"123456"}'
+# {"accessToken":"...","refreshToken":"...","expiresIn":3600,"user":{"id":1,"email":"you@gmail.com"}}
+```
+
+5. No email, and the answer was still 204? The backend never tells the caller about a send error (so nobody can
+   learn which emails exist). Read the log:
+   `docker compose -f docker-compose.prod.yml logs backend | grep "Resend"`. The log shows the HTTP status, never
+   the key or the code. Common causes: `401` (wrong or missing API key), `403` (the domain is not verified yet, or
+   `EMAIL_FROM` is not on the verified domain), `429` (too many sends; the backend tries once more), `5xx` (Resend
+   problem; the backend tries once more). Resend's **Logs** page also lists every email.
+
+Resend free plan limits change, so check the pricing page. Our code endpoint is rate limited (5 per hour per IP, 3
+per 15 minutes per email), which also limits how much mail strangers can make us send.
+
+## 11. AWS SES setup (sign-in emails, optional, for later)
+
+The backend uses Resend (section 10) when `RESEND_API_KEY` is set. This section is the other choice. SES is used only
+when `RESEND_API_KEY` is empty and `EMAIL_FROM` (or `SES_FROM_EMAIL`) is set. We did not choose it for now because
+it needs a sandbox exit with a website review, an IAM user and a region setup.
 
 Saynata sends one kind of email: the 6-digit sign-in code. It goes through Amazon SES on your own domain, so it
 reaches the inbox and not the spam folder. **Merging the accounts code does not need any of this to start**: with
@@ -448,7 +544,7 @@ Watch **Reputation metrics** in SES now and then. Later you can add a configurat
 | Deploy fails with `Not possible to fast-forward` | Someone changed files in `~/saynata` on the server. Run `git status` there, then `git checkout -- .` to drop the changes. |
 | Deploy fails with `Host key verification failed` | `VPS_KNOWN_HOSTS` is wrong or the server was rebuilt. Run `ssh-keyscan` again and update the secret. |
 | Pipeline cannot connect to `DATABASE_URL` | Is the SSH tunnel open? Does the port in the URL match `-L`? Is the compose file the new one (`docker compose -f docker-compose.prod.yml up -d` recreates Postgres with the loopback port; the data stays in the volume)? |
-| Sign-in works but no email arrives | `SES_FROM_EMAIL` is empty (the code is only in the log), the SES account is still in the sandbox, or the From address is not verified. See section 10, "How to test". |
+| Sign-in works but no email arrives | `RESEND_API_KEY` or `EMAIL_FROM` is empty (the code is only in the log), the Resend domain is not Verified, or the key is wrong. See section 10, "How to test". With SES: sandbox or unverified address, see section 11. |
 | App says it needs a sign-in for a new sentence (401 `sign_in_required`) | The app has no sign-in screen yet (it waits for a mockup). Set `REQUIRE_SIGN_IN=false` in `.env` and redeploy until the app with sign-in is released. Cached sentences and bundled words work either way. |
 | New explanations stop with 503 `daily_limit_reached` | Today's Claude spend reached `CLAUDE_DAILY_BUDGET_USD` (UTC day). See the spend: `GET /api/admin/usage?days=1` with the admin cookie. Raise the cap in `.env` if you want. |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |
