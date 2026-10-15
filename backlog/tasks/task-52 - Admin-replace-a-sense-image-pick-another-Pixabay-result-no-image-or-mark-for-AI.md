@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-14 14:44'
-updated_date: '2026-10-15 03:42'
+updated_date: '2026-10-15 03:54'
 labels:
   - backend
   - web
@@ -50,3 +50,9 @@ Decision (doc-7, 2026-10-14, images option B): Pixabay first; the developer fixe
 5. Tests: backend with fake Pixabay + auth checks; Vitest for the panel.
 6. Update doc-13, doc-14; check_docs; PR into feature/f5-cms.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/49 (into feature/f5-cms). Backend 169 tests pass, admin 27 tests pass. TEST IT. Goal: in the admin, pick another Pixabay picture, remove it, or mark a sense for AI. Steps: (1) backend/.env with ADMIN_JWT_SECRET, ADMIN_EMAIL, ADMIN_INITIAL_PASSWORD, PIXABAY_API_KEY, MEDIA_DIR=./media, MEDIA_BASE_URL=http://localhost:8090; run ./mvnw spring-boot:run (compose starts Postgres). (2) cd backend/media && python3 -m http.server 8090 (backend does not serve /media; Caddy does on the VPS). (3) cd admin && cp .env.example .env.local && npm ci && npm run dev, sign in at http://localhost:5173. (4) Open a word, in the Media row press Pick another image: inline panel, search box prefilled, up to 6 tiles, clip mark; pick one, press the check. (5) Press No image, then Mark for AI image. (6) Open http://localhost:8081/api/admin/media?status=needs_ai. Expected: new picture and credit show; No image shows a dash; Mark for AI shows 'Waiting for an AI image'; the list shows the sense. Failure: wrong PIXABAY_API_KEY gives 'Pixabay did not answer. Try again later.' under the row. Automated: cd backend && ./mvnw -B test (AdminMediaTest); cd admin && npm test (mediaRow.test.tsx). Not covered: real Pixabay search (HttpPixabayClient.search).
+<!-- SECTION:NOTES:END -->
