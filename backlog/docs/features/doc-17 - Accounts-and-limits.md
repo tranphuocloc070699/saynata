@@ -3,7 +3,7 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-15 10:01'
+updated_date: '2026-10-15 10:08'
 ---
 # Accounts and limits
 
@@ -23,8 +23,8 @@ the bundled words (on the device) and anything already in the shared cache. Clau
 | Signed in | Works | Calls Claude (if the budget and the user limit allow) |
 | Anyone, budget used up | Works | 503 `daily_limit_reached` |
 
-The current iOS app sends no token yet. So until the sign-in screen exists, **a new sentence or an uncached word from the app gives 401**.
-Bundled words and cached answers work as before.
+The current iOS app sends no token yet. With the default (`REQUIRE_SIGN_IN=true`), **a new sentence or an uncached word from the app gives 401** until the sign-in screen exists.
+**Switch `REQUIRE_SIGN_IN`:** set `REQUIRE_SIGN_IN=false` in `backend/.env` until the app with sign-in is released. Then a guest miss does call Claude, but it still goes through `ClaudeGate`: the daily budget cap applies (503 `daily_limit_reached`), and so does a per-IP limit for guests' new calls (30 per hour by default, 429 `rate_limited`), so one guest cannot burn the budget alone. Bundled words and cached answers work in both modes. Set it back to `true` (or remove the line) when the new app is out.
 
 ## Big picture
 
@@ -79,7 +79,7 @@ sequenceDiagram
 | Refresh | [AuthService.refresh:126](../../../backend/src/main/java/com/englishtranslation/backend/auth/AuthService.java#L126) | Rotation: the used token is revoked and a new pair is issued. If a **revoked** token is sent again, all tokens of that user are revoked (someone may have copied it) and the app must sign in again. |
 | Sign out | [AuthService.signOut:143](../../../backend/src/main/java/com/englishtranslation/backend/auth/AuthService.java#L143) | Revokes that refresh token. Always 204. |
 | Delete account | [AuthService.deleteAccount:153](../../../backend/src/main/java/com/englishtranslation/backend/auth/AuthService.java#L153) | `DELETE /api/me` removes the user, its roles, its refresh tokens and a pending code. The access token stops working at once (the filter checks that the user exists). An account with the ADMIN role is refused (403 `admin_account`). |
-| Bearer filter | [BearerTokenFilter:40](../../../backend/src/main/java/com/englishtranslation/backend/auth/BearerTokenFilter.java#L40) | Optional token. Bad, expired or unknown-user token = a guest, no error. A good one authenticates as role USER and sets `CallerContext`. It never touches `/api/admin`, so an access token cannot open the admin API and the admin cookie cannot open `/api/me`. |
+| Bearer filter | [BearerTokenFilter:41](../../../backend/src/main/java/com/englishtranslation/backend/auth/BearerTokenFilter.java#L41) | Optional token. Bad, expired or unknown-user token = a guest, no error. A good one authenticates as role USER and sets `CallerContext`. It never touches `/api/admin`, so an access token cannot open the admin API and the admin cookie cannot open `/api/me`. |
 | Rules | [SecurityConfig:43](../../../backend/src/main/java/com/englishtranslation/backend/admin/SecurityConfig.java#L43) | `/api/me` needs USER; `/api/auth/*`, `/api/translations*`, `/api/words/*` stay open. |
 | Email | [AuthConfig:20](../../../backend/src/main/java/com/englishtranslation/backend/auth/AuthConfig.java#L20), [SesEmailSender](../../../backend/src/main/java/com/englishtranslation/backend/auth/SesEmailSender.java), [LoggingEmailSender](../../../backend/src/main/java/com/englishtranslation/backend/auth/LoggingEmailSender.java) | `SES_FROM_EMAIL` set: SES v2, region `AWS_REGION`, keys from the standard AWS variables, client built on the first send. Not set: the code is written to the log and a warning is logged at start-up. A send failure is logged and the answer is still 204. |
 
@@ -96,13 +96,13 @@ Endpoints (all JSON, no cookie):
 
 ## The gate for new Claude calls
 
-[ClaudeGate.beforeNewCall:33](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClaudeGate.java#L33) runs right before every Claude call, and only after the cache and bundled lookups missed:
+[ClaudeGate.beforeNewCall:34](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClaudeGate.java#L34) runs right before every Claude call, and only after the cache and bundled lookups missed:
 [TranslationService:69](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationService.java#L69) (sentences, also personal-looking text and the stream) and [WordService:86](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L86) (words).
-The order is: (1) guest: 401 `sign_in_required`; (2) budget used up: 503 `daily_limit_reached`; (3) user over 60 per hour or 300 per day: 429 `rate_limited`.
+The order is: (1) guest: 401 `sign_in_required` (skipped when `REQUIRE_SIGN_IN=false`); (2) budget used up: 503 `daily_limit_reached`; (3) user over 60 per hour or 300 per day: 429 `rate_limited`; for a guest (only possible with `REQUIRE_SIGN_IN=false`) over 30 new calls per hour from one IP: 429 `rate_limited`.
 The budget comes before the user limit so a refused call does not use up a user's allowance.
-The word retry (a second call for hard words) only re-checks the budget ([checkBudget:49](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClaudeGate.java#L49)).
+The word retry (a second call for hard words) only re-checks the budget ([checkBudget:56](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClaudeGate.java#L56)).
 
-Who is asking: [CallerContext](../../../backend/src/main/java/com/englishtranslation/backend/limits/CallerContext.java) holds the user id in a thread-local. `BearerTokenFilter` sets it for the request. The sentence stream runs on its own thread, so [TranslationController:65](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationController.java#L65) copies the user id there. For the stream, the error is an `error` event: `{"status": 401, "message": "...", "code": "sign_in_required"}` (the `code` field is only there for these coded errors).
+Who is asking (user id and client IP): [CallerContext](../../../backend/src/main/java/com/englishtranslation/backend/limits/CallerContext.java) holds the user id in a thread-local. `BearerTokenFilter` sets it for the request. The sentence stream runs on its own thread, so [TranslationController:66](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationController.java#L66) copies the caller there. For the stream, the error is an `error` event: `{"status": 401, "message": "...", "code": "sign_in_required"}` (the `code` field is only there for these coded errors).
 
 Admin tools: the admin API makes no Claude call today (deleting a row is "regenerate": the next **public** lookup asks Claude, and that lookup goes through the gate). A future admin tool that calls Claude must call `ClaudeGate.checkBudget()` and record with `Feature.ADMIN`.
 
@@ -115,6 +115,7 @@ Admin tools: the admin API makes no Claude call today (deleting a row is "regene
 | `/api/auth/email-code` per IP | 5 per hour | `LIMIT_EMAIL_CODE_IP_MAX`, `LIMIT_EMAIL_CODE_IP_PERIOD` |
 | `/api/auth/email-code` per email | 3 per 15 minutes | `LIMIT_EMAIL_CODE_EMAIL_MAX`, `LIMIT_EMAIL_CODE_EMAIL_PERIOD` |
 | New Claude calls per signed-in user | 60 per hour, 300 per day | `LIMIT_CLAUDE_USER_HOUR_MAX`, `LIMIT_CLAUDE_USER_DAY_MAX` |
+| New Claude calls by a guest, per IP (only when `REQUIRE_SIGN_IN=false`) | 30 per hour | `LIMIT_CLAUDE_GUEST_IP_MAX` |
 | `/api/translations*`, `/api/words/*` per IP (cache hits too) | 120 per minute | `LIMIT_PUBLIC_READ_IP_MAX`, `LIMIT_PUBLIC_READ_IP_PERIOD` |
 
 Over a limit: **429**, header `Retry-After` (seconds), body code `rate_limited`. The public read limit is a servlet filter ([PublicReadRateLimitFilter:34](../../../backend/src/main/java/com/englishtranslation/backend/limits/PublicReadRateLimitFilter.java#L34)), so even the event stream gets a real 429.
@@ -161,12 +162,13 @@ The body is Spring problem details (`type`, `title`, `status`, `detail`) plus `c
 | `AuthFlowTest` | 204 for known and unknown email, bad email 400, the code is 6 digits and only a keyed hash is saved, expiry (10 minutes), 5 wrong tries then locked, a code works once, a second code replaces the first, a failing email sender still gives 204, user created on first sign-in, refresh rotation, reuse of an old refresh token revokes the rest, refresh stored as a hash, expired refresh token, sign-out, `/api/me`, access token vs admin cookie, account deletion (user, tokens, access token), admin account not deletable, app user cannot log in to the admin, email-code rate limits (per email and per IP). |
 | `ClaudeGateTest` | Guest cache hit works with no Claude call, guest miss is 401 (sentence, word, stream error event), signed-in miss calls Claude (also in the stream thread), per-user limit gives 429 + `Retry-After`, cache hits do not use the limit, budget used up gives 503 with **no Claude call** (HTTP and stream) while cached answers still work, per-IP public read limit. |
 | `ClaudeUsageServiceTest` | Cost maths, unknown model price, the UTC day boundary, the budget cap, the report. |
+| `GuestModeTest` | `REQUIRE_SIGN_IN=false`: a guest miss calls Claude, a guest IP over its limit gets 429 (also in the stream), a used-up budget gives 503 with no Claude call. |
 | `ClaudeServiceStreamingTest` | Tokens from a stream are recorded for the sentence feature, also for a refused answer. |
 | `RateLimiterTest` | Bucket maths with a clock moved by hand, no partial use of several limits. |
 | `EmailSenderConfigTest` | Starts with no AWS settings (logging fake) and with SES settings (no AWS call at start-up); email text; email checks. |
 | `AdminUsageTest` | `/api/admin/usage` needs the admin login, spend per feature, `days` default and cap. |
 
-The old tests set `app.auth.require-sign-in=false` in `src/test/resources/config/application.properties`, so they still call the services as a guest. `ClaudeGateTest` sets it to `true`. Run: `cd backend && ./mvnw -B test`.
+The old tests set `app.auth.require-sign-in=false` (and a very high guest IP limit) in `src/test/resources/config/application.properties`, so they still call the services as a guest. `ClaudeGateTest` sets it to `true`. Run: `cd backend && ./mvnw -B test`.
 
 ## Change checklist
 
@@ -177,7 +179,8 @@ The old tests set `app.auth.require-sign-in=false` in `src/test/resources/config
 
 ## Known gaps
 
-- The iOS app has no sign-in screen yet, so a new sentence or uncached word from the app gives 401 until it is built (waits for a mockup).
+- The iOS app has no sign-in screen yet (it waits for a mockup). With `REQUIRE_SIGN_IN=true` a new sentence or uncached word from the app gives 401; use `REQUIRE_SIGN_IN=false` until the app with sign-in is released.
+- With `REQUIRE_SIGN_IN=false`, many guests behind different IPs can still use up the $1 budget together; the cap then stops everyone's new calls until midnight UTC.
 - Sign-in emails go out only after `SES_FROM_EMAIL` and the AWS variables are set (doc-11, section 10). Before that, codes are only in the backend log.
 - Rate limits and the code attempts live partly in memory: a restart clears the rate limits (the code attempts are in Postgres).
 - The budget check and the usage write are not one atomic step, so a burst of parallel calls can pass the check together and go a little over the cap.

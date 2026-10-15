@@ -51,6 +51,8 @@ services:
       AWS_REGION: ${AWS_REGION:-}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # true = guests cannot cause new Claude calls. Set false until the app with sign-in is released.
+      REQUIRE_SIGN_IN: ${REQUIRE_SIGN_IN:-true}
       CLAUDE_DAILY_BUDGET_USD: ${CLAUDE_DAILY_BUDGET_USD:-1.00}
       # Optional override for the model in application.properties.
       APP_CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-haiku-5-5}

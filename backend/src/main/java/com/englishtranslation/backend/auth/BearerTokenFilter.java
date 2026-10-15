@@ -1,6 +1,7 @@
 package com.englishtranslation.backend.auth;
 
 import com.englishtranslation.backend.limits.CallerContext;
+import com.englishtranslation.backend.limits.ClientIp;
 import com.englishtranslation.backend.user.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -45,7 +46,7 @@ public class BearerTokenFilter extends OncePerRequestFilter {
                     userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
-        Long before = CallerContext.set(userId);
+        CallerContext.Caller before = CallerContext.set(userId, ClientIp.of(request));
         try {
             chain.doFilter(request, response);
         } finally {

@@ -10,7 +10,8 @@ import org.springframework.stereotype.Component;
  * <ol>
  * <li>Is the caller signed in? A guest gets 401 {@code sign_in_required}.</li>
  * <li>Is today's money budget left? If not, 503 {@code daily_limit_reached}.</li>
- * <li>Is the user under the hourly and daily limit? If not, 429 {@code rate_limited}.</li>
+ * <li>Is the user under the hourly and daily limit? If not, 429 {@code rate_limited}. When sign-in is not required
+ * (REQUIRE_SIGN_IN=false) a guest has its own, smaller per-IP limit, so guests cannot burn the budget alone.</li>
  * </ol>
  * The budget comes before the user limit, so a refused call does not use up a user's allowance.
  */
@@ -39,6 +40,12 @@ public class ClaudeGate {
         if (userId != null) {
             rateLimiter.acquireOrThrow(String.valueOf(userId), limits.claudePerUserHourLimit(),
                     limits.claudePerUserDayLimit());
+        } else {
+            // A guest got here only because sign-in is not required. No IP = not a web request (internal code).
+            String ip = CallerContext.ip().orElse(null);
+            if (ip != null) {
+                rateLimiter.acquireOrThrow(ip, limits.claudePerGuestIpLimit());
+            }
         }
     }
 

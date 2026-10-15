@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param emailCodePerEmail POST /api/auth/email-code, per email address
  * @param claudePerUserHour new Claude calls, per signed-in user
  * @param claudePerUserDay  new Claude calls, per signed-in user
+ * @param claudePerGuestIp  new Claude calls by guests (only when sign-in is not required), per client IP
  * @param publicReadPerIp   /api/translations* and /api/words/*, per client IP (cache hits included)
  */
 @ConfigurationProperties(prefix = "app.limits")
@@ -19,6 +20,7 @@ public record LimitProperties(
         Rule emailCodePerEmail,
         Rule claudePerUserHour,
         Rule claudePerUserDay,
+        Rule claudePerGuestIp,
         Rule publicReadPerIp) {
 
     public record Rule(int max, Duration period) {
@@ -41,6 +43,10 @@ public record LimitProperties(
 
     public Limit claudePerUserDayLimit() {
         return claudePerUserDay.toLimit("claude-user-day");
+    }
+
+    public Limit claudePerGuestIpLimit() {
+        return claudePerGuestIp.toLimit("claude-guest-ip");
     }
 
     public Limit publicReadPerIpLimit() {

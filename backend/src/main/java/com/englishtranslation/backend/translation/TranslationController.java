@@ -62,8 +62,8 @@ public class TranslationController {
     public ResponseEntity<SseEmitter> stream(@Valid @RequestBody TranslationRequest request) {
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
         // The stream runs on another thread, which does not know who is asking. Hand the user over.
-        Long userId = CallerContext.userId().orElse(null);
-        executor.execute(() -> CallerContext.runAs(userId, () -> runStream(request, emitter)));
+        CallerContext.Caller caller = CallerContext.current().orElse(null);
+        executor.execute(() -> CallerContext.runAs(caller, () -> runStream(request, emitter)));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "no-cache")
                 .header("X-Accel-Buffering", "no")
