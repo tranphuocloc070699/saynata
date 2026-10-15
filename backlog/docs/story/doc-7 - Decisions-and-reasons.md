@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-15 10:29'
+updated_date: '2026-10-15 10:54'
 ---
 # Decisions and reasons
 
@@ -113,6 +113,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-15 | iOS keeps the access and refresh tokens in the **Keychain** (not UserDefaults). One refresh and one retry on a 401 for an ended token; a refused refresh signs the user out on the device | Reason: not recorded. | UserDefaults | Developer |
 | 10-15 | The Share and Translation extensions **act as guests** for now and send the user to the app when sign-in is needed | A free Apple ID cannot sign App Groups or Keychain access groups (`scripts/install-on-phone.sh`), so the extensions cannot read the app's tokens. Known gap, solved with a paid account. | Sign in inside each extension | Developer |
 | 10-15 | The iOS app keeps working against today's production (`REQUIRE_SIGN_IN=false`): no token means no header, and nothing changes until a 401 comes back | Reason: not recorded. | Release the app only after the backend switch | Developer |
+| 10-15 | **Resend** (resend.com) sends the sign-in code emails (TASK-71), instead of AWS SES. The backend picks Resend when `RESEND_API_KEY` is set, else SES when a from address is set, else the log | SES needs a sandbox exit with a website review, an IAM user and a region setup, which is too complicated for now. Resend needs only domain DNS records (on Cloudflare) and one API key, and its free tier is enough. The SES code stays in the backend as an option. | AWS SES, "for now" (kept as an optional section in doc-11, can come back later) | Developer |
 
 ## Questions answered
 
@@ -123,4 +124,4 @@ go here as questions.
 - 10-14: Why the separate React admin (B) over admin pages inside Spring Boot, and why make the server database the source of truth? Reason not recorded.
 - 10-14: Why images from the server (B), and why the "do not store personal-looking sentences" rule (1)? Reason not recorded.
 - 10-14: Why images option B (AI only for the bad ones)? Reason not recorded.
-- 10-15: Why accounts with an email code and AWS SES (not passwords or Sign in with Apple), why guests may not cause new Claude calls, and why $1 per day? Reason not recorded.
+- 10-15: Why accounts with an email code (not passwords or Sign in with Apple), why guests may not cause new Claude calls, and why $1 per day? Reason not recorded.

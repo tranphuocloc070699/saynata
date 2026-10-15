@@ -3,12 +3,12 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-15 10:29'
+updated_date: '2026-10-15 10:54'
 ---
 # Accounts and limits
 
 > Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Last traced from code: 2026-10-15.
-> Why: doc-7 rows of 2026-10-15. Related: [Admin API](doc-13%20-%20Admin-API.md) (the admin has its own cookie login), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Word lookup](doc-5%20-%20Word-lookup.md), the SES setup in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md) (section 10).
+> Why: doc-7 rows of 2026-10-15. Related: [Admin API](doc-13%20-%20Admin-API.md) (the admin has its own cookie login), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Word lookup](doc-5%20-%20Word-lookup.md), the Resend and SES setup in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md) (sections 10 and 11).
 
 ## What it does
 
@@ -41,7 +41,7 @@ flowchart LR
     CL -->|"tokens + cost"| USE[(claude_usage)]
     GATE -.->|"401 / 503 / 429"| ERR[ApiExceptionHandler]
     APP --> AUTH[AuthController /api/auth/*]
-    AUTH --> ES[EmailSender: SES or log]
+    AUTH --> ES[EmailSender: Resend, SES or log]
     AUTH --> DB[(email_login_code, refresh_token, users)]
 ```
 
@@ -81,7 +81,7 @@ sequenceDiagram
 | Delete account | [AuthService.deleteAccount:153](../../../backend/src/main/java/com/englishtranslation/backend/auth/AuthService.java#L153) | `DELETE /api/me` removes the user, its roles, its refresh tokens and a pending code. The access token stops working at once (the filter checks that the user exists). An account with the ADMIN role is refused (403 `admin_account`). |
 | Bearer filter | [BearerTokenFilter:41](../../../backend/src/main/java/com/englishtranslation/backend/auth/BearerTokenFilter.java#L41) | Optional token. Bad, expired or unknown-user token = a guest, no error. A good one authenticates as role USER and sets `CallerContext`. It never touches `/api/admin`, so an access token cannot open the admin API and the admin cookie cannot open `/api/me`. |
 | Rules | [SecurityConfig:43](../../../backend/src/main/java/com/englishtranslation/backend/admin/SecurityConfig.java#L43) | `/api/me` needs USER; `/api/auth/*`, `/api/translations*`, `/api/words/*` stay open. |
-| Email | [AuthConfig:20](../../../backend/src/main/java/com/englishtranslation/backend/auth/AuthConfig.java#L20), [SesEmailSender](../../../backend/src/main/java/com/englishtranslation/backend/auth/SesEmailSender.java), [LoggingEmailSender](../../../backend/src/main/java/com/englishtranslation/backend/auth/LoggingEmailSender.java) | `SES_FROM_EMAIL` set: SES v2, region `AWS_REGION`, keys from the standard AWS variables, client built on the first send. Not set: the code is written to the log and a warning is logged at start-up. A send failure is logged and the answer is still 204. |
+| Email | [AuthConfig:21](../../../backend/src/main/java/com/englishtranslation/backend/auth/AuthConfig.java#L21), [ResendEmailSender](../../../backend/src/main/java/com/englishtranslation/backend/auth/ResendEmailSender.java), [SesEmailSender](../../../backend/src/main/java/com/englishtranslation/backend/auth/SesEmailSender.java), [LoggingEmailSender](../../../backend/src/main/java/com/englishtranslation/backend/auth/LoggingEmailSender.java) | The sender is chosen at start-up (TASK-71) and logged. (1) `RESEND_API_KEY` and `EMAIL_FROM` set: **Resend**, one HTTPS `POST https://api.resend.com/emails` with `Authorization: Bearer` and JSON `{from, to, subject, text, html}`, 10 s timeout; 2xx is success; on 429, 5xx or a network error it waits 1 s and tries once more; errors are logged (status only, never the key or the code) and not thrown. (2) Else a from address set (`EMAIL_FROM`, or the older `SES_FROM_EMAIL`): SES v2, region `AWS_REGION`, keys from the standard AWS variables, client built on the first send. (3) Else the code is written to the log and a warning is logged at start-up. A send failure is logged and the answer is still 204. Resend was chosen over SES for now (doc-7, 2026-10-15). |
 
 Endpoints (all JSON, no cookie):
 
@@ -210,7 +210,8 @@ Tests: `KeychainSecretStoreTests` (the real simulator Keychain, own service name
 | `GuestModeTest` | `REQUIRE_SIGN_IN=false`: a guest miss calls Claude, a guest IP over its limit gets 429 (also in the stream), a used-up budget gives 503 with no Claude call. |
 | `ClaudeServiceStreamingTest` | Tokens from a stream are recorded for the sentence feature, also for a refused answer. |
 | `RateLimiterTest` | Bucket maths with a clock moved by hand, no partial use of several limits. |
-| `EmailSenderConfigTest` | Starts with no AWS settings (logging fake) and with SES settings (no AWS call at start-up); email text; email checks. |
+| `EmailSenderConfigTest` | Starts with no email settings (logging fake), with SES settings (no AWS call at start-up), with Resend and SES together (Resend wins), with only `SES_FROM_EMAIL` (SES); the choice Resend over SES over the fake; email text; email checks. |
+| `ResendEmailSenderTest` | A fake HTTP server: one POST with the Bearer header, JSON body (`from`, `to`, `subject`, `text`, `html`), retry once after 429 or 5xx, no retry after 403, a network error is logged and not thrown, the log never has the key or the code. |
 | `AdminUsageTest` | `/api/admin/usage` needs the admin login, spend per feature, `days` default and cap. |
 
 The old tests set `app.auth.require-sign-in=false` (and a very high guest IP limit) in `src/test/resources/config/application.properties`, so they still call the services as a guest. `ClaudeGateTest` sets it to `true`. Run: `cd backend && ./mvnw -B test`.
@@ -230,7 +231,8 @@ The old tests set `app.auth.require-sign-in=false` (and a very high guest IP lim
 - The code errors "wrong" and "expired" look the same to the app (one `invalid_code`), so the sheet cannot say which one it was.
 - Real emails only go out after SES is set up (doc-11, section 10). Until then read the code in the backend log on the VPS: `docker compose -f docker-compose.prod.yml logs backend | grep "fake email"`.
 - With `REQUIRE_SIGN_IN=false`, many guests behind different IPs can still use up the $1 budget together; the cap then stops everyone's new calls until midnight UTC.
-- Sign-in emails go out only after `SES_FROM_EMAIL` and the AWS variables are set (doc-11, section 10). Before that, codes are only in the backend log.
+- Sign-in emails go out only after `RESEND_API_KEY` and `EMAIL_FROM` are set (doc-11, section 10), or SES is set up (section 11). Before that, codes are only in the backend log.
+- A Resend send that fails (after the one retry) is only logged: the learner sees "code sent" and gets nothing. Check the log and the Resend Logs page.
 - Rate limits and the code attempts live partly in memory: a restart clears the rate limits (the code attempts are in Postgres).
 - The budget check and the usage write are not one atomic step, so a burst of parallel calls can pass the check together and go a little over the cap.
 - If a stream breaks half way, the tokens already spent are not recorded (the usage is read from the finished message).
