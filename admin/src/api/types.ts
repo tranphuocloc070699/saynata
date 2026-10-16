@@ -37,6 +37,14 @@ export interface SenseMedia {
   source?: "pixabay" | "upload" | "ai";
 }
 
+// Where one sense stands in the picture review (TASK-80). "wrong" = marked needs_ai; "approved" = the admin said
+// "Picture looks right" for the current file. verdict and reason are Claude's newest check (media_check), read-only.
+export interface MediaReview {
+  state: "approved" | "to_review" | "wrong" | "none";
+  verdict?: "good" | "wrong" | "unsure" | null;
+  reason?: string | null;
+}
+
 export interface WordEntry {
   senses: Sense[];
 }
@@ -55,6 +63,10 @@ export interface WordItem {
   media?: (SenseMedia | null)[];
   // One item per sense: "needs_ai" when the sense is marked for an AI image, else null (TASK-52).
   mediaStatus?: (string | null)[];
+  // Picture review (TASK-80): counts for the list badges, and one item per sense (same order as entry.senses).
+  wrongMediaCount?: number;
+  mediaToReviewCount?: number;
+  mediaReview?: MediaReview[];
   // Why the word needs review, worked out by the backend from the entry as it is now (TASK-55).
   // Lines like "sense 1: the definition uses hard words [abstain]". Empty when there is nothing to fix.
   reviewReasons?: string[];

@@ -243,4 +243,51 @@ describe("full-size viewer (TASK-77)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Result 2, clip by Person 2" }));
     expect(screen.getByRole("button", { name: "Result 2, clip by Person 2" })).toHaveAttribute("aria-pressed", "true");
   });
+
+});
+
+describe("picture review (TASK-80)", () => {
+  const post = vi.spyOn(httpClient, "post");
+  const del = vi.spyOn(httpClient, "delete");
+
+  beforeEach(() => {
+    post.mockResolvedValue({ data: {} });
+    del.mockResolvedValue({ data: {} });
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it("approves the picture with the check button and reads the list again", async () => {
+    renderRow({ ...word, mediaReview: [{ state: "to_review" }] });
+    const button = screen.getByRole("button", { name: "Picture looks right" });
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByText("Approved")).not.toBeInTheDocument();
+
+    await userEvent.click(button);
+
+    await vi.waitFor(() => expect(post).toHaveBeenCalledWith(`${API}/words/b-5/senses/0/media/approve`, {}, expect.anything()));
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it("shows Approved, and the same button undoes the approval", async () => {
+    renderRow({ ...word, mediaReview: [{ state: "approved" }] });
+    expect(screen.getByText("Approved")).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: "Picture looks right" });
+    expect(button).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(button);
+
+    await vi.waitFor(() => expect(del).toHaveBeenCalledWith(`${API}/words/b-5/senses/0/media/approve`, expect.anything()));
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("shows Claude's verdict and reason under the media, and nothing when there is none", async () => {
+    renderRow({ ...word, mediaReview: [{ state: "wrong", verdict: "wrong", reason: "the picture shows a toy phone, not a food can" }] });
+    expect(screen.getByText(/Claude: wrong/)).toHaveTextContent("Claude: wrong \u2014 the picture shows a toy phone, not a food can");
+  });
+
+  it("has no verdict line and no approve button for a sense without media", async () => {
+    renderRow({ ...word, media: [null], mediaReview: [{ state: "none" }] });
+    expect(screen.queryByText(/Claude:/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Picture looks right" })).not.toBeInTheDocument();
+  });
 });

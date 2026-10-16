@@ -44,7 +44,8 @@ function renderWords(words: WordItem[]) {
         (filter("needs_review") === undefined || w.needsReview) &&
         (filter("source") === undefined || w.source === filter("source")) &&
         (filter("cefr") === undefined || filter("cefr").includes(w.entry.senses[0].cefr)) &&
-        (filter("media") === undefined || (filter("media") === "with") === !!w.media?.some(Boolean)),
+        (filter("media") === undefined ||
+          (filter("media") === "wrong" ? (w.wrongMediaCount ?? 0) > 0 : filter("media") === "to-review" ? (w.mediaToReviewCount ?? 0) > 0 : (filter("media") === "with") === !!w.media?.some(Boolean))),
     );
     return { data, total: data.length };
   });
@@ -146,6 +147,41 @@ describe("words page", () => {
     // Pressing the active chip again removes the filter.
     await userEvent.click(screen.getByRole("button", { name: "No media" }));
     await vi.waitFor(() => expect(getList.mock.calls.at(-1)![0].filters).toEqual([]));
+  });
+
+  it("sends media=wrong and media=to-review from their own chips, one at a time with the other media chips (TASK-80)", async () => {
+    const getList = renderWords([run, house]);
+    await screen.findByText("house");
+
+    await userEvent.click(screen.getByRole("button", { name: "Wrong media" }));
+    await vi.waitFor(() =>
+      expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "media", operator: "eq", value: "wrong" }]),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Media to review" }));
+    await vi.waitFor(() =>
+      expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "media", operator: "eq", value: "to-review" }]),
+    );
+    expect(screen.getByRole("button", { name: "Wrong media" })).toHaveAttribute("aria-pressed", "false");
+
+    await userEvent.click(screen.getByRole("button", { name: "Has media" }));
+    await vi.waitFor(() =>
+      expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "media", operator: "eq", value: "with" }]),
+    );
+    expect(screen.getByRole("button", { name: "Media to review" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("shows a Wrong media badge and an N to review badge in the row, and none for a word with nothing to review", async () => {
+    const wrongOne: WordItem = { ...run, needsReview: false, wrongMediaCount: 1, mediaToReviewCount: 2 };
+    const plain: WordItem = { ...house, wrongMediaCount: 0, mediaToReviewCount: 0 };
+    renderWords([wrongOne, plain]);
+    const list = await screen.findByRole("list");
+    await within(list).findByText("house");
+
+    expect(within(list).getAllByText("Wrong media")).toHaveLength(1);
+    expect(within(list).getByText("2 to review")).toBeInTheDocument();
+    // The word-text "Needs review" badge is not used for pictures.
+    expect(within(list).queryByText("Needs review")).not.toBeInTheDocument();
   });
 
   it("shows a reason count with the reasons as a tooltip next to the badge of a flagged word", async () => {

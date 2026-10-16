@@ -50,6 +50,40 @@ public class SenseMediaReader {
                 + " where media_status is not null and word_id in (:ids)", wordIds);
     }
 
+    /** Bundled words: the review state of every sense, with the newest Claude check of the current media (TASK-80). */
+    public Map<Long, Map<Integer, SenseReview>> reviewForBundledWords(Collection<Long> wordIds) {
+        String newest = "(select c.%s from media_check c where c.sense_id = s.id and c.media_id = s.media_id"
+                + " order by c.checked_at desc, c.id desc limit 1)";
+        return readReview("select s.word_id as word_id, s.position as sense_position, s.media_id, s.media_status,"
+                + " s.media_reviewed_media_id as reviewed_media_id, " + newest.formatted("verdict") + " as verdict, "
+                + newest.formatted("reason") + " as reason"
+                + " from dictionary_sense s where s.word_id in (:ids)", wordIds);
+    }
+
+    /** Backend words: the same without Claude's check (the pipeline checks bundled senses only). */
+    public Map<Long, Map<Integer, SenseReview>> reviewForBackendWords(Collection<Long> lookupIds) {
+        return readReview("select x.word_lookup_id as word_id, x.sense_position as sense_position, x.media_id,"
+                + " x.media_status, x.media_reviewed_media_id as reviewed_media_id,"
+                + " cast(null as varchar(8)) as verdict, cast(null as varchar(1000)) as reason"
+                + " from word_lookup_media x where x.word_lookup_id in (:ids)", lookupIds);
+    }
+
+    private Map<Long, Map<Integer, SenseReview>> readReview(String sql, Collection<Long> ids) {
+        Map<Long, Map<Integer, SenseReview>> result = new HashMap<>();
+        if (ids.isEmpty()) {
+            return result;
+        }
+        jdbc.sql(sql).param("ids", ids).query((rs, n) -> {
+            Long mediaId = (Long) rs.getObject("media_id");
+            Long reviewedId = (Long) rs.getObject("reviewed_media_id");
+            String state = SenseReview.stateOf(mediaId, rs.getString("media_status"), reviewedId);
+            result.computeIfAbsent(rs.getLong("word_id"), id -> new HashMap<>()).put(rs.getInt("sense_position"),
+                    new SenseReview(state, rs.getString("verdict"), rs.getString("reason")));
+            return null;
+        }).list();
+        return result;
+    }
+
     private Map<Long, Map<Integer, String>> readStatus(String sql, Collection<Long> ids) {
         Map<Long, Map<Integer, String>> result = new HashMap<>();
         if (ids.isEmpty()) {

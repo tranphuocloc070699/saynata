@@ -6,6 +6,7 @@ import com.englishtranslation.backend.dictionary.DictionaryWord;
 import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
 import com.englishtranslation.backend.media.SenseMedia;
 import com.englishtranslation.backend.media.SenseMediaReader;
+import com.englishtranslation.backend.media.SenseReview;
 import com.englishtranslation.backend.word.WordEntry;
 import com.englishtranslation.backend.word.WordLookup;
 import com.englishtranslation.backend.word.WordLookupRepository;
@@ -59,6 +60,25 @@ public class AdminWordService {
             + " or (source = 'backend' and exists (select 1 from word_lookup_media x"
             + " where x.word_lookup_id = admin_word_list.source_id and x.media_id is not null)))";
 
+    /** TASK-80: some sense is marked needs_ai ("Wrong media"). */
+    private static final String WRONG_MEDIA = "((source = 'bundled' and exists (select 1 from dictionary_sense s"
+            + " where s.word_id = admin_word_list.source_id and s.media_status = 'needs_ai'))"
+            + " or (source = 'backend' and exists (select 1 from word_lookup_media x"
+            + " where x.word_lookup_id = admin_word_list.source_id and x.media_status = 'needs_ai')))";
+
+    /**
+     * TASK-80: some sense has a picture or clip that is not approved (the approval names another file or none)
+     * and is not marked needs_ai ("Media to review").
+     */
+    private static final String MEDIA_TO_REVIEW = "((source = 'bundled' and exists (select 1 from dictionary_sense s"
+            + " where s.word_id = admin_word_list.source_id and s.media_id is not null"
+            + " and (s.media_status is null or s.media_status <> 'needs_ai')"
+            + " and (s.media_reviewed_media_id is null or s.media_reviewed_media_id <> s.media_id)))"
+            + " or (source = 'backend' and exists (select 1 from word_lookup_media x"
+            + " where x.word_lookup_id = admin_word_list.source_id and x.media_id is not null"
+            + " and (x.media_status is null or x.media_status <> 'needs_ai')"
+            + " and (x.media_reviewed_media_id is null or x.media_reviewed_media_id <> x.media_id))))";
+
     /** One page of words and how many words match in all (for X-Total-Count). */
     public record WordPage(List<AdminWord> words, long total) {
     }
@@ -97,7 +117,8 @@ public class AdminWordService {
      * @param needsReview   null = both
      * @param source        null = both, else "bundled" or "backend"
      * @param cefr          empty = every level, else levels like A1, B2 (the level of the first sense)
-     * @param media         null = both, "with" = some sense has media, "without" = no sense has media
+     * @param media         null = both, "with" = some sense has media, "without" = no sense has media,
+     *                      "wrong" = some sense is marked needs_ai, "to-review" = some sense has media that nobody approved
      * @param pageable      from AdminListParams.pageable; its sort names are the keys of sortColumns()
      */
     public WordPage list(String likePattern, Boolean needsReview, String source, List<String> cefr, String media,
@@ -106,8 +127,8 @@ public class AdminWordService {
         if (source != null && !source.equals(AdminWordId.BUNDLED) && !source.equals(AdminWordId.BACKEND)) {
             throw new InvalidAdminRequestException("source must be one of: backend, bundled.");
         }
-        if (media != null && !media.equals("with") && !media.equals("without")) {
-            throw new InvalidAdminRequestException("media must be one of: with, without.");
+        if (media != null && !Set.of("with", "without", "wrong", "to-review").contains(media)) {
+            throw new InvalidAdminRequestException("media must be one of: with, without, wrong, to-review.");
         }
 
         StringBuilder where = new StringBuilder(" where lower(word) like :like escape '\\'");
@@ -127,7 +148,12 @@ public class AdminWordService {
         }
         if (media != null) {
             // A word has media when any of its senses points to a media row.
-            where.append(media.equals("with") ? " and " + HAS_MEDIA : " and not " + HAS_MEDIA);
+            where.append(switch (media) {
+                case "with" -> " and " + HAS_MEDIA;
+                case "without" -> " and not " + HAS_MEDIA;
+                case "wrong" -> " and " + WRONG_MEDIA;
+                default -> " and " + MEDIA_TO_REVIEW;
+            });
         }
 
         long total = jdbc.sql("select count(*) from admin_word_list" + where)
@@ -201,15 +227,17 @@ public class AdminWordService {
         Map<Long, Map<Integer, SenseMedia>> backendMedia = mediaReader.forBackendWords(backendIds);
         Map<Long, Map<Integer, String>> bundledStatus = mediaReader.statusForBundledWords(bundledIds);
         Map<Long, Map<Integer, String>> backendStatus = mediaReader.statusForBackendWords(backendIds);
+        Map<Long, Map<Integer, SenseReview>> bundledReview = mediaReader.reviewForBundledWords(bundledIds);
+        Map<Long, Map<Integer, SenseReview>> backendReview = mediaReader.reviewForBackendWords(backendIds);
         List<AdminWord> words = new ArrayList<>();
         for (ListRow row : rows) {
             AdminWordId id = AdminWordId.parse(row.itemId());
             WordEntry entry = (id.bundled() ? bundledEntries : backendEntries).get(id.number());
             Map<Integer, SenseMedia> media = (id.bundled() ? bundledMedia : backendMedia).getOrDefault(id.number(), Map.of());
             Map<Integer, String> status = (id.bundled() ? bundledStatus : backendStatus).getOrDefault(id.number(), Map.of());
-            words.add(new AdminWord(row.itemId(), row.word(), entry, row.ipa(), row.needsReview(), row.source(),
-                    row.model(), row.promptVersion(), row.createdAt(), mediaPerSense(entry, media),
-                    statusPerSense(entry, status), reviewReasons(entry, row.word(), row.needsReview())));
+            Map<Integer, SenseReview> review = (id.bundled() ? bundledReview : backendReview).getOrDefault(id.number(), Map.of());
+            words.add(build(row.itemId(), row.word(), entry, row.ipa(), row.needsReview(), row.source(),
+                    row.model(), row.promptVersion(), row.createdAt(), media, status, review));
         }
         return words;
     }
@@ -327,25 +355,38 @@ public class AdminWordService {
     }
 
     private AdminWord toAdminWord(DictionaryWord word) {
-        WordEntry entry = readBundledEntry(word);
-        List<SenseMedia> media = mediaPerSense(entry, mediaReader.forBundledWords(List.of(word.getId()))
-                .getOrDefault(word.getId(), Map.of()));
-        return new AdminWord("b-" + word.getId(), word.getLemma(), entry, word.getIpa(),
+        List<Long> ids = List.of(word.getId());
+        return build("b-" + word.getId(), word.getLemma(), readBundledEntry(word), word.getIpa(),
                 word.isNeedsReview(), AdminWordId.BUNDLED, word.getModel(), word.getPromptVersion(),
-                word.getCreatedAt(), media, statusPerSense(entry, mediaReader.statusForBundledWords(List.of(word.getId()))
-                        .getOrDefault(word.getId(), Map.of())),
-                reviewReasons(entry, word.getLemma(), word.isNeedsReview()));
+                word.getCreatedAt(), mediaReader.forBundledWords(ids).getOrDefault(word.getId(), Map.of()),
+                mediaReader.statusForBundledWords(ids).getOrDefault(word.getId(), Map.of()),
+                mediaReader.reviewForBundledWords(ids).getOrDefault(word.getId(), Map.of()));
     }
 
     private AdminWord toAdminWord(WordLookup lookup) {
-        WordEntry entry = readBackendEntry(lookup);
-        List<SenseMedia> media = mediaPerSense(entry, mediaReader.forBackendWords(List.of(lookup.getId()))
-                .getOrDefault(lookup.getId(), Map.of()));
-        return new AdminWord("w-" + lookup.getId(), lookup.getWord(), entry, null,
+        List<Long> ids = List.of(lookup.getId());
+        return build("w-" + lookup.getId(), lookup.getWord(), readBackendEntry(lookup), null,
                 lookup.isNeedsReview(), AdminWordId.BACKEND, lookup.getModel(), lookup.getPromptVersion(),
-                lookup.getCreatedAt(), media, statusPerSense(entry, mediaReader.statusForBackendWords(List.of(lookup.getId()))
-                        .getOrDefault(lookup.getId(), Map.of())),
-                reviewReasons(entry, lookup.getWord(), lookup.isNeedsReview()));
+                lookup.getCreatedAt(), mediaReader.forBackendWords(ids).getOrDefault(lookup.getId(), Map.of()),
+                mediaReader.statusForBackendWords(ids).getOrDefault(lookup.getId(), Map.of()),
+                mediaReader.reviewForBackendWords(ids).getOrDefault(lookup.getId(), Map.of()));
+    }
+
+    /** Puts one word together: the per-sense lists follow the order of the entry, the counts come from the review list. */
+    private AdminWord build(String id, String word, WordEntry entry, String ipa, boolean needsReview, String source,
+            String model, String promptVersion, Instant createdAt, Map<Integer, SenseMedia> media,
+            Map<Integer, String> status, Map<Integer, SenseReview> review) {
+        List<SenseReview> reviewPerSense = new ArrayList<>();
+        if (entry != null) {
+            for (int i = 0; i < entry.senses().size(); i++) {
+                reviewPerSense.add(review.getOrDefault(i, new SenseReview(SenseReview.NONE, null, null)));
+            }
+        }
+        int wrong = (int) reviewPerSense.stream().filter(r -> SenseReview.WRONG.equals(r.state())).count();
+        int toReview = (int) reviewPerSense.stream().filter(r -> SenseReview.TO_REVIEW.equals(r.state())).count();
+        return new AdminWord(id, word, entry, ipa, needsReview, source, model, promptVersion, createdAt,
+                mediaPerSense(entry, media), statusPerSense(entry, status), reviewReasons(entry, word, needsReview),
+                wrong, toReview, reviewPerSense);
     }
 
     /**

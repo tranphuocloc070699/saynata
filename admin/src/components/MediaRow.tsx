@@ -24,6 +24,8 @@ export function MediaRow({ word, index }: Props) {
   const invalidate = useInvalidate();
   const media = word.media?.[index];
   const markedForAi = word.mediaStatus?.[index] === "needs_ai";
+  const review = word.mediaReview?.[index];
+  const approved = review?.state === "approved";
   const senseLabel = `${word.word}, sense ${index + 1}`;
   const mediaUrl = `${apiUrl}/words/${word.id}/senses/${index}/media`;
 
@@ -95,6 +97,14 @@ export function MediaRow({ word, index }: Props) {
       await refresh();
     });
 
+  // "Picture looks right" (TASK-80): approve the current file, or undo it. Approving also clears "needs AI image".
+  const toggleApproved = () =>
+    run(async () => {
+      if (approved) await httpClient.delete(`${mediaUrl}/approve`, { data: {}, headers: JSON_HEADERS });
+      else await httpClient.post(`${mediaUrl}/approve`, {}, { headers: JSON_HEADERS });
+      await refresh();
+    });
+
   // The admin's own picture or clip (TASK-79). The browser sets the multipart Content-Type itself (with the boundary);
   // the backend needs X-Requested-With for a form upload (CSRF rule in JsonWritesOnlyFilter).
   async function uploadFile(file: File) {
@@ -152,7 +162,22 @@ export function MediaRow({ word, index }: Props) {
     >
       <div className="flex items-start justify-between gap-3">
         <MediaCell media={media} alt={senseLabel} onOpen={() => media && setViewing(media)} />
-        <div className="flex shrink-0 gap-2" role="group" aria-label={`Media actions (sense ${index + 1})`}>
+        <div className="flex shrink-0 items-center gap-2" role="group" aria-label={`Media actions (sense ${index + 1})`}>
+          {approved && <span className="text-xs font-medium text-primary">Approved</span>}
+          {media && (
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Picture looks right"
+              title={approved ? "Approved: press to undo" : "Picture looks right"}
+              aria-pressed={approved}
+              disabled={busy}
+              onClick={toggleApproved}
+              className={cn(approved && "border-primary text-primary")}
+            >
+              <Check className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="outline"
             size="icon"
@@ -205,6 +230,13 @@ export function MediaRow({ word, index }: Props) {
           />
         </div>
       </div>
+
+      {media && review?.verdict && (
+        <p className="text-xs text-muted-foreground">
+          Claude: {review.verdict}
+          {review.reason ? ` \u2014 ${review.reason}` : ""}
+        </p>
+      )}
 
       {markedForAi && (
         <p className="flex items-center gap-1 text-xs text-primary">

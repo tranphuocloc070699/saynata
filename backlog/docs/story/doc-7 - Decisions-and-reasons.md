@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 02:26'
+updated_date: '2026-10-16 02:33'
 ---
 # Decisions and reasons
 
@@ -123,6 +123,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | **$5 budget cap per run** for AI pictures, never passed (a new call starts only if spent + the estimates of the calls in flight + its own estimate fit) | Chosen by the developer. Reason: not recorded. | No cap; a cap that may be passed by the calls in flight (like `media-check`) | Developer (cap), Claude (never-passed rule) |
 | 10-16 | AI pictures are a **pipeline command in two steps**: `media-generate` makes the files and records them (`media_generation`, Flyway V14), then after `rsync` `media-generate --link` links only files that answer 200 on the server, with status `ai_generated`; the old Pixabay file stays | A sense must never point to a file that is not on the server yet (the app would show nothing), and the developer reviews the report before anything changes. Reason in the developer's words: not recorded | Link in the same run; a backend job with an admin button first (TASK-53's first plan, now a later step) | Claude |
 | 10-16 | The image prompt is **one fixed template** from the sense (headword, type, simple explanation, easy example) plus the style rule, with no Claude call to write it | Free, the same for every provider, easy to review in the report. TASK-53 first planned a Claude Haiku-written prompt; it can come back if the trial pictures are weak | A short prompt written by Claude Haiku per sense | Claude (from the session brief) |
+| 10-16 | **Picture review is separate from the word-text "Needs review"** (TASK-80): two new chips, "Wrong media" (a sense marked needs_ai, the 743 that Claude flagged) and "Media to review" (has a picture that nobody approved), and a "Looks right" button that approves one picture. The approval is stored on its own (media_reviewed_at, media_reviewed_media_id), tied to the media file, so a new picture needs a new review | The 743 flagged pictures had no chip or badge, so the developer could not find them; he also wants to look at every picture and approve the good ones. "Needs review" keeps meaning word-text problems only. | Folding picture problems into "Needs review"; storing the approval in media_status (TASK-53 uses needs_ai, so its meaning must not change) | Developer |
 
 ## Questions answered
 

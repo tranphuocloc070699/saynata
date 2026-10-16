@@ -275,6 +275,41 @@ public class AdminMediaService {
         return words.get(id.text());
     }
 
+    /**
+     * "Picture looks right" (TASK-80). The approval is tied to the media file the sense has now: a later new picture
+     * is not approved. An approval also clears needs_ai: the admin is the final judge, so the AI job skips the sense.
+     */
+    public AdminWord approve(String wordId, int position) {
+        AdminWordId id = AdminWordId.parse(wordId);
+        findSense(id, position);
+        if (currentMediaId(id, position) == null) {
+            throw new InvalidAdminRequestException("This sense has no picture or clip to approve.");
+        }
+        String set = "media_reviewed_at = :now, media_reviewed_media_id = media_id,"
+                + " media_status = case when media_status = '" + NEEDS_AI + "' then null else media_status end";
+        updateReview(id, position, set);
+        return words.get(id.text());
+    }
+
+    /** Undo: the sense is "to review" again. A cleared needs_ai is not put back. */
+    public AdminWord unapprove(String wordId, int position) {
+        AdminWordId id = AdminWordId.parse(wordId);
+        findSense(id, position);
+        updateReview(id, position, "media_reviewed_at = null, media_reviewed_media_id = null");
+        return words.get(id.text());
+    }
+
+    private void updateReview(AdminWordId id, int position, String set) {
+        String sql = id.bundled()
+                ? "update dictionary_sense set " + set + " where word_id = :word and position = :position"
+                : "update word_lookup_media set " + set + " where word_lookup_id = :word and sense_position = :position";
+        var statement = jdbc.sql(sql).param("word", id.number()).param("position", position);
+        if (set.contains(":now")) {
+            statement = statement.param("now", OffsetDateTime.now());
+        }
+        statement.update();
+    }
+
     // ---- list ----
 
     /** All senses with the given status (only "needs_ai" exists today). */

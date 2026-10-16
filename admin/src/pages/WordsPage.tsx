@@ -22,6 +22,9 @@ const chips: Chip[] = [
   cefrChip("B1-B2", ["B1", "B2"]),
   { id: "has-media", label: "Has media", field: "media", value: "with" },
   { id: "no-media", label: "No media", field: "media", value: "without" },
+  // Picture review (TASK-80), separate from "Needs review" (word text). Same field, so one at a time.
+  { id: "wrong-media", label: "Wrong media", field: "media", value: "wrong" },
+  { id: "media-to-review", label: "Media to review", field: "media", value: "to-review" },
 ];
 
 // Why a word needs review: the lines from the backend, or a hint when the entry is fine now.
@@ -51,6 +54,26 @@ function ReasonCount({ word }: { word: WordItem }) {
     <Badge variant="outline" title={tooltip}>
       {label}
     </Badge>
+  );
+}
+
+// In the list row, next to the other badges: pictures marked wrong (warning colour) and pictures nobody approved yet.
+function MediaReviewBadges({ word }: { word: WordItem }) {
+  const wrong = word.wrongMediaCount ?? 0;
+  const toReview = word.mediaToReviewCount ?? 0;
+  return (
+    <>
+      {wrong > 0 && (
+        <Badge variant="warning" title={`${wrong} ${wrong === 1 ? "picture is" : "pictures are"} marked wrong`}>
+          Wrong media
+        </Badge>
+      )}
+      {toReview > 0 && (
+        <Badge variant="outline" title="Pictures or clips nobody approved yet">
+          {toReview} to review
+        </Badge>
+      )}
+    </>
   );
 }
 
@@ -250,6 +273,7 @@ export function WordsPage() {
         <>
           <Badge variant="outline">{word.source === "bundled" ? "Bundled" : "Backend"}</Badge>
           <ReasonCount word={word} />
+          <MediaReviewBadges word={word} />
         </>
       )}
       detailRows={detailRows}
