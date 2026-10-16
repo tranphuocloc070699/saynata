@@ -61,6 +61,7 @@ class FakeStore:
         self.saved: list[GenerationResult] = []
         self.linked: list[str] = []
         self.refuse: set[str] = set()
+        self.approved: set[int] = set()
 
     def pending_senses(self, words, limit, regenerate):
         waiting = {r.sense["id"] for r in self.saved}
@@ -71,6 +72,9 @@ class FakeStore:
 
     def save_generation(self, result, provider, model):
         self.saved.append(result)
+
+    def still_needs_ai(self, sense_id):
+        return sense_id not in self.approved
 
     def unlinked(self):
         return [{"id": i, "sense_id": r.sense["id"], "file_name": r.file_name, "provider": "fake",
@@ -236,6 +240,14 @@ def test_failed_sense_is_not_saved_and_a_provider_stop_ends_the_run(media_dir):
     assert list(media_dir.iterdir()) == []
 
 
+def test_run_skips_a_sense_approved_in_the_admin_during_the_run(media_dir):
+    store = FakeStore([sense(1, "a"), sense(2, "b")])
+    store.approved.add(2)   # "Looks right" cleared needs_ai after the list was read
+    generator = FakeGenerator()
+    summary = media_generate.run(store, generator, media_dir, log=lambda _: None)
+    assert [r.sense["lemma"] for r in summary.made] == ["a"] and len(generator.prompts) == 1
+
+
 def test_dry_run_calls_and_saves_nothing(media_dir):
     store = FakeStore([sense(1), sense(2, "apple")])
     generator = FakeGenerator(estimate=0.003)
@@ -325,6 +337,10 @@ def test_pg_pending_is_needs_ai_with_a_picture_type_only(pg):
     store.save_generation(made(pending[0]), "openai", "gpt-image-1-mini")
     assert store.pending_senses(None, 100, regenerate=False) == []
     assert len(store.pending_senses(None, 100, regenerate=True)) == 1
+    assert store.still_needs_ai(pending[0]["id"]) is True
+    pg.execute("UPDATE dictionary_sense SET media_status = NULL WHERE id = %s", (pending[0]["id"],))  # Looks right
+    pg.commit()
+    assert store.still_needs_ai(pending[0]["id"]) is False
 
 
 def test_pg_link_makes_an_ai_media_row_and_sets_the_status(pg, tmp_path):

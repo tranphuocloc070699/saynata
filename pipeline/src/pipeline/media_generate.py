@@ -248,6 +248,7 @@ class Store(Protocol):
 
     def pending_senses(self, words: list[str] | None, limit: int, regenerate: bool) -> list[dict]: ...
     def save_generation(self, result: GenerationResult, provider: str, model: str) -> None: ...
+    def still_needs_ai(self, sense_id: int) -> bool: ...
     def unlinked(self) -> list[dict]: ...
     def link(self, generation: dict, provider: str, model: str, facts: tuple) -> bool: ...
 
@@ -295,6 +296,9 @@ def run(store: Store, generator: ImageGenerator, media_dir: Path, *, words: list
                 sense = next(queue, None)
                 if sense is None:
                     break
+                if not store.still_needs_ai(sense["id"]):  # approved or changed in the admin since the run started
+                    log(f"{sense['lemma']} #{sense['position'] + 1}: no longer needs_ai, skipped")
+                    continue
                 estimate = generator.estimate_cost(build_prompt(sense)) + worst
                 if summary.cost + sum(in_flight.values()) + estimate > max_cost:
                     stop_message = "cost"
@@ -432,6 +436,14 @@ class PostgresStore:
                  result.output_tokens, round(result.cost_usd, 6), datetime.now(timezone.utc), result.sense["media_id"]),
             )
         self.pg.commit()  # saved one by one, so stopping the run loses nothing
+
+    def still_needs_ai(self, sense_id: int) -> bool:
+        """Asked again just before each paid call: the admin may approve the old picture ("Looks right") or pick
+        another one while a long run is going."""
+        with self.pg.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM dictionary_sense WHERE id = %s AND media_status = 'needs_ai' "
+                           "AND image_type <> 'none'", (sense_id,))
+            return cursor.fetchone() is not None
 
     def unlinked(self) -> list[dict]:
         """The newest unlinked picture of each sense that is still needs_ai."""
