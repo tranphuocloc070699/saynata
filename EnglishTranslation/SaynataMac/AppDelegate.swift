@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var panel: FloatingPanel?
+    private let copiedText = CopiedTextWatcher()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -51,6 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         NSApp.servicesProvider = self
         NSUpdateDynamicServices()
 
+        copiedText.start()
+
         // The global shortcut (TASK-85.3). It opens the panel from any app, or closes the window that is open.
         KeyboardShortcuts.onKeyUp(for: .openSaynata) { [weak self] in
             self?.toggleFromShortcut()
@@ -60,6 +63,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // For checking the window without a click: `open SaynataMac.app --args -explain "run late"`.
         if let index = CommandLine.arguments.firstIndex(of: "-explain"), index + 1 < CommandLine.arguments.count {
             explain(CommandLine.arguments[index + 1])
+        }
+        // `-pressShortcut` acts as if the shortcut was pressed 3 s after start (copy something before that).
+        if CommandLine.arguments.contains("-pressShortcut") {
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                toggleFromShortcut()
+            }
         }
         if CommandLine.arguments.contains("-settings") {
             showPanel()
@@ -117,9 +127,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
     }
 
+    /// Closes the open window, or opens the panel. Text copied in the last 20 seconds is explained at once
+    /// (select, ⌘C, shortcut), for apps like Books that have no Services item. Settings can turn this off.
     private func toggleFromShortcut() {
         if isOpen {
             closeAll()
+        } else if UserDefaults.standard.object(forKey: explainsCopiedTextKey) as? Bool ?? true,
+                  let text = copiedText.takeFreshText() {
+            explain(text)
         } else {
             showPanel()
         }
