@@ -11,6 +11,9 @@ public interface SentenceTranslationRepository extends JpaRepository<SentenceTra
 
     Optional<SentenceTranslation> findByCacheKey(String cacheKey);
 
+    /** The loose match (TASK-83.3). Two exact texts can share one loose key; the oldest row wins. */
+    Optional<SentenceTranslation> findFirstByMatchKeyOrderByCreatedAtAscIdAsc(String matchKey);
+
     /** Admin list. likePattern is like "%hello%" ("%" alone matches every sentence). */
     @Query("""
             select s from SentenceTranslation s

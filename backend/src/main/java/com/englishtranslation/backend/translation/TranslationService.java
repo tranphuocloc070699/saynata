@@ -91,6 +91,17 @@ public class TranslationService {
             return new TranslationResponse(normalized, targetLang, readExplanation(saved.get()), true);
         }
 
+        // Exact text missed. Try the loose key: "how are you" finds a saved "How are you?".
+        // The exact key was tried first, so "US" and "us" stay apart when both are saved.
+        if (!CacheKeys.normalizeSentenceLoose(normalized).isEmpty()) {
+            String matchKey = CacheKeys.sentenceMatchKey(properties.sentencePromptVersion(), targetLang.code(), normalized);
+            Optional<SentenceTranslation> similar = repository.findFirstByMatchKeyOrderByCreatedAtAscIdAsc(matchKey);
+            if (similar.isPresent()) {
+                // The text in the answer is what the user typed; the explanation is the saved one.
+                return new TranslationResponse(normalized, targetLang, readExplanation(similar.get()), true);
+            }
+        }
+
         Explanation explanation = askClaude.apply(normalized);
         try {
             repository.saveAndFlush(new SentenceTranslation(
