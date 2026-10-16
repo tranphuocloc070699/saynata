@@ -3,11 +3,13 @@ package com.englishtranslation.backend.prefill;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.englishtranslation.backend.claude.ClaudeProperties;
@@ -16,7 +18,9 @@ import com.englishtranslation.backend.claude.ClaudeUsageRepository;
 import com.englishtranslation.backend.claude.ClaudeUsageService;
 import com.englishtranslation.backend.claude.Feature;
 import com.englishtranslation.backend.common.ApiException;
+import com.englishtranslation.backend.limits.CallerContext;
 import com.englishtranslation.backend.limits.PrefillContext;
+import com.englishtranslation.backend.media.BackendWordMediaService;
 import com.englishtranslation.backend.translation.Explanation;
 import com.englishtranslation.backend.translation.SentenceTranslationRepository;
 import com.englishtranslation.backend.translation.TargetLanguage;
@@ -69,6 +73,8 @@ class PrefillRunnerTest {
     ClaudeProperties properties;
     @MockitoBean
     ClaudeService claude;
+    @MockitoBean
+    BackendWordMediaService media;
 
     @BeforeEach
     void clean() {
@@ -92,6 +98,26 @@ class PrefillRunnerTest {
 
     private PrefillItem item(String text) {
         return queue.findAll().stream().filter(i -> i.getText().equals(text)).findFirst().orElseThrow();
+    }
+
+    @Test
+    void aPrefilledWordGetsNoPicture() {
+        claudeAnswersWords(1_000);
+        queueWord("lantern", 5);
+
+        runner.runNow("test", null, null);
+
+        assertThat(item("lantern").getStatus()).isEqualTo("done");
+        verifyNoInteractions(media); // no Pixabay call, no claim row, no ffmpeg
+    }
+
+    @Test
+    void aSignedInUsersNewWordStillGetsAPicture() {
+        claudeAnswersWords(1_000);
+
+        CallerContext.runAs(new CallerContext.Caller(1L, "127.0.0.1"), () -> wordService.lookUp("lantern"));
+
+        verify(media).fetchInBackground(anyLong(), eq("lantern"), any());
     }
 
     @Test

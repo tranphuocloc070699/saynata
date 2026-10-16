@@ -33,7 +33,8 @@ import org.springframework.stereotype.Service;
  * Answers the queued words and phrases before users ask (TASK-83.1), so their answers are already in the shared cache.
  *
  * It calls the same WordService and TranslationService that users reach, so the prompt, the prompt version, the cache
- * key, the SimpleWords retry and the Pixabay picture job are exactly the same. A cached item costs nothing: it is
+ * key and the SimpleWords retry are exactly the same. One thing is left out on purpose: a prefilled word gets no
+ * picture (WordService skips the Pixabay job inside a prefill run). A cached item costs nothing: it is
  * marked done. What is different is the money: the run has no user, so ClaudeGate checks the run cap
  * ({@link PrefillContext}) instead of sign-in and the users' budget, and the calls are saved as PREFILL.
  *
