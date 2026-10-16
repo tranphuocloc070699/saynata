@@ -44,4 +44,6 @@ Add above_zero to collect_words, --all-wordfreq flag (words only), night_lines i
 
 <!-- SECTION:NOTES:BEGIN -->
 Built: prefill collect --source words --all-wordfreq (Zipf > 0, SCOWL-70 + NGSL, same list as backend EnglishWords). Dry run prints count, cost and night estimate. Production dry run (read-only, 2026-10-16): 68,669 new words, about 48.07 USD, 714 words a night at the 0.50 cap, about 83 min a run, about 96 nights. Test it: 1) nc -z localhost 55432. 2) cd pipeline && uv run pipeline prefill collect --source words --all-wordfreq --dry-run shows count, cost, nights, writes nothing. 3) --source phrases --all-wordfreq stops with an error. Automated: cd pipeline && uv run pytest tests/test_prefill.py
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/83
 <!-- SECTION:NOTES:END -->
