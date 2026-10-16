@@ -5,6 +5,7 @@ import com.englishtranslation.backend.cache.NotCachedException;
 import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.limits.ClaudeGate;
+import com.englishtranslation.backend.limits.PrefillContext;
 import com.englishtranslation.backend.dictionary.BundledEntryReader;
 import com.englishtranslation.backend.dictionary.DictionaryWord;
 import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
@@ -169,8 +170,15 @@ public class WordService {
         }
     }
 
-    /** Starts the picture job on its own thread. It is not waited for; the picture shows on the next lookup. */
+    /**
+     * Starts the picture job on its own thread. It is not waited for; the picture shows on the next lookup.
+     * A word saved by the prefill job gets no picture (developer, 10-16): no Pixabay call, no claim row, no ffmpeg.
+     */
     private void startMediaJob(Long lookupId, String word, WordEntry entry) {
+        if (PrefillContext.current().isPresent()) {
+            log.debug("'{}' was saved by the prefill job, no picture", word);
+            return;
+        }
         try {
             mediaService.fetchInBackground(lookupId, word, entry);
         } catch (RuntimeException e) {

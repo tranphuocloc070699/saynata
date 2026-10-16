@@ -3,7 +3,7 @@ id: doc-18
 title: Prefill
 type: other
 created_date: '2026-10-16 08:28'
-updated_date: '2026-10-16 09:06'
+updated_date: '2026-10-16 09:14'
 ---
 # Prefill
 
@@ -12,7 +12,7 @@ updated_date: '2026-10-16 09:06'
 
 ## What it does
 
-A cached answer comes back in about 25-50 ms; a new Claude call takes about 2 seconds, and a guest gets no new call at all. The **prefill job** fills the shared cache before users ask. It takes words and phrases (for example "give up") from a queue and answers each one with the **same code a user reaches**: `WordService.lookUp` and `TranslationService.translate`. So the prompt, the prompt version, the cache key, the SimpleWords retry and the Pixabay picture job are identical to a real lookup.
+A cached answer comes back in about 25-50 ms; a new Claude call takes about 2 seconds, and a guest gets no new call at all. The **prefill job** fills the shared cache before users ask. It takes words and phrases (for example "give up") from a queue and answers each one with the **same code a user reaches**: `WordService.lookUp` and `TranslationService.translate`. So the prompt, the prompt version, the cache key and the SimpleWords retry are identical to a real lookup. One thing is left out on purpose: **a prefilled word gets no picture** (no Pixabay call, no claim row, no ffmpeg; developer, 10-16). `WordService.startMediaJob` returns at once inside a prefill run, and `media-ai` only draws bundled senses (`dictionary_sense`), never `word_lookup` words.
 
 The job has **its own money cap per run** (default $0.50) and its calls do **not** count toward the users' daily budget (`app.claude.daily-budget-usd`). A night run cannot eat the users' day.
 
@@ -34,7 +34,7 @@ flowchart LR
     GATE -->|"run cap not reached"| CL[ClaudeService]
     CL -->|"feature PREFILL"| USE[(claude_usage)]
     R -->|"spent since run start"| USE
-    WS -->|new word| MEDIA[Pixabay job, background]
+    WS -.->|no picture for prefill words| MEDIA[Pixabay job, skipped]
     OV["GET /api/admin/prefill"] --> Q
     OV --> USE
 ```
@@ -67,13 +67,13 @@ sequenceDiagram
 | Step | File:line | What happens |
 |---|---|---|
 | Table | [V17__create_prefill_item.sql](../../../backend/src/main/resources/db/migration/V17__create_prefill_item.sql) | `prefill_item(kind word/sentence, text, target_lang, source, priority, status pending/done/skipped/failed, attempts, last_error, timestamps)`, unique on `(kind, text, target_lang)`, index `(status, priority DESC, id)`. A word is stored with `CacheKeys.normalizeWord`, a phrase or sentence with `normalizeSentence` and `target_lang` `vi`. (V16 was already taken by `media_generation_ai_scene`, so this is V17.) |
-| Start | [PrefillRunner.startInBackground:98](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L98), [runNow:109](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L109) | An atomic flag allows one run at a time; a second start gets 409 `prefill_running`. The admin call runs on its own `prefill` thread; the cron calls `runNow` on its scheduler thread. |
-| Context | [runClaimed:120](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L120), [PrefillContext](../../../backend/src/main/java/com/englishtranslation/backend/limits/PrefillContext.java) | A thread-local `Run(startedAt, maxUsd)` marks the thread as "a prefill run" for the whole run. |
-| Loop and stop rules | [loop:155](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L155) | Before each item it reads the real spend (`PREFILL` rows since the run start) and stops if `spent + dearest item so far > cap` (`cap`). Other stops: `queue-empty`, `limit`, 5 failures in a row (`failures`, Claude is probably down), `interrupted`. Items come by `priority DESC, id`. |
-| One item | [handle:202](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L202) | `done` after an answer; `skipped` for a non-word, personal text, an unknown language or a Claude "not English"; any other error: `attempts + 1`, `last_error`, status `failed`. |
-| Word | [answerWord:224](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L224) | `WordService.lookUp`. A cached or bundled answer is `done` with no Claude call. "No senses" means not on the word list: `skipped`, nothing saved. |
-| Phrase | [answerSentence:234](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L234) | `PersonalTextDetector` first (email, phone, link, long number): `skipped`, and never sent to Claude or saved. Else `TranslationService.translate(text, language)`. |
-| Pace | [pause:264](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L264) | After each item that made a NEW word the run waits `app.prefill.delay` (default 3 s). A new word starts a Pixabay job (one media thread, queue of 50, Pixabay allows 100 requests a minute); the pause stops a run of thousands of words from filling that queue. Cached items and sentences do not wait. |
+| Start | [PrefillRunner.startInBackground:99](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L99), [runNow:110](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L110) | An atomic flag allows one run at a time; a second start gets 409 `prefill_running`. The admin call runs on its own `prefill` thread; the cron calls `runNow` on its scheduler thread. |
+| Context | [runClaimed:121](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L121), [PrefillContext](../../../backend/src/main/java/com/englishtranslation/backend/limits/PrefillContext.java) | A thread-local `Run(startedAt, maxUsd)` marks the thread as "a prefill run" for the whole run. |
+| Loop and stop rules | [loop:156](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L156) | Before each item it reads the real spend (`PREFILL` rows since the run start) and stops if `spent + dearest item so far > cap` (`cap`). Other stops: `queue-empty`, `limit`, 5 failures in a row (`failures`, Claude is probably down), `interrupted`. Items come by `priority DESC, id`. |
+| One item | [handle:203](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L203) | `done` after an answer; `skipped` for a non-word, personal text, an unknown language or a Claude "not English"; any other error: `attempts + 1`, `last_error`, status `failed`. |
+| Word | [answerWord:225](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L225) | `WordService.lookUp`. A cached or bundled answer is `done` with no Claude call. "No senses" means not on the word list: `skipped`, nothing saved. |
+| Phrase | [answerSentence:235](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L235) | `PersonalTextDetector` first (email, phone, link, long number): `skipped`, and never sent to Claude or saved. Else `TranslationService.translate(text, language)`. |
+| Pace | [pause:265](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L265) | After each item that made a NEW word the run waits `app.prefill.delay` (default 0 s, so no pause). It was 3 s to protect Pixabay, but prefilled words get no picture any more, so nothing needs the pause; it stays as a knob to slow a run down. Cached items and sentences never wait. |
 | Gate | [ClaudeGate.checkPrefillCap:59](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClaudeGate.java#L59) | On a prefill thread `beforeNewCall` and `checkBudget` skip the sign-in, the per-user limits and the users' budget, and throw `PrefillCapReachedException` when this run's spend reached its cap. The runner leaves that item `pending`. The SimpleWords retry (second call) hits the same check; if it fails the first entry is kept, as for users. |
 | Money | [ClaudeUsageService.record:68](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L68), [totalCostSince](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageRepository.java#L14) | On a prefill thread every call is saved with `Feature.PREFILL`. The users' budget query leaves `PREFILL` out. `report` shows the prefill spend per day under `byFeature.prefill`, and `todayUsd` (what the users' budget counts) leaves it out; `prefillTodayUsd` is new. |
 | Schedule | [PrefillScheduler.start:34](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillScheduler.java#L34) | `app.prefill.cron` (`PREFILL_CRON`, six-field Spring cron, UTC). Empty = off; an invalid cron is logged and ignored. A run still going (or a failure) never stops the next night. |
@@ -86,7 +86,7 @@ sequenceDiagram
 |---|---|---|---|
 | `PREFILL_CRON` | `app.prefill.cron` | empty (off) | Six-field cron in UTC, for example `0 0 20 * * *` (20:00 UTC = 03:00 in Vietnam). |
 | `PREFILL_MAX_USD_PER_RUN` | `app.prefill.max-usd-per-run` | `0.50` | The most one run may spend. |
-| `PREFILL_DELAY` | `app.prefill.delay` | `3s` | Pause after each new word. |
+| `PREFILL_DELAY` | `app.prefill.delay` | `0s` | Optional pause after each new word. |
 | none | `app.prefill.max-attempts` | `3` | A failed item is tried again by later runs until it failed this many times, then stays `failed`. |
 
 ## Errors

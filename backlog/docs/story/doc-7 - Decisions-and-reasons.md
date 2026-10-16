@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 08:59'
+updated_date: '2026-10-16 09:14'
 ---
 # Decisions and reasons
 
@@ -139,6 +139,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | **Pre-fill every wordfreq word with Zipf > 0** that the backend word list accepts (TASK-83.7), not only Zipf >= 3.5: about 68,330 words, about $48. Common words still run first | The developer's words: "collects all words from wordfreq, Zipf > 0". Further reason: not recorded | Zipf >= 3.5 only (6,304 words, $4.40, the 10-16 choice) | Developer |
 | 10-16 | **Queue the unknown words of every translated sentence for the night job** (TASK-83.8): after the answer is sent, each real English word that is not bundled and not cached goes into `prefill_item` with a seen counter. Only single checked words are kept, never the sentence. This narrows the earlier "no guest misses" rule: it applies to words from sentences too, guests included | "When user request to translate sentences, check if any words in the sentence does not store in backend, queue it and run at night." Further reason: not recorded | Answer the words only when tapped (today) | Developer |
 | 10-16 | The night job is the **Spring `@Scheduled` job from TASK-83.1** (`PREFILL_CRON`), not a VPS cron | It already runs inside the backend with ClaudeGate, the prefill cap and the PREFILL usage type. A VPS cron would need an admin password or token in a crontab and one more moving part. Downside: one server only (true today), and a night missed while the server is down is caught up the next night | A VPS cron that calls the admin URL | Claude |
+| 10-16 | **No pictures for prefilled words** (wordfreq words and the night queue): inside a prefill run the backend skips the Pixabay job (no call, no claim row, no ffmpeg), and `media-ai` stays on bundled senses only. A user's own lookup of a new word still gets a Pixabay picture. `PREFILL_DELAY` drops from 3 s to 0 s, since it only protected Pixabay | The developer's words: "about the generate all words, remember that don't generate images for those words". Further reason: not recorded | Pixabay for every prefilled word (the TASK-83.1 first build); AI pictures for them | Developer |
 
 ## Questions answered
 
@@ -157,3 +158,4 @@ go here as questions.
 - 10-16: Why Codex through the ChatGPT plan, the green kid, the "quality as one typical thing" idea and the stricter blind guess? Only the facts were given (no cost, slower, picked from samples). Exact reasons not recorded.
 - 10-16: Why pre-fill through a backend job, Zipf 3.5, a loose sentence match, no guest misses, and a nightly $0.50 cap? The recommended options were picked; reasons not recorded.
 - 10-16: Why every wordfreq word, and why queue the words of every sentence? Only what to do was said. Reason not recorded.
+- 10-16: Why no pictures for prefilled words (cost, disk, quality of pictures for rare words)? Reason not recorded.

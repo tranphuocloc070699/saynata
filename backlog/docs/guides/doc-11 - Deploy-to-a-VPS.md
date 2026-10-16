@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-16 08:29'
+updated_date: '2026-10-16 09:14'
 ---
 # Deploy to a VPS
 
@@ -60,7 +60,7 @@ nano .env
 | `ADMIN_EMAIL` | Email of the first admin (for the admin web app). Used only when no admin exists yet. |
 | `ADMIN_INITIAL_PASSWORD` | Password of the first admin, 12+ characters. Used only when no admin exists yet; remove it from `.env` after the first start. |
 | `ADMIN_ENABLED` | Optional. `false` turns the admin API off. Default `true`. |
-| `PIXABAY_API_KEY` | Optional. Free key from https://pixabay.com/api/docs/ . With it, a new word that is not in the bundle gets a photo or clip in the background (section 9). Empty = no pictures are fetched. |
+| `PIXABAY_API_KEY` | Optional. Free key from https://pixabay.com/api/docs/ . With it, a new word that is not in the bundle gets a photo or clip in the background (section 9), except words saved by the prefill job. Empty = no pictures are fetched. |
 | `MEDIA_BASE_URL` | Optional. Public address of the media folder. Default `https://api.loffy.me/media`. |
 | `MEDIA_HOST_DIR` | Optional. Folder on the server with the media files. Default `/var/lib/saynata/media` (section 9). |
 | `USER_JWT_SECRET` | Optional. Signs the sign-in tokens of app users. 32+ characters, `openssl rand -base64 48`. If empty, a key is derived from `ADMIN_JWT_SECRET` (a warning is logged). Set it once and keep it: changing it signs everyone out. |
@@ -73,7 +73,7 @@ nano .env
 | `CLAUDE_DAILY_BUDGET_USD` | Optional. The most Claude may cost per day in US dollars (UTC day). Default `1.00`. At the cap, new explanations stop until midnight UTC; cached words still work. Prices are in `application.properties` (`app.claude.pricing.*`). |
 | `PREFILL_CRON` | Optional. When the prefill job runs by itself (TASK-83.1, feature page "Prefill"): a six-field Spring cron (`second minute hour day month weekday`) in **UTC**. Empty (default) = it never runs by itself. A night run in Vietnam: `PREFILL_CRON=0 0 20 * * *` (20:00 UTC = 03:00). You can always start a run by hand with `POST /api/admin/prefill/run`. |
 | `PREFILL_MAX_USD_PER_RUN` | Optional. The most **one** prefill run may spend on Claude, in US dollars. Default `0.50`. Separate from `CLAUDE_DAILY_BUDGET_USD`: prefill calls are saved as feature `PREFILL` and do not use the users' day budget. |
-| `PREFILL_DELAY` | Optional. Pause after each new word, default `3s`, so the Pixabay picture jobs (100 requests a minute) are not flooded. |
+| `PREFILL_DELAY` | Optional. Pause after each new word, default `0s`. Prefilled words get no picture, so no pause is needed. |
 | `LIMIT_*` | Optional. Rate limits, for example `LIMIT_CLAUDE_USER_HOUR_MAX` (default 60). The full list is in `backend/.env.example`. |
 | `POSTGRES_PORT` | Optional. Port of Postgres on the server's own loopback (`127.0.0.1`), for the dictionary pipeline (section 8). Default 5432. It is never open to the internet. |
 
