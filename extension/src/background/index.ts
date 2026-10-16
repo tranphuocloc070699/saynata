@@ -79,13 +79,20 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
   }
 }
 
-/** The toolbar popup holds the sign-in form. Where it cannot open by itself, the same page opens in a tab. */
+/**
+ * The sign-in form opens in a tab, not the toolbar popup: the popup closes as soon as it loses focus, for
+ * example when the user switches to their mail to read the code. An open sign-in tab is reused.
+ */
 async function openSignIn(): Promise<void> {
-  try {
-    await chrome.action.openPopup();
-  } catch {
-    await chrome.tabs.create({ url: chrome.runtime.getURL("popup/index.html?tab=1") });
+  const url = chrome.runtime.getURL("popup/index.html?tab=1");
+  // Without the "tabs" permission the query may find nothing; then a new tab opens, which is fine.
+  const [open] = await chrome.tabs.query({ url }).catch(() => []);
+  if (open?.id !== undefined) {
+    await chrome.tabs.update(open.id, { active: true });
+    if (open.windowId !== undefined) await chrome.windows.update(open.windowId, { focused: true });
+    return;
   }
+  await chrome.tabs.create({ url });
 }
 
 /**
