@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 10:39'
+updated_date: '2026-10-16 11:05'
 ---
 # Decisions and reasons
 
@@ -141,6 +141,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | All extension network calls go through the **service worker** with `host_permissions`, so the backend needs no CORS change | An extension service worker with host permission is not bound by CORS; a content script would be (it runs with the page's origin). No backend PR needed | A CORS rule for the `chrome-extension://` origin on `/api/*` | Claude |
 | 10-16 | The extension signs in with the same **email code** in its popup, tokens in `chrome.storage.local`, one shared refresh (TASK-86.3) | `REQUIRE_SIGN_IN=true`: a guest gets only cached and bundled answers. Reason in the developer's words: not recorded | Guest only, sending the user to the app to sign in | Claude (plan), developer approved with "Build TASK-86.1 to 86.4" |
 | 10-16 | Extension sign-in moves from the toolbar popup to a **tab** (the popup only has a Sign in button), the step in progress is saved for 10 minutes, and the code gets six boxes that take paste and autofill | Found in the developer's Brave test: "When I click outside, the login popup disappears so I cannot enter the code." A Chromium popup closes whenever it loses focus | Only saving the step and keeping the form in the popup; `chrome.runtime.openOptionsPage` (an options page is for settings, and Brave can show it embedded) | Claude, from the developer's bug report |
+| 10-16 | **Shorter sentence meaning, prompt v7**: one or two short sentences, at most 20 words, the meaning itself (never "The speaker says..."), idioms said plainly; `app.claude.sentence-prompt-version` and the iOS `PromptVersions.sentence` go from v6 to v7 | "currently sentence explanation too long. I want to make it shorter but still easy to understand." The developer approved 4 before/after examples (2 real answers from the cache). Old cached and prefilled sentences become misses once and cost a new Claude call | Keep v6 (old long answers stay next to new short ones); a shorter limit for the words list too | Developer, Claude wrote the prompt |
 
 ## Questions answered
 
