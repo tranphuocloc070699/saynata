@@ -9,6 +9,7 @@ import json
 from datetime import datetime, timezone
 
 import httpx
+import psycopg
 import pytest
 from PIL import Image
 
@@ -371,3 +372,18 @@ def test_pg_link_does_nothing_when_the_admin_changed_the_sense(pg):
     pg.commit()
     assert store.link(generation, "openai", "gpt-image-1-mini", (320, 213, 9000)) is False
     assert pg.execute("SELECT count(*) FROM media WHERE source = 'ai'").fetchone()[0] == 0
+
+
+def test_pg_link_is_committed_and_seen_from_another_connection(pg, database_url):
+    """The bug of 2026-10-16: unlinked() opened a transaction, link() only made a savepoint inside it, and nothing was
+    committed. Checked on the same connection it looked linked; another connection (the backend) saw no change."""
+    seed_pg(pg)
+    store = media_generate.PostgresStore(pg)
+    item = store.pending_senses(None, 100, regenerate=False)[0]
+    store.save_generation(made(item), "openai", "gpt-image-1-mini")
+    [generation] = store.unlinked()
+    assert store.link(generation, "openai", "gpt-image-1-mini", (320, 213, 9000)) is True
+    with psycopg.connect(database_url) as other:
+        status = other.execute("SELECT media_status FROM dictionary_sense WHERE position = 0").fetchone()[0]
+        ai_rows = other.execute("SELECT count(*) FROM media WHERE source = 'ai'").fetchone()[0]
+    assert (status, ai_rows) == ("ai_generated", 1)
