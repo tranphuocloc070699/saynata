@@ -43,11 +43,12 @@ class FakeClaude:
     """A fetch function. Each kind of call has a queue of answers (dicts, or a callable of the call text); when the
     queue is empty the last answer repeats. Every call is recorded in self.calls as (kind, text)."""
 
-    def __init__(self, scenes=None, opens=None, choices=None, distractors=None, fail_scene=None):
+    def __init__(self, scenes=None, opens=None, choices=None, distractors=None, fail_scene=None, meanings=None):
         self.scenes = list(scenes or [scene_json()])
         self.opens = list(opens or [{"answer": "bank", "confidence": 90, "why": "a bank counter"}])
         self.choices = list(choices or [{"answer": "bank", "confidence": 90, "why": "money"}])
         self.distractors = list(distractors or [{"distractors": ["shop", "office", "school"]}])
+        self.meanings = list(meanings or [{"shows": False, "confidence": 90, "why": "it shows a shop"}])
         self.calls: list[tuple[str, str]] = []
         self.lock = threading.Lock()
         self.fail_scene = fail_scene
@@ -60,6 +61,8 @@ class FakeClaude:
                 raise self.fail_scene
         elif system == media_ai.DISTRACTOR_SYSTEM:
             kind, queue = "distractors", self.distractors
+        elif "This meaning:" in text:
+            kind, queue = "meaning", self.meanings
         elif "Choices:" in text:
             kind, queue = "choice", self.choices
         else:
@@ -300,6 +303,50 @@ def test_multiple_choice_fails_with_low_confidence_or_the_wrong_word():
                        choices=[{"answer": "shop", "confidence": 95, "why": "x"}])
     guess = media_ai.blind_guess(sense(), b"jpeg", wrong, Usage())
     assert guess["passed"] is False and guess["choice"]["picked_lemma"] is False
+
+
+def test_a_failed_word_guess_passes_when_claude_confirms_the_picture_shows_the_meaning():
+    # "have" = eat or drink: the picture shows drinking, the guesser says "drink" (20-sense trial, 2026-10-16)
+    claude = FakeClaude(opens=[{"answer": "drink", "confidence": 90, "why": "a kid drinks tea"}],
+                        choices=[{"answer": "drink", "confidence": 90, "why": "x"}],
+                        meanings=[{"shows": True, "confidence": 80, "why": "the kid drinks tea"}])
+    guess = media_ai.blind_guess(sense(), b"jpeg", claude, Usage())
+    assert guess["passed"] and guess["by"] == "meaning"
+    assert claude.kinds() == ["open", "distractors", "choice", "meaning"]
+    meaning_text = [text for kind, text in claude.calls if kind == "meaning"][0]
+    assert '"bank"' in meaning_text and "a place that keeps your money safe" in meaning_text
+
+
+def test_the_meaning_check_fails_below_80_or_on_no():
+    for answer in ({"shows": True, "confidence": 79, "why": "x"}, {"shows": False, "confidence": 99, "why": "x"},
+                   {"shows": "yes", "confidence": 99, "why": "x"}):
+        claude = FakeClaude(opens=[{"answer": "money", "confidence": 80, "why": "x"}],
+                            choices=[{"answer": "shop", "confidence": 95, "why": "x"}], meanings=[answer])
+        guess = media_ai.blind_guess(sense(), b"jpeg", claude, Usage())
+        assert guess["passed"] is False and guess["meaning"]["confidence"] == answer["confidence"]
+    assert "does not show" in media_ai.feedback_from(guess)
+
+
+def test_recheck_runs_the_meaning_check_on_failed_pictures_newest_first_and_stops_at_a_pass(tmp_path):
+    for name in ("have_3_ai_c.webp", "have_3_ai_b.webp", "have_3_ai_a.webp"):
+        (tmp_path / name).write_bytes(png(1536, 1024))
+    base = {"sense_id": 7, "lemma": "have", "position": 2, "pos": "verb", "simple_definition": "to eat or drink"}
+    rows = [{**base, "id": 3, "attempt": 3, "file_name": "have_3_ai_c.webp"},
+            {**base, "id": 2, "attempt": 2, "file_name": "have_3_ai_b.webp"},
+            {**base, "id": 1, "attempt": 1, "file_name": "have_3_ai_a.webp"}]
+
+    class RecheckStore:
+        saved: list = []
+        def failed_tries(self):
+            return rows
+        def save_recheck(self, row, check, passed, usage):
+            self.saved.append((row["attempt"], passed))
+
+    store = RecheckStore()
+    claude = FakeClaude(meanings=[{"shows": False, "confidence": 90, "why": "x"},
+                                  {"shows": True, "confidence": 85, "why": "drinking tea"}])
+    assert media_ai.recheck_failed(store, claude, tmp_path, log=lambda _: None) == 1
+    assert store.saved == [(3, False), (2, True)]  # try 1 is never checked: try 2 passed
 
 
 def test_distractors_come_from_a_call_that_never_sees_the_scene_and_never_include_the_word():

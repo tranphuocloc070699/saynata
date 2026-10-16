@@ -19,6 +19,7 @@ trial that passed 12 of 12; change it only with a new PROMPT_VERSION.
 import base64
 import hashlib
 import html
+import itertools
 import io
 import json
 import os
@@ -53,6 +54,7 @@ DEFAULT_MAX_COST = 5.0
 DEFAULT_REPORT = Path("data/out/media-ai.html")
 MAX_TRIES = 3
 MIN_CONFIDENCE = 70  # multiple choice: the lemma must be picked with at least this confidence
+MEANING_CONFIDENCE = 80  # meaning check (step c): "clearly shows this meaning" with at least this confidence
 CODEX_TIMEOUT = 15 * 60
 IMAGE_WIDTH = 1536  # 3:2, like the OpenAI pictures (TASK-53); the app crops it to 16:9
 GUESS_SIZE = 768  # the guesser sees the picture as a JPEG with this longest side
@@ -135,6 +137,18 @@ DISTRACTOR_SYSTEM = """You help test a picture dictionary for English learners (
 You get ONE meaning of a word. List 3 real English words that a learner could confuse with this meaning: near
 synonyms, the opposite, or the neighbouring idea. Not other meanings of the same word, and not forms of the word.
 Answer with JSON only: {"distractors": ["w1", "w2", "w3"]}"""
+
+
+# Step c, added after the 20-sense trial (2026-10-16): some correct pictures can never win the word guess, because
+# the picture shows a plainer word for the same meaning ("have" = eat or drink shows drinking, and the guesser says
+# "drink"). The developer chose: if the word guess fails but Claude confirms the picture clearly shows this meaning,
+# it passes.
+MEANING_CHECK_PROMPT = """This picture is for a picture dictionary for English learners (B1-B2).
+Word: "{lemma}" ({pos})
+This meaning: {meaning}
+Does the picture clearly show THIS meaning, so a learner who reads the meaning would say "yes, that's it"?
+Say no if it shows another meaning of the word, if the main idea is hard to see, or if it has text or letters.
+Answer with JSON only: {{"shows": true or false, "confidence": <0-100>, "why": "<one short sentence>"}}"""
 
 
 def codex_prompt(scene: dict) -> str:
@@ -395,7 +409,8 @@ def pick_distractors(sense: dict, fetch: Fetch, usage: Usage) -> list[str]:
 
 def blind_guess(sense: dict, jpeg: bytes, fetch: Fetch, usage: Usage) -> dict:
     """Step a: an open guess with no choices; the lemma or one of its forms passes.
-    Step b: otherwise multiple choice with 3 distractors; it passes only with the lemma at confidence >= 70."""
+    Step b: otherwise multiple choice with 3 distractors; it passes only with the lemma at confidence >= 70.
+    Step c: otherwise the meaning check; it passes when Claude says the picture clearly shows the meaning (>= 80)."""
     opened = ask_json(fetch, GUESS_MODEL, None, image_content(jpeg, OPEN_GUESS_PROMPT), usage)
     guess = {"open": {"answer": str(opened.get("answer", "")), "confidence": confidence_of(opened),
                       "why": str(opened.get("why", ""))}, "choice": None, "passed": False, "by": None}
@@ -412,7 +427,18 @@ def blind_guess(sense: dict, jpeg: bytes, fetch: Fetch, usage: Usage) -> dict:
                        "confidence": confidence_of(picked), "why": str(picked.get("why", ""))}
     if picked_lemma and confidence_of(picked) >= MIN_CONFIDENCE:
         guess.update(passed=True, by="choice")
+        return guess
+    guess["meaning"] = meaning_check(sense, jpeg, fetch, usage)
+    if guess["meaning"]["shows"] and guess["meaning"]["confidence"] >= MEANING_CONFIDENCE:
+        guess.update(passed=True, by="meaning")
     return guess
+
+
+def meaning_check(sense: dict, jpeg: bytes, fetch: Fetch, usage: Usage) -> dict:
+    """Step c: Claude sees the picture WITH the word and the meaning and says if the picture clearly shows it."""
+    text = MEANING_CHECK_PROMPT.format(lemma=sense["lemma"], pos=sense["pos"], meaning=sense["simple_definition"])
+    answer = ask_json(fetch, GUESS_MODEL, None, image_content(jpeg, text), usage)
+    return {"shows": answer.get("shows") is True, "confidence": confidence_of(answer), "why": str(answer.get("why", ""))}
 
 
 def feedback_from(guess: dict) -> str:
@@ -422,6 +448,9 @@ def feedback_from(guess: dict) -> str:
     if guess.get("choice"):
         c = guess["choice"]
         text += f". With the choices {c['choices']} the viewer picked '{c['answer']}' (confidence {c['confidence']:.0f})"
+    if guess.get("meaning"):
+        m = guess["meaning"]
+        text += f". Told the meaning, a checker said the picture {'shows' if m['shows'] else 'does not show'} it: {m['why']}"
     return text
 
 
@@ -537,6 +566,8 @@ class Store(Protocol):
     def still_wanted(self, sense_id: int) -> bool: ...
     def unlinked_passed(self) -> list[dict]: ...
     def link(self, generation: dict, facts: tuple) -> bool: ...
+    def failed_tries(self) -> list[dict]: ...
+    def save_recheck(self, row: dict, check: dict, passed: bool, usage: "Usage") -> None: ...
 
 
 @dataclass
@@ -717,6 +748,35 @@ def link_passed(store: Store, media_dir: Path, on_server: Callable[[str], bool],
     return summary
 
 
+# --- Recheck failed senses with the meaning check -------------------------------------------------------
+
+def recheck_failed(store: "Store", fetch: Fetch, media_dir: Path, log: Callable[[str], None] = print) -> int:
+    """For senses that failed every try before step c existed: runs the meaning check on their pictures (newest
+    first) without drawing again. A picture that passes is marked passed and becomes the newest try, so --link
+    takes it."""
+    passed = 0
+    for _, tries in itertools.groupby(store.failed_tries(), key=lambda row: row["sense_id"]):
+        tries = list(tries)
+        sense = tries[0]
+        for row in tries:
+            path = media_dir / row["file_name"]
+            if not path.is_file():
+                continue
+            usage = Usage()
+            _, jpeg = prepare_images(path.read_bytes())
+            check = meaning_check(sense, jpeg, fetch, usage)
+            ok = check["shows"] and check["confidence"] >= MEANING_CONFIDENCE
+            store.save_recheck(row, check, ok, usage)
+            if ok:
+                passed += 1
+                log(f"passed {sense['lemma']} #{sense['position'] + 1} (try {row['attempt']}): {check['why']}")
+                break
+        else:
+            log(f"still failed {sense['lemma']} #{sense['position'] + 1}")
+    log(f"\nRecheck: {passed} senses passed with the meaning check. Link them after rsync: uv run pipeline media-ai --link")
+    return passed
+
+
 # --- Postgres ------------------------------------------------------------------------------------------
 
 # A sense is finished for this PROMPT_VERSION when one try passed, or the method was none, or all MAX_TRIES failed.
@@ -850,6 +910,45 @@ class PostgresStore:
             )
         return True
 
+    def failed_tries(self) -> list[dict]:
+        """Drawn tries of senses that are finished as failed (no passed try, no "none") and not rechecked yet,
+        newest try first per sense."""
+        with self.pg.cursor() as cursor:
+            cursor.execute(
+                """SELECT g.id, g.sense_id, g.attempt, g.file_name, g.guess_json, w.lemma, s.position, s.pos,
+                          s.simple_definition
+                   FROM media_generation g
+                   JOIN dictionary_sense s ON s.id = g.sense_id
+                   JOIN dictionary_word w ON w.id = s.word_id
+                   WHERE g.prompt_version = %s AND g.file_name IS NOT NULL
+                     AND NOT EXISTS (SELECT 1 FROM media_generation o WHERE o.sense_id = g.sense_id
+                                     AND o.prompt_version = g.prompt_version AND (o.passed OR o.method = 'none'))
+                     AND NOT EXISTS (SELECT 1 FROM media_generation o WHERE o.sense_id = g.sense_id
+                                     AND o.prompt_version = g.prompt_version AND o.guess_json::jsonb ? 'meaning')
+                   ORDER BY w.word_rank, s.position, g.attempt DESC""",
+                (PROMPT_VERSION,),
+            )
+            columns = [column.name for column in cursor.description]
+            rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        self.pg.commit()
+        return rows
+
+    def save_recheck(self, row: dict, check: dict, passed: bool, usage: "Usage") -> None:
+        """Adds the meaning check to that try's row (file_name is unique, so no second row). created_at becomes now,
+        so a passed try is the newest one and --link takes it; its Claude cost is added."""
+        guess = dict(row["guess_json"] or {})
+        guess["meaning"] = check
+        guess.update(passed=passed, by="meaning" if passed else guess.get("by"))
+        with self.pg.cursor() as cursor:
+            cursor.execute(
+                """UPDATE media_generation SET guess_json = %s, passed = %s, created_at = %s,
+                   input_tokens = input_tokens + %s, output_tokens = output_tokens + %s, cost_usd = cost_usd + %s
+                   WHERE id = %s""",
+                (Json(guess), passed, datetime.now(timezone.utc), usage.input_tokens, usage.output_tokens,
+                 round(usage.cost, 6), row["id"]),
+            )
+        self.pg.commit()
+
     def report_rows(self) -> list[dict]:
         """Every try for PROMPT_VERSION with the picture it replaces, in word order."""
         with self.pg.cursor() as cursor:
@@ -915,6 +1014,10 @@ def write_report(rows: list[dict], report_path: Path, media_dir: Path, old_base_
                     c = guess["choice"]
                     lines += (f'<p>Choice from {html.escape(", ".join(c["choices"]))}: <b>{html.escape(c["answer"])}</b> '
                               f'({c["confidence"]:.0f}%) {html.escape(c["why"])}</p>')
+                if guess.get("meaning"):
+                    m = guess["meaning"]
+                    lines += (f'<p>Meaning check: <b>{"shows it" if m["shows"] else "does not show it"}</b> '
+                              f'({m["confidence"]:.0f}%) {html.escape(m["why"])}</p>')
             scene = t.get("scene_json") or {}
             cells.append(f'<div class="try">{picture}<p>Try {t["attempt"]} &middot; {html.escape(str(t["method"]))} &middot; {verdict}'
                          f'{" &middot; linked" if t.get("linked_at") else ""}</p>'
