@@ -3,11 +3,11 @@ id: doc-15
 title: Media and images
 type: specification
 created_date: '2026-10-15 04:02'
-updated_date: '2026-10-16 02:38'
+updated_date: '2026-10-16 07:39'
 ---
 # Media and images
 
-> Status: **working for photos and clips from Pixabay, and for files the admin uploads** (TASK-23, 49.3, 49.4, 52, 79). AI images for `needs_ai` senses: built as a pipeline command (`media-generate`, TASK-53, OpenAI GPT Image mini), trial not run yet. Picture review in the admin ("Wrong media" and "Media to review" chips, "Looks right" approval tied to one picture): TASK-80. The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-16 (AI images with `pipeline media-generate`: TASK-53; the admin can upload their own picture or clip: TASK-79; Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
+> Status: **working for photos and clips from Pixabay, and for files the admin uploads** (TASK-23, 49.3, 49.4, 52, 79). AI images for `needs_ai` senses: built as a pipeline command (`media-generate`, TASK-53, OpenAI GPT Image mini), trial not run yet. **AI pictures for every sense** (`media-ai`, TASK-82: Claude scene, Codex draws, blind guess): built, trial not run yet. Picture review in the admin ("Wrong media" and "Media to review" chips, "Looks right" approval tied to one picture): TASK-80. The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-16 (AI pictures for every sense with `pipeline media-ai`: TASK-82; AI images with `pipeline media-generate`: TASK-53; the admin can upload their own picture or clip: TASK-79; Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
 > Why: a small picture or a short clip helps a learner remember a meaning (doc-1, Vision and spec). Postgres on the server is the source of truth for content (doc-7).
 
 ## What it does
@@ -325,6 +325,7 @@ Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTes
 | [AdminMediaTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaTest.java) | Login and role, search (6 results, default words, rate limit, errors), pick, remove, mark for AI, list, 404. TASK-76: the file and row are deleted when unused and kept while another sense (bundled or backend) uses them, a missing file is fine, picking another deletes the old file, Remove all media for a bundled word and a backend word (also without a claim row), the background job does not fill a removed sense, only ADMIN may call it. |
 | [test_media_check.py](../../../pipeline/tests/test_media_check.py) | TASK-78: the Claude check with a fake client and a fake ffmpeg (see doc-6). |
 | [test_media_generate.py](../../../pipeline/tests/test_media_generate.py) | TASK-53 with a fake generator and a fake HTTP transport: the prompt, file names, the OpenAI request and real cost, 429 with `Retry-After`, 5 tries, a wrong key or no credit stops the run, a blocked prompt fails one sense, the 320 px WebP, the cap is never passed (also when a call costs more than its estimate), dry run, link only files that are here and on the server, the report. Postgres tests (need `TEST_DATABASE_URL`): which senses are pending, link makes a `source = 'ai'` row and `ai_generated`, link does nothing when the admin changed the sense. |
+| [test_media_ai.py](../../../pipeline/tests/test_media_ai.py) | TASK-82 with a fake Claude, a fake Codex and an in-memory store: the locked scene rules are in the prompt, the Codex command (no stdin, 15 minute limit, newest picture of the session), the 3:2 1536 px WebP, the open guess and the multiple choice (70 confidence, distractors from a call that never sees the scene), the retry with feedback, 3 tries keep the best picture, method none draws nothing, the cap is never passed, resume, dry run, the summary, the report. Postgres tests (need `TEST_DATABASE_URL`): which senses are pending, link replaces an approved Pixabay photo or a clip and clears the review, the old row stays, link is committed and seen from a second connection, the undo SQL, `media-generate` ignores these rows. |
 | [test_media.py](../../../pipeline/tests/test_media.py) | `needs_media`, file names, WebP resize, dry run, the pass with a fake fetcher. |
 | [test_postgres.py](../../../pipeline/tests/test_postgres.py) | TASK-79: `export` keeps and copies an uploaded file, `link-media` does not replace it. TASK-76: `link-media` skips `none` and `removed` senses and makes no media row for them; `export` writes no `image_url` for them. Needs `TEST_DATABASE_URL`. |
 | [mediaUpload.test.tsx](../../../admin/src/test/mediaUpload.test.tsx) | TASK-79: the Upload button is icon only and opens the picker, FormData is sent with the header, spinner while uploading, backend error and 413 text, drop and the dashed outline, the caption "Uploaded by the admin" in the row and the viewer; an AI image (TASK-53) names its model instead. |
@@ -419,6 +420,79 @@ uv run pipeline export                            # then a new app build
 `media-check` checks `ai_generated` senses on its next run like any other picture (it skips only `removed` and `needs_ai`), so a wrong AI picture can be found the same way.
 
 **Commercial use.** Saynata is public, so the terms matter. OpenAI's [Services Agreement](https://openai.com/policies/services-agreement/) (it covers API use) says the customer owns the Output and OpenAI assigns its rights in it, so the pictures may be used in the app. The developer is responsible for how the pictures are used, and the usage policies still apply. AI pictures may have no copyright of their own in some countries, so others may be able to copy them. Details and the other sources in doc-11, section 9 ("Provider terms").
+
+## AI pictures for every sense (TASK-82)
+
+Developer decisions (2026-10-16, doc-7): **every sense gets an AI picture**, because "Pixabay still didn't show exactly what the word means". Claude writes the scene, the local **Codex CLI** draws it through the developer's ChatGPT plan (no per-picture cost, about 1 minute each), and Claude checks the picture with a **blind guess**. This replaces `media-generate` (the OpenAI API, TASK-53) as the way to make pictures; `media-generate` stays in the code but is not used. The rules below were locked after a 12-sense trial that passed 12 of 12.
+
+```mermaid
+flowchart TD
+    PG[("Postgres: senses with image_type is not none,<br/>media_status is not removed")] --> SEL["pending_senses<br/>(most common words first)"]
+    SEL --> W["worker thread, per sense: up to 3 tries"]
+    W --> S["Claude Sonnet 5.5:<br/>scene (method, scene, focus, avoid)"]
+    S -->|"method none"| NONE["recorded, nothing drawn"]
+    S --> C["codex exec, read-only sandbox,<br/>stdin closed, 15 min limit"]
+    C -->|"PNG from ~/.codex/generated_images/session"| F["3:2 crop, 1536 px WebP<br/>word_n_ai_hash.webp"]
+    F --> G1["Claude Haiku 5.5:<br/>open guess, no choices"]
+    G1 -->|"word or a form: PASS"| OK
+    G1 -->|"anything else"| D["separate Haiku call:<br/>3 distractors (sees no scene)"]
+    D --> G2["Haiku picks from 4 words"]
+    G2 -->|"lemma, confidence 70 or more: PASS"| OK["saved in media_generation<br/>(Flyway V16)"]
+    G2 -->|"fail: scene again with feedback"| S
+    OK --> REP[data/out/media-ai.html]
+    OK -->|"rsync, then --link"| LINK["new media row source = ai,<br/>sense.media_status = ai_generated,<br/>review cleared"]
+```
+
+**Rules for the pictures** (the prompt text is in [SCENE_SYSTEM:78](../../../pipeline/src/pipeline/media_ai.py#L78) and [STYLE:70](../../../pipeline/src/pipeline/media_ai.py#L70); it comes from the trial and changes only with a new `PROMPT_VERSION`):
+
+- one green cartoon kid (8 years old, short brown hair, sage green T-shirt, deep teal jeans) for needs, feelings, actions and stories;
+- people and animals have expressive faces, objects never have faces;
+- no kid and no extra people for things and places; people appear only when they are part of the thing (customers and a cashier at a bank counter);
+- a building whose meaning is what happens inside (bank, hospital) is shown cut open;
+- a part of a place (river bank) is shown as the whole place with that part as the focus;
+- a quality (old, empty) is one typical person or thing (an old man with a stick, an empty transparent box);
+- Claude first picks a **method**: object, need, emotion, action, quality, relation, role, story, repetition or none. A `none` sense is recorded and not drawn. Its `image_type` is **not** changed by the command; the summary lists these senses for the developer to decide.
+
+| Part | File:line | What happens |
+|---|---|---|
+| Senses | [PostgresStore.pending_senses:745](../../../pipeline/src/pipeline/media_ai.py#L745) | Bundled senses with `image_type` not `none` and `media_status` not `removed`, most common words first, with the other senses of the word and the word forms. Skips a sense that is **finished** for the current `PROMPT_VERSION` ([_NOT_FINISHED:724](../../../pipeline/src/pipeline/media_ai.py#L724)): one try passed, or the method was `none`, or all 3 tries failed. A sense that stopped with an error is tried again. `--redo` ignores this. |
+| Scene | [write_scene:257](../../../pipeline/src/pipeline/media_ai.py#L257) | One Sonnet 5.5 call: word, part of speech, this meaning, the easy example, the other senses. Reads the first *text* block (a thinking block may come first). No `temperature` (Sonnet 5.5 refuses it). |
+| Draw | [CodexDrawer:286](../../../pipeline/src/pipeline/media_ai.py#L286) | `codex exec --skip-git-repo-check --sandbox read-only <wrapper>` with `stdin=DEVNULL` (without it Codex waits forever) and a 15 minute limit. The session id Codex prints names the folder of our picture, so four workers never mix pictures up. A plan limit or a missing login stops the run. The wrapper prompt is [codex_prompt:140](../../../pipeline/src/pipeline/media_ai.py#L140). |
+| File | [prepare_images:324](../../../pipeline/src/pipeline/media_ai.py#L324), [file_name_for:348](../../../pipeline/src/pipeline/media_ai.py#L348) | Cropped to 3:2 around the middle, 1536 px wide, WebP quality 80, named `<lemma>_<n>_ai_<8 hex>.webp`. |
+| Blind guess | [blind_guess:396](../../../pipeline/src/pipeline/media_ai.py#L396) | **a.** Open guess ("Which single English word does this picture show?"): the lemma or one of its forms (table `dictionary_form`) passes. **b.** Otherwise multiple choice: the lemma and 3 distractors from [pick_distractors:381](../../../pipeline/src/pipeline/media_ai.py#L381), a separate call that sees only the word and the meaning, never the scene. It passes only if the lemma is picked with confidence 70 or more. The guesser sees a 768 px JPEG. |
+| Tries | [make_sense:496](../../../pipeline/src/pipeline/media_ai.py#L496) | After a fail the scene is written again with what the guesser said, and redrawn: 3 tries in all. A sense that still fails keeps its best picture (the lemma picked at the highest confidence) as a **candidate**: it is saved, not linked, and listed in the summary and at the top of the report. |
+| Run | [run:568](../../../pipeline/src/pipeline/media_ai.py#L568) | Worker threads call Claude and Codex; only the main thread uses Postgres and saves each sense. The Claude cap `--max-cost` (default $5) is never passed: a sense starts only if spent + the estimate of the senses in flight + its own estimate fits. Ctrl-C once: running senses finish, no new ones start; twice: quit. |
+| Table | [V16](../../../backend/src/main/resources/db/migration/V16__media_generation_ai_scene.sql) | Nullable columns on `media_generation`: `prompt_version`, `method`, `scene_json`, `guess_json`, `passed`, `attempt`; `file_name` may be empty (method `none`). One row per try. `provider` = `codex`, `model` = `codex-image_gen`. `cost_usd` is the Claude spend only. The two JSON columns are `JSON`, not `JSONB`, because the backend tests run on H2. The backend does not read them. |
+| Link | [link_passed:689](../../../pipeline/src/pipeline/media_ai.py#L689), [PostgresStore.link:816](../../../pipeline/src/pipeline/media_ai.py#L816) | After `rsync`. For each sense whose **newest** try for `PROMPT_VERSION` passed and whose file answers 200 at `MEDIA_BASE_URL`: a new `media` row (`source = 'ai'`), the sense points at it, `media_status = 'ai_generated'`, and `media_reviewed_at` / `media_reviewed_media_id` are cleared, so the sense is in "Media to review" again (section "Reviewing pictures"). It replaces **any** picture: Pixabay photo, clip, upload, an approved picture. The old `media` row and file stay. A sense with `image_type = 'none'` or `removed` is not touched. |
+| Report | [write_report:884](../../../pipeline/src/pipeline/media_ai.py#L884) | `data/out/media-ai.html`: failed and not-drawn senses first, then passed ones; each shows the old picture, every try (picture, method, scene, open guess, multiple choice) and the cost. |
+
+How to run it (the "Test it" card of the PR has the same commands with the numbers):
+
+```bash
+cd pipeline
+uv run pipeline media-ai --dry-run --limit 3      # 3 scenes + Codex prompts + estimate; draws nothing (3 Claude calls, about $0.05)
+uv run pipeline media-ai --limit 20               # the trial: 20 most common senses, then open data/out/media-ai.html
+uv run pipeline media-ai --words bank,old         # only these words
+uv run pipeline media-ai --all --workers 4        # everything not finished; stops at --max-cost (default $5), run again to go on
+rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/
+uv run pipeline media-ai --link                   # free: link the passed pictures that are on the server
+uv run pipeline export                            # then a new app build
+```
+
+Codex must be installed and logged in once (`codex login`, ChatGPT plan). The numbers: about 1 minute a picture and about 1.3 tries a sense, so the 3,364 senses take about 14 to 18 hours with 4 workers (if the plan allows that many pictures). Claude costs about $0.02 to $0.03 a sense, so $50 to $100 for all senses; the 20-sense trial shows the real number, and `--scene-effort medium` or `low` makes the scene call cheaper.
+
+**How to undo.** The old `media` rows stay, and `media_generation.old_media_id` remembers the picture each sense had. To put the old pictures back for every linked sense of this version (the admin can also "Pick another" per sense):
+
+```sql
+UPDATE dictionary_sense s SET media_id = g.old_media_id, media_status = NULL
+FROM media_generation g
+WHERE g.sense_id = s.id AND g.prompt_version = 'ai-v1' AND g.linked_at IS NOT NULL
+  AND s.media_id = g.media_id AND g.old_media_id IS NOT NULL;
+```
+
+This SQL is tested (`test_pg_undo_with_the_sql_from_doc_15_brings_the_old_picture_back`). The approval of the old picture is not restored; approve it again in the admin. To draw a sense again, run with `--redo --words <word>`; to redraw everything after a rule change, raise `PROMPT_VERSION`.
+
+Known limits: the scene prompt still asks Claude for 3 distractors, which the code ignores (the guess uses its own separate call; the prompt text is kept word for word from the trial). The report shows old pictures from `https://api.loffy.me/media/`.
 
 ## Finding words by media (TASK-60)
 
