@@ -176,7 +176,8 @@ function sentenceBody(state: CardState, actions: CardActions): HTMLElement[] {
     parts.push(h("div", { class: "section" }, h("div", { class: "label", style: "margin-bottom: 4px" }, "Words"), ...rows));
   }
 
-  const translation = state.sentence?.explanation.translation;
+  // English has no target-language row (the app's rule).
+  const translation = state.targetLang === "en" ? null : state.sentence?.explanation.translation;
   if (translation) parts.push(fold(languageName(state.targetLang), [translation], state.rowOpen, actions));
   return parts;
 }
