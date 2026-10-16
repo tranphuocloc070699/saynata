@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-16 08:19'
-updated_date: '2026-10-16 08:29'
+updated_date: '2026-10-16 08:30'
 labels: []
 dependencies: []
 parent_task_id: TASK-83
@@ -43,4 +43,6 @@ The sentence cache key is the exact text, so "how are you" misses a cached "How 
 
 <!-- SECTION:NOTES:BEGIN -->
 Admin sentence PUT only changes the explanation (source text and keys never change), so match_key stays right. No prompt version bump: lookup change only.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/78. Test it: run a local backend (port 8082), curl POST /api/translations with 'How are you?' (cached=false), then 'how are you' (cached=true, no Claude call), then targetLang ja (cached=false), personal text twice (cached=false both). Automated: cd backend && ./mvnw -B test (345 pass). V17 is a Java migration (H2 vs Postgres hash functions differ).
 <!-- SECTION:NOTES:END -->
