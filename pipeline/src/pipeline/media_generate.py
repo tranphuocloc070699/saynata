@@ -464,6 +464,9 @@ class PostgresStore:
         when the sense is no longer needs_ai, or its image_type became 'none'."""
         width, height, size = facts
         now = datetime.now(timezone.utc)
+        # Commit first: the SELECT in unlinked() opened a transaction, and inside an open transaction
+        # pg.transaction() is only a savepoint that is never committed. Without this, "Linked 741" changed nothing.
+        self.pg.commit()
         with self.pg.transaction(), self.pg.cursor() as cursor:
             cursor.execute(
                 """SELECT 1 FROM dictionary_sense WHERE id = %s AND media_status = 'needs_ai' AND image_type <> 'none'
