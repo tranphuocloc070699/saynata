@@ -39,8 +39,16 @@ kbd { font: 11px var(--sans); background: var(--surface); border: 1px solid var(
   color: var(--text2); display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
 .round.prominent { background: var(--accent); border-color: var(--accent); color: #fff; }
 .round[aria-busy="true"] { opacity: .6; }
-.code { width: 100%; border: 1px solid var(--hairline); border-radius: 8px; background: var(--bg); padding: 8px 10px;
-  font: 600 22px/1.2 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .5em; text-align: center; }
 .links { display: flex; justify-content: space-between; margin-top: 8px; }
 .link { border: 0; background: none; padding: 2px 0; color: var(--accent); font-size: 13px; cursor: pointer; }
 .error { color: var(--error); font-size: 12px; margin: 6px 4px 0; }
+.lead.inline { flex: 1; margin: 0; }
+/* The same page opened as a tab for sign-in: centred and a little larger. */
+body.page { width: auto; max-width: 420px; margin: 40px auto; font-size: 15px; }
+.code-wrap { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; cursor: text; }
+.box { height: 44px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--bg); display: flex;
+  align-items: center; justify-content: center; font: 600 20px/1 ui-monospace, "SF Mono", Menlo, monospace; }
+.box.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+/* The real field sits over the boxes, invisible, so typing, paste and autofill all go to one input. */
+.code-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0;
+  font-size: 16px; color: transparent; background: transparent; caret-color: transparent; }
