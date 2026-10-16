@@ -42,8 +42,10 @@ public class ClaudeService {
                            English sentence are fine). false if the text is program code, random letters
                            (like "asdkj qwe zzxq") or written in another language. When it is false, write ""
                            for meaning and translation and use an empty list for words. Do not explain it.
-                        1. meaning: explain the whole sentence in simple English (level B1-B2), with common words
-                           and short sentences. One to three short sentences.
+                        1. meaning: say what the whole sentence means in simple English (level B1-B2), with
+                           common words. One or two short sentences, at most 20 words in all. Say the meaning
+                           itself. Never describe the sentence ("The speaker says...", "This sentence...",
+                           "It is a statement..."). For an idiom, say what it really means.
                         2. words: only words or phrases that are difficult for an intermediate (B1) learner.
                            Write them as they appear in the sentence. Use an empty list if there are none.
                            - partOfSpeech: one of noun, verb, phrasal verb, adjective, adverb, preposition,

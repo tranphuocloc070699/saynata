@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-16 02:25'
+updated_date: '2026-10-16 09:14'
 ---
 # Deploy to a VPS
 
@@ -60,7 +60,7 @@ nano .env
 | `ADMIN_EMAIL` | Email of the first admin (for the admin web app). Used only when no admin exists yet. |
 | `ADMIN_INITIAL_PASSWORD` | Password of the first admin, 12+ characters. Used only when no admin exists yet; remove it from `.env` after the first start. |
 | `ADMIN_ENABLED` | Optional. `false` turns the admin API off. Default `true`. |
-| `PIXABAY_API_KEY` | Optional. Free key from https://pixabay.com/api/docs/ . With it, a new word that is not in the bundle gets a photo or clip in the background (section 9). Empty = no pictures are fetched. |
+| `PIXABAY_API_KEY` | Optional. Free key from https://pixabay.com/api/docs/ . With it, a new word that is not in the bundle gets a photo or clip in the background (section 9), except words saved by the prefill job. Empty = no pictures are fetched. |
 | `MEDIA_BASE_URL` | Optional. Public address of the media folder. Default `https://api.loffy.me/media`. |
 | `MEDIA_HOST_DIR` | Optional. Folder on the server with the media files. Default `/var/lib/saynata/media` (section 9). |
 | `USER_JWT_SECRET` | Optional. Signs the sign-in tokens of app users. 32+ characters, `openssl rand -base64 48`. If empty, a key is derived from `ADMIN_JWT_SECRET` (a warning is logged). Set it once and keep it: changing it signs everyone out. |
@@ -71,6 +71,9 @@ nano .env
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The access key of the IAM user that may only send email (section 11). Read by the AWS SDK itself. |
 | `REQUIRE_SIGN_IN` | Optional. `true` (default): a guest cannot cause a new Claude call (401). **Set `REQUIRE_SIGN_IN=false` until the app with sign-in is released**, because the current app sends no token. Rate limits and the daily budget cap still apply to guests' Claude calls while it is false (a guest IP may cause 30 new calls per hour, `LIMIT_CLAUDE_GUEST_IP_MAX`). Remove the line, or set `true`, when the new app is out. |
 | `CLAUDE_DAILY_BUDGET_USD` | Optional. The most Claude may cost per day in US dollars (UTC day). Default `1.00`. At the cap, new explanations stop until midnight UTC; cached words still work. Prices are in `application.properties` (`app.claude.pricing.*`). |
+| `PREFILL_CRON` | Optional. When the prefill job runs by itself (TASK-83.1, feature page "Prefill"): a six-field Spring cron (`second minute hour day month weekday`) in **UTC**. Empty (default) = it never runs by itself. A night run in Vietnam: `PREFILL_CRON=0 0 20 * * *` (20:00 UTC = 03:00). You can always start a run by hand with `POST /api/admin/prefill/run`. |
+| `PREFILL_MAX_USD_PER_RUN` | Optional. The most **one** prefill run may spend on Claude, in US dollars. Default `0.50`. Separate from `CLAUDE_DAILY_BUDGET_USD`: prefill calls are saved as feature `PREFILL` and do not use the users' day budget. |
+| `PREFILL_DELAY` | Optional. Pause after each new word, default `0s`. Prefilled words get no picture, so no pause is needed. |
 | `LIMIT_*` | Optional. Rate limits, for example `LIMIT_CLAUDE_USER_HOUR_MAX` (default 60). The full list is in `backend/.env.example`. |
 | `POSTGRES_PORT` | Optional. Port of Postgres on the server's own loopback (`127.0.0.1`), for the dictionary pipeline (section 8). Default 5432. It is never open to the internet. |
 
@@ -586,4 +589,5 @@ Watch **Reputation metrics** in SES now and then. Later you can add a configurat
 | Sign-in works but no email arrives | `RESEND_API_KEY` or `EMAIL_FROM` is empty (the code is only in the log), the Resend domain is not Verified, or the key is wrong. See section 10, "How to test". With SES: sandbox or unverified address, see section 11. |
 | App says it needs a sign-in for a new sentence (401 `sign_in_required`) | The app has no sign-in screen yet (it waits for a mockup). Set `REQUIRE_SIGN_IN=false` in `.env` and redeploy until the app with sign-in is released. Cached sentences and bundled words work either way. |
 | New explanations stop with 503 `daily_limit_reached` | Today's Claude spend reached `CLAUDE_DAILY_BUDGET_USD` (UTC day). See the spend: `GET /api/admin/usage?days=1` with the admin cookie. Raise the cap in `.env` if you want. |
+| Prefill run does nothing | `GET /api/admin/prefill` shows `running`, the counts by status and the last runs (`stoppedBecause`: `queue-empty`, `cap`, `limit`, `failures`). Items are added by the pipeline collector (TASK-83.2) or by an admin; `PREFILL_CRON` empty means no night run. A run that stops with `cap` is normal: the next run continues. |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |

@@ -7,7 +7,7 @@ updated_date: '2026-10-16 09:52'
 ---
 # Accounts and limits
 
-> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Last traced from code: 2026-10-15.
+> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Last traced from code: 2026-10-16.
 > Why: doc-7 rows of 2026-10-15. Related: [Admin API](doc-13%20-%20Admin-API.md) (the admin has its own cookie login), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Word lookup](doc-5%20-%20Word-lookup.md), the Resend and SES setup in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md) (sections 10 and 11).
 
 ## What it does
@@ -22,6 +22,7 @@ the bundled words (on the device) and anything already in the shared cache. Clau
 | Guest | Works | 401 `sign_in_required` |
 | Signed in | Works | Calls Claude (if the budget and the user limit allow) |
 | Anyone, budget used up | Works | 503 `daily_limit_reached` |
+| The prefill job (no user, TASK-83.1) | Works | Calls Claude with its **own** run cap, not the users' budget (see "Prefill job: its own budget") |
 
 An iOS app **without** the sign-in screen sends no token. With the default (`REQUIRE_SIGN_IN=true`), **a new sentence or an uncached word from such an app gives 401**. The app with TASK-70 shows the sign-in sheet instead.
 **Switch `REQUIRE_SIGN_IN`:** keep `REQUIRE_SIGN_IN=false` in `backend/.env` until the app with sign-in is released. Then a guest miss does call Claude, but it still goes through `ClaudeGate`: the daily budget cap applies (503 `daily_limit_reached`), and so does a per-IP limit for guests' new calls (30 per hour by default, 429 `rate_limited`), so one guest cannot burn the budget alone. Bundled words and cached answers work in both modes. Set it back to `true` (or remove the line) when the new app is out.
@@ -37,7 +38,7 @@ flowchart LR
     TC --> SVC[TranslationService / WordService]
     SVC -->|hit| CACHE[(Postgres cache + bundled words)]
     SVC -->|miss| GATE[ClaudeGate]
-    GATE -->|"signed in? budget left? under user limit?"| CL[ClaudeService]
+    GATE -->|"signed in? budget left? under user limit? (prefill: run cap only)"| CL[ClaudeService]
     CL -->|"tokens + cost"| USE[(claude_usage)]
     GATE -.->|"401 / 503 / 429"| ERR[ApiExceptionHandler]
     APP --> AUTH[AuthController /api/auth/*]
@@ -80,7 +81,7 @@ sequenceDiagram
 | Sign out | [AuthService.signOut:143](../../../backend/src/main/java/com/englishtranslation/backend/auth/AuthService.java#L143) | Revokes that refresh token. Always 204. |
 | Delete account | [AuthService.deleteAccount:153](../../../backend/src/main/java/com/englishtranslation/backend/auth/AuthService.java#L153) | `DELETE /api/me` removes the user, its roles, its refresh tokens and a pending code. The access token stops working at once (the filter checks that the user exists). An account with the ADMIN role is refused (403 `admin_account`). |
 | Bearer filter | [BearerTokenFilter:41](../../../backend/src/main/java/com/englishtranslation/backend/auth/BearerTokenFilter.java#L41) | Optional token. Bad, expired or unknown-user token = a guest, no error. A good one authenticates as role USER and sets `CallerContext`. It never touches `/api/admin`, so an access token cannot open the admin API and the admin cookie cannot open `/api/me`. |
-| Rules | [SecurityConfig:43](../../../backend/src/main/java/com/englishtranslation/backend/admin/SecurityConfig.java#L43) | `/api/me` needs USER; `/api/auth/*`, `/api/translations*`, `/api/words/*` stay open. |
+| Rules | [SecurityConfig:43](../../../backend/src/main/java/com/englishtranslation/backend/admin/SecurityConfig.java#L43) | `/api/me` needs USER; `/api/auth/*`, `/api/translations*`, `/api/words/*`, `/api/suggest` stay open. |
 | Email | [AuthConfig:21](../../../backend/src/main/java/com/englishtranslation/backend/auth/AuthConfig.java#L21), [ResendEmailSender](../../../backend/src/main/java/com/englishtranslation/backend/auth/ResendEmailSender.java), [SesEmailSender](../../../backend/src/main/java/com/englishtranslation/backend/auth/SesEmailSender.java), [LoggingEmailSender](../../../backend/src/main/java/com/englishtranslation/backend/auth/LoggingEmailSender.java) | The sender is chosen at start-up (TASK-71) and logged. (1) `RESEND_API_KEY` and `EMAIL_FROM` set: **Resend**, one HTTPS `POST https://api.resend.com/emails` with `Authorization: Bearer` and JSON `{from, to, subject, text, html}`, 10 s timeout; 2xx is success; on 429, 5xx or a network error it waits 1 s and tries once more; errors are logged (status only, never the key or the code) and not thrown. (2) Else a from address set (`EMAIL_FROM`, or the older `SES_FROM_EMAIL`): SES v2, region `AWS_REGION`, keys from the standard AWS variables, client built on the first send. (3) Else the code is written to the log and a warning is logged at start-up. A send failure is logged and the answer is still 204. Resend was chosen over SES for now (doc-7, 2026-10-15). |
 
 Endpoints (all JSON, no cookie):
@@ -100,11 +101,15 @@ Endpoints (all JSON, no cookie):
 [TranslationService:69](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationService.java#L69) (sentences, also personal-looking text and the stream) and [WordService:86](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L86) (words).
 The order is: (1) guest: 401 `sign_in_required` (skipped when `REQUIRE_SIGN_IN=false`); (2) budget used up: 503 `daily_limit_reached`; (3) user over 60 per hour or 300 per day: 429 `rate_limited`; for a guest (only possible with `REQUIRE_SIGN_IN=false`) over 30 new calls per hour from one IP: 429 `rate_limited`.
 The budget comes before the user limit so a refused call does not use up a user's allowance.
-The word retry (a second call for hard words) only re-checks the budget ([checkBudget:56](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClaudeGate.java#L56)).
+The word retry (a second call for hard words) only re-checks the budget ([checkBudget:74](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClaudeGate.java#L74)).
 
 Who is asking (user id and client IP): [CallerContext](../../../backend/src/main/java/com/englishtranslation/backend/limits/CallerContext.java) holds the user id in a thread-local. `BearerTokenFilter` sets it for the request. The sentence stream runs on its own thread, so [TranslationController:66](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationController.java#L66) copies the caller there. For the stream, the error is an `error` event: `{"status": 401, "message": "...", "code": "sign_in_required"}` (the `code` field is only there for these coded errors).
 
 Admin tools: the admin API makes no Claude call today (deleting a row is "regenerate": the next **public** lookup asks Claude, and that lookup goes through the gate). A future admin tool that calls Claude must call `ClaudeGate.checkBudget()` and record with `Feature.ADMIN`.
+
+## Prefill job: its own budget
+
+The nightly prefill job (TASK-83.1, see [Prefill](doc-18%20-%20Prefill.md)) fills the shared cache and has no user. On its own thread `ClaudeGate` takes a different path ([checkPrefillCap:59](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClaudeGate.java#L59)): no sign-in check, no per-user limit, no users' budget check. It checks the **run cap** instead (`app.prefill.max-usd-per-run`, default $0.50: the `PREFILL` rows since the run start). Its calls are saved with `Feature.PREFILL` ([ClaudeUsageService.record:68](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L68)) and are left out of the users' budget sum, so a night run cannot use the users' $1 day, and a used-up users' budget does not stop a run. The path opens only inside `PrefillContext`, which only `PrefillRunner` sets.
 
 ## Rate limits
 
@@ -116,9 +121,9 @@ Admin tools: the admin API makes no Claude call today (deleting a row is "regene
 | `/api/auth/email-code` per email | 3 per 15 minutes | `LIMIT_EMAIL_CODE_EMAIL_MAX`, `LIMIT_EMAIL_CODE_EMAIL_PERIOD` |
 | New Claude calls per signed-in user | 60 per hour, 300 per day | `LIMIT_CLAUDE_USER_HOUR_MAX`, `LIMIT_CLAUDE_USER_DAY_MAX` |
 | New Claude calls by a guest, per IP (only when `REQUIRE_SIGN_IN=false`) | 30 per hour | `LIMIT_CLAUDE_GUEST_IP_MAX` |
-| `/api/translations*`, `/api/words/*` per IP (cache hits too) | 120 per minute | `LIMIT_PUBLIC_READ_IP_MAX`, `LIMIT_PUBLIC_READ_IP_PERIOD` |
+| `/api/translations*`, `/api/words/*`, `/api/suggest` per IP (cache hits too) | 120 per minute | `LIMIT_PUBLIC_READ_IP_MAX`, `LIMIT_PUBLIC_READ_IP_PERIOD` |
 
-Over a limit: **429**, header `Retry-After` (seconds), body code `rate_limited`. The public read limit is a servlet filter ([PublicReadRateLimitFilter:34](../../../backend/src/main/java/com/englishtranslation/backend/limits/PublicReadRateLimitFilter.java#L34)), so even the event stream gets a real 429.
+Over a limit: **429**, header `Retry-After` (seconds), body code `rate_limited`. The public read limit is a servlet filter ([PublicReadRateLimitFilter:35](../../../backend/src/main/java/com/englishtranslation/backend/limits/PublicReadRateLimitFilter.java#L35)), so even the event stream gets a real 429. `?cachedOnly=true` lookups (TASK-83.4) never reach `ClaudeGate`: a miss is 404 `not_cached`, so typing-time prefetch can never cause 401, 429 from the gate, 503 or a Claude call (doc-4, doc-5).
 The client IP is `request.getRemoteAddr()`, like the admin login limit ([ClientIp](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClientIp.java)). Tomcat's remote-ip valve (`server.tomcat.remoteip.*`) swaps in `X-Forwarded-For` only when the request comes from a loopback or private proxy (Caddy). The backend port is on loopback only (PR #51), so a client cannot fake the header.
 
 ## Daily Claude budget
@@ -137,8 +142,8 @@ flowchart LR
 | Record | [ClaudeService.recordUsage:232](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L232) | Called for the normal sentence call, the streamed call (the stream accumulator sums the start and end events) and the word call, **before** the answer is read, so a refused or "not English" answer is counted too (it cost money). Never throws. |
 | Cost | [ClaudeUsageService.cost:74](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L74) | `(input x inputPerMtok + output x outputPerMtok) / 1,000,000`. A model with no price in config is counted at the **highest** configured price (never free) and a warning is logged. |
 | Prices | `app.claude.pricing.<model>.input-per-mtok` / `output-per-mtok` in [application.properties](../../../backend/src/main/resources/application.properties) | `claude-haiku-5-5`: $0.10 in, $0.50 out per million tokens (prompts up to 100K tokens; checked 2026-10-15). **Check them when the model or Anthropic's prices change.** |
-| Cap | [ClaudeUsageService.budgetReached:105](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L105) | Sum of today's rows (the day starts at 00:00 UTC) `>=` `app.claude.daily-budget-usd` (`CLAUDE_DAILY_BUDGET_USD`, default 1.00). Then the answer is 503 `daily_limit_reached`, "Saynata has reached today's limit for new explanations. Cached words still work. Try again tomorrow." |
-| Report | [AdminUsageController](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminUsageController.java), [ClaudeUsageService.report:110](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L110) | `GET /api/admin/usage?days=7` (admin cookie; 1 to 90 days): `{dailyBudgetUsd, todayUsd, days: [{date, total, byFeature}]}`, newest first, empty days included. No admin screen yet. |
+| Cap | [ClaudeUsageService.budgetReached:119](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L119) | Sum of today's rows **except feature `PREFILL`** (the day starts at 00:00 UTC) `>=` `app.claude.daily-budget-usd` (`CLAUDE_DAILY_BUDGET_USD`, default 1.00). Then the answer is 503 `daily_limit_reached`, "Saynata has reached today's limit for new explanations. Cached words still work. Try again tomorrow." |
+| Report | [AdminUsageController](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminUsageController.java), [ClaudeUsageService.report:124](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L124) | `GET /api/admin/usage?days=7` (admin cookie; 1 to 90 days): `{dailyBudgetUsd, todayUsd, prefillTodayUsd, days: [{date, total, byFeature}]}` (`todayUsd` is what the users' budget counts, so it leaves the prefill spend out; `prefillTodayUsd` is that spend; a day's `total` and `byFeature.prefill` include it), newest first, empty days included. No admin screen yet. |
 
 ## Errors
 

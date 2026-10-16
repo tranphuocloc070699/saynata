@@ -10,7 +10,8 @@ import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * A generous per-IP limit on the public read endpoints (default 120 per minute), cache hits included.
+ * A generous per-IP limit on the public read endpoints (translations, words, suggest; default 120 per minute),
+ * cache hits included.
  * It runs before the controller, so over the limit the answer is a real HTTP 429 even for the event stream.
  * Not a @Component: SecurityConfig adds it to the security chain by hand.
  */
@@ -27,7 +28,8 @@ public class PublicReadRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return !(path.startsWith("/api/translations") || path.startsWith("/api/words/"));
+        return !(path.startsWith("/api/translations") || path.startsWith("/api/words/")
+                || path.equals("/api/suggest"));
     }
 
     @Override

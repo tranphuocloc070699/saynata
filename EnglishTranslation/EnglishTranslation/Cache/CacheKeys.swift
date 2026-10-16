@@ -11,7 +11,7 @@ import Foundation
 /// Keep these equal to `app.claude.sentence-prompt-version` and `app.claude.word-prompt-version`
 /// in `backend/src/main/resources/application.properties`.
 enum PromptVersions {
-    static let sentence = "v6"
+    static let sentence = "v7"
     static let word = "v7"
 }
 
