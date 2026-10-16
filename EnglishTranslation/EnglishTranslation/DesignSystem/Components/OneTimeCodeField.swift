@@ -4,6 +4,8 @@
 //
 
 import SwiftUI
+
+#if os(iOS)
 import UIKit
 
 /// The text field under `CodeBoxes`: a plain UIKit `UITextField` with `.oneTimeCode`.
@@ -100,3 +102,30 @@ struct OneTimeCodeField: UIViewRepresentable {
         }
     }
 }
+#elseif os(macOS)
+/// The Mac twin: a plain SwiftUI field with the same inputs. The Mac has no number pad and no Mail AutoFill
+/// problem, so a SwiftUI `TextField` is enough. It keeps digits only, at most `maxLength`.
+struct OneTimeCodeField: View {
+    @Binding var text: String
+    var maxLength: Int
+    var focusOnAppear = true
+    var onEditingChanged: (Bool) -> Void = { _ in }
+
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        TextField("", text: $text)
+            .textFieldStyle(.plain)
+            .textContentType(.oneTimeCode)
+            .foregroundStyle(.clear)
+            .accessibilityLabel("Code")
+            .focused($isFocused)
+            .onChange(of: text) { _, newValue in
+                let digits = String(newValue.filter(\.isNumber).prefix(maxLength))
+                if digits != newValue { text = digits }
+            }
+            .onChange(of: isFocused) { _, focused in onEditingChanged(focused) }
+            .task { if focusOnAppear { isFocused = true } }
+    }
+}
+#endif

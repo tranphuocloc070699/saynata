@@ -28,7 +28,7 @@ struct SenseMediaView: View {
 
     private enum LoadState {
         case loading
-        case photo(UIImage)
+        case photo(PlatformImage)
         case clip(URL)
         case failed
     }
@@ -57,7 +57,7 @@ struct SenseMediaView: View {
     @ViewBuilder private var content: some View {
         switch loadState {
         case .photo(let image):
-            Image(uiImage: image)
+            Image(platformImage: image)
                 .resizable()
                 .scaledToFill()
         case .clip(let url):
@@ -115,17 +115,17 @@ struct SenseMediaView: View {
     }
 
     private static func photoState(file: URL) -> LoadState {
-        UIImage(contentsOfFile: file.path(percentEncoded: false)).map(LoadState.photo) ?? .failed
+        PlatformImage(contentsOfFile: file.path(percentEncoded: false)).map(LoadState.photo) ?? .failed
     }
 }
 
 /// A muted, continuous video loop for action clips using AVPlayerLayer.
-private struct LoopingVideoView: UIViewRepresentable {
+private struct LoopingVideoView {
     let url: URL
     let isPlaying: Bool
     let onFailure: () -> Void
 
-    func makeUIView(context: Context) -> LoopingPlayerUIView {
+    fileprivate func makePlayerView() -> LoopingPlayerUIView {
         let view = LoopingPlayerUIView()
         view.onFailure = onFailure
         view.load(url: url)
@@ -133,18 +133,35 @@ private struct LoopingVideoView: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ uiView: LoopingPlayerUIView, context: Context) {
-        uiView.onFailure = onFailure
-        uiView.setPlaying(isPlaying)
+    fileprivate func updatePlayerView(_ view: LoopingPlayerUIView) {
+        view.onFailure = onFailure
+        view.setPlaying(isPlaying)
     }
 }
 
-private final class LoopingPlayerUIView: UIView {
+#if os(iOS)
+extension LoopingVideoView: UIViewRepresentable {
+    func makeUIView(context: Context) -> LoopingPlayerUIView { makePlayerView() }
+    func updateUIView(_ uiView: LoopingPlayerUIView, context: Context) { updatePlayerView(uiView) }
+}
+
+private typealias PlayerHostView = UIView
+#elseif os(macOS)
+extension LoopingVideoView: NSViewRepresentable {
+    func makeNSView(context: Context) -> LoopingPlayerUIView { makePlayerView() }
+    func updateNSView(_ nsView: LoopingPlayerUIView, context: Context) { updatePlayerView(nsView) }
+}
+
+private typealias PlayerHostView = NSView
+#endif
+
+private final class LoopingPlayerUIView: PlayerHostView {
     var onFailure: (() -> Void)?
     private var queuePlayer: AVQueuePlayer?
     private var looper: AVPlayerLooper?
     private var statusObservation: NSKeyValueObservation?
 
+    #if os(iOS)
     override static var layerClass: AnyClass {
         AVPlayerLayer.self
     }
@@ -157,6 +174,23 @@ private final class LoopingPlayerUIView: UIView {
         super.layoutSubviews()
         playerLayer.videoGravity = .resizeAspectFill
     }
+    #elseif os(macOS)
+    // An AppKit view gets its layer from `makeBackingLayer`, not `layerClass`.
+    private let playerLayer = AVPlayerLayer()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not used")
+    }
+
+    override func makeBackingLayer() -> CALayer {
+        playerLayer
+    }
+    #endif
 
     /// Sets up the loop but does not start it. Call `setPlaying(_:)` for that.
     func load(url: URL) {

@@ -55,9 +55,7 @@ struct SignInSheet: View {
 
             HStack(spacing: Theme.Spacing.medium) {
                 TextField("Email", text: $model.email)
-                    .keyboardType(.emailAddress)
-                    .textContentType(.emailAddress)
-                    .textInputAutocapitalization(.never)
+                    .emailFieldStyle()
                     .autocorrectionDisabled()
                     .submitLabel(.send)
                     .focused($isEmailFocused)

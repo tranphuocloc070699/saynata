@@ -62,9 +62,9 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
             .background(Theme.Colors.background)
             .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .sheetTrailing) {
                     Button { dismiss() } label: { Image(systemName: "xmark") }
                         .accessibilityLabel("Close")
                 }
