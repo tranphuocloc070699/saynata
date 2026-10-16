@@ -2,10 +2,12 @@ package com.englishtranslation.backend.common;
 
 import com.anthropic.errors.AnthropicServiceException;
 import com.englishtranslation.backend.admin.InvalidAdminRequestException;
+import com.englishtranslation.backend.cache.NotCachedException;
 import com.englishtranslation.backend.claude.ClaudeRefusedException;
 import com.englishtranslation.backend.claude.NotEnglishException;
 import com.englishtranslation.backend.limits.RateLimitedException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.unit.DataSize;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -76,6 +78,10 @@ public class ApiExceptionHandler {
         ResponseEntity.BodyBuilder response = ResponseEntity.status(e.status());
         if (e instanceof RateLimitedException limited) {
             response.header("Retry-After", String.valueOf(limited.retryAfterSeconds()));
+        }
+        if (e instanceof NotCachedException) {
+            // The answer may be saved a minute later: the app must not keep this 404.
+            response.cacheControl(CacheControl.noStore());
         }
         return response.body(problem);
     }

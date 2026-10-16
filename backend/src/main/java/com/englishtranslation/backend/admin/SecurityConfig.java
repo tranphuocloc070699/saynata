@@ -31,7 +31,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  * - POST /api/admin/auth/login and /logout are open (login must work without being logged in).
  * - Everything else under /api/admin needs the ADMIN role.
  * - /api/me needs a signed-in app user (role USER, from the Bearer access token).
- * - All other URLs (/api/auth, /api/translations, /api/words, /actuator/health) stay open. /api/translations and
+ * - All other URLs (/api/auth, /api/translations, /api/words, /api/suggest, /actuator/health) stay open. /api/translations and
  *   /api/words read the Bearer token if there is one; without it the caller is a guest (see ClaudeGate).
  * No session is kept on the server: each request brings its own cookie.
  */
