@@ -9,8 +9,14 @@ import org.springframework.data.repository.query.Param;
 
 public interface ClaudeUsageRepository extends JpaRepository<ClaudeUsage, Long> {
 
-    @Query("select coalesce(sum(u.costUsd), 0) from ClaudeUsage u where u.createdAt >= :from")
+    /** What the users' budget counts: every feature except PREFILL, which has its own cap. */
+    @Query("select coalesce(sum(u.costUsd), 0) from ClaudeUsage u where u.createdAt >= :from"
+            + " and u.feature <> com.englishtranslation.backend.claude.Feature.PREFILL")
     BigDecimal totalCostSince(@Param("from") Instant from);
+
+    @Query("select coalesce(sum(u.costUsd), 0) from ClaudeUsage u where u.createdAt >= :from"
+            + " and u.feature = com.englishtranslation.backend.claude.Feature.PREFILL")
+    BigDecimal prefillCostSince(@Param("from") Instant from);
 
     List<ClaudeUsage> findByCreatedAtGreaterThanEqual(Instant from);
 }

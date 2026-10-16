@@ -1,9 +1,11 @@
 ---
 id: TASK-83.1
 title: 'Backend: prefill queue and nightly job with its own budget'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-16 08:18'
+updated_date: '2026-10-16 08:30'
 labels: []
 dependencies: []
 parent_task_id: TASK-83
@@ -33,3 +35,19 @@ Fills the shared cache before users ask, through the same WordService and Transl
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Flyway V17 prefill_item (V16 is taken by media_generation_ai_scene). 2. Feature.PREFILL; ClaudeUsageService excludes PREFILL from the user budget; CallerContext prefill flag. 3. ClaudeGate prefill path checks the run cap. 4. PrefillRunner (one run at a time, paced, cap from claude_usage, retries), PrefillScheduler (cron), AdminPrefillController. 5. Tests with fake Claude. 6. Docs: new Prefill feature page, doc-17, doc-11, CLAUDE.md, .env.example.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Built. NOTE for the orchestrator: V16 was already taken on feature/prefill (V16__media_generation_ai_scene.sql, TASK-82), so the prefill_item migration is V17 (same columns as the contract). TASK-83.3 must use V18 if it needs a migration. Feature page doc-18 Prefill.
+
+Test it: see the PR body (POST /api/admin/prefill/run?maxUsd=0.02&limit=5, then GET /api/admin/prefill and /api/admin/usage). 349 backend tests pass.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/79
+<!-- SECTION:NOTES:END -->
