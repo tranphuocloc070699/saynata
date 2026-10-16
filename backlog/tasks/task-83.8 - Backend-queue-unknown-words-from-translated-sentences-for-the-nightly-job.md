@@ -45,4 +45,6 @@ Developer, 2026-10-16: "when user request to translate sentences, check if any w
 
 <!-- SECTION:NOTES:BEGIN -->
 Built SentenceWordQueue + Flyway V20 (seen_count). Test it: explain 'The lantern glows.', then select text,source,priority,seen_count from prefill_item where source='sentence-words'; again with 'A lantern.' gives seen_count 2, priority 350; personal text adds nothing. Automated: SentenceWordQueueTest, ./mvnw -B test (376 pass). PR: pending link below.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/84
 <!-- SECTION:NOTES:END -->
