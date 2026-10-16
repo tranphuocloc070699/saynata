@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import tools.jackson.databind.json.JsonMapper;
@@ -41,9 +42,11 @@ public class TranslationController {
         this.jsonMapper = jsonMapper;
     }
 
+    /** {@code cachedOnly=true} (TASK-83.4): only a cached answer, else 404 not_cached. Never calls Claude. */
     @PostMapping
-    public TranslationResponse translate(@Valid @RequestBody TranslationRequest request) {
-        return service.translate(request.text(), request.targetLang());
+    public TranslationResponse translate(@Valid @RequestBody TranslationRequest request,
+            @RequestParam(defaultValue = "false") boolean cachedOnly) {
+        return service.translate(request.text(), request.targetLang(), cachedOnly);
     }
 
     /**
@@ -57,24 +60,26 @@ public class TranslationController {
      * limit and daily budget errors also have a {@code code}: sign_in_required, rate_limited, daily_limit_reached.</li>
      * </ul>
      * A cache hit sends only {@code done}. The old endpoint stays for old app versions.
+     * With {@code cachedOnly=true} a miss sends one {@code error} event with status 404 and code not_cached.
      * The headers tell proxies (Caddy, nginx) not to hold the events back.
      */
     // The charset is written out on purpose: Vietnamese, Japanese... must reach the app as UTF-8.
     @PostMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE + ";charset=UTF-8")
-    public ResponseEntity<SseEmitter> stream(@Valid @RequestBody TranslationRequest request) {
+    public ResponseEntity<SseEmitter> stream(@Valid @RequestBody TranslationRequest request,
+            @RequestParam(defaultValue = "false") boolean cachedOnly) {
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
         // The stream runs on another thread, which does not know who is asking. Hand the user over.
         CallerContext.Caller caller = CallerContext.current().orElse(null);
-        executor.execute(() -> CallerContext.runAs(caller, () -> runStream(request, emitter)));
+        executor.execute(() -> CallerContext.runAs(caller, () -> runStream(request, cachedOnly, emitter)));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "no-cache")
                 .header("X-Accel-Buffering", "no")
                 .body(emitter);
     }
 
-    private void runStream(TranslationRequest request, SseEmitter emitter) {
+    private void runStream(TranslationRequest request, boolean cachedOnly, SseEmitter emitter) {
         try {
-            TranslationResponse response = service.translateStreaming(request.text(), request.targetLang(),
+            TranslationResponse response = service.translateStreaming(request.text(), request.targetLang(), cachedOnly,
                     delta -> send(emitter, "meaning-delta", Map.of("text", delta)),
                     meaning -> send(emitter, "meaning", Map.of("meaning", meaning)));
             send(emitter, "done", response);
