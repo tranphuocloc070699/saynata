@@ -3,16 +3,16 @@ id: doc-20
 title: Mac app
 type: guide
 created_date: '2026-10-16 09:43'
-updated_date: '2026-10-16 09:51'
+updated_date: '2026-10-16 10:39'
 ---
 # Mac app
 
-> Status: built: menu-bar popover (TASK-85.2), global shortcut (TASK-85.3), Services item and launch at login (TASK-85.4). Last traced from code: 2026-10-16.
+> Status: built: menu-bar popover (TASK-85.2), global shortcut (TASK-85.3), Services item and launch at login (TASK-85.4). Last traced from code: 2026-10-16 (panel fix).
 > Plan: [doc-16](../doc-16%20-%20Plan-Mac-menu-bar-app-and-browser-extension.md) Part 1. Decisions: doc-7, 10-16.
 
 ## What it does
 
-Saynata lives in the Mac menu bar, with no Dock icon. A click on the book icon, or the shortcut ⌥⇧Space from any app, opens a popover (420 × 560 pt) with the cursor in the input box. Type a word or a sentence and press Return: the result is the same as on the iPhone, the simple English explanation first, then the words, then the target language, folded.
+Saynata lives in the Mac menu bar, with no Dock icon. A click on the book icon opens a popover under it (420 × 560 pt). The shortcut ⌥⇧Space opens the same content in a floating panel near the top middle of the screen, like Spotlight. Both put the cursor in the input box. Type a word or a sentence and press Return: the result is the same as on the iPhone, the simple English explanation first, then the words, then the target language, folded.
 
 In any app, select text, then right-click → Services → **Explain with Saynata**: the popover opens and explains it. Settings → Start → **Open at login** starts Saynata with the Mac.
 
@@ -21,6 +21,8 @@ In any app, select text, then right-click → Services → **Explain with Saynat
 ```mermaid
 flowchart LR
     I[Menu-bar icon] --> D[AppDelegate: NSStatusItem + NSPopover]
+    K[Shortcut, Services] --> P[FloatingPanel]
+    P --> V
     D --> V[MenuBarContentView]
     V --> S[TranslationStore, shared with iOS]
     V --> R[TranslateResultView, shared with iOS]
@@ -34,16 +36,18 @@ flowchart LR
 
 | Step | File | What happens |
 |---|---|---|
-| Start | [AppDelegate.swift:25](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L25) | Makes the status item and a transient, light-mode popover that hosts `MenuBarContentView` with the store, the speech player, the account and `MenuBarFocus` |
-| Shortcut | [AppDelegate.swift:49](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L49) | [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) (MIT, 2.4) calls `togglePopover` on key up. The name and default ⌥⇧Space are in [MacSettingsSections.swift](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift); Settings > Shortcut has the recorder, and the package saves the choice in UserDefaults. It uses Carbon hot keys, so no Accessibility permission |
-| Open | [AppDelegate.swift:88](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L88) | Activates the app (a menu-bar app is never active), shows the popover, makes it key and asks for focus |
+| Start | [AppDelegate.swift:32](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L32) | Makes the status item and a transient, light-mode popover that hosts `MenuBarContentView` with the store, the speech player, the account and `MenuBarFocus` |
+| Shortcut | [AppDelegate.swift:55](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L55) | [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) (MIT, 2.4) calls `toggleFromShortcut` on key up (opens the panel, or closes what is open). The name and default ⌥⇧Space are in [MacSettingsSections.swift](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift); Settings > Shortcut has the recorder, and the package saves the choice in UserDefaults. It uses Carbon hot keys, so no Accessibility permission |
+| Click | [AppDelegate.swift:110](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L110) | A click on the icon opens the popover under it. If the icon cannot really be seen ([`isStatusItemVisible`](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L147): no window, covered, or behind the notch between `auxiliaryTopLeftArea` and `auxiliaryTopRightArea`), the panel opens instead |
+| Popover | [AppDelegate.swift:129](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L129) | Activates the app (a menu-bar app is never active), shows the popover under the icon, makes it key and asks for focus |
+| Panel | [AppDelegate.swift:139](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L139), [FloatingPanel.swift](../../../EnglishTranslation/SaynataMac/FloatingPanel.swift) | The shortcut, the Services item and a hidden icon open a Spotlight-style panel: the same view, 420 × 560 pt, centred on the screen with the mouse, a sixth of the way down. Non-activating (the other app stays in front) but it takes the keyboard. Esc or a click outside closes it; an open sheet keeps it open |
 | Focus | [MenuBarContentView.swift:13](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L13) | Watches `MenuBarFocus.request` and puts the cursor in the box |
 | Explain | [MenuBarContentView.swift:115](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L115) | Return or the arrow button runs `TranslationStore.translate()`, the same code as iOS |
 | Result | [MenuBarContentView.swift:34](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L34) | `TranslateResultView`: word card or sentence cards, speakers, folded target language |
 | Sign in | [MenuBarContentView.swift:52](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L52) | `sign_in_required` opens the shared `SignInSheet` as a sheet on the popover. On the Mac it has a Close button (Esc) |
-| Services | [AppDelegate.swift:110](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L110) | `NSServices` in [Info.plist](../../../EnglishTranslation/SaynataMac/Info.plist) declares "Explain with Saynata" for plain text; `NSApp.servicesProvider = self` at start. macOS calls `explainSelection` with the selected text on a pasteboard, which calls `explain(_:)`. No Accessibility permission |
+| Services | [AppDelegate.swift:173](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L173) | `NSServices` in [Info.plist](../../../EnglishTranslation/SaynataMac/Info.plist) declares "Explain with Saynata" for plain text; `NSApp.servicesProvider = self` at start. macOS calls `explainSelection` with the selected text on a pasteboard, which calls `explain(_:)`. No Accessibility permission |
 | Login | [MacSettingsSections.swift:52](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift#L52) | Settings → Start → Open at login: `SMAppService.mainApp.register()` / `unregister()`. If macOS wants approval, the footer says where |
-| Close | [AppDelegate.swift:97](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L97) | A click outside or Esc closes the popover; speech stops |
+| Close | [AppDelegate.swift:160](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L160) | A click outside or Esc closes the popover; speech stops |
 
 ## Sign-in and storage
 
