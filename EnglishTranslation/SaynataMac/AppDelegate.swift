@@ -41,6 +41,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 .environment(account)
                 .environment(focus))
 
+        // Right-click → Services → Explain with Saynata (TASK-85.4). The item is declared in Info.plist (`NSServices`).
+        NSApp.servicesProvider = self
+        NSUpdateDynamicServices()
+
         // The global shortcut (TASK-85.3). It opens the popover from any app, or closes it when it is open.
         KeyboardShortcuts.onKeyUp(for: .openSaynata) { [weak self] in
             self?.togglePopover()
@@ -49,9 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         #if DEBUG
         // For checking the window without a click: `open SaynataMac.app --args -explain "run late"`.
         if let index = CommandLine.arguments.firstIndex(of: "-explain"), index + 1 < CommandLine.arguments.count {
-            showPopover()
-            store.inputText = CommandLine.arguments[index + 1]
-            Task { await store.translate() }
+            explain(CommandLine.arguments[index + 1])
         }
         if CommandLine.arguments.contains("-settings") {
             showPopover()
@@ -94,6 +96,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func popoverDidClose(_ notification: Notification) {
         speechPlayer.stop()
+    }
+
+    /// Opens the popover and explains `text`, as if the user had typed it.
+    func explain(_ text: String) {
+        showPopover()
+        store.inputText = text
+        Task { await store.translate() }
+    }
+
+    /// The Services item "Explain with Saynata": macOS calls this with the text the user selected in any app.
+    /// The name must match `NSMessage` in Info.plist. It needs no Accessibility permission.
+    @objc func explainSelection(
+        _ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>
+    ) {
+        let text = pasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !text.isEmpty else {
+            error.pointee = "No text was selected." as NSString
+            return
+        }
+        explain(text)
     }
 }
 
