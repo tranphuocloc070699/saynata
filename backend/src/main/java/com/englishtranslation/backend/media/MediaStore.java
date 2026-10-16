@@ -17,12 +17,16 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
 
 /**
- * Turns a Pixabay hit into a file on disk and a row in the media table: download, convert (320 px WebP photo or
- * 3 s MP4 clip), name the file, insert the row. Used by the background job for new backend words and by the admin
- * when it picks another result (TASK-52). Linking the row to a sense is the caller's job.
+ * Turns a Pixabay hit (or a file the admin uploaded) into a file on disk and a row in the media table: convert
+ * (320 px WebP photo or 3 s MP4 clip), name the file, insert the row. Used by the background job for new backend
+ * words and by the admin when it picks another result (TASK-52) or uploads a file (TASK-79). Linking the row to a
+ * sense is the caller's job.
  */
 @Service
 public class MediaStore {
+
+    /** The credit of an uploaded file (media.license_note). The admin shows it as the caption. */
+    public static final String UPLOAD_CREDIT = "Uploaded by the admin";
 
     private final PixabayClient pixabay;
     private final MediaConverter converter;
@@ -43,13 +47,33 @@ public class MediaStore {
      */
     public long save(String word, int position, PixabayHit hit) throws IOException {
         byte[] original = pixabay.download(hit.downloadUrl());
+        return convertAndInsert(word, position, hit.kind(), original,
+                (fileName, bytes) -> insertPixabay(fileName, hit, bytes));
+    }
 
+    /**
+     * Saves a file the admin uploaded as the picture of sense number {@code position} of {@code word}.
+     * {@code kind} is "photo" or "clip" and comes from the magic bytes of the file (UploadedFileType). The conversion
+     * and the file name are the same as for Pixabay media. The row has source "upload" and no Pixabay credit.
+     * Returns the id of the media row.
+     */
+    public long saveUpload(String word, int position, String kind, byte[] original) throws IOException {
+        return convertAndInsert(word, position, kind, original, (fileName, bytes) -> insertUpload(fileName, kind, bytes));
+    }
+
+    /** Inserts the media row of a file that is already on disk and returns its id. */
+    private interface RowInserter {
+        long insert(String fileName, int bytes);
+    }
+
+    private long convertAndInsert(String word, int position, String kind, byte[] original, RowInserter inserter)
+            throws IOException {
         Path dir = Path.of(properties.dir());
         Files.createDirectories(dir);
-        String extension = hit.kind().equals("clip") ? "mp4" : "webp";
+        String extension = kind.equals("clip") ? "mp4" : "webp";
         Path temp = dir.resolve(".tmp-" + UUID.randomUUID() + "." + extension);
         try {
-            if (hit.kind().equals("clip")) {
+            if (kind.equals("clip")) {
                 converter.toClip(original, temp);
             } else {
                 converter.toPhoto(original, temp);
@@ -58,14 +82,14 @@ public class MediaStore {
             // The hash makes the name unique per content, so Caddy can cache the file for a year.
             String fileName = fileSafe(word) + "_" + (position + 1) + "_" + shortHash(saved) + "." + extension;
             Files.move(temp, dir.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
-            // Same content, same name: the admin picked a result that was used for this sense before.
+            // Same content, same name: this file was used before (for example the admin picked the same result again).
             Optional<Long> existing = jdbc.sql("select id from media where file_name = :file").param("file", fileName)
                     .query(Long.class).optional();
             if (existing.isPresent()) {
                 return existing.get();
             }
             try {
-                return insertMedia(fileName, hit, saved.length);
+                return inserter.insert(fileName, saved.length);
             } catch (RuntimeException e) {
                 Files.deleteIfExists(dir.resolve(fileName));
                 throw e;
@@ -75,7 +99,7 @@ public class MediaStore {
         }
     }
 
-    private long insertMedia(String fileName, PixabayHit hit, int bytes) {
+    private long insertPixabay(String fileName, PixabayHit hit, int bytes) {
         KeyHolder keys = new GeneratedKeyHolder();
         jdbc.sql("insert into media (file_name, kind, bytes, pixabay_id, photographer, page_url, license_note, created_at)"
                 + " values (:file, :kind, :bytes, :pixabayId, :photographer, :pageUrl, :license, :now)")
@@ -83,6 +107,16 @@ public class MediaStore {
                 .param("pixabayId", hit.id()).param("photographer", hit.photographer())
                 .param("pageUrl", hit.pageUrl()).param("license", "Pixabay Content License")
                 .param("now", OffsetDateTime.now())
+                .update(keys, "id");
+        return keys.getKey().longValue();
+    }
+
+    private long insertUpload(String fileName, String kind, int bytes) {
+        KeyHolder keys = new GeneratedKeyHolder();
+        jdbc.sql("insert into media (file_name, kind, bytes, license_note, source, created_at)"
+                + " values (:file, :kind, :bytes, :credit, 'upload', :now)")
+                .param("file", fileName).param("kind", kind).param("bytes", bytes)
+                .param("credit", UPLOAD_CREDIT).param("now", OffsetDateTime.now())
                 .update(keys, "id");
         return keys.getKey().longValue();
     }

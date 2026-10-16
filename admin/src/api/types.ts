@@ -25,13 +25,15 @@ export interface Sense {
   usage: UsageLine[];
 }
 
-// The picture or clip of one sense, with the Pixabay credit (TASK-49.4).
+// The picture or clip of one sense, with the Pixabay credit (TASK-49.4). A file the admin uploaded (TASK-79) has
+// source "upload" and no photographer or page: its credit is "Uploaded by the admin".
 export interface SenseMedia {
   url: string;
   kind: "photo" | "clip";
-  photographer: string;
-  pageUrl: string;
+  photographer: string | null;
+  pageUrl: string | null;
   licenseNote?: string;
+  source?: "pixabay" | "upload";
 }
 
 export interface WordEntry {

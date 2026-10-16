@@ -7,7 +7,10 @@ import com.englishtranslation.backend.media.MediaStore;
 import com.englishtranslation.backend.media.PixabayBusyException;
 import com.englishtranslation.backend.media.PixabayClient;
 import com.englishtranslation.backend.media.PixabayClient.PixabayHit;
+import com.englishtranslation.backend.common.ApiException;
 import com.englishtranslation.backend.media.SenseMedia;
+import com.englishtranslation.backend.media.UnreadableMediaException;
+import com.englishtranslation.backend.media.UploadedFileType;
 import com.englishtranslation.backend.word.WordEntry;
 import java.io.IOException;
 import java.net.URI;
@@ -18,10 +21,13 @@ import java.util.Objects;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.util.unit.DataSize;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -39,6 +45,10 @@ public class AdminMediaService {
     static final String NEEDS_AI = "needs_ai";
     /** The admin removed the media of the sense: it must not be filled again (TASK-76). */
     public static final String REMOVED = "removed";
+    static final String UNSUPPORTED = "unsupported_media";
+    static final String UNSUPPORTED_MESSAGE =
+            "That file is not a picture or a short video. Use JPEG, PNG, WebP, HEIC, GIF, MP4, MOV or WebM.";
+    static final String CONVERT_FAILED = "Could not download or convert that file. Try another one.";
     static final String BUSY_MESSAGE = "Pixabay is busy right now. Try again in a minute.";
 
     /** One Pixabay result. previewUrl is for the small picture in the admin; downloadUrl is what we fetch if it is chosen. */
@@ -71,10 +81,13 @@ public class AdminMediaService {
     private final JdbcClient jdbc;
     private final MediaCleanup cleanup;
     private final TransactionTemplate transaction;
+    private final DataSize maxUpload;
 
     public AdminMediaService(PixabayClient pixabay, MediaStore store, MediaProperties properties,
             MediaSearchRateLimiter rateLimiter, AdminWordService words, JdbcClient jdbc, MediaCleanup cleanup,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            @Value("${spring.servlet.multipart.max-file-size:25MB}") DataSize maxUpload) {
+        this.maxUpload = maxUpload;
         this.pixabay = pixabay;
         this.store = store;
         this.properties = properties;
@@ -137,6 +150,58 @@ public class AdminMediaService {
         // The old file is deleted when no other sense uses it. If the same file was picked again, it is still linked.
         cleanup.deleteIfUnused(oldMediaId == null ? Set.of() : Set.of(oldMediaId));
         return words.get(id.text());
+    }
+
+    /**
+     * The admin uploads their own picture or clip (TASK-79), for example an image made in ChatGPT. The real type is
+     * read from the magic bytes. The file is converted like a Pixabay one and becomes the media of the sense.
+     * Needs no Pixabay key. Returns the changed word.
+     */
+    public AdminWord upload(String wordId, int position, MultipartFile file) {
+        AdminWordId id = AdminWordId.parse(wordId);
+        Sense sense = findSense(id, position);
+        if (file == null || file.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, UNSUPPORTED, "Choose a picture or a short video.");
+        }
+        if (file.getSize() > maxUpload.toBytes()) {
+            throw tooBig();
+        }
+        byte[] original;
+        try {
+            original = file.getBytes();
+        } catch (IOException e) {
+            log.warn("Could not read the uploaded file for {} sense {}: {}", wordId, position + 1, e.toString());
+            throw new ApiException(HttpStatus.BAD_REQUEST, UNSUPPORTED, UNSUPPORTED_MESSAGE);
+        }
+        String kind = UploadedFileType.detect(original);
+        if (kind == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, UNSUPPORTED, UNSUPPORTED_MESSAGE);
+        }
+
+        long mediaId;
+        try {
+            mediaId = store.saveUpload(sense.word(), position, kind, original);
+        } catch (UnreadableMediaException e) {
+            log.warn("The uploaded file for {} sense {} could not be read: {}", wordId, position + 1, e.getMessage());
+            throw new ApiException(HttpStatus.BAD_REQUEST, UNSUPPORTED, "That file could not be read. It may be broken. Try another one.");
+        } catch (IOException | RuntimeException e) {
+            log.warn("Could not convert the uploaded file for {} sense {}: {}", wordId, position + 1, e.toString());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, CONVERT_FAILED);
+        }
+        Long oldMediaId = currentMediaId(id, position);
+        link(id, position, mediaId, null); // also clears needs_ai and removed
+        if (id.bundled()) {
+            jdbc.sql("update dictionary_sense set image_type = 'photo' where word_id = :word and position = :position"
+                    + " and image_type = 'none'").param("word", id.number()).param("position", position).update();
+        }
+        cleanup.deleteIfUnused(oldMediaId == null ? Set.of() : Set.of(oldMediaId));
+        return words.get(id.text());
+    }
+
+    /** 413: shared with the handler for Spring's own size limit. */
+    public ApiException tooBig() {
+        return new ApiException(HttpStatus.CONTENT_TOO_LARGE, "file_too_large",
+                "That file is too big. The limit is " + (maxUpload.toBytes() / (1024 * 1024)) + " MB.");
     }
 
     /** The sense has no picture afterwards. For a backend word the row stays, so the background job does not fetch again. */

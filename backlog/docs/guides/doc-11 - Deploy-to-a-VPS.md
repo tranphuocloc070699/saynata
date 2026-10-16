@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-15 10:54'
+updated_date: '2026-10-16 02:09'
 ---
 # Deploy to a VPS
 
@@ -293,8 +293,18 @@ api.loffy.me {
 3. `sudo systemctl reload caddy`, then redeploy the backend (`./scripts/deploy.sh`). The image now has ffmpeg
    (about 100 MB more). Check: `curl -I https://api.loffy.me/media/<a file name>` shows `Cache-Control: public, max-age=31536000, immutable`.
 
+**Uploads from the admin (TASK-79).** The admin web app can upload a picture or clip for a sense (`POST /api/admin/words/{id}/senses/{n}/media/upload`, doc-15). The file is converted on the server with ffmpeg (already in the image) to a small WebP or MP4, so the stored file is small. The limits are two optional variables of the backend:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `UPLOAD_MAX_FILE_SIZE` | `25MB` | The biggest file the backend accepts (`spring.servlet.multipart.max-file-size`). A bigger one gets 413 "That file is too big." |
+| `UPLOAD_MAX_REQUEST_SIZE` | `26MB` | The biggest whole request (`spring.servlet.multipart.max-request-size`). Keep it a little above the file limit. |
+
+**Does Caddy need a change? No.** Caddy's `reverse_proxy` has no request-body size limit by default (the `request_body { max_size }` option exists, but it is off). So a 25 MB upload passes to the backend and the backend answers 413 if it is too big. Only add `request_body { max_size 30MB }` to the `api.loffy.me` block if you want Caddy to refuse big bodies earlier; keep it above `UPLOAD_MAX_REQUEST_SIZE`. The new `.webp`/`.mp4` file is written to `MEDIA_DIR` like any other, so no new folder or permission is needed.
+
 **What puts files there.**
 
+- *The admin's own files (TASK-79).* An upload is converted and saved in the same folder. After you upload, copy the folder to your Mac (`rsync -av vps_sieutoc:/var/lib/saynata/media/ data/media/`) before `uv run pipeline export`, so the new file reaches the next app build.
 - *New backend words.* With `PIXABAY_API_KEY` set, the backend saves a photo (320 px WebP) or a 3 s muted clip (MP4) for the
   first 3 senses of a word it just created, after the answer was sent. The next lookup returns the address in
   `imageUrl`. Pixabay is asked once per sense and at most 40 times a minute. Without a key nothing is fetched.

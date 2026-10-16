@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-15 18:52'
+updated_date: '2026-10-16 02:09'
 ---
 # Decisions and reasons
 
@@ -118,6 +118,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-15 | **Removing media really takes effect** (TASK-76): add a word-level **Remove all media** in the admin (`DELETE /api/admin/words/{id}/media`), and make No image, Pick another and Remove all **delete the media row and the file** when no other sense uses it. Removed senses are marked (`image_type = none`, `media_status = removed`) so neither the backend job nor the pipeline fills them again | Some words cannot have a good picture. Before, No image only unlinked the file in Postgres, so the app (which holds `media/<file>` in the bundled `dictionary.sqlite`) kept showing it. | Keep the file and send a "removed" list to the app; only hide it in the admin | Developer |
 | 10-15 | Admin words list: a clip **plays on hover** in the 56x42 thumbnail, and a media **full-size viewer** (dark backdrop, caption, Close icon) opens from the Media row and from a Pick-another tile (TASK-77) | Mockup approved by the developer. Reason: not recorded. | Not recorded | Developer |
 | 10-15 | **Check every Pixabay picture and clip with Claude first** (TASK-78): `uv run pipeline media-check` asks Claude Haiku 5.5 whether each picture clearly shows its meaning (good, wrong, unsure); `--apply` marks the wrong ones `needs_ai`; AI images (TASK-53) are then made only for those. The generation method is not chosen yet. Unsure is never applied automatically | Reason: not recorded. | Marking every bad picture by hand in the admin (the 10-14 plan) | Developer |
+| 10-16 | **The admin can upload their own picture or clip for a sense** (TASK-79): a fourth icon button on the Media row (and drag and drop of a file) sends the file to `POST .../media/upload`; the server checks the real type from the file's first bytes, converts it with the same rules as Pixabay media (320 px WebP photo, 3 s muted MP4 clip) and saves it as a normal `media` row with the credit "Uploaded by the admin" | A cheap alternative to paid AI generation (TASK-53): the developer can make a picture in ChatGPT and put it in himself. Any further reason: not recorded. | Paid AI images for every bad picture only (TASK-53); keeping the original upload file; only photos | Developer |
 
 ## Questions answered
 
@@ -131,3 +132,4 @@ go here as questions.
 - 10-15: Why accounts with an email code (not passwords or Sign in with Apple), why guests may not cause new Claude calls, and why $1 per day? Reason not recorded.
 - 10-15: Why these three speed changes together (and not one by one)? Only the measurements were given. Reason not recorded.
 - 10-15: Why check every picture with Claude first, instead of marking bad pictures by hand in the admin? Reason not recorded.
+- 10-16: Why upload by hand next to AI images? Only "a cheap alternative" was said (for example a picture made in ChatGPT). Further reason not recorded.

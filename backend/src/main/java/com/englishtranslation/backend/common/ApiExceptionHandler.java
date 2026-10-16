@@ -5,7 +5,10 @@ import com.englishtranslation.backend.admin.InvalidAdminRequestException;
 import com.englishtranslation.backend.claude.ClaudeRefusedException;
 import com.englishtranslation.backend.claude.NotEnglishException;
 import com.englishtranslation.backend.limits.RateLimitedException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.unit.DataSize;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
@@ -24,6 +27,21 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class ApiExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    private final DataSize maxUpload;
+
+    public ApiExceptionHandler(@Value("${spring.servlet.multipart.max-file-size:25MB}") DataSize maxUpload) {
+        this.maxUpload = maxUpload;
+    }
+
+    /** The admin uploaded a file bigger than spring.servlet.multipart.max-file-size / max-request-size (TASK-79). */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleTooBig(MaxUploadSizeExceededException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONTENT_TOO_LARGE,
+                "That file is too big. The limit is " + (maxUpload.toBytes() / (1024 * 1024)) + " MB.");
+        problem.setProperty("code", "file_too_large");
+        return problem;
+    }
 
     /**
      * Spring's default detail is "Invalid request content.", which tells the user nothing.

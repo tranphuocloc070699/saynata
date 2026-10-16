@@ -3,7 +3,7 @@ id: doc-9
 title: Progress timeline
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-15 14:43'
+updated_date: '2026-10-16 02:09'
 ---
 # Progress timeline
 
@@ -24,6 +24,7 @@ A dated story of the project, for the video. Add a line at the end of each worki
 | 2026-10-15 (evening) | The mockup was approved (option A) and the iOS side of accounts was built (TASK-70): a sign-in sheet that opens when the backend says "sign in", the code in six boxes, tokens in the Keychain, refresh and retry, and Sign out and Delete account in Settings. After a right code the first request runs again by itself. | The app asks for an account only at the moment it is needed. |
 | 2026-10-15 (evening) | Sentence answers made faster, three changes in one PR: the meaning now streams word by word (`meaning-delta`), the offline dictionary word cards show at once while Claude works, and the backend makes one tiny Claude call after start-up to warm the connection. | New sentences took 2-2.5 s and the first call after a restart 7-9 s; most of it is Claude's time to first token. |
 | 2026-10-15 (night) | Media removal made real (TASK-76): No image, Pick another and a new Remove all media button now delete the picture file when nothing else uses it, so the app stops showing it; removed senses are not filled again by the backend job or the pipeline. The admin list also plays a clip on hover and has a full-size viewer (TASK-77). |
+| 2026-10-16 | The admin can upload their own picture or clip for a sense (TASK-79): a new Upload button and drag and drop on the Media row, a server check of the real file type, the same small WebP or MP4 as Pixabay media, and the credit "Uploaded by the admin". The pipeline export keeps the file. | A cheap alternative to paid AI images for the pictures Claude marks as wrong. |
 
 ## Numbers to show
 

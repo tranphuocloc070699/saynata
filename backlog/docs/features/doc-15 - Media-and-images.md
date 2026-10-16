@@ -3,16 +3,16 @@ id: doc-15
 title: Media and images
 type: specification
 created_date: '2026-10-15 04:02'
-updated_date: '2026-10-15 18:52'
+updated_date: '2026-10-16 02:10'
 ---
 # Media and images
 
-> Status: **working for photos and clips from Pixabay** (TASK-23, 49.3, 49.4, 52). AI images are not built yet (TASK-53). The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-16 (Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
+> Status: **working for photos and clips from Pixabay, and for files the admin uploads** (TASK-23, 49.3, 49.4, 52, 79). AI images are not built yet (TASK-53). The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-16 (the admin can upload their own picture or clip: TASK-79; Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
 > Why: a small picture or a short clip helps a learner remember a meaning (doc-1, Vision and spec). Postgres on the server is the source of truth for content (doc-7).
 
 ## What it does
 
-Each sense of a word can have one **photo** (a 320 px WebP) or one **clip** (a 3 second, muted MP4). Nouns and adjectives get photos. Verbs get clips. The files come from Pixabay. There are two ways a sense gets media: the pipeline on the developer's Mac fills it for the 2,750 bundled words, and the backend fills it in the background for every **new** word that Claude writes. An admin can fix any sense in the admin web app: pick another picture, remove it, or mark it for an AI image. The iOS app shows the picture under the explanation of the sense.
+Each sense of a word can have one **photo** (a 320 px WebP) or one **clip** (a 3 second, muted MP4). Nouns and adjectives get photos. Verbs get clips. The files come from Pixabay. There are two ways a sense gets media: the pipeline on the developer's Mac fills it for the 2,750 bundled words, and the backend fills it in the background for every **new** word that Claude writes. An admin can fix any sense in the admin web app: pick another picture, **upload their own picture or clip**, remove it, or mark it for an AI image. The iOS app shows the picture under the explanation of the sense.
 
 This page follows the files from Pixabay to the screen. It does not repeat the pages for the parts: see [Word lookup](doc-5%20-%20Word-lookup.md), [Dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md), [Admin API](doc-13%20-%20Admin-API.md), [Admin CMS](doc-14%20-%20Admin-CMS.md) and the [VPS guide, section 9](../guides/doc-11%20-%20Deploy-to-a-VPS.md).
 
@@ -136,7 +136,7 @@ sequenceDiagram
 | Claim first | [claim:88](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L88) | A row in `word_lookup_media` is inserted before Pixabay is asked. So Pixabay is asked once per sense, even when it finds nothing. To try again, delete the word in the admin. |
 | Rate limit | [MIN_GAP_MILLIS:28](../../../backend/src/main/java/com/englishtranslation/backend/media/HttpPixabayClient.java#L28), [waitForTurn:172](../../../backend/src/main/java/com/englishtranslation/backend/media/HttpPixabayClient.java#L172) | At least 1.5 s between Pixabay requests (40 per minute; Pixabay allows 100). With one worker thread we stay far below the limit. Downloads only come from `pixabay.com` over https. |
 | Pixabay 429 | [send:179](../../../backend/src/main/java/com/englishtranslation/backend/media/HttpPixabayClient.java#L179), [pauseBeforeRetry:196](../../../backend/src/main/java/com/englishtranslation/backend/media/HttpPixabayClient.java#L196), [PixabayBusyException](../../../backend/src/main/java/com/englishtranslation/backend/media/PixabayBusyException.java) | TASK-63. One Pixabay key is shared by the admin search, the background job and a media pass, so Pixabay can still answer 429 (too many requests). Every Pixabay call (search and download) is tried **3 times in all**. The pause is the `Retry-After` header (seconds) when there is one, else 1 s, then 2 s. The waiting adds up to at most 10 s; a `Retry-After` that would go past that gives up at once. After the last try the client throws `PixabayBusyException`. Other errors (500, 404...) are not tried again. |
-| Download, convert, save | [MediaStore.save:44](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaStore.java#L44), [FfmpegMediaConverter:16-27](../../../backend/src/main/java/com/englishtranslation/backend/media/FfmpegMediaConverter.java#L16-L27) | Photo: WebP, max 320 px wide, quality 80. Clip: 3 s, no sound, H.264 MP4, `+faststart`. The name is `<word>_<n>_<8 hex of sha256>.<ext>`, so a new picture is always a new name. If the row cannot be saved, the file is removed. |
+| Download, convert, save | [MediaStore.save:48](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaStore.java#L48), [FfmpegMediaConverter:16-27](../../../backend/src/main/java/com/englishtranslation/backend/media/FfmpegMediaConverter.java#L16-L27) | Photo: WebP, max 320 px wide, quality 80. Clip: 3 s, no sound, H.264 MP4, `+faststart`. The name is `<word>_<n>_<8 hex of sha256>.<ext>`, so a new picture is always a new name. If the row cannot be saved, the file is removed. |
 | Link to the sense | [fetchOneSense:100](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L100) | Sets `word_lookup_media.media_id`. |
 | Tables | [V7](../../../backend/src/main/resources/db/migration/V7__create_word_lookup_media.sql), [V8](../../../backend/src/main/resources/db/migration/V8__add_media_status.sql) | `word_lookup_media (word_lookup_id, sense_position, media_id, media_status)`. A deleted word deletes its rows. Bundled words use `dictionary_sense.media_id` and `media_status` instead. |
 | Read for the answer | [SenseMediaReader.forBackendWords:26](../../../backend/src/main/java/com/englishtranslation/backend/media/SenseMediaReader.java#L26), [WordService.mediaOf:148](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L148) | Joins `word_lookup_media` to `media`. A read problem is logged and ignored. |
@@ -148,7 +148,7 @@ Env: `MEDIA_DIR` (folder), `MEDIA_BASE_URL` (public address), `PIXABAY_API_KEY` 
 
 ## 3. Admin: fix one sense (TASK-52) and remove media for real (TASK-76)
 
-In a word's detail, each sense has a media row with three icon buttons: **Pick another**, **No image** and **Mark for AI**. A sense is named by the word id and the position: `b-12:0` is the first sense of bundled word 12, `w-45:2` is the third sense of backend word 45. The screens are described in [Admin CMS](doc-14%20-%20Admin-CMS.md), the login and rules in [Admin API](doc-13%20-%20Admin-API.md).
+In a word's detail, each sense has a media row with four icon buttons: **Pick another**, **No image**, **Mark for AI** and **Upload**. A sense is named by the word id and the position: `b-12:0` is the first sense of bundled word 12, `w-45:2` is the third sense of backend word 45. The screens are described in [Admin CMS](doc-14%20-%20Admin-CMS.md), the login and rules in [Admin API](doc-13%20-%20Admin-API.md).
 
 ```mermaid
 sequenceDiagram
@@ -174,18 +174,58 @@ sequenceDiagram
 
 | Button | Endpoint | File:line | What happens |
 |---|---|---|---|
-| (search) | `GET /api/admin/media/search?sense=b-12:0&q=` | [controller:33](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L33), [AdminMediaService.search:91](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L91) | Up to 6 results (usually 2 clips and the rest photos). With an empty `q`, it uses the sense's `image_query`, or the headword. The answer says which words it used. |
-| Pick another | `PUT /api/admin/words/{id}/senses/{n}/media` | [controller:51](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L51), [replace:114](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L114) | The result comes from the browser, so [checked:325](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L325) only accepts Pixabay https addresses. Then `MediaStore.save`, then the link. A sense that was "no image" gets `image_type = photo` again. |
-| No image | `DELETE .../media` | [controller:57](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L57), [clear:143](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L143) | `media_id` becomes null. For a bundled sense, `image_type = none` tells the pipeline not to fetch again. For a backend word the claim row stays, so the job does not fetch again. |
-| Mark for AI | `POST .../media/mark-for-ai` | [controller:62](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L62), [markForAi:198](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L198) | Sets `media_status = needs_ai`. The old picture stays until an AI image replaces it (TASK-53). Picking another picture clears the status. |
-| Remove all media | `DELETE /api/admin/words/{id}/media` | [controller:63](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L63), [removeAllMedia:163](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L163) | TASK-76. Every sense of the word (bundled or backend) loses its media in one transaction and gets `media_status = removed`. A bundled sense also gets `image_type = none`; a backend sense gets a claim row, so the background job never fills it. Then the unused files are deleted (next section). |
-| (list) | `GET /api/admin/media?status=needs_ai` | [controller:44](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L44), [listByStatus:216](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L216) | All marked senses, from both tables. Any other status is a 400. |
+| (search) | `GET /api/admin/media/search?sense=b-12:0&q=` | [controller:36](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L36), [AdminMediaService.search:104](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L104) | Up to 6 results (usually 2 clips and the rest photos). With an empty `q`, it uses the sense's `image_query`, or the headword. The answer says which words it used. |
+| Pick another | `PUT /api/admin/words/{id}/senses/{n}/media` | [controller:51](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L51), [replace:127](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L127) | The result comes from the browser, so [checked:130](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L130) only accepts Pixabay https addresses. Then `MediaStore.save`, then the link. A sense that was "no image" gets `image_type = photo` again. |
+| No image | `DELETE .../media` | [controller:57](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L57), [clear:208](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L208) | `media_id` becomes null. For a bundled sense, `image_type = none` tells the pipeline not to fetch again. For a backend word the claim row stays, so the job does not fetch again. |
+| Mark for AI | `POST .../media/mark-for-ai` | [controller:62](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L62), [markForAi:263](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L263) | Sets `media_status = needs_ai`. The old picture stays until an AI image replaces it (TASK-53). Picking another picture clears the status. |
+| Upload | `POST /api/admin/words/{id}/senses/{n}/media/upload` (multipart, part `file`) | [controller:76](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L76), [upload:160](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L160) | TASK-79. See the next section. The admin's own file becomes the media of the sense. Works with no Pixabay key. |
+| Remove all media | `DELETE /api/admin/words/{id}/media` | [controller:63](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L63), [removeAllMedia:228](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L228) | TASK-76. Every sense of the word (bundled or backend) loses its media in one transaction and gets `media_status = removed`. A bundled sense also gets `image_type = none`; a backend sense gets a claim row, so the background job never fills it. Then the unused files are deleted (next section). |
+| (list) | `GET /api/admin/media?status=needs_ai` | [controller:44](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L44), [listByStatus:281](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L281) | All marked senses, from both tables. Any other status is a 400. |
 
 Shared details:
 
 - **Search rate limit:** [MediaSearchRateLimiter:19-20](../../../backend/src/main/java/com/englishtranslation/backend/admin/MediaSearchRateLimiter.java#L19-L20) allows 30 searches in 5 minutes per admin, kept in memory (a restart clears it). One search is two Pixabay calls, and Pixabay allows 100 per minute for our whole key.
-- **Backend words without a claim row:** [ensureBackendRow:267](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L267) makes the `word_lookup_media` row when it is missing (the background job only makes rows for 3 senses).
+- **Backend words without a claim row:** [ensureBackendRow:241](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L241) makes the `word_lookup_media` row when it is missing (the background job only makes rows for 3 senses).
 - **Old files are deleted when nothing uses them (TASK-76).** See the flow below.
+
+### Upload your own file (TASK-79)
+
+Developer decision (2026-10-16, doc-7): the admin can upload their own file for a sense, for example a picture made in ChatGPT. It is a cheap way to fix a bad Pixabay picture, next to the paid AI images (TASK-53).
+
+```mermaid
+sequenceDiagram
+    participant Web as Admin web app
+    participant S as AdminMediaService
+    participant T as UploadedFileType
+    participant Store as MediaStore
+    participant FF as ffmpeg
+    participant DB as Postgres
+    participant C as MediaCleanup
+
+    Web->>S: POST .../media/upload (multipart file + X-Requested-With)
+    S->>S: sense exists? size under the limit?
+    S->>T: detect(bytes): photo, clip or null
+    T-->>S: null gives 400 unsupported_media
+    S->>Store: saveUpload(kind, bytes)
+    Store->>FF: toPhoto (320 px WebP) or toClip (3 s muted MP4)
+    FF-->>Store: file (cannot read it: 400, other failure: 502)
+    Store->>DB: media row: source upload, no author, no page
+    S->>DB: link to the sense, media_status = null
+    S->>C: deleteIfUnused(old media)
+    S-->>Web: the changed word
+```
+
+| Step | File:line | What happens |
+|---|---|---|
+| Type check | [UploadedFileType.detect:22](../../../backend/src/main/java/com/englishtranslation/backend/media/UploadedFileType.java#L22) | Reads the first bytes, not the name or the `Content-Type`. Photos: JPEG, PNG, WebP, GIF (first frame only), HEIC. Clips: MP4, MOV, WebM. Anything else (text, PDF, SVG) is refused. |
+| Size | [upload:160](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L160), [handleTooBig](../../../backend/src/main/java/com/englishtranslation/backend/common/ApiExceptionHandler.java#L39) | `spring.servlet.multipart.max-file-size` (env `UPLOAD_MAX_FILE_SIZE`, default 25 MB) and `max-request-size` (`UPLOAD_MAX_REQUEST_SIZE`, 26 MB). Tomcat refuses a bigger file and the handler answers 413; the service checks too. |
+| Convert and save | [MediaStore.saveUpload:60](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaStore.java#L60), [convertAndInsert:69](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaStore.java#L69) | The same code and rules as a Pixabay pick: a photo becomes a 320 px WebP, a clip the first 3 s, muted, 320 px wide. The name is `word_position_hash.webp|mp4`. The row has `source = 'upload'`, `license_note = 'Uploaded by the admin'`, and no `photographer`, `page_url` or `pixabay_id` (columns were already nullable; `source` is new, [V13](../../../backend/src/main/resources/db/migration/V13__add_media_source.sql)). The same bytes twice give the same file and row. |
+| Link | [upload:160](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L160) | Same as Pick another: the sense points to the new row, `media_status` is cleared (`needs_ai` and `removed`), a bundled sense with `image_type = none` becomes `photo` again, and the old file is deleted through `MediaCleanup` when no other sense uses it. |
+| CSRF | [JsonWritesOnlyFilter](../../../backend/src/main/java/com/englishtranslation/backend/admin/JsonWritesOnlyFilter.java#L48) | Admin writes must be JSON. The upload path may be `multipart/form-data`, but only with the header `X-Requested-With` (a form on another site cannot add it, and CORS refuses the preflight). The header is in the allowed CORS headers ([SecurityConfig](../../../backend/src/main/java/com/englishtranslation/backend/admin/SecurityConfig.java#L75)). |
+
+**The pipeline keeps an uploaded file.** An uploaded file is a normal `media` row linked from `dictionary_sense.media_id`. `uv run pipeline export` copies every linked file and writes its `image_url`, so the next app build contains it ([export.py:162](../../../pipeline/src/pipeline/export.py#L162) only skips `none` and `removed` senses; an upload sets the sense back to `photo` and clears `removed`). `link-media` does not touch a sense that already has `media_id` ([postgres.py:225](../../../pipeline/src/pipeline/postgres.py#L225)). Tested in `test_postgres.py`. `export` copies files from its `--media-dir` (default `data/media`), so rsync the server folder `/var/lib/saynata/media/` there first (see doc-11); a file missing there is listed as missing, as for any other media.
+
+Limit: only the 320 px WebP or the 3 s MP4 is kept. The original upload is not stored.
 
 ### Removing media for real (TASK-76)
 
@@ -213,10 +253,10 @@ sequenceDiagram
 
 | Step | File:line | What happens |
 |---|---|---|
-| Collect the old ids | [currentMediaId:189](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L189) | Read before the sense is changed. |
+| Collect the old ids | [currentMediaId:143](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L143) | Read before the sense is changed. |
 | Check and delete the row | [MediaCleanup.deleteOne:46](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaCleanup.java#L46) | One `delete from media ... and not exists (dictionary_sense) and not exists (word_lookup_media)`. Zero rows deleted means someone still uses it. |
 | Delete the file | [deleteFile:62](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaCleanup.java#L62) | `Files.deleteIfExists`. A missing file is logged. A path outside the media folder is refused. An I/O error is logged and does not fail the request. |
-| Same pick again | [replace:114](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L114) | The same Pixabay result gives the same file name and the same row (`MediaStore.save`), which is still linked, so it is kept. |
+| Same pick again | [replace:127](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L127) | The same Pixabay result gives the same file name and the same row (`MediaStore.save`), which is still linked, so it is kept. |
 | Job race | [fetchOneSense:116](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L116) | The job links its file only if the sense is not `removed`; otherwise it deletes the file it just made. |
 
 A removed sense is not filled again:
@@ -259,6 +299,10 @@ Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTes
 | Pixabay does not answer | Admin search | 502 "Pixabay did not answer". |
 | More than 30 searches in 5 minutes | Admin search | 429 "Too many searches". |
 | Chosen file is not from Pixabay, or `kind` is wrong | Admin pick | 400, nothing is downloaded. |
+| Uploaded file is not a picture or clip (by magic bytes), or empty | Admin upload | 400 `unsupported_media` "That file is not a picture or a short video. Use JPEG, PNG, WebP, HEIC, GIF, MP4, MOV or WebM." Nothing is saved. |
+| Uploaded file looks right but ffmpeg cannot read it (broken file, HEIC without support) | Admin upload | 400 `unsupported_media` "That file could not be read. It may be broken. Try another one." The old media stays. |
+| Uploaded file is bigger than the limit (25 MB) | Admin upload | 413 `file_too_large` "That file is too big. The limit is 25 MB." |
+| ffmpeg is missing, takes more than 60 s, or the disk fails | Admin upload | 502 "Could not download or convert that file. Try another one." (the same message as Pick another). No file and no row are left. |
 | Sense does not exist | Admin | 404. |
 | Job queue is full (50 waiting) | `mediaExecutor` | Job dropped, the word has no picture. |
 | File missing in `/var/lib/saynata/media` | Caddy | 404 for the file. The app shows nothing for that sense. |
@@ -271,13 +315,17 @@ Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTes
 |---|---|
 | [BackendWordMediaServiceTest](../../../backend/src/test/java/com/englishtranslation/backend/media/BackendWordMediaServiceTest.java) | Noun gets a photo, verb gets a clip (photo fallback), other types skipped, a failure is not thrown and not retried, no leftover file after a failed conversion. |
 | [NoPixabayKeyTest](../../../backend/src/test/java/com/englishtranslation/backend/media/NoPixabayKeyTest.java) | Without a key, Pixabay is never called and nothing is claimed. |
+| [AdminMediaUploadTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaUploadTest.java) | TASK-79 (fake converter): 401 without login and without the ADMIN role, 415 without `X-Requested-With`, PNG for a bundled sense and MP4 for a backend sense, the type comes from the bytes (not the name), the media row (`source = upload`, no author), status cleared (`needs_ai`, `removed`), old file deleted or kept when another sense uses it, wrong type, empty, broken file (400), convert failure (502), over the limit (413), 404. |
+| [AdminMediaUploadFfmpegTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaUploadFfmpegTest.java) | TASK-79 with the real ffmpeg (skipped without it): a 1024 px PNG becomes a 320 px WebP, a 5 s MOV/MP4 becomes an MP4, a broken PNG is 400. |
+| [UploadedFileTypeTest](../../../backend/src/test/java/com/englishtranslation/backend/media/UploadedFileTypeTest.java), [TooBigUploadAnswerTest](../../../backend/src/test/java/com/englishtranslation/backend/common/TooBigUploadAnswerTest.java) | TASK-79: magic bytes of each type, text/PDF/SVG refused; Spring's own size limit becomes 413. |
 | [WordImageUrlTest](../../../backend/src/test/java/com/englishtranslation/backend/media/WordImageUrlTest.java) | `imageUrl` is absolute, the field is missing when there is no media, a new word is answered first. |
 | [FfmpegMediaConverterTest](../../../backend/src/test/java/com/englishtranslation/backend/media/FfmpegMediaConverterTest.java) | Big photo becomes a small WebP, video becomes a short MP4, bad input fails with a clear message. Needs ffmpeg on the machine. |
 | [HttpPixabayClientTest](../../../backend/src/test/java/com/englishtranslation/backend/media/HttpPixabayClientTest.java) | Only Pixabay hosts over https are accepted. A fake HTTP client: 429 then 200 succeeds (one 1 s pause), 429 three times gives `PixabayBusyException`, `Retry-After` is used, a `Retry-After` past the budget gives up at once, other errors are not tried again (TASK-63). |
 | [AdminMediaTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaTest.java) | Login and role, search (6 results, default words, rate limit, errors), pick, remove, mark for AI, list, 404. TASK-76: the file and row are deleted when unused and kept while another sense (bundled or backend) uses them, a missing file is fine, picking another deletes the old file, Remove all media for a bundled word and a backend word (also without a claim row), the background job does not fill a removed sense, only ADMIN may call it. |
 | [test_media_check.py](../../../pipeline/tests/test_media_check.py) | TASK-78: the Claude check with a fake client and a fake ffmpeg (see doc-6). |
 | [test_media.py](../../../pipeline/tests/test_media.py) | `needs_media`, file names, WebP resize, dry run, the pass with a fake fetcher. |
-| [test_postgres.py](../../../pipeline/tests/test_postgres.py) | TASK-76: `link-media` skips `none` and `removed` senses and makes no media row for them; `export` writes no `image_url` for them. Needs `TEST_DATABASE_URL`. |
+| [test_postgres.py](../../../pipeline/tests/test_postgres.py) | TASK-79: `export` keeps and copies an uploaded file, `link-media` does not replace it. TASK-76: `link-media` skips `none` and `removed` senses and makes no media row for them; `export` writes no `image_url` for them. Needs `TEST_DATABASE_URL`. |
+| [mediaUpload.test.tsx](../../../admin/src/test/mediaUpload.test.tsx) | TASK-79: the Upload button is icon only and opens the picker, FormData is sent with the header, spinner while uploading, backend error and 413 text, drop and the dashed outline, the caption "Uploaded by the admin" in the row and the viewer. |
 | [mediaRow.test.tsx](../../../admin/src/test/mediaRow.test.tsx) | The admin buttons and the Pick another panel, the full-size viewer (TASK-77). |
 | [wordRows.test.tsx](../../../admin/src/test/wordRows.test.tsx) | Thumbnails, hover to play, Remove all media (TASK-76, TASK-77). |
 
@@ -287,6 +335,7 @@ Run: `cd backend && ./mvnw -B test`, `cd pipeline && uv run pytest`, `cd admin &
 
 - Change the picture size, quality or clip length: [FfmpegMediaConverter](../../../backend/src/main/java/com/englishtranslation/backend/media/FfmpegMediaConverter.java) **and** `resize_and_save_webp` / `transcode_and_save_mp4` in the pipeline. Keep both the same.
 - Change the file name rule: `MediaStore.save`, the pipeline file name, `link_media`, and the Caddy cache note (a name must change when the content changes).
+- Change the accepted upload types: [UploadedFileType](../../../backend/src/main/java/com/englishtranslation/backend/media/UploadedFileType.java#L22) (and the message in `AdminMediaService.UNSUPPORTED_MESSAGE`).
 - Add a new media `kind`: `kindFor`, `MediaStore`, `SenseMedia`, the admin `checked`, the iOS source type.
 - Change `MEDIA_BASE_URL` or the folder: [doc-11](../guides/doc-11%20-%20Deploy-to-a-VPS.md), `docker-compose.prod.yml` and the Caddyfile together.
 - Change Pixabay limits: `HttpPixabayClient` (backend), `_wait_for_rate_limit` (pipeline), `MediaSearchRateLimiter` (admin).
