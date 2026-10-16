@@ -1,7 +1,9 @@
 import { Play } from "lucide-react";
-import { useEffect, useRef } from "react";
-import type { Example, ExampleLevel, Sense, UsageLine, WordEntry, WordItem } from "@/api/types";
+import { useEffect, useRef, type ReactNode } from "react";
+import type { Example, ExampleLevel, Sense, SenseMedia, UsageLine, WordEntry, WordItem } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { cn } from "@/lib/utils";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/EntryEditor";
 import { MediaRow } from "@/components/MediaRow";
@@ -108,24 +110,73 @@ function HoverClip({ url }: { url: string }) {
   );
 }
 
-// The small picture of a list row (about 56x42): the photo of the first sense, a play icon for a clip (it plays on
-// hover), or a quiet dash when the word has no media. Photos load lazily, so a long list stays light.
-function Thumb({ word, hovered }: { word: WordItem; hovered: boolean }) {
+const SOURCE_NAMES = { pixabay: "Pixabay", ai: "AI", upload: "Upload" } as const;
+
+// The caption of the big preview: word, sense number, where the file came from, and the review state when it matters.
+function previewCaption(word: WordItem, media: SenseMedia): string {
+  const parts = [word.word, "sense 1", SOURCE_NAMES[media.source ?? "pixabay"]];
+  const state = word.mediaReview?.[0]?.state;
+  if (state === "wrong") parts.push("Wrong picture");
+  else if (state === "to_review") parts.push("Needs review");
+  return parts.join(" \u00b7 ");
+}
+
+// The big picture that opens ~300 ms after the mouse rests on a thumbnail (list rows and grid cards, TASK-81).
+// A clip plays here, muted and looped. The card is only in the page while it is open, so one clip loads at most.
+// It slides and flips to stay inside the window. A finger never opens it.
+function PreviewCard({ word, media, children }: { word: WordItem; media: SenseMedia; children: ReactNode }) {
+  return (
+    <HoverCard openDelay={300} closeDelay={100}>
+      <HoverCardTrigger asChild>{children}</HoverCardTrigger>
+      <HoverCardContent side="right" className="w-auto max-w-[min(340px,90vw)] space-y-2">
+        {media.kind === "clip" ? (
+          <video
+            src={media.url}
+            aria-label={`${word.word} clip preview`}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="max-h-[300px] w-full rounded-md bg-muted object-contain"
+          />
+        ) : (
+          <img src={media.url} alt={`${word.word} preview`} className="max-h-[300px] w-full rounded-md bg-muted object-contain" />
+        )}
+        <p className="text-xs text-muted-foreground">{previewCaption(word, media)}</p>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
+// The picture of a list row (about 56x42) or a grid card (4:3, full card width): the photo of the first sense, a play
+// icon for a clip, or a quiet dash when the word has no media. Photos load lazily, so a long list stays light.
+// In the list, a clip also plays inside the thumbnail while the mouse is over the row.
+function Thumb({ word, hovered, variant }: { word: WordItem; hovered: boolean; variant: "row" | "card" }) {
   const media = word.media?.[0];
-  const box = "relative flex h-[42px] w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground";
+  const card = variant === "card";
+  const box = cn(
+    "relative flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground",
+    card ? "aspect-[4/3] w-full" : "h-[42px] w-14",
+  );
   if (media?.kind === "photo") {
     return (
-      <span className={box}>
-        <img src={media.url} alt={`${word.word} photo`} loading="lazy" className="h-full w-full object-cover" />
-      </span>
+      <PreviewCard word={word} media={media}>
+        <span className={box}>
+          <img src={media.url} alt={`${word.word} photo`} loading="lazy" className="h-full w-full object-cover" />
+        </span>
+      </PreviewCard>
     );
   }
   if (media?.kind === "clip") {
     return (
-      <span className={box} role="img" aria-label={`${word.word} clip`}>
-        <Play className="h-4 w-4" aria-hidden />
-        {hovered && <HoverClip url={media.url} />}
-      </span>
+      <PreviewCard word={word} media={media}>
+        <span className={box} role="img" aria-label={`${word.word} clip`}>
+          {/* In a card the first frame is the picture; the play icon sits on top of it. */}
+          {card && <video src={media.url} preload="metadata" muted playsInline aria-hidden className="h-full w-full object-cover" />}
+          <Play className={card ? "absolute h-6 w-6 rounded-full bg-black/60 p-1 text-white" : "h-4 w-4"} aria-hidden />
+          {!card && hovered && <HoverClip url={media.url} />}
+        </span>
+      </PreviewCard>
     );
   }
   return (
@@ -267,7 +318,7 @@ export function WordsPage() {
       chips={chips}
       itemTitle={(word) => word.word}
       itemSubtitle={(word) => word.entry.senses[0]?.vietnamese ?? ""}
-      itemThumb={(word, hovered) => <Thumb word={word} hovered={hovered} />}
+      itemThumb={(word, hovered, variant) => <Thumb word={word} hovered={hovered} variant={variant} />}
       hasMedia={(word) => !!word.media?.some(Boolean)}
       itemBadges={(word) => (
         <>

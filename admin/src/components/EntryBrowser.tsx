@@ -1,8 +1,9 @@
 import { useApiUrl, useCustomMutation, useDelete, useInfiniteList, useInvalidate, useUpdate, type CrudFilter } from "@refinedev/core";
-import { Loader2, Search } from "lucide-react";
+import { LayoutGrid, List, Loader2, Search } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Sheet } from "@/components/ui/sheet";
 import { EntryActions } from "@/components/EntryActions";
 import { EntryEditor } from "@/components/EntryEditor";
 import { FieldTable, type FieldRow } from "@/components/FieldTable";
@@ -35,7 +36,9 @@ interface Props<T extends Item, E> {
   itemSubtitle: (item: T) => string;
   // A small picture on the left of the row (words list). Without it the row is two lines of text.
   // hovered is true while the mouse is over the row (a mouse, not a finger): the words list plays a clip then.
-  itemThumb?: (item: T, hovered: boolean) => ReactNode;
+  // variant is "row" in the list and "card" in the grid (a bigger picture, TASK-81).
+  // When this is set, the header also gets the list/grid toggle.
+  itemThumb?: (item: T, hovered: boolean, variant: "row" | "card") => ReactNode;
   itemBadges?: (item: T) => ReactNode;
   // Words only (TASK-76): when set, the header gets a Remove all media button. It is disabled when this says false.
   hasMedia?: (item: T) => boolean;
@@ -43,6 +46,18 @@ interface Props<T extends Item, E> {
   // The JSON the backend stores for this item: what the editor changes and PUT sends.
   editableEntry: (item: T) => E;
   renderForm: (draft: E, setDraft: (next: E) => void, item: T) => ReactNode;
+}
+
+// The list/grid choice is remembered in the browser. Storage can be blocked (private window): then the list is used.
+export type ViewMode = "list" | "grid";
+export const viewKey = (resource: string) => `admin.${resource}.view`;
+
+function readView(resource: string): ViewMode {
+  try {
+    return localStorage.getItem(viewKey(resource)) === "grid" ? "grid" : "list";
+  } catch {
+    return "list";
+  }
 }
 
 // Layout A: list with search and chips on the left, the selected entry as a table on the right.
@@ -58,6 +73,7 @@ export function EntryBrowser<T extends Item, E>({
   editableEntry,
   renderForm,
 }: Props<T, E>) {
+  const [view, setView] = useState<ViewMode>(() => readView(resource));
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [activeChips, setActiveChips] = useState<string[]>([]);
@@ -126,6 +142,7 @@ export function EntryBrowser<T extends Item, E>({
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, loaded.length, fetchNextPage]);
 
+  const grid = view === "grid" && !!itemThumb;
   const selected = items.find((item) => item.id === selectedId);
 
   const apiUrl = useApiUrl();
@@ -165,6 +182,15 @@ export function EntryBrowser<T extends Item, E>({
       () => setEditing(false),
     );
 
+  function chooseView(next: ViewMode) {
+    setView(next);
+    try {
+      localStorage.setItem(viewKey(resource), next);
+    } catch {
+      // not saved; the choice still works until the page is closed
+    }
+  }
+
   function toggleChip(chip: Chip) {
     setActiveChips((current) => {
       if (current.includes(chip.id)) return current.filter((id) => id !== chip.id);
@@ -176,20 +202,79 @@ export function EntryBrowser<T extends Item, E>({
     listRef.current?.scrollTo?.({ top: 0 });
   }
 
-  return (
-    <div className="grid h-full grid-cols-[minmax(280px,380px)_1fr]">
-      <section aria-label="List" className="flex min-h-0 flex-col border-r border-border">
-        <div className="space-y-3 border-b border-border p-4">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              aria-label="Search"
-              placeholder="Search"
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+  const entryPane = (
+    <>
+      {!selected ? (
+        <p className="text-sm text-muted-foreground">Pick an entry from the list.</p>
+      ) : editing ? (
+        <EntryEditor
+          key={String(selected.id)}
+          initial={editableEntry(selected)}
+          renderForm={(draft, setDraft) => renderForm(draft, setDraft, selected)}
+          onSave={save}
+          onCancel={() => setEditing(false)}
+          error={actionError}
+        />
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <h2 className="text-2xl font-semibold">{itemTitle(selected)}</h2>
+            <EntryActions
+              busy={busy}
+              error={actionError}
+              onMarkReviewed={markReviewed}
+              onEdit={() => setEditing(true)}
+              onRegenerate={regenerate}
+              removeMedia={hasMedia ? { word: itemTitle(selected), hasMedia: hasMedia(selected), onConfirm: removeMedia } : undefined}
             />
+          </div>
+          <FieldTable rows={detailRows(selected)} />
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <div className={cn("grid h-full", grid ? "grid-cols-1" : "grid-cols-[minmax(280px,380px)_1fr]")}>
+      <section aria-label="List" className={cn("flex min-h-0 flex-col", !grid && "border-r border-border")}>
+        <div className="space-y-3 border-b border-border p-4">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                aria-label="Search"
+                placeholder="Search"
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            {itemThumb && (
+              <div role="group" aria-label="View" className="flex shrink-0 overflow-hidden rounded-md border border-border">
+                {(
+                  [
+                    ["list", "List view", List],
+                    ["grid", "Grid view", LayoutGrid],
+                  ] as const
+                ).map(([mode, label, Icon]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-label={label}
+                    title={label}
+                    aria-pressed={view === mode}
+                    onClick={() => chooseView(mode)}
+                    className={cn(
+                      "inline-flex h-10 w-10 items-center justify-center",
+                      view === mode ? "bg-accent text-accent-foreground" : "bg-card text-muted-foreground hover:bg-muted",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filters">
             {chips.map((chip) => (
@@ -208,11 +293,18 @@ export function EntryBrowser<T extends Item, E>({
           </div>
         </div>
 
-        <ul ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
-          {listQuery.isLoading && <li className="p-4 text-sm text-muted-foreground">Loading...</li>}
-          {listQuery.isError && <li className="p-4 text-sm text-destructive">Could not load the list.</li>}
+        <ul
+          ref={listRef}
+          aria-label={grid ? "Grid" : undefined}
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto",
+            grid && "grid content-start gap-3 p-4 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]",
+          )}
+        >
+          {listQuery.isLoading && <li className="col-span-full p-4 text-sm text-muted-foreground">Loading...</li>}
+          {listQuery.isError && <li className="col-span-full p-4 text-sm text-destructive">Could not load the list.</li>}
           {!listQuery.isLoading && !listQuery.isError && items.length === 0 && (
-            <li className="p-4 text-sm text-muted-foreground">Nothing found.</li>
+            <li className="col-span-full p-4 text-sm text-muted-foreground">Nothing found.</li>
           )}
           {items.map((item) => (
             <li key={item.id}>
@@ -226,27 +318,45 @@ export function EntryBrowser<T extends Item, E>({
                   setEditing(false);
                   setActionError(undefined);
                 }}
-                className={cn(
-                  "block w-full border-b border-border px-4 py-3 text-left hover:bg-muted",
-                  item.id === selectedId && "bg-muted",
-                )}
+                className={
+                  grid
+                    ? cn(
+                        "block h-full w-full space-y-2 rounded-lg border border-border bg-card p-2 text-left hover:bg-muted",
+                        item.id === selectedId && "outline outline-2 outline-primary",
+                      )
+                    : cn("block w-full border-b border-border px-4 py-3 text-left hover:bg-muted", item.id === selectedId && "bg-muted")
+                }
               >
-                <div className="flex items-center gap-3">
-                  {itemThumb?.(item, hoveredId === item.id)}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">{itemTitle(item)}</span>
-                      {item.needsReview && <Badge variant="warning">Needs review</Badge>}
-                      {itemBadges?.(item)}
+                {grid ? (
+                  <>
+                    {itemThumb?.(item, hoveredId === item.id, "card")}
+                    <div className="min-w-0 space-y-1 px-1 pb-1">
+                      <span className="block truncate font-semibold">{itemTitle(item)}</span>
+                      <p className="line-clamp-1 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {item.needsReview && <Badge variant="warning">Needs review</Badge>}
+                        {itemBadges?.(item)}
+                      </div>
                     </div>
-                    <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    {itemThumb?.(item, hoveredId === item.id, "row")}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold">{itemTitle(item)}</span>
+                        {item.needsReview && <Badge variant="warning">Needs review</Badge>}
+                        {itemBadges?.(item)}
+                      </div>
+                      <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
+                    </div>
                   </div>
-                </div>
+                )}
               </button>
             </li>
           ))}
           {hasNextPage && (
-            <li ref={sentinelRef} className="flex justify-center p-3" aria-hidden={!isFetchingNextPage}>
+            <li ref={sentinelRef} className="col-span-full flex justify-center p-3" aria-hidden={!isFetchingNextPage}>
               {isFetchingNextPage && <Loader2 role="status" aria-label="Loading more" className="h-4 w-4 animate-spin text-muted-foreground" />}
             </li>
           )}
@@ -259,35 +369,16 @@ export function EntryBrowser<T extends Item, E>({
         </div>
       </section>
 
-      <section aria-label="Entry" className="min-h-0 overflow-y-auto p-6">
-        {!selected ? (
-          <p className="text-sm text-muted-foreground">Pick an entry from the list.</p>
-        ) : editing ? (
-          <EntryEditor
-            key={String(selected.id)}
-            initial={editableEntry(selected)}
-            renderForm={(draft, setDraft) => renderForm(draft, setDraft, selected)}
-            onSave={save}
-            onCancel={() => setEditing(false)}
-            error={actionError}
-          />
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <h2 className="text-2xl font-semibold">{itemTitle(selected)}</h2>
-              <EntryActions
-                busy={busy}
-                error={actionError}
-                onMarkReviewed={markReviewed}
-                onEdit={() => setEditing(true)}
-                onRegenerate={regenerate}
-                removeMedia={hasMedia ? { word: itemTitle(selected), hasMedia: hasMedia(selected), onConfirm: removeMedia } : undefined}
-              />
-            </div>
-            <FieldTable rows={detailRows(selected)} />
-          </div>
-        )}
-      </section>
+      {grid ? (
+        // The grid takes the whole width: the entry opens in a drawer on the right.
+        <Sheet open={!!selected} onClose={() => setSelectedId(undefined)} title="Entry details">
+          <section aria-label="Entry">{entryPane}</section>
+        </Sheet>
+      ) : (
+        <section aria-label="Entry" className="min-h-0 overflow-y-auto p-6">
+          {entryPane}
+        </section>
+      )}
     </div>
   );
 }
