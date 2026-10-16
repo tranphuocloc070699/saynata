@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-16 09:00'
-updated_date: '2026-10-16 10:55'
+updated_date: '2026-10-16 11:04'
 labels:
   - extension
 dependencies:
@@ -54,4 +54,6 @@ Checked in the in-app browser with a harness page that loads dist/content.js and
 PR: https://github.com/tranphuocloc070699/saynata/pull/91 (into feature/f7-browser-extension; merge order #90, #91, #92, #93).
 
 Fix after the developer's Brave test (the card moved when the Vietnamese row opened): the card used to be placed again on every render and flipped above when it grew. Now placeCard runs once at open (side, left, max height) and the top is frozen once the answer is complete. Checked in the harness with a selection near the bottom: the row opens downward, the card does not move. 97 tests.
+
+Pictures option A and open-word with Back (developer's picks after the Brave test). Checked in the harness with real api.loffy.me data: bank (2 pictures), run (a clip), a strict-CSP page where the clip is blocked and the extension-page fallback plays it, open bank from a sentence and Back. 109 tests.
 <!-- SECTION:NOTES:END -->

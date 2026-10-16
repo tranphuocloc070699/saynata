@@ -67,6 +67,8 @@ function manifest() {
     },
     background: { service_worker: "background.js", type: "module" },
     content_scripts: [{ matches: ["<all_urls>"], js: ["content.js"], run_at: "document_idle" }],
+    // The card shows a picture in this page when the site's CSP blocks our server (src/content/media.ts).
+    web_accessible_resources: [{ resources: ["media.html", "media.js"], matches: ["<all_urls>"] }],
     permissions: ["contextMenus", "storage", "activeTab", "scripting"],
     host_permissions: [`${origin}/*`],
     commands: {

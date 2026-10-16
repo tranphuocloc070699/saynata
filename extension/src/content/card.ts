@@ -6,6 +6,7 @@
 import type { ApiErrorKind, Sense, TranslationResponse, WordResponse } from "../shared/api";
 import { languageName, type LanguageCode } from "../shared/languages";
 import type { ExplainEvent } from "../shared/messages";
+import { wordQuery } from "../shared/textKind";
 import { ICONS } from "./icons";
 
 export type ErrorKind = ApiErrorKind | "tooLong" | "empty";
@@ -25,6 +26,14 @@ export interface CardState {
   rowOpen: boolean;
   speaking: boolean;
   copied: boolean;
+  /** A word opened from the sentence card's Words list; the sentence answer stays for Back. */
+  opened?: OpenedWord;
+}
+
+export interface OpenedWord {
+  word: string;
+  response?: WordResponse;
+  error?: { kind: ErrorKind; message: string };
 }
 
 export interface CardActions {
@@ -35,6 +44,12 @@ export interface CardActions {
   retry(): void;
   /** Missing until sign-in exists; then the guest card shows a sign-in button. */
   signIn?(): void;
+  /** Opens one word of the sentence card's Words list as a word card. */
+  openWord?(word: string): void;
+  /** Back from an opened word to the sentence card. */
+  back?(): void;
+  /** The picture or clip frame for a sense's imageUrl (kept between renders), or null. */
+  media?(url: string): HTMLElement | null;
 }
 
 export function initialState(
@@ -67,6 +82,27 @@ export function applyEvent(state: CardState, event: ExplainEvent): CardState {
     case "error":
       return { ...state, phase: "error", error: { kind: event.kind, message: event.message } };
   }
+}
+
+/** Applies a service-worker event to the opened word (its own request). */
+export function applyOpenedEvent(state: CardState, event: ExplainEvent): CardState {
+  if (!state.opened) return state;
+  if (event.type === "word") return { ...state, opened: { ...state.opened, response: event.response, error: undefined } };
+  if (event.type === "error") return { ...state, opened: { ...state.opened, error: { kind: event.kind, message: event.message } } };
+  return state;
+}
+
+/** The opened word drawn as its own word card, with the sentence card's language, row and speech state. */
+function openedView(state: CardState, opened: OpenedWord): CardState {
+  return {
+    ...state,
+    kind: "word",
+    text: opened.word,
+    word: opened.response,
+    phase: opened.error ? "error" : opened.response ? "done" : "loading",
+    error: opened.error,
+    opened: undefined,
+  };
 }
 
 /** Short word type for the chip: "adjective" is "adj". */
@@ -116,9 +152,14 @@ function svgNode(icon: string): Node {
 }
 
 export function renderCard(state: CardState, actions: CardActions): HTMLElement {
+  if (state.opened) return renderView(openedView(state, state.opened), actions, true);
+  return renderView(state, actions, false);
+}
+
+function renderView(state: CardState, actions: CardActions, canGoBack: boolean): HTMLElement {
   const label = state.kind === "word" ? `Saynata: ${state.text}` : "Saynata explanation";
   const card = h("div", { class: "card", role: "dialog", "aria-label": label });
-  card.append(header(state, actions));
+  card.append(header(state, actions, canGoBack));
   if (state.phase === "error" && state.error) {
     card.append(errorBlock(state.error, actions));
   } else if (state.kind === "sentence") {
@@ -129,7 +170,7 @@ export function renderCard(state: CardState, actions: CardActions): HTMLElement 
   return card;
 }
 
-function header(state: CardState, actions: CardActions): HTMLElement {
+function header(state: CardState, actions: CardActions, canGoBack = false): HTMLElement {
   const speakText = state.kind === "word" ? state.word?.word ?? state.text : state.text;
   const listen = iconButton(
     state.speaking ? ICONS.stop : ICONS.speaker,
@@ -141,7 +182,8 @@ function header(state: CardState, actions: CardActions): HTMLElement {
   if (state.kind === "word") {
     const ipa = state.word?.ipa;
     const title = h("div", { class: "title" }, h("span", { class: "headword" }, state.word?.word ?? state.text), ipa ? h("span", { class: "ipa" }, ipa) : null);
-    return h("div", { class: "head" }, title, h("div", { class: "actions" }, listen, close));
+    const back = canGoBack && actions.back ? iconButton(ICONS.back, "Back", () => actions.back?.()) : null;
+    return h("div", { class: "head" }, back, title, h("div", { class: "actions" }, listen, close));
   }
   const copy = iconButton(state.copied ? ICONS.check : ICONS.copy, state.copied ? "Copied" : "Copy", () => actions.copy(state.text));
   const title = h("div", { class: "title" }, h("div", { class: "quote" }, `“${state.text}”`));
@@ -165,14 +207,21 @@ function sentenceBody(state: CardState, actions: CardActions): HTMLElement[] {
 
   const words = state.sentence?.explanation.words ?? [];
   if (words.length > 0) {
-    const rows = words.map((word) =>
-      h(
+    const rows = words.map((word) => {
+      // Only a single word has a word card (GET /api/words/{word}); a phrase like "went ahead" has none.
+      const single = wordQuery(word.word);
+      const open =
+        single && actions.openWord
+          ? iconButton(ICONS.chevronRight, `Open ${single}`, () => actions.openWord?.(single), "small")
+          : null;
+      return h(
         "div",
         { class: "word-row" },
-        h("span", {}, h("b", {}, word.word), h("span", { class: "gloss" }, ` — ${word.meaning}`)),
+        h("span", { class: "word-text" }, h("b", {}, word.word), h("span", { class: "gloss" }, ` — ${word.meaning}`)),
         word.partOfSpeech ? h("span", { class: "chip" }, shortPos(word.partOfSpeech)) : null,
-      ),
-    );
+        open,
+      );
+    });
     parts.push(h("div", { class: "section" }, h("div", { class: "label", style: "margin-bottom: 4px" }, "Words"), ...rows));
   }
 
@@ -199,8 +248,12 @@ function wordBody(state: CardState, actions: CardActions): HTMLElement[] {
         h("span", { class: "chip" }, chipText(sense)),
       ),
     );
+    const indent = senses.length > 1 ? "" : "padding-left: 14px";
+    // Option A (doc-7 10-16): the picture or clip under the meaning, like the iOS word card.
+    const media = sense.imageUrl ? actions.media?.(sense.imageUrl) : null;
+    if (media) parts.push(h("div", { class: "media-row", style: indent }, media));
     const example = sense.examples?.[0]?.text;
-    if (example) parts.push(h("div", { class: "example", style: senses.length > 1 ? "" : "padding-left: 14px" }, example));
+    if (example) parts.push(h("div", { class: "example", style: indent }, example));
   });
   // The dictionary only has Vietnamese for a word; other languages have no row yet (doc-19 known gaps).
   if (state.targetLang === "vi") {
