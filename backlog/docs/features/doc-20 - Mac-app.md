@@ -3,7 +3,7 @@ id: doc-20
 title: Mac app
 type: guide
 created_date: '2026-10-16 09:43'
-updated_date: '2026-10-16 10:39'
+updated_date: '2026-10-16 11:01'
 ---
 # Mac app
 
@@ -36,18 +36,29 @@ flowchart LR
 
 | Step | File | What happens |
 |---|---|---|
-| Start | [AppDelegate.swift:32](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L32) | Makes the status item and a transient, light-mode popover that hosts `MenuBarContentView` with the store, the speech player, the account and `MenuBarFocus` |
-| Shortcut | [AppDelegate.swift:55](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L55) | [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) (MIT, 2.4) calls `toggleFromShortcut` on key up (opens the panel, or closes what is open). The name and default ⌥⇧Space are in [MacSettingsSections.swift](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift); Settings > Shortcut has the recorder, and the package saves the choice in UserDefaults. It uses Carbon hot keys, so no Accessibility permission |
-| Click | [AppDelegate.swift:110](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L110) | A click on the icon opens the popover under it. If the icon cannot really be seen ([`isStatusItemVisible`](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L147): no window, covered, or behind the notch between `auxiliaryTopLeftArea` and `auxiliaryTopRightArea`), the panel opens instead |
-| Popover | [AppDelegate.swift:129](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L129) | Activates the app (a menu-bar app is never active), shows the popover under the icon, makes it key and asks for focus |
-| Panel | [AppDelegate.swift:139](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L139), [FloatingPanel.swift](../../../EnglishTranslation/SaynataMac/FloatingPanel.swift) | The shortcut, the Services item and a hidden icon open a Spotlight-style panel: the same view, 420 × 560 pt, centred on the screen with the mouse, a sixth of the way down. Non-activating (the other app stays in front) but it takes the keyboard. Esc or a click outside closes it; an open sheet keeps it open |
+| Start | [AppDelegate.swift:33](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L33) | Makes the status item and a transient, light-mode popover that hosts `MenuBarContentView` with the store, the speech player, the account and `MenuBarFocus` |
+| Shortcut | [AppDelegate.swift:58](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L58) | [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) (MIT, 2.4) calls [`toggleFromShortcut`](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L132) on key up (opens the panel, or closes what is open). Text copied in the last 20 seconds is explained at once (see "Books" below). The name and default ⌥⇧Space are in [MacSettingsSections.swift](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift); Settings > Shortcut has the recorder, and the package saves the choice in UserDefaults. It uses Carbon hot keys, so no Accessibility permission |
+| Click | [AppDelegate.swift:120](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L120) | A click on the icon opens the popover under it. If the icon cannot really be seen ([`isStatusItemVisible`](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L162): no window, covered, or behind the notch between `auxiliaryTopLeftArea` and `auxiliaryTopRightArea`), the panel opens instead |
+| Popover | [AppDelegate.swift:144](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L144) | Activates the app (a menu-bar app is never active), shows the popover under the icon, makes it key and asks for focus |
+| Panel | [AppDelegate.swift:154](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L154), [FloatingPanel.swift](../../../EnglishTranslation/SaynataMac/FloatingPanel.swift) | The shortcut, the Services item and a hidden icon open a Spotlight-style panel: the same view, 420 × 560 pt, centred on the screen with the mouse, a sixth of the way down. Non-activating (the other app stays in front) but it takes the keyboard. Esc or a click outside closes it; an open sheet keeps it open |
 | Focus | [MenuBarContentView.swift:13](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L13) | Watches `MenuBarFocus.request` and puts the cursor in the box |
 | Explain | [MenuBarContentView.swift:115](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L115) | Return or the arrow button runs `TranslationStore.translate()`, the same code as iOS |
 | Result | [MenuBarContentView.swift:34](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L34) | `TranslateResultView`: word card or sentence cards, speakers, folded target language |
 | Sign in | [MenuBarContentView.swift:52](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L52) | `sign_in_required` opens the shared `SignInSheet` as a sheet on the popover. On the Mac it has a Close button (Esc) |
-| Services | [AppDelegate.swift:173](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L173) | `NSServices` in [Info.plist](../../../EnglishTranslation/SaynataMac/Info.plist) declares "Explain with Saynata" for plain text; `NSApp.servicesProvider = self` at start. macOS calls `explainSelection` with the selected text on a pasteboard, which calls `explain(_:)`. No Accessibility permission |
+| Services | [AppDelegate.swift:188](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L188) | `NSServices` in [Info.plist](../../../EnglishTranslation/SaynataMac/Info.plist) declares "Explain with Saynata" for plain text; `NSApp.servicesProvider = self` at start. macOS calls `explainSelection` with the selected text on a pasteboard, which calls `explain(_:)`. No Accessibility permission |
 | Login | [MacSettingsSections.swift:52](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift#L52) | Settings → Start → Open at login: `SMAppService.mainApp.register()` / `unregister()`. If macOS wants approval, the footer says where |
-| Close | [AppDelegate.swift:160](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L160) | A click outside or Esc closes the popover; speech stops |
+| Close | [AppDelegate.swift:175](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L175) | A click outside or Esc closes the popover; speech stops |
+
+## Books and other apps without Services
+
+macOS has **no "default translation app" setting**: Apple's `TranslationUIProvider` (what the iPhone's `TranslationExtension` uses) is `@available(macOS, unavailable)` in the SDK, so the Mac's Translate menu item always opens Apple's own translator.
+
+Apple's Books guide lists no Services item in the right-click menu on a selection (only highlights, underline and notes; not checked on this Mac). Two ways that work without permissions:
+
+1. **Select, ⌘C, ⌥⇧Space.** [CopiedTextWatcher.swift](../../../EnglishTranslation/SaynataMac/CopiedTextWatcher.swift) notes when the clipboard changes (it reads only the change count every half second). On the shortcut, a copy from the last 20 seconds is read once, cleaned by [CopiedText.swift](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedText.swift) (Books adds "Excerpt From … This material may be protected by copyright." and curly quotes), and explained. Saynata's own Copy button is ignored. Settings → Shortcut → **Explain copied text** turns it off.
+2. **Books menu → Services → Explain with Saynata** in the menu bar, when Books offers it for the selection.
+
+Reading the selection with no ⌘C would need Accessibility permission. Sandboxed apps cannot reliably get it (Apple forum reports), so it would mean turning off the sandbox. Not built.
 
 ## Sign-in and storage
 
@@ -60,7 +71,9 @@ The same as the iPhone app: `sign_in_required` opens the sign-in sheet, `rate_li
 
 ## Tests
 
-No Mac-only tests yet: all the logic is the shared code, tested by `EnglishTranslationTests` on iOS. For a quick look without clicking, a Debug build takes `-explain "<text>" -snapshot`: it opens the popover, explains the text and saves `saynata-popover.png` in the app's temp folder after 6 s.
+`CopiedTextTests` (iOS test target) covers the Books citation, one word, plain text and inner quotes.
+
+No Mac-only tests yet: all the logic is the shared code, tested by `EnglishTranslationTests` on iOS. For a quick look without clicking, a Debug build takes `-explain "<text>" -snapshot` (and `-pressShortcut`, which acts as a shortcut press after 3 s): it opens the popover, explains the text and saves `saynata-popover.png` in the app's temp folder after 6 s.
 
 ## Change checklist
 

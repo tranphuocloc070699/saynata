@@ -49,9 +49,13 @@ extension Image {
 }
 
 enum Pasteboard {
+    /// The clipboard's change count after Saynata's own Copy, so the Mac shortcut does not explain it (TASK-85).
+    private(set) static var ownChangeCount = -1
+
     static func copy(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+        ownChangeCount = NSPasteboard.general.changeCount
     }
 }
 

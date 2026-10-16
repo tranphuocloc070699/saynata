@@ -12,8 +12,12 @@ extension KeyboardShortcuts.Name {
     static let openSaynata = Self("openSaynata", default: .init(.space, modifiers: [.option, .shift]))
 }
 
+/// The UserDefaults key of "Explain copied text" (on by default). The app delegate reads it on each shortcut press.
+let explainsCopiedTextKey = "explainsCopiedText"
+
 /// The Mac-only part of Settings, shown after the shared sections.
 struct MacSettingsSections: View {
+    @AppStorage(explainsCopiedTextKey) private var explainsCopiedText = true
     /// Read from macOS each time Settings opens, so a change in System Settings > Login Items shows here too.
     @State private var opensAtLogin = SMAppService.mainApp.status != .notRegistered
     @State private var loginItemError: String?
@@ -23,10 +27,14 @@ struct MacSettingsSections: View {
             // The recorder's label is a row title, not a button label (CLAUDE.md "UI rule").
             KeyboardShortcuts.Recorder("Open Saynata", name: .openSaynata)
                 .frame(minHeight: Theme.minTapTarget)
+            Toggle("Explain copied text", isOn: $explainsCopiedText)
+                .toggleStyle(.switch)
+                .tint(Theme.Colors.accent)
+                .frame(minHeight: Theme.minTapTarget)
         } header: {
             Text("Shortcut")
         } footer: {
-            Text("Works in every app. Press it again or Esc to close.")
+            Text("Works in every app. In Books: select, press ⌘C, then the shortcut.")
         }
         .listRowBackground(Theme.Colors.surface)
 
