@@ -35,6 +35,7 @@ Since TASK-49.3 the **server Postgres** holds the bundled words, senses, forms a
 | `media.py` | The media pass: fetches & resizes Pixabay photos (320px WebP) and action loops (MP4) |
 | `postgres.py` | Connects to the server Postgres (`DATABASE_URL`) and imports `dictionary.sqlite` into it (one time, re-run safe) |
 | `topics.py` | Topic words (TASK-61): candidates from Open English WordNet + wordfreq, then a Claude Haiku judge (keep or drop, topic) |
+| `prefill.py` | Prefill queue (TASK-83.2): common words and WordNet phrases into the backend `prefill_item` table, no LLM |
 | `export.py` | Builds `dictionary.sqlite` + `dictionary.jsonl` + `media/` from Postgres (read-only). `export-local` is the old export from `data/pipeline.db` |
 
 ## Run
@@ -58,6 +59,10 @@ uv run pipeline topics candidates   # topic words (apple, giraffe, scarf) into t
 uv run pipeline topics judge --dry-run --limit 50   # 1 Haiku call (under $0.01), prints verdicts, saves nothing
 uv run pipeline topics judge        # Haiku keeps or drops every candidate (~28 calls, under $0.10)
 uv run pipeline topics review       # apply the reviewed drop / move / keep lists in topics.py (no LLM)
+uv run pipeline prefill collect --source words --dry-run   # TASK-83.2: counts and a sample, writes nothing (no LLM)
+uv run pipeline prefill collect --source words    # queue common words for the backend night job (6,304 lemmas, answering them about $4.41)
+uv run pipeline prefill collect --source phrases  # queue phrasal verbs and idioms (2,714, about $0.54)
+uv run pipeline prefill report       # queue counts and the cost of the pending rows
 uv run pipeline topics promote      # kept topic words join the words table as pending (no LLM); then generate --limit 1000
 uv run pipeline topics report       # counts and samples per topic; `topics export-tsv` writes data/out/topic_words.tsv
 ```

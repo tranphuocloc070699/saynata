@@ -30,6 +30,10 @@
     uv run pipeline topics promote       # kept topic words join the words table as pending (no LLM), then generate
     uv run pipeline topics report        # counts and samples per topic
     uv run pipeline topics export-tsv    # data/out/topic_words.tsv for review
+    uv run pipeline prefill collect --source words --dry-run   # TASK-83.2: counts and a sample, writes nothing
+    uv run pipeline prefill collect --source words    # queue common words the backend night job will answer (no LLM)
+    uv run pipeline prefill collect --source phrases  # queue phrasal verbs and idioms (no LLM)
+    uv run pipeline prefill report       # queue counts by kind/status/source and the cost of the pending items
 """
 
 import argparse
@@ -329,6 +333,57 @@ def topic_words(args) -> None:
         print(f"Wrote {topics.export_tsv(db, path)} words to {path}")
 
 
+def prefill_command(args) -> None:
+    """Prefill queue (TASK-83.2): collect words or phrases into prefill_item, or report. See prefill.py."""
+    from pipeline import prefill
+
+    dry_run = args.prefill_command == "collect" and args.dry_run
+    # A dry run works without a database too (it then cannot say which items are already queued).
+    url = (args.database_url or os.environ.get("DATABASE_URL", "")).strip() if dry_run \
+        else postgres.database_url(args.database_url)
+    pg = postgres.connect(url, read_only=dry_run) if url else None
+    queue_ready = pg is not None and prefill.queue_exists(pg)
+    if pg is not None and not queue_ready:
+        message = "The table prefill_item does not exist yet: deploy the backend first (Flyway, TASK-83.1)."
+        if not dry_run:
+            raise SystemExit(message)
+        print(f"Warning: {message} Counting every item as new.")
+    if args.prefill_command == "report":
+        print("\n".join(prefill.report_lines(pg)))
+        pg.close()
+        return
+
+    if args.source == "words":
+        pipeline_db = sqlite3.connect(store.DB_PATH) if store.DB_PATH.is_file() else None
+        if pipeline_db is None:
+            print(f"Warning: {store.DB_PATH} not found, kept topic words are not excluded.")
+        bundled = prefill.bundled_from_files()
+        if pg is not None:
+            bundled |= prefill.bundled_from_postgres(pg)
+        topic_keep = prefill.kept_topic_words(pipeline_db)
+        print(f"Bundled words and forms: {len(bundled)}, kept topic words: {len(topic_keep)}")
+        items = prefill.collect_words(prefill.read_word_list("scowl-70.txt"), bundled | topic_keep, args.zipf)
+    else:
+        items = prefill.collect_phrases(prefill.wordnet_lemmas(prefill.load_wordnet()), args.zipf)
+    print(f"{len(items)} {args.source} found at Zipf >= {args.zipf}")
+
+    queued = prefill.queued_keys(pg) if queue_ready else set()
+    new_items = [i for i in items if (i.kind, i.text, i.target_lang) not in queued]
+    already_queued = len(items) - len(new_items)
+    if args.limit:
+        new_items = new_items[: args.limit]
+    print(f"{already_queued} already queued, {len(new_items)} to add{f' (limit {args.limit})' if args.limit else ''}")
+    for item in new_items[:15]:
+        print(f"  {item.priority:>4}  {item.text}")
+    if dry_run:
+        print("Dry run: nothing was written.")
+    else:
+        added = prefill.insert_items(pg, new_items)
+        print(f"Queued {added} new rows. Next: uv run pipeline prefill report")
+    if pg is not None:
+        pg.close()
+
+
 def report() -> None:
     db = store.connect()
     for row in db.execute("SELECT status, COUNT(*) AS n, SUM(attempts) AS calls FROM words GROUP BY status"):
@@ -435,7 +490,21 @@ def main() -> None:
     topics_commands.add_parser("promote", help="add the kept topic words to the words table for generate")
     topics_commands.add_parser("report")
     topics_commands.add_parser("export-tsv")
+    prefill_parser = commands.add_parser("prefill", help="queue words and phrases for the backend night job (no LLM)")
+    prefill_commands = prefill_parser.add_subparsers(dest="prefill_command", required=True)
+    collect_parser = prefill_commands.add_parser("collect", help="add common words or phrases to prefill_item")
+    collect_parser.add_argument("--source", required=True, choices=["words", "phrases"])
+    collect_parser.add_argument("--zipf", type=float, help="minimum wordfreq Zipf (default 3.5 words, 2.0 phrases)")
+    collect_parser.add_argument("--limit", type=int, help="queue only the N most frequent new items")
+    collect_parser.add_argument("--dry-run", action="store_true", help="print counts and a sample, write nothing")
+    collect_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    prefill_report_parser = prefill_commands.add_parser("report", help="queue counts and the cost of the pending items")
+    prefill_report_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     args = parser.parse_args()
+    if args.command == "prefill" and args.prefill_command == "collect" and args.zipf is None:
+        from pipeline import prefill
+
+        args.zipf = prefill.DEFAULT_WORD_ZIPF if args.source == "words" else prefill.DEFAULT_PHRASE_ZIPF
 
     if args.command == "preview":
         preview(args.word)
@@ -467,6 +536,8 @@ def main() -> None:
         export_from_postgres(args)
     elif args.command == "topics":
         topic_words(args)
+    elif args.command == "prefill":
+        prefill_command(args)
     elif args.command == "export-local":
         path, count, without_usage, without_levels = export.export_from_pipeline_db(store.connect())
         print(f"Exported {count} words to {path}")
