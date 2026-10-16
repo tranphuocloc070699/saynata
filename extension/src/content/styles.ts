@@ -46,8 +46,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @keyframes blink { 50% { opacity: 0; } }
 .message { display: flex; align-items: center; gap: 10px; }
 .message .text { flex: 1; }
-.message svg { color: var(--accent); width: 20px; height: 20px; flex: none; }
-.message.error svg { color: var(--error); }
+.message > svg { color: var(--accent); width: 20px; height: 20px; flex: none; }
+.message.error > svg { color: var(--error); }
 
 .section { padding: 0 14px 10px; }
 .word-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 6px 0;

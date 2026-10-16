@@ -3,7 +3,8 @@
  * item or the shortcut asks for it. Everything lives in a closed Shadow DOM, so page CSS and scripts cannot
  * reach it. Network calls happen in the service worker (EXPLAIN_PORT).
  */
-import { EXPLAIN_PORT, type ExplainEvent, type TabMessage } from "../shared/messages";
+import { SESSION_KEY } from "../shared/auth";
+import { EXPLAIN_PORT, type ExplainEvent, type RuntimeRequest, type TabMessage } from "../shared/messages";
 import { loadSettings, rowStartsOpen, saveSettings } from "../shared/settings";
 import { classify, cleanSelection } from "../shared/textKind";
 import { applyEvent, initialState, renderCard, type CardActions, type CardState } from "./card";
@@ -44,6 +45,9 @@ class SelectionPopover {
     document.addEventListener("keydown", (event) => this.onKeyDown(event), true);
     document.addEventListener("selectionchange", () => this.onSelectionChange());
     chrome.runtime.onMessage.addListener((message: TabMessage) => this.onTabMessage(message));
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes[SESSION_KEY]?.newValue) this.onSignedIn();
+    });
   }
 
   // Page events.
@@ -87,6 +91,11 @@ class SelectionPopover {
     const text = message.type === "explainText" ? message.text : (selection?.text ?? "");
     const rect = selection?.rect ?? centreRect();
     void this.openCard(text, rect);
+  }
+
+  /** After a sign-in, a card that asked for one runs the same text again (like the iOS sheet). */
+  private onSignedIn(): void {
+    if (this.state?.error?.kind === "signInRequired") this.actions.retry();
   }
 
   // The icon.
@@ -183,6 +192,9 @@ class SelectionPopover {
     toggleRow: (open) => {
       this.update({ rowOpen: open });
       void saveSettings(chrome.storage.sync, { lastRowOpen: open });
+    },
+    signIn: () => {
+      void chrome.runtime.sendMessage<RuntimeRequest>({ type: "openSignIn" });
     },
     retry: () => {
       if (!this.state) return;

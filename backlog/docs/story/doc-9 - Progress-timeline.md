@@ -3,7 +3,7 @@ id: doc-9
 title: Progress timeline
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 02:26'
+updated_date: '2026-10-16 09:52'
 ---
 # Progress timeline
 
@@ -26,6 +26,7 @@ A dated story of the project, for the video. Add a line at the end of each worki
 | 2026-10-15 (night) | Media removal made real (TASK-76): No image, Pick another and a new Remove all media button now delete the picture file when nothing else uses it, so the app stops showing it; removed senses are not filled again by the backend job or the pipeline. The admin list also plays a clip on hover and has a full-size viewer (TASK-77). |
 | 2026-10-16 | The admin can upload their own picture or clip for a sense (TASK-79): a new Upload button and drag and drop on the Media row, a server check of the real file type, the same small WebP or MP4 as Pixabay media, and the credit "Uploaded by the admin". The pipeline export keeps the file. | A cheap alternative to paid AI images for the pictures Claude marks as wrong. |
 | 2026-10-16 | AI pictures for the senses Claude marked wrong (TASK-53): the developer picked OpenAI GPT Image mini, and a new pipeline command `media-generate` makes a flat Sage-and-Teal picture per sense (about $0.0035 each, a $5 cap that is never passed), shows old and new side by side in a report, and links the new picture only after its file is on the server. The 20-picture trial (about $0.08) is the developer's to run. |
+| 2026-10-16 | A browser extension for Brave and Chrome (TASK-86): select English on any page, a small teal "S" appears (icon A from the mockup), and a card shows the simple English meaning as it streams, the words, and the Vietnamese row last and closed. Right-click and Alt+Shift+S work too. A settings popup has the language and Show translation, and sign-in uses the same email code as the app. No backend change: the service worker makes every call. | "Implement chrome extension, show popover on selected words, sentences like gg translate, deepL." |
 
 ## Numbers to show
 

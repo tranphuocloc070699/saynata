@@ -20,3 +20,12 @@ export type ExplainEvent =
 
 /** Service worker to content script (chrome.tabs.sendMessage): explain text from the context menu or the shortcut. */
 export type TabMessage = { type: "explainText"; text: string } | { type: "explainSelection" };
+
+/** Popup or content script to the service worker (chrome.runtime.sendMessage). Only the worker changes the session. */
+export type RuntimeRequest =
+  | { type: "auth/requestCode"; email: string }
+  | { type: "auth/verify"; email: string; code: string }
+  | { type: "auth/signOut" }
+  | { type: "openSignIn" };
+
+export type RuntimeResponse = { ok: true; email?: string } | { ok: false; kind: string; message: string };
