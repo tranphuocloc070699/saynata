@@ -24,6 +24,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
@@ -52,6 +53,9 @@ class CachedOnlyTest {
     MockMvc mockMvc;
     @Autowired
     SentenceTranslationRepository sentences;
+    /** The current sentence prompt version, so a prompt bump does not break these tests. */
+    @Value("${app.claude.sentence-prompt-version}")
+    String sentencePromptVersion;
     @Autowired
     WordLookupRepository lookups;
     @Autowired
@@ -89,8 +93,8 @@ class CachedOnlyTest {
     }
 
     private void saveSentence(String text) {
-        sentences.save(new SentenceTranslation(CacheKeys.key("sentence", "v6", "vi", text), text, "vi",
-                "A greeting.", "[]", "Xin chào", "m", "v6"));
+        sentences.save(new SentenceTranslation(CacheKeys.key("sentence", sentencePromptVersion, "vi", text), text, "vi",
+                "A greeting.", "[]", "Xin chào", "m", sentencePromptVersion));
     }
 
     private ResultActions word(String word) throws Exception {
