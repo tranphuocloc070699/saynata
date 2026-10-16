@@ -7,7 +7,7 @@ updated_date: '2026-10-16 02:38'
 ---
 # Media and images
 
-> Status: **working for photos and clips from Pixabay, and for files the admin uploads** (TASK-23, 49.3, 49.4, 52, 79). AI images are not built yet (TASK-53). The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-16 (picture review: the admin can approve a picture and filter wrong or unreviewed media: TASK-80; the admin can upload their own picture or clip: TASK-79; Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
+> Status: **working for photos and clips from Pixabay, and for files the admin uploads** (TASK-23, 49.3, 49.4, 52, 79). AI images for `needs_ai` senses: built as a pipeline command (`media-generate`, TASK-53, OpenAI GPT Image mini), trial not run yet. Picture review in the admin ("Wrong media" and "Media to review" chips, "Looks right" approval tied to one picture): TASK-80. The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-16 (AI images with `pipeline media-generate`: TASK-53; the admin can upload their own picture or clip: TASK-79; Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
 > Why: a small picture or a short clip helps a learner remember a meaning (doc-1, Vision and spec). Postgres on the server is the source of truth for content (doc-7).
 
 ## What it does
@@ -324,9 +324,10 @@ Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTes
 | [HttpPixabayClientTest](../../../backend/src/test/java/com/englishtranslation/backend/media/HttpPixabayClientTest.java) | Only Pixabay hosts over https are accepted. A fake HTTP client: 429 then 200 succeeds (one 1 s pause), 429 three times gives `PixabayBusyException`, `Retry-After` is used, a `Retry-After` past the budget gives up at once, other errors are not tried again (TASK-63). |
 | [AdminMediaTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaTest.java) | Login and role, search (6 results, default words, rate limit, errors), pick, remove, mark for AI, list, 404. TASK-76: the file and row are deleted when unused and kept while another sense (bundled or backend) uses them, a missing file is fine, picking another deletes the old file, Remove all media for a bundled word and a backend word (also without a claim row), the background job does not fill a removed sense, only ADMIN may call it. |
 | [test_media_check.py](../../../pipeline/tests/test_media_check.py) | TASK-78: the Claude check with a fake client and a fake ffmpeg (see doc-6). |
+| [test_media_generate.py](../../../pipeline/tests/test_media_generate.py) | TASK-53 with a fake generator and a fake HTTP transport: the prompt, file names, the OpenAI request and real cost, 429 with `Retry-After`, 5 tries, a wrong key or no credit stops the run, a blocked prompt fails one sense, the 320 px WebP, the cap is never passed (also when a call costs more than its estimate), dry run, link only files that are here and on the server, the report. Postgres tests (need `TEST_DATABASE_URL`): which senses are pending, link makes a `source = 'ai'` row and `ai_generated`, link does nothing when the admin changed the sense. |
 | [test_media.py](../../../pipeline/tests/test_media.py) | `needs_media`, file names, WebP resize, dry run, the pass with a fake fetcher. |
 | [test_postgres.py](../../../pipeline/tests/test_postgres.py) | TASK-79: `export` keeps and copies an uploaded file, `link-media` does not replace it. TASK-76: `link-media` skips `none` and `removed` senses and makes no media row for them; `export` writes no `image_url` for them. Needs `TEST_DATABASE_URL`. |
-| [mediaUpload.test.tsx](../../../admin/src/test/mediaUpload.test.tsx) | TASK-79: the Upload button is icon only and opens the picker, FormData is sent with the header, spinner while uploading, backend error and 413 text, drop and the dashed outline, the caption "Uploaded by the admin" in the row and the viewer. |
+| [mediaUpload.test.tsx](../../../admin/src/test/mediaUpload.test.tsx) | TASK-79: the Upload button is icon only and opens the picker, FormData is sent with the header, spinner while uploading, backend error and 413 text, drop and the dashed outline, the caption "Uploaded by the admin" in the row and the viewer; an AI image (TASK-53) names its model instead. |
 | [mediaRow.test.tsx](../../../admin/src/test/mediaRow.test.tsx) | The admin buttons and the Pick another panel, the full-size viewer (TASK-77). |
 | [wordRows.test.tsx](../../../admin/src/test/wordRows.test.tsx) | Thumbnails, hover to play, Remove all media (TASK-76, TASK-77). |
 
@@ -368,15 +369,64 @@ Picture review is separate from the word-text "Needs review" flag. Four states p
 - "Picture looks right" (`POST .../media/approve`) also clears `needs_ai`. The admin is the final judge, so the AI image job (TASK-53) must skip a sense that is no longer `needs_ai` (it re-checks the status before each paid call). `DELETE .../media/approve` undoes the approval; it does not bring `needs_ai` back.
 - The words list filters `media=wrong` and `media=to-review`, and every word has `wrongMediaCount`, `mediaToReviewCount` and `mediaReview[]` (doc-13). The admin has the chips **Wrong media** and **Media to review**, row badges, and a check button on the Media row (doc-14).
 
-## TASK-53: AI images (not built)
+## AI images for needs_ai senses (TASK-53)
 
-AI images plug in at `media_status = needs_ai` (set by Mark for AI or by `pipeline media-check --apply`, listed by `GET /api/admin/media?status=needs_ai`). A future job reads those senses, makes an image, saves it through `MediaStore` with `source = ai` (plus provider, prompt and cost) on the `media` row, links it, and clears the status.
+Developer decisions (2026-10-16, doc-7): one provider, **OpenAI GPT Image mini** (`gpt-image-1-mini`, low quality), a **$5 budget cap per run**, and a pipeline command on the Mac first (the admin button "Generate with AI" is a later step). 743 bundled photo senses were `needs_ai` on 2026-10-16 (742 from `media-check --apply`, 1 by hand).
+
+```mermaid
+flowchart LR
+    PG[("Postgres: dictionary_sense<br/>media_status = needs_ai")] --> GEN["pipeline media-generate"]
+    GEN -->|"prompt: word, type, meaning,<br/>easy example + fixed style"| OAI["OpenAI<br/>gpt-image-1-mini"]
+    OAI -->|"1536x1024 WebP + token usage"| GEN
+    GEN -->|"320 px WebP<br/>word_n_ai_hash.webp"| FILES[data/media]
+    GEN --> TAB[("media_generation<br/>Flyway V14")]
+    GEN --> REP[data/out/media-generate.html]
+    FILES -->|rsync| DIR[("/var/lib/saynata/media")]
+    LINK["media-generate --link"] -->|"HEAD file: 200?"| DIR
+    LINK -->|"media row source = ai,<br/>media_status = ai_generated"| PG
+```
+
+The run has **two steps**, because a sense may only point to a file that is already on the server:
+
+1. **Generate** (costs money). For each `needs_ai` sense: build the prompt, call the model, save a 320 px WebP in `data/media/`, add a `media_generation` row. Nothing in the app changes. The report shows the old picture next to the new one, cropped to 240 x 135 like the app.
+2. **Link** (free), after `rsync`. For the newest unlinked picture of each sense that is still `needs_ai`: check that `MEDIA_BASE_URL/<file>` answers 200, then in one transaction add a `media` row (`source = 'ai'`, `license_note = 'AI image (openai gpt-image-1-mini)'`), set `dictionary_sense.media_id` to it and `media_status = 'ai_generated'`, and set `media_generation.media_id`. The app shows the new picture after the next `export` and app build.
+
+| Part | File:line | What happens |
+|---|---|---|
+| Senses | [PostgresStore.pending_senses:408](../../../pipeline/src/pipeline/media_generate.py#L408) | Bundled senses with `media_status = 'needs_ai'` and `image_type` not `none`, most common words first. A sense that already has an unlinked picture (for example from the trial) is skipped, unless `--regenerate`. |
+| Prompt | [build_prompt:77](../../../pipeline/src/pipeline/media_generate.py#L77), [STYLE:65](../../../pipeline/src/pipeline/media_generate.py#L65) | Built from the sense alone: headword, part of speech, simple explanation, easy example (told not to write it), then one fixed style rule: flat simple illustration, one subject in the middle 16:9 area, plain light background, sage green and teal `#1F6B5F`, no text, no realistic faces. No extra LLM call (TASK-53 first planned a Claude-written prompt; the template is free and the same for every provider). |
+| Provider | [ImageGenerator:113](../../../pipeline/src/pipeline/media_generate.py#L113), [OpenAIImageGenerator:124](../../../pipeline/src/pipeline/media_generate.py#L124) | A small interface, so another provider can be added. OpenAI: `POST /v1/images/generations`, `size 1536x1024` (3:2, the closest to the app's 16:9 frame), `quality low`, `output_format webp`. 429 and 5xx are tried 5 times, with `Retry-After` when sent (a new OpenAI account may make only a few images a minute). A wrong key or no credit (`401`, `insufficient_quota`) stops the whole run; a blocked prompt (`moderation_blocked`) fails only that sense. |
+| Cost | [PRICES:53](../../../pipeline/src/pipeline/media_generate.py#L53), [estimate_cost:150](../../../pipeline/src/pipeline/media_generate.py#L150), [_read:177](../../../pipeline/src/pipeline/media_generate.py#L177) | Real cost from the answer's `usage`: text input tokens x $2.00 and image output tokens x $8.00 per million (gpt-image-1-mini, checked 2026-10-16). A model without a price is refused. Low 1536x1024 is about 400 output tokens, so a picture is about $0.0035 (the estimate says $0.0038 to stay on the high side). |
+| Budget cap | [run:267](../../../pipeline/src/pipeline/media_generate.py#L267) | A new call starts only when spent + the estimate of every call in flight + its own estimate stays within `--max-cost` (default $5). Just before each call the sense is checked again: one the admin approved ("Looks right") or changed during the run is skipped. The estimate grows to the biggest real cost seen. So the cap is never passed. 2 calls at a time (`--workers`). |
+| File | [generate_one:223](../../../pipeline/src/pipeline/media_generate.py#L223), [file_name_for:92](../../../pipeline/src/pipeline/media_generate.py#L92) | `resize_and_save_webp` (the Pixabay code: 320 px wide, quality 80). Name `<word>_<n>_ai_<8 hex of sha256>.webp`, a new name for new content, because Caddy and the phones cache a file for a year. |
+| Link | [link_generated:370](../../../pipeline/src/pipeline/media_generate.py#L370), [PostgresStore.link:462](../../../pipeline/src/pipeline/media_generate.py#L462) | The `link-media` rules: a sense with `image_type = 'none'`, `media_status = 'removed'`, or any status other than `needs_ai` (the admin picked another picture meanwhile) is not touched. The old picture's media row and file stay. |
+| Report | [write_report:509](../../../pipeline/src/pipeline/media_generate.py#L509) | `data/out/media-generate.html`: old and new picture, word, meaning, model, cost, linked or not, the prompt. |
+| Table | [V14](../../../backend/src/main/resources/db/migration/V14__add_ai_media.sql) | `media.source` may be `'ai'`. `media_generation`: sense, file, provider, model, prompt, tokens, cost, `old_media_id` (the picture it replaces), `media_id` and `linked_at` once linked. Provider, model, prompt and cost live here, not on `media`; join on `media_generation.media_id`. |
+| Admin | [MediaRow.tsx](../../../admin/src/components/MediaRow.tsx), [MediaLightbox.tsx](../../../admin/src/components/MediaLightbox.tsx) | A `source = 'ai'` file shows its `licenseNote` ("AI image (openai gpt-image-1-mini)") instead of "Photo by ... on Pixabay". |
+
+How to run it (the commands and costs are also in doc-6, section 13):
+
+```bash
+cd pipeline
+uv run pipeline media-generate --dry-run          # free: prompts and the estimate (about $0.0038 a picture)
+uv run pipeline media-generate --limit 20         # the trial: about $0.08, then open data/out/media-generate.html
+uv run pipeline media-generate                    # all 743: about $2.80, stops at the $5 cap
+rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/
+uv run pipeline media-generate --link             # free: link the files that are on the server
+uv run pipeline export                            # then a new app build
+```
+
+`media-check` checks `ai_generated` senses on its next run like any other picture (it skips only `removed` and `needs_ai`), so a wrong AI picture can be found the same way.
+
+**Commercial use.** Saynata is public, so the terms matter. OpenAI's [Services Agreement](https://openai.com/policies/services-agreement/) (it covers API use) says the customer owns the Output and OpenAI assigns its rights in it, so the pictures may be used in the app. The developer is responsible for how the pictures are used, and the usage policies still apply. AI pictures may have no copyright of their own in some countries, so others may be able to copy them. Details and the other sources in doc-11, section 9 ("Provider terms").
 
 ## Finding words by media (TASK-60)
 
 `GET /api/admin/words?media=with` keeps the words where any sense has a media file, `media=without` the words where no sense has one (doc-13). A bundled word counts through `dictionary_sense.media_id`, a backend word through `word_lookup_media.media_id`. A claim row with no file does not count. The admin has two chips for it, **Has media** and **No media** (doc-14). `media=wrong` and `media=to-review` find the pictures to look at (TASK-80). This is the way to see which bundled words the Pixabay pass has not reached yet: press "No media", and the count line shows how many are left.
 
 ## Known gaps
+
+- AI images (TASK-53): only bundled senses. Backend-word senses marked `needs_ai` (`word_lookup_media`) are not generated yet. The admin has no "Generate with AI" button yet (a mockup first), and does not show the prompt or cost (they are in `media_generation`). The old Pixabay file and row of a linked sense stay on the server; phones with the current app build keep loading the old file until the next export and app build.
 
 - The Claude check (`media-check`) looks at the bundled senses only, not at the pictures of backend words (`word_lookup_media`). Its verdict is not shown in the admin yet.
 - Flyway V9 (TASK-58) deleted the `word_lookup` rows of words that are in the bundled dictionary, with their `word_lookup_media` links. The media rows and files of those words stay on disk (same gap as the next lines).

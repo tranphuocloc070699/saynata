@@ -2,13 +2,15 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { useRef } from "react";
 
-// What the viewer shows: one photo or clip, and where it came from (the Pixabay credit, or "Uploaded by the admin").
+// What the viewer shows: one photo or clip, and where it came from (the Pixabay credit, "Uploaded by the admin", or
+// the AI model for an AI image, TASK-53).
 export interface LightboxMedia {
   url: string;
   kind: "photo" | "clip";
   photographer: string | null;
   pageUrl: string | null;
-  source?: "pixabay" | "upload";
+  licenseNote?: string;
+  source?: "pixabay" | "upload" | "ai";
 }
 
 interface Props {
@@ -62,6 +64,10 @@ export function MediaLightbox({ media, label, onClose }: Props) {
                 {media.source === "upload" ? (
                   <>
                     {label} · Uploaded by the admin
+                  </>
+                ) : media.source === "ai" ? (
+                  <>
+                    {label} · {media.licenseNote ?? "AI image"}
                   </>
                 ) : (
                   <>

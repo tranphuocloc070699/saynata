@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-16 02:09'
+updated_date: '2026-10-16 02:25'
 ---
 # Deploy to a VPS
 
@@ -324,8 +324,37 @@ rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/
   words that are already there, so it cannot do this job). The files can be copied before or after the rows; an address works as soon as both exist. File names from the pipeline
   are like `run_1.mp4` (no hash). Do not replace a file under the same name later, because the browser and the
   app may keep the old one for a year; use a new name.
+- *AI pictures for `needs_ai` senses (TASK-53).* Made on your Mac by OpenAI, then copied and linked (details below).
 - `import-to-postgres` reads sizes from `--media-dir` (default: `media/` next to the sqlite file) and `export` copies
   the files named in Postgres from `--media-dir` (default `data/media`) into `data/out/media/`.
+
+**AI pictures (TASK-53).** `uv run pipeline media-generate` makes a picture for every bundled sense marked `needs_ai`
+(doc-15, doc-6 section 13). It needs two values in `pipeline/.env`:
+
+| Variable | Meaning |
+|---|---|
+| `OPENAI_API_KEY` | Your OpenAI API key (https://platform.openai.com/api-keys). It is billed per picture (gpt-image-1-mini, low quality: about $0.0035), separate from a ChatGPT subscription. Also set a monthly budget in the OpenAI dashboard (Settings, Limits) as a second guard next to `--max-cost`. Never commit it. |
+| `MEDIA_BASE_URL` | Optional, default `https://api.loffy.me/media`. `--link` asks this address for each new file (`HEAD`) and links only files that answer 200, so copy the files first. |
+
+```bash
+cd pipeline
+uv run pipeline media-generate --limit 20       # trial, about $0.08; open data/out/media-generate.html
+uv run pipeline media-generate                  # the rest, stops at the $5 cap (all 743: about $2.80)
+rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/
+uv run pipeline media-generate --link
+uv run pipeline export
+```
+
+The backend needs no change and no key for this: the files are served by Caddy like the Pixabay ones.
+
+**Provider terms (commercial use), checked 2026-10-16.** Saynata is a public app, so every picture source must allow
+use in it:
+
+| Source | Terms | What it means for Saynata |
+|---|---|---|
+| Pixabay | [Pixabay Content License](https://pixabay.com/service/license-summary/) | Free for commercial use, no credit needed; resized copies may be stored and shown. Not allowed: selling the files as they are, or showing people in a bad light. |
+| OpenAI (API, `gpt-image-1-mini`) | [Services Agreement](https://openai.com/policies/services-agreement/), [Usage policies](https://openai.com/policies/usage-policies/) | The customer owns the Output, and OpenAI assigns any rights it has in it, so the pictures may be used in the app and the admin. API data is not used to train OpenAI models unless you opt in. You are responsible for how the pictures are used, and the usage policies apply (the prompt rule "no realistic faces, no text" also keeps us away from people and brands). AI pictures may not get copyright protection in some countries, so others could copy them. Not legal advice. |
+| Admin uploads (TASK-79) | Whoever made the file | Upload only pictures you made or may use. A picture made in ChatGPT falls under OpenAI's consumer [Terms of Use](https://openai.com/policies/terms-of-use/), which also give the user ownership of the Output. |
 
 ## 10. Resend setup (sign-in emails)
 

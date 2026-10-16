@@ -171,4 +171,28 @@ describe("upload from my computer", () => {
     expect(dialog).toHaveTextContent("run · sense 1 · Uploaded by the admin");
     expect(within(dialog).queryByRole("link")).not.toBeInTheDocument();
   });
+
+  it("an AI image (TASK-53) names its model instead of a Pixabay credit", async () => {
+    renderRow({
+      ...word,
+      media: [
+        {
+          url: "https://api.loffy.me/media/run_1_ai_1a2b3c4d.webp",
+          kind: "photo",
+          photographer: null,
+          pageUrl: null,
+          licenseNote: "AI image (openai gpt-image-1-mini)",
+          source: "ai",
+        },
+      ],
+    });
+    expect(screen.getByText("AI image (openai gpt-image-1-mini)")).toBeInTheDocument();
+    expect(screen.queryByText(/on Pixabay/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "View run, sense 1 full size" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("run · sense 1 · AI image (openai gpt-image-1-mini)");
+    expect(within(dialog).queryByRole("link")).not.toBeInTheDocument();
+  });
 });

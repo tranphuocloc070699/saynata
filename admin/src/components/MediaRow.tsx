@@ -340,6 +340,8 @@ function MediaCell({ media, alt, onOpen }: { media: SenseMedia | null | undefine
       <div className="text-xs text-muted-foreground">
         {media.source === "upload" ? (
           "Uploaded by the admin"
+        ) : media.source === "ai" ? (
+          media.licenseNote ?? "AI image"
         ) : (
           <>
             {media.kind === "clip" ? "Clip" : "Photo"} by{" "}
