@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { cardPosition, iconPosition } from "../src/content/placement";
+import { cardTop, iconPosition, placeCard } from "../src/content/placement";
 
 const view = { width: 1000, height: 800, scrollX: 0, scrollY: 0 };
-const card = { width: 340, height: 300 };
 
 describe("iconPosition", () => {
   it("sits just below the end of the last line", () => {
@@ -20,21 +19,35 @@ describe("iconPosition", () => {
   });
 });
 
-describe("cardPosition", () => {
-  it("opens below the selection, at its left edge", () => {
-    expect(cardPosition({ left: 120, right: 400, top: 100, bottom: 120 }, card, view)).toEqual({ left: 120, top: 128 });
+describe("placeCard", () => {
+  it("opens below the selection, at its left edge, and keeps its top while it grows", () => {
+    const placement = placeCard({ left: 120, right: 400, top: 100, bottom: 120 }, 340, view);
+    expect(placement).toMatchObject({ left: 120, side: "below", edge: 128 });
+    expect(cardTop(placement, 200)).toBe(128);
+    expect(cardTop(placement, 420)).toBe(128);
   });
 
-  it("never leaves the right edge", () => {
-    expect(cardPosition({ left: 900, right: 990, top: 100, bottom: 120 }, card, view).left).toBe(1000 - 340 - 8);
+  it("never leaves the right edge, and adds the page scroll", () => {
+    const placement = placeCard({ left: 900, right: 990, top: 100, bottom: 120 }, 340, { ...view, scrollY: 1000 });
+    expect(placement.left).toBe(1000 - 340 - 8);
+    expect(placement.edge).toBe(1128);
   });
 
-  it("opens above when there is no room below and more room above", () => {
-    expect(cardPosition({ left: 120, right: 400, top: 650, bottom: 670 }, card, view).top).toBe(650 - 8 - 300);
+  it("opens above near the bottom, and keeps its bottom while it grows", () => {
+    const placement = placeCard({ left: 120, right: 400, top: 650, bottom: 670 }, 340, view);
+    expect(placement).toMatchObject({ side: "above", edge: 642 });
+    expect(cardTop(placement, 200)).toBe(442);
+    expect(cardTop(placement, 300)).toBe(342);
   });
 
-  it("stays below when below has more room, even if the card is taller", () => {
-    const tall = { width: 340, height: 700 };
-    expect(cardPosition({ left: 120, right: 400, top: 300, bottom: 320 }, tall, view).top).toBe(328);
+  it("once the top is frozen, a taller card keeps it (a row opens downward)", () => {
+    const placement = placeCard({ left: 120, right: 400, top: 650, bottom: 670 }, 340, view);
+    const top = cardTop(placement, 250);
+    expect(cardTop(placement, 290, top)).toBe(top);
+  });
+
+  it("limits the height to the room on its side and to 70% of the window", () => {
+    expect(placeCard({ left: 0, right: 0, top: 650, bottom: 670 }, 340, view).maxHeight).toBe(560);
+    expect(placeCard({ left: 0, right: 0, top: 300, bottom: 320 }, 340, view).maxHeight).toBe(464);
   });
 });

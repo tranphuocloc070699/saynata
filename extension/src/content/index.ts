@@ -8,7 +8,7 @@ import { EXPLAIN_PORT, type ExplainEvent, type RuntimeRequest, type TabMessage }
 import { loadSettings, rowStartsOpen, saveSettings } from "../shared/settings";
 import { classify, cleanSelection } from "../shared/textKind";
 import { applyEvent, initialState, renderCard, type CardActions, type CardState } from "./card";
-import { cardPosition, iconPosition, type Rect, type Viewport } from "./placement";
+import { cardTop, iconPosition, placeCard, type CardPlacement, type Rect, type Viewport } from "./placement";
 import { Speech } from "./speech";
 import { STYLES } from "./styles";
 
@@ -25,8 +25,11 @@ class SelectionPopover {
   private card: HTMLElement | null = null;
   private state: CardState | null = null;
   private port: chrome.runtime.Port | null = null;
-  /** The selection the card belongs to, in page coordinates. */
-  private anchor: Rect | null = null;
+  /** Where the card sits; chosen once when it opens (placeCard), so it never jumps. */
+  private placement: CardPlacement | null = null;
+  /** The card's top once the answer is complete; fixed from then on (cardTop). */
+  private frozenTop: number | null = null;
+  private selectionRect: Rect | null = null;
   private pendingText = "";
   private readonly speech = new Speech((speaking) => this.update({ speaking }));
 
@@ -140,8 +143,9 @@ class SelectionPopover {
     const text = cleanSelection(rawText);
     const kind = classify(text).kind === "word" ? "word" : "sentence";
     const settings = await loadSettings(chrome.storage.sync);
-    const view = viewport();
-    this.anchor = { left: rect.left + view.scrollX, right: rect.right + view.scrollX, top: rect.top + view.scrollY, bottom: rect.bottom + view.scrollY };
+    this.selectionRect = rect;
+    this.placement = null;
+    this.frozenTop = null;
     this.state = initialState(text, kind, settings.targetLang, rowStartsOpen(settings));
     this.render();
     this.card?.focus({ preventScroll: true });
@@ -172,6 +176,7 @@ class SelectionPopover {
     this.card?.remove();
     this.card = null;
     this.state = null;
+    this.placement = null;
   }
 
   private update(change: Partial<CardState>): void {
@@ -198,6 +203,7 @@ class SelectionPopover {
     },
     retry: () => {
       if (!this.state) return;
+      this.frozenTop = null;
       this.state = initialState(this.state.text, this.state.kind, this.state.targetLang, this.state.rowOpen);
       this.render();
       this.request();
@@ -205,7 +211,7 @@ class SelectionPopover {
   };
 
   private render(): void {
-    if (!this.state || !this.anchor) return;
+    if (!this.state || !this.selectionRect) return;
     const next = renderCard(this.state, this.actions);
     next.tabIndex = -1;
     const scrollTop = this.card?.scrollTop ?? 0;
@@ -219,16 +225,15 @@ class SelectionPopover {
     next.scrollTop = scrollTop;
     if (hadFocus) next.focus({ preventScroll: true });
 
-    const view = viewport();
-    const rect = {
-      left: this.anchor.left - view.scrollX,
-      right: this.anchor.right - view.scrollX,
-      top: this.anchor.top - view.scrollY,
-      bottom: this.anchor.bottom - view.scrollY,
-    };
-    const position = cardPosition(rect, { width: next.offsetWidth, height: next.offsetHeight }, view);
-    next.style.left = `${position.left}px`;
-    next.style.top = `${position.top}px`;
+    if (!this.placement) {
+      // Once, at open: the side, the left edge and the height limit. Later renders only follow the height.
+      this.placement = placeCard(this.selectionRect, next.offsetWidth, viewport());
+    }
+    next.style.left = `${this.placement.left}px`;
+    next.style.maxHeight = `${this.placement.maxHeight}px`;
+    const top = cardTop(this.placement, next.offsetHeight, this.frozenTop);
+    next.style.top = `${top}px`;
+    if (this.state.phase === "done" || this.state.phase === "error") this.frozenTop = top;
   }
 }
 
