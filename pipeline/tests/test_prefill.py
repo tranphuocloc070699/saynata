@@ -122,6 +122,32 @@ def test_costs_use_the_measured_prices():
     assert prefill.estimated_cost(1000, 1000) == pytest.approx(0.9)
 
 
+def test_all_wordfreq_keeps_zipf_above_zero_but_not_words_wordfreq_never_saw():
+    ZIPF.update({"zebra": 0.4, "unseen": 0.0})
+    items = prefill.collect_words({"zebra", "unseen", "jump", "rare"}, set(), 0.0, zipf_of, lemmas_for, above_zero=True)
+    assert [i.text for i in items] == ["jump", "rare", "zebra"]  # "unseen" has Zipf 0
+    assert prefill.collect_words({"unseen"}, set(), 0.0, zipf_of, lemmas_for) != []  # plain --zipf 0 lets it in
+
+
+def test_all_wordfreq_still_skips_bundled_rude_and_off_list_words():
+    items = prefill.collect_words({"run", "jump", "shit", "apples"}, {"run", "apple"}, 0.0, zipf_of, lemmas_for,
+                                  above_zero=True)
+    assert [i.text for i in items] == ["jump"]  # apples -> apple is bundled; the lemma "apple" is not on the list
+
+
+def test_priority_follows_frequency_with_all_wordfreq():
+    items = prefill.collect_words({"jump", "zebra"}, set(), 0.0, zipf_of, lemmas_for, above_zero=True)
+    assert [(i.text, i.priority) for i in items] == [("jump", 450), ("zebra", 40)]
+
+
+def test_night_estimate_uses_the_cap_and_seven_seconds_a_word():
+    cost, per_night, nights = prefill.night_estimate(68330)
+    assert cost == pytest.approx(47.83, abs=0.01)
+    assert per_night == 714
+    assert nights == pytest.approx(95.7, abs=0.1)
+    assert "119 minutes" in prefill.night_lines(68330)[1] or "83 minutes" in prefill.night_lines(68330)[1]
+
+
 # ---------- Postgres ----------
 
 # The table of backend Flyway TASK-83.1. Made here too, so the tests also run before that migration exists.

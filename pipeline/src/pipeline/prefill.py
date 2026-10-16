@@ -36,6 +36,11 @@ PHRASE_LANG = "vi"  # phrases are cached as sentences for the Vietnamese target 
 DEFAULT_WORD_ZIPF = 3.5
 DEFAULT_PHRASE_ZIPF = 4.0
 
+# Night job defaults (backend application.properties): $0.50 cap per run, 3 s wait after each new word
+# (PREFILL_DELAY), and about 4 s for each Claude call (measured in production).
+NIGHT_CAP_USD = 0.50
+SECONDS_PER_WORD = 3 + 4
+
 # Only phrasal verbs and idioms. WordNet's noun phrases are mostly compound nouns and species names ("rat cheese",
 # "common starling"): 49 thousand of them, and nearly none are something a learner types.
 PHRASE_POS = {"v", "a", "s", "r"}  # verb, adjective (also "s", adjective satellite), adverb
@@ -124,12 +129,16 @@ def collect_words(
     min_zipf: float = DEFAULT_WORD_ZIPF,
     zipf_of: Callable[[str], float] | None = None,
     lemmas_for: Callable[[str], set[str]] = lemmas_of,
+    above_zero: bool = False,
 ) -> list[Item]:
     """Common SCOWL-70 words that are not bundled, as lemmas, most frequent first.
 
     `excluded` holds the bundled forms and lemmas and the kept topic words. A form is dropped when it or any of its
     lemmas is excluded ("apples" is dropped because "apple" is bundled). Only lemmas still on SCOWL-70 are kept,
     because the backend rejects other words. A lemma gets the highest Zipf of the forms that lead to it.
+
+    `above_zero` (TASK-83.7, `--all-wordfreq`) keeps every form wordfreq has seen (Zipf > 0) and ignores `min_zipf`.
+    A plain `min_zipf` of 0 would also let in words wordfreq never saw (Zipf exactly 0).
     """
     if zipf_of is None:
         from wordfreq import zipf_frequency
@@ -142,7 +151,7 @@ def collect_words(
         if not is_candidate_word(form) or form in excluded or form in BLOCKED:
             continue
         zipf = zipf_of(form)
-        if zipf < min_zipf:
+        if zipf <= 0 if above_zero else zipf < min_zipf:
             continue
         lemmas = lemmas_for(form)
         if lemmas & excluded:
@@ -250,6 +259,25 @@ def insert_items(pg: psycopg.Connection, items: list[Item]) -> int:
 
 
 # ---------- report ----------
+
+
+def night_estimate(words: int, sentences: int = 0) -> tuple[float, int, float]:
+    """(cost in dollars, answers per night, nights) at the default cap of the backend night job.
+    Sentences cost less, so the count of answers per night uses the average price of this batch."""
+    cost = estimated_cost(words, sentences)
+    total = words + sentences
+    per_answer = cost / total if total else COST_PER_WORD
+    per_night = max(1, int(NIGHT_CAP_USD / per_answer))
+    return cost, per_night, total / per_night
+
+
+def night_lines(words: int, sentences: int = 0) -> list[str]:
+    cost, per_night, nights = night_estimate(words, sentences)
+    minutes = per_night * SECONDS_PER_WORD / 60
+    return [f"Estimated Claude cost: about ${cost:,.2f} (${COST_PER_WORD} a word, ${COST_PER_SENTENCE} a sentence, "
+            f"Claude Haiku 5.5). No call is made now.",
+            f"Night job at the ${NIGHT_CAP_USD:.2f} cap: about {per_night} answers a night, one run about "
+            f"{minutes:.0f} minutes ({SECONDS_PER_WORD} s each), so about {nights:.0f} nights for all of them."]
 
 
 def estimated_cost(pending_words: int, pending_sentences: int) -> float:

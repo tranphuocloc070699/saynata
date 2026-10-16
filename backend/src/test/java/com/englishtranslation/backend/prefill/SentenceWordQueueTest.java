@@ -158,6 +158,23 @@ class SentenceWordQueueTest {
     }
 
     @Test
+    void aCachedOnlyPrefetchQueuesNothing() throws Exception {
+        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
+        String body = "{\"text\": \"A lantern.\", \"targetLang\": \"vi\"}";
+
+        mockMvc.perform(post("/api/translations").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk());
+        waitUntilQueued("lantern");
+        queue.deleteAll();
+        // The app's prefetch while the user types: a cache hit, but the half-typed text must not raise the counts.
+        mockMvc.perform(post("/api/translations?cachedOnly=true").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk());
+        Thread.sleep(300); // the worker would have had time to queue something
+
+        assertThat(queue.findAll()).isEmpty();
+    }
+
+    @Test
     void theStreamingEndpointQueuesTheWordsToo() throws Exception {
         when(claude.explainSentenceStreaming(anyString(), any(), any())).thenReturn(EXPLANATION);
 

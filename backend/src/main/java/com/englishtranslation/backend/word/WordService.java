@@ -1,6 +1,7 @@
 package com.englishtranslation.backend.word;
 
 import com.englishtranslation.backend.cache.CacheKeys;
+import com.englishtranslation.backend.cache.NotCachedException;
 import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.limits.ClaudeGate;
@@ -59,27 +60,40 @@ public class WordService {
     }
 
     public WordResponse lookUp(String word) {
+        return lookUp(word, false).response();
+    }
+
+    /**
+     * With {@code cachedOnly} (TASK-83.4) only the bundled and cached answers are given; a miss throws
+     * {@link NotCachedException} before ClaudeGate, so the app can ask while the user types.
+     */
+    public WordAnswer lookUp(String word, boolean cachedOnly) {
         String normalized = CacheKeys.normalizeWord(word);
 
         // A bundled word is answered from its own entry. The bundled entry wins (TASK-58): Claude is not
         // called and no word_lookup row is made, so a word is never in both lists.
         Optional<DictionaryWord> bundledWord = bundled.findWithSensesByLemma(normalized);
         if (bundledWord.isPresent()) {
-            return bundledResponse(normalized, bundledWord.get());
+            return new WordAnswer(bundledResponse(normalized, bundledWord.get()), WordAnswer.Origin.BUNDLED);
         }
 
         // Not a real word: answer "no senses" (the app shows "not an English word") without calling Claude.
         // Nothing is saved, so a later update of the word list can fix a missing word.
         if (!englishWords.contains(normalized)) {
             log.debug("'{}' is not on the English word list, Claude not called", normalized);
-            return new WordResponse(normalized, new WordEntryView(List.of()), false, null);
+            return new WordAnswer(new WordResponse(normalized, new WordEntryView(List.of()), false, null),
+                    WordAnswer.Origin.NOT_A_WORD);
         }
 
         String cacheKey = CacheKeys.key("word", properties.wordPromptVersion(), normalized);
 
         Optional<WordLookup> saved = repository.findByCacheKey(cacheKey);
         if (saved.isPresent()) {
-            return response(normalized, readEntry(saved.get()), true, mediaOf(saved.get().getId()));
+            return new WordAnswer(response(normalized, readEntry(saved.get()), true, mediaOf(saved.get().getId())),
+                    WordAnswer.Origin.CACHED);
+        }
+        if (cachedOnly) {
+            throw new NotCachedException();
         }
 
         // Only a word that is not bundled and not cached gets here. A guest cannot cause a Claude call.
@@ -103,11 +117,12 @@ public class WordService {
             row.setCefr(entry.firstCefr());
             repository.saveAndFlush(row);
             startMediaJob(row.getId(), normalized, entry);
-            return response(normalized, entry, false, Map.of());
+            return new WordAnswer(response(normalized, entry, false, Map.of()), WordAnswer.Origin.NEW);
         } catch (DataIntegrityViolationException e) {
             // Another request saved the same key while we waited for Claude. Keep the first answer.
             WordLookup first = repository.findByCacheKey(cacheKey).orElseThrow(() -> e);
-            return response(normalized, readEntry(first), true, mediaOf(first.getId()));
+            return new WordAnswer(response(normalized, readEntry(first), true, mediaOf(first.getId())),
+                    WordAnswer.Origin.CACHED);
         }
     }
 
