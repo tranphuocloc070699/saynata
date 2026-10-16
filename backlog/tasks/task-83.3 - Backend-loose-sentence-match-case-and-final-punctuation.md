@@ -1,9 +1,11 @@
 ---
 id: TASK-83.3
 title: 'Backend: loose sentence match (case and final punctuation)'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-16 08:19'
+updated_date: '2026-10-16 08:29'
 labels: []
 dependencies: []
 parent_task_id: TASK-83
@@ -30,3 +32,15 @@ The sentence cache key is the exact text, so "how are you" misses a cached "How 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. CacheKeys.normalizeSentenceLoose + sentenceMatchKey. 2. Flyway V17 match_key (Java migration so Java and DB keys are the same code; H2 tests and Postgres differ in hash functions) + index, backfill. 3. SentenceTranslation sets match_key; repository finds oldest by match_key. 4. TranslationService: exact hit, then loose hit, then Claude. Stream uses the same method. 5. Tests, doc-4.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Admin sentence PUT only changes the explanation (source text and keys never change), so match_key stays right. No prompt version bump: lookup change only.
+<!-- SECTION:NOTES:END -->

@@ -20,6 +20,32 @@ public final class CacheKeys {
         return text.strip().replaceAll("\\s+", " ");
     }
 
+    /**
+     * The loose form of a sentence, for the second lookup when the exact key misses (TASK-83.3): normalised, lowercase,
+     * and without . ? ! (and spaces) at the end. "How are you?" and "how are you" give the same text.
+     * It can be empty (the input was only "?!"); then there is nothing to match.
+     */
+    public static String normalizeSentenceLoose(String text) {
+        String lower = normalizeSentence(text).toLowerCase(Locale.ROOT);
+        int end = lower.length();
+        while (end > 0 && isLooseEnd(lower.charAt(end - 1))) {
+            end--;
+        }
+        return lower.substring(0, end);
+    }
+
+    private static boolean isLooseEnd(char c) {
+        return c == '.' || c == '?' || c == '!' || c == ' ';
+    }
+
+    /**
+     * The match_key of a saved sentence: key("sentence-loose", promptVersion, targetLang, looseText).
+     * Flyway V17 fills old rows with this same method, so the database and new code always agree.
+     */
+    public static String sentenceMatchKey(String promptVersion, String targetLang, String text) {
+        return key("sentence-loose", promptVersion, targetLang, normalizeSentenceLoose(text));
+    }
+
     /** Same as a sentence, plus lowercase: "Run" and "run" are the same word. */
     public static String normalizeWord(String word) {
         return normalizeSentence(word).toLowerCase(Locale.ROOT);
