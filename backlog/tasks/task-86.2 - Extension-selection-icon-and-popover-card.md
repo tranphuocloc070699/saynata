@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-16 09:00'
-updated_date: '2026-10-16 09:45'
+updated_date: '2026-10-16 09:54'
 labels:
   - extension
 dependencies:
@@ -50,4 +50,6 @@ The visible part: a small icon next to selected text, and the card in a Shadow D
 
 <!-- SECTION:NOTES:BEGIN -->
 Checked in the in-app browser with a harness page that loads dist/content.js and fakes chrome.runtime/storage: icon after a real drag and a double-click, sentence card with growing meaning then Words and Vietnamese, word card, Vietnamese row opens on click, Escape closes, guest lock card. Fixed: the pop animation re-ran on every render (now only on open), the browser focus ring on the card. Closed Shadow DOM with inline <style>; page CSP does not apply to content-script DOM. 64 Vitest tests pass.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/91 (into feature/f7-browser-extension; merge order #90, #91, #92, #93).
 <!-- SECTION:NOTES:END -->

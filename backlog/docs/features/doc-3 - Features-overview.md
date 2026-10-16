@@ -3,7 +3,7 @@ id: doc-3
 title: Features overview
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-16 09:47'
+updated_date: '2026-10-16 09:52'
 ---
 One page per flow: what it does, a diagram, every file and line on the path, the rules that matter,
 what can go wrong, which tests cover it, and what is still missing.
@@ -22,6 +22,7 @@ what can go wrong, which tests cover it, and what is still missing.
 | [Browser extension](doc-19%20-%20Browser-extension.md) | TASK-86.1 built: skeleton, API client, stream, tests, CI. Icon, card, settings and sign-in next | Chromium MV3 extension (`extension/`, TypeScript, Vite) |
 | [Browser extension](doc-19%20-%20Browser-extension.md) | TASK-86.1 and 86.2 built: API client, stream, selection icon and card. Settings and sign-in next | Chromium MV3 extension (`extension/`, TypeScript, Vite) |
 | [Browser extension](doc-19%20-%20Browser-extension.md) | TASK-86.1, 86.2 and 86.4 built: API client, stream, selection icon, card, settings popup. Sign-in next | Chromium MV3 extension (`extension/`, TypeScript, Vite) |
+| [Browser extension](doc-19%20-%20Browser-extension.md) | Built (TASK-86.1 to 86.4): selection icon, card with the streamed meaning, settings popup, email-code sign-in. Not yet tested in Brave against the real server | Chromium MV3 extension (`extension/`, TypeScript, Vite) |
 
 Not started yet: **text to speech** (TASK-7), **speech to text with a score** (TASK-8). Add a page when work starts.
 
