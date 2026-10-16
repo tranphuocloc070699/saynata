@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 08:08'
+updated_date: '2026-10-16 09:28'
 ---
 # Decisions and reasons
 
@@ -131,6 +131,9 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | **No kid and no extra people for things and places**; people only when they are part of the thing, a building whose meaning is inside is shown cut open, a part of a place (river bank) is shown as the whole place | For bank: "show a building and people inside doing transaction". For river bank: "just show a river, don't show person". | The kid in every picture; a plain outside view of a bank | Developer |
 | 10-16 | **A stricter blind guess**: first an open guess with no choices, then multiple choice with distractors from a separate call that does not see the scene, passing at confidence 70, with up to 3 tries and feedback | Reason: not recorded. The trial guess had 4 choices that came with the scene and passed at 60 | The trial guess | Developer |
 | 10-16 | **The blind guess also passes on a meaning check**: if the word guess fails, Claude sees the picture with the word and the meaning, and a clear "yes, it shows this" (confidence 80+) passes | In the 20-sense trial a right picture of "have" = eat or drink showed drinking, and the guesser said "drink", so it could never pass. The developer's words: "if the word guess fails but Claude confirms the picture clearly shows this meaning, it passes" | Keep the strict word guess and review every failed sense by hand | Developer |
+| 10-16 | **Saynata on the Mac as a native SwiftUI menu-bar app** (doc-16 Part 1, option C, F6 / TASK-85): a `MenuBarExtra` **popover under the menu-bar icon** (mockup option A), no Dock icon, opened from any app with a **global shortcut, default ⌥⇧Space** that the user can change, with the cursor in the input box | "Implement desktop app, I want to open with shortcut." The popover (A) was picked from the mockup. Any further reason: not recorded | "Designed for iPad" (no menu bar, no shortcut); Mac Catalyst; a Spotlight-style panel in the middle of the screen (mockup option B) | Developer |
+| 10-16 | **The Mac app shares code by compiling the app folder** (the same way the Share and Translation extensions do, doc-10), with `#if os(iOS)` / `#if os(macOS)` around the few UIKit parts, instead of moving code into a `SaynataCore` Swift package (doc-16 step 1) | A package needs `public` on every type, property and init the app uses (hundreds of edits) and changes how the tests import the code. Compiling the folder gives the same sharing with a much smaller diff and no change to the iOS app | `SaynataCore` local Swift package | Claude |
+| 10-16 | **The Mac app signs in with the same email code** as iOS (doc-17) and keeps its own tokens in the Mac Keychain; it does not share the iPhone's sign-in | The backend has `REQUIRE_SIGN_IN=true`, so new sentences need a user. Sharing tokens across devices needs iCloud Keychain and a paid account | Guest-only Mac app (cached and bundled answers only) | Claude (from the session brief) |
 
 ## Questions answered
 
