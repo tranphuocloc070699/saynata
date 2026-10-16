@@ -113,6 +113,9 @@ Follow the code that is already there; these are the rules it uses (TASK-12).
 - **Everywhere**: branches `feature/f<n>-<name>` for features and `f<n>/task-<id>` for their tasks, `fix/<what>` for
   fixes; merge, never rebase or force-push; every PR has a "Test it" card; only the main chat marks a task Done,
   after the developer has tested it. Commit messages start with the task ID.
+- **Test branch `feature/local`** (developer's rule, 2026-10-16): finished work is merged into `feature/local` first,
+  not into `main`. The developer tests from `feature/local`; only after they say the test succeeded does that work go
+  to `main`. New PRs target `feature/local` (or their feature branch, which is then merged into `feature/local`).
 
 ## Feature docs
 
