@@ -26,14 +26,15 @@ export interface Sense {
 }
 
 // The picture or clip of one sense, with the Pixabay credit (TASK-49.4). A file the admin uploaded (TASK-79) has
-// source "upload" and no photographer or page: its credit is "Uploaded by the admin".
+// source "upload" and no photographer or page: its credit is "Uploaded by the admin". An AI image made by the pipeline
+// (TASK-53) has source "ai" and its licenseNote names the model, for example "AI image (openai gpt-image-1-mini)".
 export interface SenseMedia {
   url: string;
   kind: "photo" | "clip";
   photographer: string | null;
   pageUrl: string | null;
   licenseNote?: string;
-  source?: "pixabay" | "upload";
+  source?: "pixabay" | "upload" | "ai";
 }
 
 export interface WordEntry {
