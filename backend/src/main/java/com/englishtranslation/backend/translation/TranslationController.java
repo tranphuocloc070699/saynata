@@ -5,6 +5,7 @@ import com.englishtranslation.backend.claude.ClaudeRefusedException;
 import com.englishtranslation.backend.claude.NotEnglishException;
 import com.englishtranslation.backend.common.ApiException;
 import com.englishtranslation.backend.limits.CallerContext;
+import com.englishtranslation.backend.prefill.SentenceWordQueue;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -37,16 +38,22 @@ public class TranslationController {
     /** The stream is written from another thread, so the request thread is free while Claude works. */
     private final AsyncTaskExecutor executor = new SimpleAsyncTaskExecutor("sentence-stream-");
 
-    public TranslationController(TranslationService service, JsonMapper jsonMapper) {
+    /** After the answer is sent, remembers the sentence's unknown words for the nightly prefill job (TASK-83.8). */
+    private final SentenceWordQueue sentenceWords;
+
+    public TranslationController(TranslationService service, JsonMapper jsonMapper, SentenceWordQueue sentenceWords) {
         this.service = service;
         this.jsonMapper = jsonMapper;
+        this.sentenceWords = sentenceWords;
     }
 
     /** {@code cachedOnly=true} (TASK-83.4): only a cached answer, else 404 not_cached. Never calls Claude. */
     @PostMapping
     public TranslationResponse translate(@Valid @RequestBody TranslationRequest request,
             @RequestParam(defaultValue = "false") boolean cachedOnly) {
-        return service.translate(request.text(), request.targetLang(), cachedOnly);
+        TranslationResponse response = service.translate(request.text(), request.targetLang(), cachedOnly);
+        queueWords(request.text(), cachedOnly);
+        return response;
     }
 
     /**
@@ -83,6 +90,7 @@ public class TranslationController {
                     delta -> send(emitter, "meaning-delta", Map.of("text", delta)),
                     meaning -> send(emitter, "meaning", Map.of("meaning", meaning)));
             send(emitter, "done", response);
+            queueWords(request.text(), cachedOnly);
         } catch (Exception e) {
             send(emitter, "error", describe(e));
         } finally {
@@ -120,5 +128,16 @@ public class TranslationController {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private record StreamError(int status, String message, String code) {
+    }
+
+    /**
+     * Hands the text to a worker thread and returns at once, so the response time does not change (TASK-83.8).
+     * A cachedOnly request is the app's prefetch while the user types: the same half-typed text comes again and
+     * again, so its words are not queued; the real request on submit queues them once.
+     */
+    private void queueWords(String text, boolean cachedOnly) {
+        if (!cachedOnly) {
+            sentenceWords.offer(text);
+        }
     }
 }

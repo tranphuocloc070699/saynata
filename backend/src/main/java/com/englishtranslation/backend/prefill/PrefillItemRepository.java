@@ -2,6 +2,7 @@ package com.englishtranslation.backend.prefill;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -25,4 +26,6 @@ public interface PrefillItemRepository extends JpaRepository<PrefillItem, Long> 
     /** Rows of (source, status, count) for the admin overview. */
     @Query("select p.source, p.status, count(p) from PrefillItem p group by p.source, p.status")
     List<Object[]> countsBySourceAndStatus();
+
+    Optional<PrefillItem> findByKindAndTextAndTargetLang(String kind, String text, String targetLang);
 }
