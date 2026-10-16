@@ -138,3 +138,10 @@ describe("shortPos", () => {
     expect(shortPos("verb")).toBe("verb");
   });
 });
+
+describe("English as the target language", () => {
+  it("has no target-language row, like the app", () => {
+    const state = { ...sentenceDone(), targetLang: "en" as const };
+    expect(renderCard(state, actions()).querySelector(".fold")).toBeNull();
+  });
+});

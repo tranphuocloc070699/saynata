@@ -3,11 +3,11 @@ id: doc-19
 title: Browser extension
 type: specification
 created_date: '2026-10-16 09:35'
-updated_date: '2026-10-16 09:45'
+updated_date: '2026-10-16 09:47'
 ---
 # Browser extension
 
-> Status: **TASK-86.1 and 86.2 built** (skeleton, API client, stream, tests, CI; the selection icon and the card). The settings popup (TASK-86.4) and sign-in (TASK-86.3) come next. Last traced from code: 2026-10-16.
+> Status: **TASK-86.1, 86.2 and 86.4 built** (API client, stream, tests, CI; the selection icon and the card; the settings popup). Sign-in (TASK-86.3) comes next. Last traced from code: 2026-10-16.
 > Plan: [doc-16](../doc-16%20-%20Plan-Mac-menu-bar-app-and-browser-extension.md) Part 2, option A. Related: [Sentence translation](doc-4%20-%20Sentence-translation.md) (the stream), [Word lookup](doc-5%20-%20Word-lookup.md), [Accounts and limits](doc-17%20-%20Accounts-and-limits.md).
 
 ## What it does
@@ -66,6 +66,7 @@ sequenceDiagram
 | Card content | [card.ts:50](../../../extension/src/content/card.ts#L50), [renderCard:118](../../../extension/src/content/card.ts#L118) | `applyEvent` is a pure reducer: deltas add to the meaning (with a caret), the full `meaning` wins. Sentence: the quoted text with Listen, Copy and Close; Meaning; Words (word, gloss, word-type chip); the target-language row last. Word ([wordBody:184](../../../extension/src/content/card.ts#L184)): headword, IPA, Listen, Close; each sense with a number (when more than one), the simple definition, a `adj · B2` chip and the first example; then Vietnamese. Empty senses: "This doesn't look like an English word." |
 | Target-language row | [fold:218](../../../extension/src/content/card.ts#L218), [settings.ts:47](../../../extension/src/shared/settings.ts#L47) | Titled with the language name, closed unless Show translation says otherwise (Collapsed default, Always open, Remember last choice: `lastRowOpen` is saved on every toggle, like iOS `TranslationRowPreference`). |
 | Errors on the card | [errorBlock:228](../../../extension/src/content/card.ts#L228) | A guest sees a lock and "Sign in to get a new explanation." Network, server and cut streams get a Try again icon button; final answers (not English, 4xx) do not. |
+| Settings popup | [popup/index.html](../../../extension/src/popup/index.html), [settingsView.ts:15](../../../extension/src/popup/settingsView.ts#L15) | The toolbar button opens it. **Language** (the 9 backend languages, default Vietnamese) and **Show translation** (Collapsed, Always open, Remember last choice, with a checkmark), the same as the iOS Settings screen. Saved at once in `chrome.storage.sync`; the next card uses them. English has no target-language row (the app's rule). The hint at the bottom shows the shortcut the user set. |
 | Listen | [speech.ts](../../../extension/src/content/speech.ts) | `speechSynthesis`, `en-US`, a local US voice when there is one; the button turns into Stop while it reads. |
 | Build | [scripts/build.mjs](../../../extension/scripts/build.mjs) | Vite builds each entry alone (a content script cannot import modules): `background.js` (ES module), `content.js` (IIFE), the popup, and writes `manifest.json`. `VITE_API_BASE=http://localhost:8081 npm run build` points it at a local backend (and asks host permission for that origin). |
 
@@ -92,6 +93,7 @@ sequenceDiagram
 | [card.test.ts](../../../extension/test/card.test.ts) (jsdom) | Deltas grow, full meaning wins; sentence order Meaning, Words, target language last; row closed by default, open when set, named after the language; icon-only buttons with labels; Listen reads the sentence; word card (headword, IPA, chip, example, Vietnamese last, no row for other languages, not-a-word message); guest card with and without the sign-in action; Try again only for errors that can change |
 | [placement.test.ts](../../../extension/test/placement.test.ts) | Icon below the end of the line, page scroll, right and bottom edges; card below, right edge, above when there is no room |
 | [settings.test.ts](../../../extension/test/settings.test.ts) | Defaults, saved and broken values, save, how the row starts in each mode |
+| [settingsView.test.ts](../../../extension/test/settingsView.test.ts) (jsdom) | The 9 languages, the saved one picked, three options with Collapsed checked, saving a mode and a language, the footer names the language |
 | [explain.test.ts](../../../extension/test/explain.test.ts) | Word vs stream routing, event order, one error event, no request for empty or long text |
 
 ## Change checklist
