@@ -32,6 +32,9 @@ public class ClaudeGate {
 
     /** Call this before every NEW Claude call for a person's request. */
     public void beforeNewCall() {
+        if (checkPrefillCap()) {
+            return;
+        }
         Long userId = CallerContext.userId().orElse(null);
         if (userId == null && auth.requireSignIn()) {
             throw new SignInRequiredException();
@@ -50,10 +53,28 @@ public class ClaudeGate {
     }
 
     /**
+     * The prefill job (TASK-83.1) has no user. It skips the sign-in, the user limits and the users' daily budget,
+     * and is stopped by its own run cap instead. Returns true when this thread is a prefill run (cap checked, ok).
+     */
+    private boolean checkPrefillCap() {
+        PrefillContext.Run run = PrefillContext.current().orElse(null);
+        if (run == null) {
+            return false;
+        }
+        if (usage.prefillSpentSince(run.startedAt()).compareTo(run.maxUsd()) >= 0) {
+            throw new PrefillCapReachedException();
+        }
+        return true;
+    }
+
+    /**
      * Only the money check. For a second call inside one request (the word retry) and for admin tools:
      * the person already passed {@link #beforeNewCall} for this request.
      */
     public void checkBudget() {
+        if (checkPrefillCap()) {
+            return;
+        }
         if (usage.budgetReached()) {
             throw new DailyLimitReachedException();
         }

@@ -7,5 +7,7 @@ public enum Feature {
     /** For admin tools that call Claude. None does yet, but the budget cap covers them when one does. */
     ADMIN,
     /** The tiny call at start-up that warms the connection (TASK-75). It costs about nothing. */
-    WARMUP
+    WARMUP,
+    /** The nightly prefill job (TASK-83.1). It has its own cap and does not count toward the users' daily budget. */
+    PREFILL
 }
