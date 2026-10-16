@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-16 02:33'
-updated_date: '2026-10-16 02:39'
+updated_date: '2026-10-16 02:40'
 labels:
   - backend
   - admin
@@ -50,4 +50,6 @@ The admin Words list 'Needs review' chip only shows word-text problems. The Clau
 
 <!-- SECTION:NOTES:BEGIN -->
 Built. Backend 334 tests pass; admin 73 tests pass, build ok; check_docs ok. Migration is V15; must merge after PR #72 (V14) or be renumbered.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/73 (merge after #72, migration V15). Test it: on admin.loffy.me press the Wrong media chip (about 743 words), open a word, press the check button (Approved label, AI mark gone), press it again to undo, then press Media to review; after Pick another an approved sense is to review again. Automated: ./mvnw -B test (334), npm test (73) and npm run build, python3 scripts/check_docs.py.
 <!-- SECTION:NOTES:END -->
