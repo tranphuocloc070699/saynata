@@ -10,11 +10,13 @@ import SwiftUI
 
 @main
 struct SaynataMacApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     var body: some Scene {
-        MenuBarExtra("Saynata", systemImage: "character.book.closed") {
-            Text("Saynata")
-                .padding()
+        // The menu-bar icon and its popover are made by the app delegate. A SwiftUI app needs one scene,
+        // and an empty Settings scene opens no window.
+        Settings {
+            EmptyView()
         }
-        .menuBarExtraStyle(.window)
     }
 }

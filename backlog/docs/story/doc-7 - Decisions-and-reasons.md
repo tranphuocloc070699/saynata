@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 09:28'
+updated_date: '2026-10-16 09:43'
 ---
 # Decisions and reasons
 
@@ -134,6 +134,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | **Saynata on the Mac as a native SwiftUI menu-bar app** (doc-16 Part 1, option C, F6 / TASK-85): a `MenuBarExtra` **popover under the menu-bar icon** (mockup option A), no Dock icon, opened from any app with a **global shortcut, default ⌥⇧Space** that the user can change, with the cursor in the input box | "Implement desktop app, I want to open with shortcut." The popover (A) was picked from the mockup. Any further reason: not recorded | "Designed for iPad" (no menu bar, no shortcut); Mac Catalyst; a Spotlight-style panel in the middle of the screen (mockup option B) | Developer |
 | 10-16 | **The Mac app shares code by compiling the app folder** (the same way the Share and Translation extensions do, doc-10), with `#if os(iOS)` / `#if os(macOS)` around the few UIKit parts, instead of moving code into a `SaynataCore` Swift package (doc-16 step 1) | A package needs `public` on every type, property and init the app uses (hundreds of edits) and changes how the tests import the code. Compiling the folder gives the same sharing with a much smaller diff and no change to the iOS app | `SaynataCore` local Swift package | Claude |
 | 10-16 | **The Mac app signs in with the same email code** as iOS (doc-17) and keeps its own tokens in the Mac Keychain; it does not share the iPhone's sign-in | The backend has `REQUIRE_SIGN_IN=true`, so new sentences need a user. Sharing tokens across devices needs iCloud Keychain and a paid account | Guest-only Mac app (cached and bundled answers only) | Claude (from the session brief) |
+| 10-16 | **The Mac popover is AppKit's `NSStatusItem` + `NSPopover`** hosting the SwiftUI view, not SwiftUI's `MenuBarExtra` | The shortcut and the Services item must open the window from code and put the cursor in the box. `MenuBarExtra` has no public way to open itself; the known workaround clicks the status item through private window classes | `MenuBarExtra(.window)` (doc-16), the MenuBarExtraAccess package | Claude |
 
 ## Questions answered
 
