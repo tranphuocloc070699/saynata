@@ -4,7 +4,6 @@
 //
 
 import Foundation
-import UIKit
 
 /// One spelling the dictionary knows: a base word or a form ("ran"), the base word to suggest, and its NGSL rank.
 struct SpellingCandidate: Equatable {
@@ -20,13 +19,10 @@ protocol SpellChecking: Sendable {
     func guesses(for word: String) -> [String]
 }
 
-/// Apple's spell checker (`UITextChecker`), on the device and offline.
+/// Apple's spell checker (`UITextChecker` on iOS, `NSSpellChecker` on the Mac), on the device and offline.
 struct AppleSpellChecker: SpellChecking {
     func guesses(for word: String) -> [String] {
-        // A new checker for each call: it is cheap, and it is not safe to share between threads.
-        let checker = UITextChecker()
-        let range = NSRange(location: 0, length: (word as NSString).length)
-        return checker.guesses(forWordRange: range, in: word, language: "en_US") ?? []
+        SystemSpellChecker.guesses(for: word)
     }
 }
 

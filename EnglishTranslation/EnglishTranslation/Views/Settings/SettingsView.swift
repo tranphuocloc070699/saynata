@@ -6,9 +6,12 @@
 import SwiftUI
 
 /// The Settings screen (TASK-29). Today it has one section: how the target-language row opens.
-struct SettingsView: View {
+/// The Mac app adds its own sections at the end (shortcut, launch at login) through `moreSections` (TASK-85.3).
+struct SettingsView<MoreSections: View>: View {
     /// The picked language. It names the row in the footer.
     var targetLanguage: TargetLanguage = .vietnamese
+    /// Sections shown after the shared ones. The iPhone app has none.
+    @ViewBuilder var moreSections: () -> MoreSections
 
     @AppStorage(TranslationRowPreference.modeKey) private var modeRaw = TranslationRowMode.collapsed.rawValue
     @Environment(\.dismiss) private var dismiss
@@ -58,13 +61,15 @@ struct SettingsView: View {
                     Text(footerText)
                 }
                 .listRowBackground(Theme.Colors.surface)
+
+                moreSections()
             }
             .scrollContentBackground(.hidden)
             .background(Theme.Colors.background)
             .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .sheetTrailing) {
                     Button { dismiss() } label: { Image(systemName: "xmark") }
                         .accessibilityLabel("Close")
                 }
@@ -82,6 +87,12 @@ struct SettingsView: View {
                 Text("Your account is removed from our server and you are signed out. This cannot be undone.")
             }
         }
+    }
+}
+
+extension SettingsView where MoreSections == EmptyView {
+    init(targetLanguage: TargetLanguage = .vietnamese) {
+        self.init(targetLanguage: targetLanguage, moreSections: { EmptyView() })
     }
 }
 
