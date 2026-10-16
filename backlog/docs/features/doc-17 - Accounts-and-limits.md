@@ -3,7 +3,7 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-15 13:37'
+updated_date: '2026-10-16 09:52'
 ---
 # Accounts and limits
 
@@ -199,6 +199,10 @@ sequenceDiagram
 | Extensions | [SelectedTextResultView.swift:62](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L62) | The Share and Translation extensions have their own empty Keychain, so they are **guests**. When a request needs sign-in they show "Sign in from the Saynata app to explain new text." The share sheet already has the "Open in Saynata" button, and the app then asks for the sign-in itself. The extensions never open the sheet. |
 
 Tests: `KeychainSecretStoreTests` (the real simulator Keychain, own service name), `AuthClientTests` (fake server, bodies, error mapping, Retry-After), `AccountStoreTests` (save, reload, sign out, refresh, shared refresh, failed refresh signs out, network error keeps the session, delete account), `BackendClientAuthTests` (header on translations, stream and words, 401 then refresh then retry for each, only one retry, guest 401, 429, 503, stream `error` events with codes), `SignInFlowTests` (401 then sheet then verify then the same request runs again, for a sentence and a word; cancel; wrong code; daily limit and rate limit in the result area), `SignInModelTests` (steps, digits only, auto-check at 6, wrong tries, resend). The fake server and Keychain are in `AccountTestSupport.swift`.
+
+## Browser extension (TASK-86.3)
+
+The extension signs in the same way, in its toolbar popup, keeps the session in `chrome.storage.local` and shares one refresh in its service worker. Details: [Browser extension](doc-19%20-%20Browser-extension.md).
 
 ## Tests
 
