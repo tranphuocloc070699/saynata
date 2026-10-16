@@ -60,4 +60,6 @@ Developer chose OpenAI GPT Image mini only (2026-10-16), so the trial is 20 sens
 - Admin: source=ai shows the license note instead of the Pixabay credit (text-only, same slot as 'Uploaded by the admin'). A separate AI badge and a 'Generate with AI' button need a mockup: follow-up.
 - Verified: pipeline 154 passed with TEST_DATABASE_URL (Postgres 16 in Docker, V14 applied), backend ./mvnw -B test passed (H2, V14 applied), admin npm test 68 passed, check_docs 0 problems. CLI dry run and missing-key message checked against a seeded local Postgres.
 - Not built: backend-word senses (word_lookup_media needs_ai), clips re-check with 3 frames (separate task).
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/72 (Test it card in the PR).
 <!-- SECTION:NOTES:END -->
