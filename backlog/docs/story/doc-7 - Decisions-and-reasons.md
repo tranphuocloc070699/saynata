@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 02:33'
+updated_date: '2026-10-16 07:39'
 ---
 # Decisions and reasons
 
@@ -124,6 +124,12 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | AI pictures are a **pipeline command in two steps**: `media-generate` makes the files and records them (`media_generation`, Flyway V14), then after `rsync` `media-generate --link` links only files that answer 200 on the server, with status `ai_generated`; the old Pixabay file stays | A sense must never point to a file that is not on the server yet (the app would show nothing), and the developer reviews the report before anything changes. Reason in the developer's words: not recorded | Link in the same run; a backend job with an admin button first (TASK-53's first plan, now a later step) | Claude |
 | 10-16 | The image prompt is **one fixed template** from the sense (headword, type, simple explanation, easy example) plus the style rule, with no Claude call to write it | Free, the same for every provider, easy to review in the report. TASK-53 first planned a Claude Haiku-written prompt; it can come back if the trial pictures are weak | A short prompt written by Claude Haiku per sense | Claude (from the session brief) |
 | 10-16 | **Picture review is separate from the word-text "Needs review"** (TASK-80): two new chips, "Wrong media" (a sense marked needs_ai, the 743 that Claude flagged) and "Media to review" (has a picture that nobody approved), and a "Looks right" button that approves one picture. The approval is stored on its own (media_reviewed_at, media_reviewed_media_id), tied to the media file, so a new picture needs a new review | The 743 flagged pictures had no chip or badge, so the developer could not find them; he also wants to look at every picture and approve the good ones. "Needs review" keeps meaning word-text problems only. | Folding picture problems into "Needs review"; storing the approval in media_status (TASK-53 uses needs_ai, so its meaning must not change) | Developer |
+| 10-16 | **100% AI pictures**: every sense gets an AI picture, not only the 743 `needs_ai` ones (TASK-82) | "Pixabay still didn't show exactly what the word means" | Pixabay for most senses with AI only for the bad ones (the 10-14 choice, option B); the OpenAI API for the pictures (TASK-53) | Developer |
+| 10-16 | **Codex CLI through the ChatGPT plan** draws the pictures, instead of the OpenAI API | No per-picture cost (the plan covers it). The price is time: about 1 minute a picture. His exact words: not recorded | OpenAI GPT Image mini through the API (about $0.004 a picture, fast; TASK-53 stays in the code) | Developer |
+| 10-16 | **A green cartoon kid with a face** is the one main character, instead of flat faceless figures | The developer picked it himself from sample pictures. His exact words: not recorded | Flat, simple icons with faceless people (the TASK-53 style) | Developer |
+| 10-16 | **A quality is shown as one typical person or thing**: an old man for "old", an empty transparent box for "empty" | It was the developer's idea. His exact words: not recorded | A contrast of two pictures; a scene with the kid | Developer |
+| 10-16 | **No kid and no extra people for things and places**; people only when they are part of the thing, a building whose meaning is inside is shown cut open, a part of a place (river bank) is shown as the whole place | For bank: "show a building and people inside doing transaction". For river bank: "just show a river, don't show person". | The kid in every picture; a plain outside view of a bank | Developer |
+| 10-16 | **A stricter blind guess**: first an open guess with no choices, then multiple choice with distractors from a separate call that does not see the scene, passing at confidence 70, with up to 3 tries and feedback | Reason: not recorded. The trial guess had 4 choices that came with the scene and passed at 60 | The trial guess | Developer |
 
 ## Questions answered
 
@@ -139,3 +145,4 @@ go here as questions.
 - 10-15: Why check every picture with Claude first, instead of marking bad pictures by hand in the admin? Reason not recorded.
 - 10-16: Why OpenAI GPT Image mini over the other three providers, and why a $5 cap per run? Reason not recorded.
 - 10-16: Why upload by hand next to AI images? Only "a cheap alternative" was said (for example a picture made in ChatGPT). Further reason not recorded.
+- 10-16: Why Codex through the ChatGPT plan, the green kid, the "quality as one typical thing" idea and the stricter blind guess? Only the facts were given (no cost, slower, picked from samples). Exact reasons not recorded.

@@ -446,14 +446,15 @@ class PostgresStore:
             return cursor.fetchone() is not None
 
     def unlinked(self) -> list[dict]:
-        """The newest unlinked picture of each sense that is still needs_ai."""
+        """The newest unlinked picture of each sense that is still needs_ai. The Codex pictures of media-ai
+        (prompt_version set, TASK-82) are linked by their own command."""
         with self.pg.cursor() as cursor:
             cursor.execute(
                 """SELECT DISTINCT ON (g.sense_id) g.id, g.sense_id, g.file_name, g.provider, g.model, w.lemma, s.position
                    FROM media_generation g
                    JOIN dictionary_sense s ON s.id = g.sense_id
                    JOIN dictionary_word w ON w.id = s.word_id
-                   WHERE g.media_id IS NULL AND s.media_status = 'needs_ai'
+                   WHERE g.media_id IS NULL AND s.media_status = 'needs_ai' AND g.prompt_version IS NULL
                    ORDER BY g.sense_id, g.created_at DESC, g.id DESC"""
             )
             columns = [column.name for column in cursor.description]
@@ -501,6 +502,7 @@ class PostgresStore:
                    JOIN dictionary_sense s ON s.id = g.sense_id
                    JOIN dictionary_word w ON w.id = s.word_id
                    LEFT JOIN media old ON old.id = g.old_media_id
+                   WHERE g.prompt_version IS NULL
                    ORDER BY g.created_at DESC, g.id DESC"""
             )
             columns = [column.name for column in cursor.description]

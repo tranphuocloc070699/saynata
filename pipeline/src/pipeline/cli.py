@@ -19,6 +19,9 @@
     uv run pipeline media-generate --dry-run   # needs_ai senses: prompts and the cost estimate, calls nothing
     uv run pipeline media-generate --limit 20  # OpenAI makes 20 AI pictures (about $0.08); data/out/media-generate.html
     uv run pipeline media-generate --link      # after rsync: the new pictures replace the old ones in Postgres
+    uv run pipeline media-ai --dry-run --limit 3   # TASK-82: 3 scenes and Codex prompts, draws nothing
+    uv run pipeline media-ai --limit 20          # Claude writes, Codex draws, Claude guesses blind; data/out/media-ai.html
+    uv run pipeline media-ai --link              # after rsync: the passed AI pictures replace the sense pictures
     uv run pipeline export-local         # old: build dictionary.sqlite from data/pipeline.db
     uv run pipeline topics candidates    # topic words from WordNet + wordfreq into topic_words (no LLM)
     uv run pipeline topics judge --dry-run --limit 50   # one Haiku call, prints the verdicts, saves nothing
@@ -261,6 +264,42 @@ def generate_media(args) -> None:
     pg.close()
 
 
+def generate_media_ai(args) -> None:
+    """AI pictures for every sense: Claude scene, Codex draws, Claude blind guess (TASK-82). See media_ai.py."""
+    from pipeline import media_ai
+    from pipeline.media_generate import ProviderStop, is_on_server, DEFAULT_MEDIA_BASE_URL
+
+    words = [w.strip().lower() for chunk in (args.words or []) for w in chunk.split(",") if w.strip()]
+    media_dir = Path(args.media_dir)
+    if not args.link and not (words or args.limit or args.all):
+        raise SystemExit("media-ai: say which senses: --words a,b  or  --limit N  or  --all")
+    if not args.link and not os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        raise SystemExit("media-ai: ANTHROPIC_API_KEY is not set in pipeline/.env")
+    pg = postgres.connect(postgres.database_url(args.database_url))
+    store_ = media_ai.PostgresStore(pg)
+    if args.link:
+        base_url = args.media_base_url or os.environ.get("MEDIA_BASE_URL") or DEFAULT_MEDIA_BASE_URL
+        media_ai.link_passed(store_, media_dir, is_on_server(base_url))
+        pg.close()
+        return
+    try:
+        drawer = None if args.dry_run else media_ai.CodexDrawer()  # a dry run draws nothing, so it needs no Codex
+    except ProviderStop as error:
+        pg.close()
+        raise SystemExit(f"media-ai: {error}")
+    services = media_ai.Services(media_ai.make_fetch(args.scene_effort), drawer, media_dir)
+    summary = media_ai.run(
+        store_, services, words=words or None, limit=args.limit or 100000, redo=args.redo,
+        max_cost=args.max_cost, workers=args.workers, dry_run=args.dry_run,
+    )
+    if not args.dry_run:
+        media_ai.print_summary(summary, args.workers, args.max_cost)
+        rows = store_.report_rows()
+        count = media_ai.write_report(rows, Path(args.report), media_dir)
+        print(f"\nReport with {count} senses: {args.report}")
+    pg.close()
+
+
 def topic_words(args) -> None:
     """Topic words (TASK-61): candidates, the Haiku judge, and review. See topics.py."""
     from pipeline import topics
@@ -353,6 +392,22 @@ def main() -> None:
                             "or https://api.loffy.me/media)")
     gen_parser.add_argument("--report", default="data/out/media-generate.html")
     gen_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    ai_parser = commands.add_parser("media-ai", help="AI pictures for every sense: Claude scene, Codex draws, blind guess")
+    ai_parser.add_argument("--words", nargs="+", help="only these words, for example --words bank,old")
+    ai_parser.add_argument("--limit", type=int, help="the N most common senses that still need a picture")
+    ai_parser.add_argument("--all", action="store_true", help="every sense that still needs a picture")
+    ai_parser.add_argument("--redo", action="store_true", help="also senses that already have a final result for this prompt version")
+    ai_parser.add_argument("--dry-run", action="store_true", help="print 3 scenes and Codex prompts and the estimate; draw and save nothing")
+    ai_parser.add_argument("--link", action="store_true", help="after rsync: link the passed pictures whose files are on the server")
+    ai_parser.add_argument("--workers", type=int, default=4, help="senses in parallel, one Codex each (default 4)")
+    ai_parser.add_argument("--max-cost", type=float, default=5.0, help="Claude budget cap in US dollars (default 5)")
+    ai_parser.add_argument("--scene-effort", choices=["low", "medium", "high", "xhigh", "max"],
+                           help="thinking effort of the scene call (default: the API default); lower is cheaper")
+    ai_parser.add_argument("--media-dir", default="data/media", help="folder for the files (default data/media)")
+    ai_parser.add_argument("--media-base-url", help="where the server serves the files (default MEDIA_BASE_URL "
+                           "or https://api.loffy.me/media)")
+    ai_parser.add_argument("--report", default="data/out/media-ai.html")
+    ai_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     commands.add_parser("revalidate")
     commands.add_parser("report")
     commands.add_parser("export-local")
@@ -398,6 +453,8 @@ def main() -> None:
         check_media(args)
     elif args.command == "media-generate":
         generate_media(args)
+    elif args.command == "media-ai":
+        generate_media_ai(args)
     elif args.command == "revalidate":
         revalidate()
     elif args.command == "report":
