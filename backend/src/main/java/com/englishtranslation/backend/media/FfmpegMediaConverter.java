@@ -43,7 +43,8 @@ public class FfmpegMediaConverter implements MediaConverter {
                 throw new IllegalStateException("ffmpeg took longer than 60 seconds");
             }
             if (process.exitValue() != 0 || !Files.exists(target) || Files.size(target) == 0) {
-                throw new IllegalStateException("ffmpeg failed with exit code " + process.exitValue());
+                // ffmpeg ran but could not make a file: the input is most likely broken.
+                throw new UnreadableMediaException("ffmpeg failed with exit code " + process.exitValue());
             }
         } catch (IOException e) {
             throw new IllegalStateException("Could not run ffmpeg: " + e.getMessage(), e);

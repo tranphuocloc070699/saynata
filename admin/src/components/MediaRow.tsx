@@ -1,6 +1,6 @@
 import { useApiUrl, useInvalidate } from "@refinedev/core";
-import { Check, ImageOff, Images, Maximize2, Search, Sparkles, X } from "lucide-react";
-import { useState } from "react";
+import { Check, ImageOff, Images, Loader2, Maximize2, Search, Sparkles, Upload, X } from "lucide-react";
+import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import type { MediaSearchResponse, MediaSearchResult, SenseMedia, WordItem } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,15 +35,19 @@ export function MediaRow({ word, index }: Props) {
   const [error, setError] = useState<string>();
   // The full-size viewer: the photo or clip that was clicked (the current one or a search result).
   const [viewing, setViewing] = useState<LightboxMedia | null>(null);
+  // A file is being uploaded, or is being dragged over the row (TASK-79).
+  const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
-  async function run(action: () => Promise<unknown>, afterwards?: () => void) {
+  async function run(action: () => Promise<unknown>, afterwards?: () => void, toText: (e: unknown) => string = errorText) {
     setBusy(true);
     setError(undefined);
     try {
       await action();
       afterwards?.();
     } catch (e) {
-      setError(errorText(e));
+      setError(toText(e));
     } finally {
       setBusy(false);
     }
@@ -91,8 +95,61 @@ export function MediaRow({ word, index }: Props) {
       await refresh();
     });
 
+  // The admin's own picture or clip (TASK-79). The browser sets the multipart Content-Type itself (with the boundary);
+  // the backend needs X-Requested-With for a form upload (CSRF rule in JsonWritesOnlyFilter).
+  async function uploadFile(file: File) {
+    setUploading(true);
+    await run(
+      async () => {
+        const form = new FormData();
+        form.append("file", file);
+        await httpClient.post(`${mediaUrl}/upload`, form, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+        await refresh();
+      },
+      () => setPanelOpen(false),
+      uploadErrorText,
+    );
+    setUploading(false);
+  }
+
+  const working = busy || uploading;
+
+  function onFileChosen(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // so the same file can be chosen again
+    if (file && !working) void uploadFile(file);
+  }
+
+  // Drag and drop of a file onto the Media row. Only real files count (not dragged text).
+  const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes("Files");
+
+  function onDragOver(event: DragEvent) {
+    if (!hasFiles(event)) return;
+    event.preventDefault(); // without this the browser would open the file
+    setDragging(true);
+  }
+
+  function onDragLeave(event: DragEvent) {
+    // Moving over a child element also fires dragleave on the row: ignore that.
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+  }
+
+  function onDrop(event: DragEvent) {
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    setDragging(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file && !working) void uploadFile(file);
+  }
+
   return (
-    <div className="space-y-3">
+    <div
+      className={cn("space-y-3 rounded-md", dragging && "outline-dashed outline-2 outline-offset-4 outline-primary/60")}
+      onDragEnter={onDragOver}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <div className="flex items-start justify-between gap-3">
         <MediaCell media={media} alt={senseLabel} onOpen={() => media && setViewing(media)} />
         <div className="flex shrink-0 gap-2" role="group" aria-label={`Media actions (sense ${index + 1})`}>
@@ -122,6 +179,30 @@ export function MediaRow({ word, index }: Props) {
           >
             <Sparkles className="h-4 w-4" />
           </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Upload a picture or clip"
+            title="Upload a picture or clip"
+            disabled={working}
+            onClick={() => fileInput.current?.click()}
+          >
+            {uploading ? (
+              <Loader2 role="status" aria-label="Uploading" className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+          </Button>
+          {/* The file picker. The Upload button above opens it. */}
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*,video/*"
+            aria-label="Choose a picture or clip"
+            tabIndex={-1}
+            className="hidden"
+            onChange={onFileChosen}
+          />
         </div>
       </div>
 
@@ -225,11 +306,17 @@ function MediaCell({ media, alt, onOpen }: { media: SenseMedia | null | undefine
       )}
       </button>
       <div className="text-xs text-muted-foreground">
-        {media.kind === "clip" ? "Clip" : "Photo"} by{" "}
-        <a href={media.pageUrl} target="_blank" rel="noreferrer" className="underline">
-          {media.photographer}
-        </a>{" "}
-        on Pixabay
+        {media.source === "upload" ? (
+          "Uploaded by the admin"
+        ) : (
+          <>
+            {media.kind === "clip" ? "Clip" : "Photo"} by{" "}
+            <a href={media.pageUrl ?? undefined} target="_blank" rel="noreferrer" className="underline">
+              {media.photographer}
+            </a>{" "}
+            on Pixabay
+          </>
+        )}
       </div>
     </div>
   );
@@ -239,4 +326,11 @@ function MediaCell({ media, alt, onOpen }: { media: SenseMedia | null | undefine
 function errorText(error: unknown): string {
   const response = (error as { response?: { data?: { detail?: string } } }).response;
   return response?.data?.detail ?? (error as Error).message ?? "Something went wrong.";
+}
+
+// A file that is too big can be refused by the web server before the backend answers, with no JSON detail (TASK-79).
+function uploadErrorText(error: unknown): string {
+  const response = (error as { response?: { status?: number; data?: { detail?: string } } }).response;
+  if (!response?.data?.detail && response?.status === 413) return "That file is too big.";
+  return errorText(error);
 }

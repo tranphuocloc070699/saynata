@@ -2,12 +2,13 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { useRef } from "react";
 
-// What the viewer shows: one photo or clip, and where it came from (the Pixabay credit).
+// What the viewer shows: one photo or clip, and where it came from (the Pixabay credit, or "Uploaded by the admin").
 export interface LightboxMedia {
   url: string;
   kind: "photo" | "clip";
-  photographer: string;
-  pageUrl: string;
+  photographer: string | null;
+  pageUrl: string | null;
+  source?: "pixabay" | "upload";
 }
 
 interface Props {
@@ -58,11 +59,19 @@ export function MediaLightbox({ media, label, onClose }: Props) {
                 <img src={media.url} alt={label} className="max-h-[80vh] max-w-[92vw] rounded-md object-contain" />
               )}
               <Dialog.Title className="text-center text-sm text-white">
-                {label} · {media.kind === "clip" ? "Clip" : "Photo"} by{" "}
-                <a href={media.pageUrl} target="_blank" rel="noreferrer" className="underline">
-                  {media.photographer}
-                </a>{" "}
-                on Pixabay
+                {media.source === "upload" ? (
+                  <>
+                    {label} · Uploaded by the admin
+                  </>
+                ) : (
+                  <>
+                    {label} · {media.kind === "clip" ? "Clip" : "Photo"} by{" "}
+                    <a href={media.pageUrl ?? undefined} target="_blank" rel="noreferrer" className="underline">
+                      {media.photographer}
+                    </a>{" "}
+                    on Pixabay
+                  </>
+                )}
               </Dialog.Title>
             </>
           )}

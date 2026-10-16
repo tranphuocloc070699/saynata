@@ -1,7 +1,9 @@
 package com.englishtranslation.backend.admin;
 
 import java.util.List;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -63,6 +65,17 @@ public class AdminMediaController {
     @DeleteMapping("/words/{id}/media")
     public AdminWord removeAll(@PathVariable String id) {
         return service.removeAllMedia(id);
+    }
+
+    /**
+     * The admin's own picture or clip (TASK-79). Multipart form with one part named "file". The browser must send the
+     * header X-Requested-With (JsonWritesOnlyFilter lets this one path skip the JSON rule only with that header).
+     * Returns the changed word.
+     */
+    @PostMapping(path = "/words/{id}/senses/{position}/media/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public AdminWord upload(@PathVariable String id, @PathVariable int position,
+            @RequestParam(name = "file", required = false) MultipartFile file) {
+        return service.upload(id, position, file);
     }
 
     @PostMapping("/words/{id}/senses/{position}/media/mark-for-ai")

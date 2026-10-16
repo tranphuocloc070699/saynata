@@ -313,6 +313,46 @@ def test_export_writes_no_image_url_for_removed_senses(app_db, pg, media_dir, ou
     assert (result.media_copied, result.media_missing) == (0, [])
 
 
+def link_uploaded_file(pg, media_dir: Path, lemma: str, position: int, file_name: str) -> int:
+    """What the admin upload does (TASK-79): a media row with source 'upload' and no Pixabay credit, linked to a sense."""
+    Image.new("RGB", (320, 240)).save(media_dir / file_name, "WEBP")
+    media_id = pg.execute(
+        "INSERT INTO media (file_name, kind, bytes, license_note, source, created_at) "
+        "VALUES (%s, 'photo', 100, 'Uploaded by the admin', 'upload', now()) RETURNING id", (file_name,)).fetchone()[0]
+    pg.execute("UPDATE dictionary_sense SET media_id = %s, image_type = 'photo', media_status = NULL WHERE position = %s "
+               "AND word_id = (SELECT id FROM dictionary_word WHERE lemma = %s)", (media_id, position, lemma))
+    pg.commit()
+    return media_id
+
+
+def test_export_keeps_a_file_the_admin_uploaded(app_db, pg, media_dir, out_dir):
+    postgres.import_dictionary(app_db, pg, media_dir=media_dir)
+    # run sense 2 had "no image" before; the upload gives it a picture. apple's sense is replaced by an upload too.
+    link_uploaded_file(pg, media_dir, "run", 1, "run_2_ab12cd34.webp")
+    link_uploaded_file(pg, media_dir, "apple", 0, "apple_1_ee00ff11.webp")
+
+    result = export.export_from_postgres(pg, media_dir=media_dir)
+
+    senses = dict(sqlite3.connect(result.path).execute(
+        "SELECT w.lemma || ':' || s.position, s.image_url FROM senses s JOIN words w ON w.id = s.word_id").fetchall())
+    assert senses["run:1"] == "media/run_2_ab12cd34.webp"
+    assert senses["apple:0"] == "media/apple_1_ee00ff11.webp"   # the upload won over the Pixabay file
+    assert senses["run:0"] == "media/run_1.mp4"
+    assert (result.media_copied, result.media_missing) == (3, [])
+    assert (out_dir / "media" / "run_2_ab12cd34.webp").is_file()
+
+
+def test_link_media_does_not_replace_an_uploaded_file(app_db, pg, media_dir):
+    postgres.import_dictionary(app_db, pg, media_dir=media_dir)
+    uploaded = link_uploaded_file(pg, media_dir, "apple", 0, "apple_1_ee00ff11.webp")
+
+    postgres.link_media(app_db, pg, media_dir=media_dir)
+
+    assert pg.execute("SELECT media_id FROM dictionary_sense WHERE word_id = "
+                      "(SELECT id FROM dictionary_word WHERE lemma = 'apple')").fetchone()[0] == uploaded
+    assert pg.execute("SELECT source FROM media WHERE id = %s", (uploaded,)).fetchone()[0] == "upload"
+
+
 def test_export_works_on_a_read_only_connection(app_db, pg, media_dir, out_dir, database_url):
     postgres.import_dictionary(app_db, pg, media_dir=media_dir)
 
