@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 08:19'
+updated_date: '2026-10-16 08:59'
 ---
 # Decisions and reasons
 
@@ -136,6 +136,9 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | **Loose sentence match** (TASK-83.3): on an exact miss, look again in lowercase without the final . ? ! | "How are you" must find a pre-filled "How are you?". The exact text still wins first, so "US" and "us" stay apart. Reason in the developer's words: not recorded | Exact match only | Developer chose from Claude's options |
 | 10-16 | **Guest misses are not recorded** in the prefill queue | Chosen by the developer. Reason: not recorded | Saving what guests typed (personal text excluded) for the night job | Developer |
 | 10-16 | **The prefill job runs every night with its own $0.50 cap**, outside the users' $1 daily budget | Keeps collecting without the developer starting it, and never takes the users' budget. Reason in the developer's words: not recorded | Start it by hand from an admin URL only | Developer chose from Claude's options |
+| 10-16 | **Pre-fill every wordfreq word with Zipf > 0** that the backend word list accepts (TASK-83.7), not only Zipf >= 3.5: about 68,330 words, about $48. Common words still run first | The developer's words: "collects all words from wordfreq, Zipf > 0". Further reason: not recorded | Zipf >= 3.5 only (6,304 words, $4.40, the 10-16 choice) | Developer |
+| 10-16 | **Queue the unknown words of every translated sentence for the night job** (TASK-83.8): after the answer is sent, each real English word that is not bundled and not cached goes into `prefill_item` with a seen counter. Only single checked words are kept, never the sentence. This narrows the earlier "no guest misses" rule: it applies to words from sentences too, guests included | "When user request to translate sentences, check if any words in the sentence does not store in backend, queue it and run at night." Further reason: not recorded | Answer the words only when tapped (today) | Developer |
+| 10-16 | The night job is the **Spring `@Scheduled` job from TASK-83.1** (`PREFILL_CRON`), not a VPS cron | It already runs inside the backend with ClaudeGate, the prefill cap and the PREFILL usage type. A VPS cron would need an admin password or token in a crontab and one more moving part. Downside: one server only (true today), and a night missed while the server is down is caught up the next night | A VPS cron that calls the admin URL | Claude |
 
 ## Questions answered
 
@@ -153,3 +156,4 @@ go here as questions.
 - 10-16: Why upload by hand next to AI images? Only "a cheap alternative" was said (for example a picture made in ChatGPT). Further reason not recorded.
 - 10-16: Why Codex through the ChatGPT plan, the green kid, the "quality as one typical thing" idea and the stricter blind guess? Only the facts were given (no cost, slower, picked from samples). Exact reasons not recorded.
 - 10-16: Why pre-fill through a backend job, Zipf 3.5, a loose sentence match, no guest misses, and a nightly $0.50 cap? The recommended options were picked; reasons not recorded.
+- 10-16: Why every wordfreq word, and why queue the words of every sentence? Only what to do was said. Reason not recorded.
