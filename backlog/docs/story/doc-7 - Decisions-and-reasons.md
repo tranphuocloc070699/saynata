@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 07:39'
+updated_date: '2026-10-16 08:19'
 ---
 # Decisions and reasons
 
@@ -130,6 +130,11 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | **A quality is shown as one typical person or thing**: an old man for "old", an empty transparent box for "empty" | It was the developer's idea. His exact words: not recorded | A contrast of two pictures; a scene with the kid | Developer |
 | 10-16 | **No kid and no extra people for things and places**; people only when they are part of the thing, a building whose meaning is inside is shown cut open, a part of a place (river bank) is shown as the whole place | For bank: "show a building and people inside doing transaction". For river bank: "just show a river, don't show person". | The kid in every picture; a plain outside view of a bank | Developer |
 | 10-16 | **A stricter blind guess**: first an open guess with no choices, then multiple choice with distractors from a separate call that does not see the scene, passing at confidence 70, with up to 3 tries and feedback | Reason: not recorded. The trial guess had 4 choices that came with the scene and passed at 60 | The trial guess | Developer |
+| 10-16 | **Pre-fill the shared cache through a backend job** (TASK-83.1): a `prefill_item` queue in Postgres, answered by the same `WordService` / `TranslationService` users hit, so prompt, prompt version, cache key and checks match | A Python copy of the Java prompts would drift and miss the cache. Cached answers come back in 25-50 ms, a new Claude call takes about 2 s, and guests get no new Claude answers. The developer picked the recommended option; reason in their words: not recorded | A pipeline step that calls Claude itself and writes the cache tables | Claude, accepted |
+| 10-16 | **Pre-fill words with wordfreq Zipf >= 3.5** that are not bundled and not TASK-61 topic words (about 4.5k lemmas, about $3-4 once), plus phrasal verbs and idioms from Open English WordNet (about $0.50) | Production had only 9 backend words cached. Topic words will be bundled, and the bundled entry wins, so pre-filling them would be wasted. Reason in the developer's words: not recorded | Zipf >= 3.0 (about 11k, about $8); Zipf >= 4.0 (about 1.2k, about $1) | Developer chose from Claude's options |
+| 10-16 | **Loose sentence match** (TASK-83.3): on an exact miss, look again in lowercase without the final . ? ! | "How are you" must find a pre-filled "How are you?". The exact text still wins first, so "US" and "us" stay apart. Reason in the developer's words: not recorded | Exact match only | Developer chose from Claude's options |
+| 10-16 | **Guest misses are not recorded** in the prefill queue | Chosen by the developer. Reason: not recorded | Saving what guests typed (personal text excluded) for the night job | Developer |
+| 10-16 | **The prefill job runs every night with its own $0.50 cap**, outside the users' $1 daily budget | Keeps collecting without the developer starting it, and never takes the users' budget. Reason in the developer's words: not recorded | Start it by hand from an admin URL only | Developer chose from Claude's options |
 
 ## Questions answered
 
@@ -146,3 +151,4 @@ go here as questions.
 - 10-16: Why OpenAI GPT Image mini over the other three providers, and why a $5 cap per run? Reason not recorded.
 - 10-16: Why upload by hand next to AI images? Only "a cheap alternative" was said (for example a picture made in ChatGPT). Further reason not recorded.
 - 10-16: Why Codex through the ChatGPT plan, the green kid, the "quality as one typical thing" idea and the stricter blind guess? Only the facts were given (no cost, slower, picked from samples). Exact reasons not recorded.
+- 10-16: Why pre-fill through a backend job, Zipf 3.5, a loose sentence match, no guest misses, and a nightly $0.50 cap? The recommended options were picked; reasons not recorded.
