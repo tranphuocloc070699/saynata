@@ -3,16 +3,18 @@ id: doc-20
 title: Mac app
 type: guide
 created_date: '2026-10-16 09:43'
-updated_date: '2026-10-16 09:50'
+updated_date: '2026-10-16 09:51'
 ---
 # Mac app
 
-> Status: menu-bar popover (TASK-85.2) and global shortcut (TASK-85.3) built; Services + launch at login (TASK-85.4) next. Last traced from code: 2026-10-16.
+> Status: built: menu-bar popover (TASK-85.2), global shortcut (TASK-85.3), Services item and launch at login (TASK-85.4). Last traced from code: 2026-10-16.
 > Plan: [doc-16](../doc-16%20-%20Plan-Mac-menu-bar-app-and-browser-extension.md) Part 1. Decisions: doc-7, 10-16.
 
 ## What it does
 
 Saynata lives in the Mac menu bar, with no Dock icon. A click on the book icon, or the shortcut ⌥⇧Space from any app, opens a popover (420 × 560 pt) with the cursor in the input box. Type a word or a sentence and press Return: the result is the same as on the iPhone, the simple English explanation first, then the words, then the target language, folded.
+
+In any app, select text, then right-click → Services → **Explain with Saynata**: the popover opens and explains it. Settings → Start → **Open at login** starts Saynata with the Mac.
 
 ## Big picture
 
@@ -33,13 +35,15 @@ flowchart LR
 | Step | File | What happens |
 |---|---|---|
 | Start | [AppDelegate.swift:25](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L25) | Makes the status item and a transient, light-mode popover that hosts `MenuBarContentView` with the store, the speech player, the account and `MenuBarFocus` |
-| Shortcut | [AppDelegate.swift:45](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L45) | [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) (MIT, 2.4) calls `togglePopover` on key up. The name and default ⌥⇧Space are in [MacSettingsSections.swift](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift); Settings > Shortcut has the recorder, and the package saves the choice in UserDefaults. It uses Carbon hot keys, so no Accessibility permission |
-| Open | [AppDelegate.swift:86](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L86) | Activates the app (a menu-bar app is never active), shows the popover, makes it key and asks for focus |
+| Shortcut | [AppDelegate.swift:49](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L49) | [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) (MIT, 2.4) calls `togglePopover` on key up. The name and default ⌥⇧Space are in [MacSettingsSections.swift](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift); Settings > Shortcut has the recorder, and the package saves the choice in UserDefaults. It uses Carbon hot keys, so no Accessibility permission |
+| Open | [AppDelegate.swift:88](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L88) | Activates the app (a menu-bar app is never active), shows the popover, makes it key and asks for focus |
 | Focus | [MenuBarContentView.swift:13](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L13) | Watches `MenuBarFocus.request` and puts the cursor in the box |
 | Explain | [MenuBarContentView.swift:115](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L115) | Return or the arrow button runs `TranslationStore.translate()`, the same code as iOS |
 | Result | [MenuBarContentView.swift:34](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L34) | `TranslateResultView`: word card or sentence cards, speakers, folded target language |
 | Sign in | [MenuBarContentView.swift:52](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L52) | `sign_in_required` opens the shared `SignInSheet` as a sheet on the popover. On the Mac it has a Close button (Esc) |
-| Close | [AppDelegate.swift:95](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L95) | A click outside or Esc closes the popover; speech stops |
+| Services | [AppDelegate.swift:110](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L110) | `NSServices` in [Info.plist](../../../EnglishTranslation/SaynataMac/Info.plist) declares "Explain with Saynata" for plain text; `NSApp.servicesProvider = self` at start. macOS calls `explainSelection` with the selected text on a pasteboard, which calls `explain(_:)`. No Accessibility permission |
+| Login | [MacSettingsSections.swift:52](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift#L52) | Settings → Start → Open at login: `SMAppService.mainApp.register()` / `unregister()`. If macOS wants approval, the footer says where |
+| Close | [AppDelegate.swift:97](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L97) | A click outside or Esc closes the popover; speech stops |
 
 ## Sign-in and storage
 
@@ -61,7 +65,8 @@ No Mac-only tests yet: all the logic is the shared code, tested by `EnglishTrans
 
 ## Known gaps
 
-- No Services item and no launch at login yet (TASK-85.4).
+- A new Services item may only show after the app ran once (or after `/System/Library/CoreServices/pbs -update`). It is also in System Settings → Keyboard → Keyboard Shortcuts → Services, where the user can give it its own keys.
+- "Shortcut explains the selection" (reading the selection without Services) needs Accessibility permission; not built (doc-16, optional).
 - On the Mac, `List` footers in Settings are cut to one line.
 - The Mac app has no app icon of its own yet (the generic one shows in Finder).
 - Sharing the iPhone's sign-in needs iCloud Keychain and a paid account.
