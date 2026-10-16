@@ -17,7 +17,7 @@ import org.flywaydb.core.api.migration.Context;
  *
  * The prompt version used is the one saved in the row, like the exact cache_key does.
  */
-public class V17__add_sentence_match_key extends BaseJavaMigration {
+public class V18__add_sentence_match_key extends BaseJavaMigration {
 
     @Override
     public void migrate(Context context) throws Exception {

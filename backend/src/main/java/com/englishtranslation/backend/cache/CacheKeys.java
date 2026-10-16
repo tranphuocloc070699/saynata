@@ -40,7 +40,7 @@ public final class CacheKeys {
 
     /**
      * The match_key of a saved sentence: key("sentence-loose", promptVersion, targetLang, looseText).
-     * Flyway V17 fills old rows with this same method, so the database and new code always agree.
+     * Flyway V18 fills old rows with this same method, so the database and new code always agree.
      */
     public static String sentenceMatchKey(String promptVersion, String targetLang, String text) {
         return key("sentence-loose", promptVersion, targetLang, normalizeSentenceLoose(text));

@@ -3,7 +3,7 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-16 08:29'
+updated_date: '2026-10-16 08:31'
 ---
 > Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-16 (TASK-83.3 loose match: "how are you" finds a saved "How are you?", no prompt change; TASK-73 the meaning streams word by word, TASK-74 local word cards at once while loading, TASK-75 start-up warm-up; TASK-70 sign-in sheet, Bearer token, refresh and retry, coded errors, see doc-17 "iOS app"; TASK-56 extra words from the bundled dictionary; TASK-50 keyboard hides on tap, send and scroll; TASK-65 streaming: the meaning shows as soon as Claude has written it, see "Streaming" below; the line numbers in tables 1-4 are for the non-streaming path and may be a few lines off). Earlier: 2026-10-14 (TASK-9 personal text is never cached; Listen on the sentence header: TASK-7; TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -139,7 +139,7 @@ Tests also inject a fake through the same `makeTranslator` closure.
 | Column | Type | Note |
 |---|---|---|
 | `cache_key` | `VARCHAR(64) UNIQUE` | The sha256 key. The unique index is what makes the race safe. |
-| `match_key` | `VARCHAR(64)`, indexed, **not unique** | TASK-83.3, Flyway V17. It is a Java migration (`db/migration/V17__add_sentence_match_key.java`), so old rows get their key from the same `CacheKeys.sentenceMatchKey` code the app uses; Postgres and the H2 test database have different hash functions. The loose key for the second lookup. |
+| `match_key` | `VARCHAR(64)`, indexed, **not unique** | TASK-83.3, Flyway V18. It is a Java migration (`db/migration/V18__add_sentence_match_key.java`), so old rows get their key from the same `CacheKeys.sentenceMatchKey` code the app uses; Postgres and the H2 test database have different hash functions. The loose key for the second lookup. |
 | `source_text` | `VARCHAR(500)` | Normalised text. |
 | `target_lang` | `VARCHAR(8)` | Added in V2. Old rows default to `vi`. |
 | `meaning`, `words_json`, `translation` | `TEXT` | The explanation. `meaning` and `words_json` added in V3. |
@@ -290,7 +290,7 @@ On the stream these arrive as an `error` event with a `code` field. Every Claude
 | [NotEnglishException](../../../backend/src/main/java/com/englishtranslation/backend/claude/NotEnglishException.java) tests in `TranslationServiceTest` and `TranslationControllerTest` | Not English → 422 with the message, nothing saved, Claude asked again next time |
 | [ExplanationTest.java](../../../backend/src/test/java/com/englishtranslation/backend/translation/ExplanationTest.java) | The response JSON starts with `meaning` and ends with `translation` |
 | [CacheKeysTest.java](../../../backend/src/test/java/com/englishtranslation/backend/cache/CacheKeysTest.java) | Whitespace and case rules, key changes with prompt version and kind, **loose text and match key** |
-| [SentenceMatchKeyMigrationTest.java](../../../backend/src/test/java/com/englishtranslation/backend/migration/SentenceMatchKeyMigrationTest.java) | **V17 fills `match_key` for old rows with the same value Java gives; "US" and "us" share one loose key** |
+| [SentenceMatchKeyMigrationTest.java](../../../backend/src/test/java/com/englishtranslation/backend/migration/SentenceMatchKeyMigrationTest.java) | **V18 fills `match_key` for old rows with the same value Java gives; "US" and "us" share one loose key** |
 
 Run: `./mvnw test` in `backend/`, and the iOS tests in Xcode (⌘U).
 

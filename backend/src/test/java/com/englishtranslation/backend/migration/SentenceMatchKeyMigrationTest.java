@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
-/** Flyway V17 (TASK-83.3) fills match_key for rows that were saved before the column existed. */
+/** Flyway V18 (TASK-83.3) fills match_key for rows that were saved before the column existed. */
 class SentenceMatchKeyMigrationTest {
 
     @Test
