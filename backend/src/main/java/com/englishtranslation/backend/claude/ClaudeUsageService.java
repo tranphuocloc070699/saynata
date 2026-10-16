@@ -1,5 +1,6 @@
 package com.englishtranslation.backend.claude;
 
+import com.englishtranslation.backend.limits.PrefillContext;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -40,7 +41,11 @@ public class ClaudeUsageService {
     public record Day(LocalDate date, Totals total, Map<String, Totals> byFeature) {
     }
 
-    public record Report(BigDecimal dailyBudgetUsd, BigDecimal todayUsd, List<Day> days) {
+    /**
+     * @param todayUsd        today's spend that counts toward the users' budget (prefill not included)
+     * @param prefillTodayUsd today's spend of the prefill job (it has its own cap)
+     */
+    public record Report(BigDecimal dailyBudgetUsd, BigDecimal todayUsd, BigDecimal prefillTodayUsd, List<Day> days) {
     }
 
     private final ClaudeUsageRepository repository;
@@ -58,6 +63,10 @@ public class ClaudeUsageService {
      * learner who already waited for Claude.
      */
     public void record(Feature feature, String model, long inputTokens, long outputTokens) {
+        // A call made by the prefill job is always saved as PREFILL, whatever part of the code made it.
+        if (PrefillContext.current().isPresent() && feature != Feature.WARMUP) {
+            feature = Feature.PREFILL;
+        }
         try {
             BigDecimal cost = cost(model, inputTokens, outputTokens);
             repository.save(new ClaudeUsage(clock.instant(), model, feature, inputTokens, outputTokens, cost));
@@ -102,6 +111,11 @@ public class ClaudeUsageService {
         return repository.totalCostSince(startOfToday());
     }
 
+    /** What the prefill job spent since {@code from} (the start of its run). */
+    public BigDecimal prefillSpentSince(Instant from) {
+        return repository.prefillCostSince(from);
+    }
+
     public boolean budgetReached() {
         return spentToday().compareTo(properties.dailyBudgetUsd()) >= 0;
     }
@@ -137,7 +151,8 @@ public class ClaudeUsageService {
             features.get(date).forEach((feature, value) -> byFeature.put(feature.name().toLowerCase(), value));
             result.add(new Day(date, total, byFeature));
         });
-        BigDecimal todayUsd = result.get(0).total().costUsd();
-        return new Report(properties.dailyBudgetUsd(), todayUsd, result);
+        Totals todayPrefill = result.get(0).byFeature().getOrDefault("prefill", Totals.empty());
+        BigDecimal todayUsd = result.get(0).total().costUsd().subtract(todayPrefill.costUsd());
+        return new Report(properties.dailyBudgetUsd(), todayUsd, todayPrefill.costUsd(), result);
     }
 }

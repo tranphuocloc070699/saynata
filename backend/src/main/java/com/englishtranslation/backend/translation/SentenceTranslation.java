@@ -1,5 +1,6 @@
 package com.englishtranslation.backend.translation;
 
+import com.englishtranslation.backend.cache.CacheKeys;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,6 +19,10 @@ public class SentenceTranslation {
 
     @Column(name = "cache_key", nullable = false, unique = true, length = 64)
     private String cacheKey;
+
+    /** Loose key (case and final punctuation ignored), not unique. See CacheKeys.sentenceMatchKey. */
+    @Column(name = "match_key", nullable = false, length = 64)
+    private String matchKey;
 
     @Column(name = "source_text", nullable = false, length = 500)
     private String sourceText;
@@ -52,6 +57,7 @@ public class SentenceTranslation {
     public SentenceTranslation(String cacheKey, String sourceText, String targetLang, String meaning, String wordsJson,
             String translation, String model, String promptVersion) {
         this.cacheKey = cacheKey;
+        this.matchKey = CacheKeys.sentenceMatchKey(promptVersion, targetLang, sourceText);
         this.sourceText = sourceText;
         this.targetLang = targetLang;
         this.meaning = meaning;
@@ -64,6 +70,10 @@ public class SentenceTranslation {
 
     public Long getId() {
         return id;
+    }
+
+    public String getMatchKey() {
+        return matchKey;
     }
 
     public String getTargetLang() {
