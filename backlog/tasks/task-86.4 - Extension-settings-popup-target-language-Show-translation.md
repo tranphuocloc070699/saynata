@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-16 09:00'
-updated_date: '2026-10-16 09:47'
+updated_date: '2026-10-16 09:54'
 labels:
   - extension
 dependencies:
@@ -46,4 +46,6 @@ The same two settings as the iOS app: the target language and the Show translati
 
 <!-- SECTION:NOTES:BEGIN -->
 Popup copies the iOS Settings screen (no new mockup: the same list and checkmarks the developer already approved for the app). Checked in the in-app browser with a fake chrome.storage; 5 jsdom tests (settingsView, card English rule). The card reads the settings when it opens (content/index.ts openCard); Remember uses lastRowOpen saved on every row toggle (TASK-86.2). English target has no row, like the app.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/92 (into feature/f7-browser-extension; merge order #90, #91, #92, #93).
 <!-- SECTION:NOTES:END -->

@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-16 09:00'
-updated_date: '2026-10-16 09:37'
+updated_date: '2026-10-16 09:54'
 labels:
   - extension
 dependencies: []
@@ -49,4 +49,6 @@ The base every other extension task builds on: MV3 manifest, service worker that
 
 <!-- SECTION:NOTES:BEGIN -->
 npm test: 38 Vitest tests pass (textKind, sse, api, explain). npm run build: dist/ with manifest v3, background.js (ES module, no imports), content.js (IIFE). AC1 (load unpacked in Brave) is for the developer's test. The content script is a stub here that logs events to the page console; TASK-86.2 replaces it. npm 10 crashes resolving vitest peers, so extension/.npmrc sets legacy-peer-deps.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/90 (into feature/f7-browser-extension; merge order #90, #91, #92, #93).
 <!-- SECTION:NOTES:END -->

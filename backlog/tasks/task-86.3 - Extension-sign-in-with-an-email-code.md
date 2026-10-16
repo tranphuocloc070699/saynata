@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-16 09:00'
-updated_date: '2026-10-16 09:52'
+updated_date: '2026-10-16 09:54'
 labels:
   - extension
 dependencies:
@@ -50,4 +50,6 @@ REQUIRE_SIGN_IN=true on the server, so a guest only gets cached and bundled answ
 
 <!-- SECTION:NOTES:BEGIN -->
 86 Vitest tests pass (auth.test.ts: client bodies and errors, shared refresh, refused refresh signs out, network keeps the session, Bearer via the API; accountView.test.ts: steps). Browser harness: email step, wrong code message, right code shows the signed-in row; the card's Sign in button sends openSignIn, and a session change re-runs the same text. Fixed: the sign-in icon was invisible (.message svg rule hit the button's svg). Not checked against the real api.loffy.me: needs a real email code, the developer's test.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/93 (into feature/f7-browser-extension; merge order #90, #91, #92, #93).
 <!-- SECTION:NOTES:END -->
