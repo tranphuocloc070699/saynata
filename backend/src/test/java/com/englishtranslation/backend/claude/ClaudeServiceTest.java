@@ -43,6 +43,14 @@ class ClaudeServiceTest {
     }
 
     @Test
+    void sentencePromptKeepsTheMeaningShortAndDirect() {
+        assertThat(onOneLine(ClaudeService.SENTENCE_PROMPT))
+                .contains("One or two short sentences, at most 20 words in all")
+                .contains("Never describe the sentence")
+                .doesNotContain("One to three short sentences");
+    }
+
+    @Test
     void sentencePromptOnlyAllowsBaseFormForInflectedWords() {
         assertThat(onOneLine(ClaudeService.SENTENCE_PROMPT))
                 .contains("Add \"base form: X\" only when the word is an inflected form")

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -44,6 +45,9 @@ class SuggestTest {
     SuggestService service;
     @Autowired
     SentenceTranslationRepository sentences;
+    /** The current sentence prompt version, so a prompt bump does not break these tests. */
+    @Value("${app.claude.sentence-prompt-version}")
+    String sentencePromptVersion;
     @Autowired
     WordLookupRepository lookups;
     @Autowired
@@ -76,8 +80,8 @@ class SuggestTest {
     }
 
     private void phrase(String text, String lang) {
-        sentences.save(new SentenceTranslation(CacheKeys.key("sentence", "v6", lang, text), text, lang,
-                "m", "[]", "t", "m", "v6"));
+        sentences.save(new SentenceTranslation(CacheKeys.key("sentence", sentencePromptVersion, lang, text), text, lang,
+                "m", "[]", "t", "m", sentencePromptVersion));
     }
 
     private List<String> texts(String q, String lang) {
