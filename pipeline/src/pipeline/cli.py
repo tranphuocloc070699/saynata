@@ -21,6 +21,7 @@
     uv run pipeline media-generate --link      # after rsync: the new pictures replace the old ones in Postgres
     uv run pipeline media-ai --dry-run --limit 3   # TASK-82: 3 scenes and Codex prompts, draws nothing
     uv run pipeline media-ai --limit 20          # Claude writes, Codex draws, Claude guesses blind; data/out/media-ai.html
+    uv run pipeline media-ai --recheck-failed    # meaning check on failed senses' pictures, no new drawing
     uv run pipeline media-ai --link              # after rsync: the passed AI pictures replace the sense pictures
     uv run pipeline export-local         # old: build dictionary.sqlite from data/pipeline.db
     uv run pipeline topics candidates    # topic words from WordNet + wordfreq into topic_words (no LLM)
@@ -271,7 +272,7 @@ def generate_media_ai(args) -> None:
 
     words = [w.strip().lower() for chunk in (args.words or []) for w in chunk.split(",") if w.strip()]
     media_dir = Path(args.media_dir)
-    if not args.link and not (words or args.limit or args.all):
+    if not (args.link or args.recheck_failed) and not (words or args.limit or args.all):
         raise SystemExit("media-ai: say which senses: --words a,b  or  --limit N  or  --all")
     if not args.link and not os.environ.get("ANTHROPIC_API_KEY", "").strip():
         raise SystemExit("media-ai: ANTHROPIC_API_KEY is not set in pipeline/.env")
@@ -280,6 +281,12 @@ def generate_media_ai(args) -> None:
     if args.link:
         base_url = args.media_base_url or os.environ.get("MEDIA_BASE_URL") or DEFAULT_MEDIA_BASE_URL
         media_ai.link_passed(store_, media_dir, is_on_server(base_url))
+        pg.close()
+        return
+    if args.recheck_failed:
+        media_ai.recheck_failed(store_, media_ai.make_fetch(), media_dir)
+        count = media_ai.write_report(store_.report_rows(), Path(args.report), media_dir)
+        print(f"Report with {count} senses: {args.report}")
         pg.close()
         return
     try:
@@ -399,6 +406,8 @@ def main() -> None:
     ai_parser.add_argument("--redo", action="store_true", help="also senses that already have a final result for this prompt version")
     ai_parser.add_argument("--dry-run", action="store_true", help="print 3 scenes and Codex prompts and the estimate; draw and save nothing")
     ai_parser.add_argument("--link", action="store_true", help="after rsync: link the passed pictures whose files are on the server")
+    ai_parser.add_argument("--recheck-failed", action="store_true", help="run the meaning check on the pictures of "
+                           "senses that failed every try, without drawing again")
     ai_parser.add_argument("--workers", type=int, default=4, help="senses in parallel, one Codex each (default 4)")
     ai_parser.add_argument("--max-cost", type=float, default=5.0, help="Claude budget cap in US dollars (default 5)")
     ai_parser.add_argument("--scene-effort", choices=["low", "medium", "high", "xhigh", "max"],
