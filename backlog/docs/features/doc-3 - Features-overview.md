@@ -3,7 +3,7 @@ id: doc-3
 title: Features overview
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-16 09:43'
+updated_date: '2026-10-16 09:45'
 ---
 One page per flow: what it does, a diagram, every file and line on the path, the rules that matter,
 what can go wrong, which tests cover it, and what is still missing.
@@ -20,6 +20,7 @@ what can go wrong, which tests cover it, and what is still missing.
 | [Accounts and limits](doc-17%20-%20Accounts-and-limits.md) | Backend built (TASK-66 to 69): email-code sign-in, sign-in for new Claude calls, rate limits, $1 daily cap. The iOS sign-in screen waits for a mockup | Backend |
 | [Mac app](doc-20%20-%20Mac-app.md) | Built: menu-bar popover, ⌥⇧Space shortcut, Services item, open at login (TASK-85.2 to 85.4) | macOS target, shares the iOS app code |
 | [Browser extension](doc-19%20-%20Browser-extension.md) | TASK-86.1 built: skeleton, API client, stream, tests, CI. Icon, card, settings and sign-in next | Chromium MV3 extension (`extension/`, TypeScript, Vite) |
+| [Browser extension](doc-19%20-%20Browser-extension.md) | TASK-86.1 and 86.2 built: API client, stream, selection icon and card. Settings and sign-in next | Chromium MV3 extension (`extension/`, TypeScript, Vite) |
 
 Not started yet: **text to speech** (TASK-7), **speech to text with a score** (TASK-8). Add a page when work starts.
 
