@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 08:08'
+updated_date: '2026-10-16 09:36'
 ---
 # Decisions and reasons
 
@@ -131,6 +131,10 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | **No kid and no extra people for things and places**; people only when they are part of the thing, a building whose meaning is inside is shown cut open, a part of a place (river bank) is shown as the whole place | For bank: "show a building and people inside doing transaction". For river bank: "just show a river, don't show person". | The kid in every picture; a plain outside view of a bank | Developer |
 | 10-16 | **A stricter blind guess**: first an open guess with no choices, then multiple choice with distractors from a separate call that does not see the scene, passing at confidence 70, with up to 3 tries and feedback | Reason: not recorded. The trial guess had 4 choices that came with the scene and passed at 60 | The trial guess | Developer |
 | 10-16 | **The blind guess also passes on a meaning check**: if the word guess fails, Claude sees the picture with the word and the meaning, and a clear "yes, it shows this" (confidence 80+) passes | In the 20-sense trial a right picture of "have" = eat or drink showed drinking, and the guesser said "drink", so it could never pass. The developer's words: "if the word guess fails but Claude confirms the picture clearly shows this meaning, it passes" | Keep the strict word guess and review every failed sense by hand | Developer |
+| 10-16 | **Browser extension, doc-16 Part 2 option A** (TASK-86): one Chromium MV3 extension in TypeScript (`extension/`, Vite), loaded unpacked in Brave; Safari later inside the Mac app | "Implement chrome extension, show popover on selected words, sentences like gg translate, deepL." Brave is the developer's browser | Safari Web Extension first (it must ship inside a Mac or iOS app) | Claude (doc-16), developer chose |
+| 10-16 | **Selection icon A** (a round teal "S", the app icon style) and the cards as drawn in the mockup: quote, Meaning, Words, the target-language row last and closed; a lock card with a round sign-in button for a guest | Mockup approved. Reason: not recorded. | B: white square with a book icon (Google Translate style); C: a pill with S and a caret (DeepL style) | Developer |
+| 10-16 | All extension network calls go through the **service worker** with `host_permissions`, so the backend needs no CORS change | An extension service worker with host permission is not bound by CORS; a content script would be (it runs with the page's origin). No backend PR needed | A CORS rule for the `chrome-extension://` origin on `/api/*` | Claude |
+| 10-16 | The extension signs in with the same **email code** in its popup, tokens in `chrome.storage.local`, one shared refresh (TASK-86.3) | `REQUIRE_SIGN_IN=true`: a guest gets only cached and bundled answers. Reason in the developer's words: not recorded | Guest only, sending the user to the app to sign in | Claude (plan), developer approved with "Build TASK-86.1 to 86.4" |
 
 ## Questions answered
 
@@ -147,3 +151,4 @@ go here as questions.
 - 10-16: Why OpenAI GPT Image mini over the other three providers, and why a $5 cap per run? Reason not recorded.
 - 10-16: Why upload by hand next to AI images? Only "a cheap alternative" was said (for example a picture made in ChatGPT). Further reason not recorded.
 - 10-16: Why Codex through the ChatGPT plan, the green kid, the "quality as one typical thing" idea and the stricter blind guess? Only the facts were given (no cost, slower, picked from samples). Exact reasons not recorded.
+- 10-16: Why icon A (round teal S) over B and C? Reason not recorded.
