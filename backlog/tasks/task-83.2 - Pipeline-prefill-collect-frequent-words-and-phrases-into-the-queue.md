@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-16 08:18'
-updated_date: '2026-10-16 08:21'
+updated_date: '2026-10-16 08:34'
 labels: []
 dependencies:
   - TASK-83.1
@@ -40,3 +40,9 @@ Fills the backend prefill_item queue with the words and phrases learners are mos
 <!-- SECTION:PLAN:BEGIN -->
 1. prefill.py: word + phrase collectors, insert ON CONFLICT DO NOTHING, report. 2. cli wiring. 3. tests. 4. doc-6 + CLAUDE.md.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/80. Test it: (1) cd pipeline; uv run pipeline prefill collect --source words --dry-run, then --source phrases --dry-run (about 6,304 words, 2,714 phrases, nothing written). (2) after TASK-83.1 is deployed: collect --source words --limit 20 twice (second run: 20 already queued). (3) collect words and phrases fully. (4) uv run pipeline prefill report (about $4.96 pending). Automated: cd pipeline && uv run pytest (222 passed with a local Postgres). Note: Flyway V16 is taken by media_generation, TASK-83.1 needs V17+.
+<!-- SECTION:NOTES:END -->
