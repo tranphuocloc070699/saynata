@@ -3,7 +3,7 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-16 08:31'
+updated_date: '2026-10-16 09:06'
 ---
 > Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-16 (TASK-83.3 loose match: "how are you" finds a saved "How are you?", no prompt change; TASK-73 the meaning streams word by word, TASK-74 local word cards at once while loading, TASK-75 start-up warm-up; TASK-70 sign-in sheet, Bearer token, refresh and retry, coded errors, see doc-17 "iOS app"; TASK-56 extra words from the bundled dictionary; TASK-50 keyboard hides on tap, send and scroll; TASK-65 streaming: the meaning shows as soon as Claude has written it, see "Streaming" below; the line numbers in tables 1-4 are for the non-streaming path and may be a few lines off). Earlier: 2026-10-14 (TASK-9 personal text is never cached; Listen on the sentence header: TASK-7; TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -246,6 +246,10 @@ Measure it: `BASE_URL=http://localhost:8081 python3 backend/scripts/measure_stre
 
 Proxy: Caddy's `reverse_proxy` flushes `text/event-stream` right away, and the backend also sends `X-Accel-Buffering: no`. Check on the server with `curl -N -H 'Content-Type: application/json' -H 'Accept: text/event-stream' -d '{"text":"...","targetLang":"vi"}' https://api.loffy.me/api/translations/stream`: the `meaning` event must appear before `done`.
 
+## Words for the night job (TASK-83.8)
+
+After `/api/translations` or `/api/translations/stream` has answered (cache hit or miss), the controller calls `SentenceWordQueue.offer(text)` ([TranslationController.java:53](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationController.java#L53), [:89](../../../backend/src/main/java/com/englishtranslation/backend/translation/TranslationController.java#L89)). It returns at once: a worker thread checks the words of the sentence and queues the ones a learner would later pay a Claude call for (not bundled, not cached, on the English word list) in `prefill_item` for the nightly job. Personal text is skipped, the sentence is never stored, only single words. The response does not wait and an error is only logged. Details, the form rule and the priority: doc-18 "Sentence words".
+
 ## Sign-in and limits (TASK-66 to 69)
 
 A cache hit works for everyone. A **new** sentence (cache miss, or personal-looking text that is never cached) calls `ClaudeGate.beforeNewCall()` first:
@@ -291,6 +295,8 @@ On the stream these arrive as an `error` event with a `code` field. Every Claude
 | [ExplanationTest.java](../../../backend/src/test/java/com/englishtranslation/backend/translation/ExplanationTest.java) | The response JSON starts with `meaning` and ends with `translation` |
 | [CacheKeysTest.java](../../../backend/src/test/java/com/englishtranslation/backend/cache/CacheKeysTest.java) | Whitespace and case rules, key changes with prompt version and kind, **loose text and match key** |
 | [SentenceMatchKeyMigrationTest.java](../../../backend/src/test/java/com/englishtranslation/backend/migration/SentenceMatchKeyMigrationTest.java) | **V18 fills `match_key` for old rows with the same value Java gives; "US" and "us" share one loose key** |
+
+| [SentenceWordQueueTest.java](../../../backend/src/test/java/com/englishtranslation/backend/prefill/SentenceWordQueueTest.java) | **TASK-83.8: words of a translated sentence queued after the response (both endpoints, cache hit too), personal text never scanned, `offer` does not wait**; the rest is in doc-18 |
 
 Run: `./mvnw test` in `backend/`, and the iOS tests in Xcode (⌘U).
 

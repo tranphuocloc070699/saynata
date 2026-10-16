@@ -44,6 +44,9 @@ public class PrefillItem {
     @Column(name = "priority", nullable = false)
     private int priority;
 
+    @Column(name = "seen_count", nullable = false)
+    private int seenCount = 1;
+
     @Column(name = "status", nullable = false, length = 16)
     private String status;
 
@@ -80,6 +83,15 @@ public class PrefillItem {
         this.updatedAt = now;
     }
 
+    /**
+     * Another sentence contained this word (TASK-83.8): one more sighting, and a higher priority if the new one is
+     * higher. A priority never goes down, so a pipeline priority above the new one is kept.
+     */
+    public void seenAgain(int newPriority) {
+        this.seenCount++;
+        this.priority = Math.max(this.priority, newPriority);
+    }
+
     /** A failed try: one more attempt counted, the error saved. */
     public void fail(String error, Instant now) {
         this.attempts++;
@@ -104,6 +116,10 @@ public class PrefillItem {
 
     public String getSource() {
         return source;
+    }
+
+    public int getSeenCount() {
+        return seenCount;
     }
 
     public int getPriority() {

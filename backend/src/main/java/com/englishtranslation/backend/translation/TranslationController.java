@@ -5,6 +5,7 @@ import com.englishtranslation.backend.claude.ClaudeRefusedException;
 import com.englishtranslation.backend.claude.NotEnglishException;
 import com.englishtranslation.backend.common.ApiException;
 import com.englishtranslation.backend.limits.CallerContext;
+import com.englishtranslation.backend.prefill.SentenceWordQueue;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -36,14 +37,21 @@ public class TranslationController {
     /** The stream is written from another thread, so the request thread is free while Claude works. */
     private final AsyncTaskExecutor executor = new SimpleAsyncTaskExecutor("sentence-stream-");
 
-    public TranslationController(TranslationService service, JsonMapper jsonMapper) {
+    /** After the answer is sent, remembers the sentence's unknown words for the nightly prefill job (TASK-83.8). */
+    private final SentenceWordQueue sentenceWords;
+
+    public TranslationController(TranslationService service, JsonMapper jsonMapper, SentenceWordQueue sentenceWords) {
         this.service = service;
         this.jsonMapper = jsonMapper;
+        this.sentenceWords = sentenceWords;
     }
 
     @PostMapping
     public TranslationResponse translate(@Valid @RequestBody TranslationRequest request) {
-        return service.translate(request.text(), request.targetLang());
+        TranslationResponse response = service.translate(request.text(), request.targetLang());
+        // Hands the text to a worker thread and returns at once, so the response time does not change.
+        sentenceWords.offer(request.text());
+        return response;
     }
 
     /**
@@ -78,6 +86,7 @@ public class TranslationController {
                     delta -> send(emitter, "meaning-delta", Map.of("text", delta)),
                     meaning -> send(emitter, "meaning", Map.of("meaning", meaning)));
             send(emitter, "done", response);
+            sentenceWords.offer(request.text());
         } catch (Exception e) {
             send(emitter, "error", describe(e));
         } finally {

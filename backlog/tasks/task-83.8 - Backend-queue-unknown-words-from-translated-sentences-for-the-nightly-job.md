@@ -1,9 +1,11 @@
 ---
 id: TASK-83.8
 title: 'Backend: queue unknown words from translated sentences for the nightly job'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-16 08:59'
+updated_date: '2026-10-16 09:06'
 labels: []
 dependencies: []
 parent_task_id: TASK-83
@@ -32,3 +34,15 @@ Developer, 2026-10-16: "when user request to translate sentences, check if any w
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. SentenceWordQueue (bounded worker, batch checks, upsert with seen_count) 2. Flyway V20 seen_count 3. Call it from both translation endpoints after the answer 4. Tests 5. Update doc-18, doc-4
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Built SentenceWordQueue + Flyway V20 (seen_count). Test it: explain 'The lantern glows.', then select text,source,priority,seen_count from prefill_item where source='sentence-words'; again with 'A lantern.' gives seen_count 2, priority 350; personal text adds nothing. Automated: SentenceWordQueueTest, ./mvnw -B test (376 pass). PR: pending link below.
+<!-- SECTION:NOTES:END -->
