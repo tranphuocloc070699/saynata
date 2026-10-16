@@ -16,6 +16,9 @@
     uv run pipeline link-media           # after the media pass: add its media to senses in Postgres (no text changes)
     uv run pipeline media-check --limit 50   # Claude Haiku looks at 50 pictures/clips; saves verdicts, writes data/out/media-check.html
     uv run pipeline media-check --apply  # also mark the "wrong" senses needs_ai (needs the SSH tunnel, DATABASE_URL)
+    uv run pipeline media-generate --dry-run   # needs_ai senses: prompts and the cost estimate, calls nothing
+    uv run pipeline media-generate --limit 20  # OpenAI makes 20 AI pictures (about $0.08); data/out/media-generate.html
+    uv run pipeline media-generate --link      # after rsync: the new pictures replace the old ones in Postgres
     uv run pipeline export-local         # old: build dictionary.sqlite from data/pipeline.db
     uv run pipeline topics candidates    # topic words from WordNet + wordfreq into topic_words (no LLM)
     uv run pipeline topics judge --dry-run --limit 50   # one Haiku call, prints the verdicts, saves nothing
@@ -28,6 +31,7 @@
 
 import argparse
 import json
+import os
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -225,6 +229,38 @@ def check_media(args) -> None:
     print(f"\nReport with {len(rows)} checked senses: {args.report}")
 
 
+def generate_media(args) -> None:
+    """AI images for the senses marked needs_ai (TASK-53). See media_generate.py."""
+    from pipeline import media_generate
+
+    media_dir = Path(args.media_dir)
+    pg = postgres.connect(postgres.database_url(args.database_url))
+    store_ = media_generate.PostgresStore(pg)
+    if args.link:
+        base_url = args.media_base_url or os.environ.get("MEDIA_BASE_URL") or media_generate.DEFAULT_MEDIA_BASE_URL
+        media_generate.link_generated(store_, media_dir, media_generate.is_on_server(base_url))
+        pg.close()
+        return
+    if args.dry_run:  # no key needed: nothing is called
+        generator = media_generate.OpenAIImageGenerator(args.model or media_generate.DEFAULT_MODEL, api_key="dry-run")
+    else:
+        try:
+            generator = media_generate.make_generator(args.provider, args.model)
+        except (media_generate.ProviderStop, ValueError) as error:
+            pg.close()
+            raise SystemExit(f"media-generate: {error}")
+    summary = media_generate.run(
+        store_, generator, media_dir, words=args.words, limit=args.limit, regenerate=args.regenerate,
+        max_cost=args.max_cost, workers=args.workers, dry_run=args.dry_run,
+    )
+    if not args.dry_run:
+        media_generate.print_summary(summary, args.max_cost)
+        rows = store_.report_rows()
+        media_generate.write_report(rows, Path(args.report), media_dir)
+        print(f"\nReport with {len(rows)} AI pictures: {args.report}")
+    pg.close()
+
+
 def topic_words(args) -> None:
     """Topic words (TASK-61): candidates, the Haiku judge, and review. See topics.py."""
     from pipeline import topics
@@ -299,6 +335,24 @@ def main() -> None:
     check_parser.add_argument("--media-dir", default="data/media", help="folder with the media files (default data/media)")
     check_parser.add_argument("--report", default="data/out/media-check.html")
     check_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    gen_parser = commands.add_parser("media-generate", help="AI pictures for the senses marked needs_ai (OpenAI)")
+    gen_parser.add_argument("--limit", type=int, default=100000)
+    gen_parser.add_argument("--words", nargs="+", help="only these words (to try it on a few)")
+    gen_parser.add_argument("--provider", default="openai", choices=["openai"])
+    gen_parser.add_argument("--model", help="default gpt-image-1-mini")
+    gen_parser.add_argument("--max-cost", type=float, default=5.0,
+                            help="budget cap in US dollars; never passed (default 5)")
+    gen_parser.add_argument("--dry-run", action="store_true", help="print prompts and the estimate; call and save nothing")
+    gen_parser.add_argument("--regenerate", action="store_true",
+                            help="also senses that already have a picture waiting to be linked")
+    gen_parser.add_argument("--link", action="store_true",
+                            help="after rsync: link the new pictures whose files are on the server")
+    gen_parser.add_argument("--workers", type=int, default=2, help="image calls in parallel (default 2)")
+    gen_parser.add_argument("--media-dir", default="data/media", help="folder for the files (default data/media)")
+    gen_parser.add_argument("--media-base-url", help="where the server serves the files (default MEDIA_BASE_URL "
+                            "or https://api.loffy.me/media)")
+    gen_parser.add_argument("--report", default="data/out/media-generate.html")
+    gen_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     commands.add_parser("revalidate")
     commands.add_parser("report")
     commands.add_parser("export-local")
@@ -342,6 +396,8 @@ def main() -> None:
         add_media(args.limit, args.workers, args.words, args.dry_run)
     elif args.command == "media-check":
         check_media(args)
+    elif args.command == "media-generate":
+        generate_media(args)
     elif args.command == "revalidate":
         revalidate()
     elif args.command == "report":

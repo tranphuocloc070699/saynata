@@ -3,9 +3,9 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-15 18:52'
+updated_date: '2026-10-16 02:25'
 ---
-> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-16 (new `media-check` command: Claude looks at every sense picture, TASK-78; `link-media` and `export` skip senses the admin removed media from: TASK-76; topic words, TASK-61; before that Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
+> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-16 (new `media-generate` command: AI pictures for `needs_ai` senses with OpenAI, TASK-53; new `media-check` command: Claude looks at every sense picture, TASK-78; `link-media` and `export` skip senses the admin removed media from: TASK-76; topic words, TASK-61; before that Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
 > **Since TASK-49.3 the server Postgres is the source of truth** for the bundled words, senses, forms and media rows. `dictionary.sqlite` is built *from* Postgres by `export`; the generate passes below still fill `data/pipeline.db`.
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
 
@@ -303,6 +303,14 @@ Developer decision (2026-10-15, doc-7): check **every** Pixabay picture and clip
 
 Price: Haiku 5.5 is $0.10 / $0.50 per million tokens (`PRICES` in `media_check.py`, same numbers as `application.properties`). A 320 px picture is about 100 image tokens; the whole call is about 500 input tokens.
 
+### 13. AI pictures: [media_generate.py](../../../pipeline/src/pipeline/media_generate.py) (TASK-53)
+
+Developer decision (2026-10-16, doc-7): OpenAI GPT Image mini (`gpt-image-1-mini`, low quality, 1536x1024) makes a new picture for every bundled sense marked `needs_ai`, with a $5 cap per run. Key: `OPENAI_API_KEY` in `pipeline/.env`. Full flow, the prompt, the tables and the terms: doc-15, section "AI images for needs_ai senses".
+
+Two steps. `uv run pipeline media-generate` makes the pictures (320 px WebP in `data/media/`, a row in `media_generation`, Flyway V14) and writes `data/out/media-generate.html`; nothing in the app changes. After `rsync`, `uv run pipeline media-generate --link` links each picture whose file answers 200 at `MEDIA_BASE_URL` (default `https://api.loffy.me/media`): a `media` row with `source = 'ai'`, the sense's `media_id`, and `media_status = 'ai_generated'`. Senses the admin changed meanwhile are skipped. Saved one by one, so stopping the run loses nothing; a failed sense stays `needs_ai` and is tried again next run.
+
+Price (developers.openai.com/api/docs/pricing, 2026-10-16): text input $2.00 and image output $8.00 per million tokens; low 1536x1024 is about 400 output tokens, so about $0.0035 a picture. The trial of 20 is about $0.08; all 743 about $2.80.
+
 ## Commands ([cli.py](../../../pipeline/src/pipeline/cli.py))
 
 | Command | LLM? | Use |
@@ -320,6 +328,9 @@ Price: Haiku 5.5 is $0.10 / $0.50 per million tokens (`PRICES` in `media_check.p
 | `uv run pipeline import-to-postgres` | No | One time: copy the bundled `dictionary.sqlite` (+ media facts) into Postgres. Re-run safe; `--overwrite`, `--sqlite`, `--media-dir`, `--database-url` |
 | `uv run pipeline link-media` | No | After the media pass: add its media rows and links to senses in Postgres, changing no text and no existing media. It also skips a sense with `image_type = 'none'` or `media_status = 'removed'` (the admin removed its media, TASK-76), so a removed picture does not come back from an older file. `--sqlite` (default `data/out/dictionary.sqlite`, from `export-local`), `--media-dir`, `--database-url`. Then `rsync` the files to the server (doc-11, section 9) |
 | `uv run pipeline media-check --limit 50` | Yes, 1 Haiku call per sense (about $0.0001 each; full run of 3,372 senses about $0.35) | Claude looks at each sense picture or clip and says good, wrong or unsure. Needs the SSH tunnel. Saves to `media_check`, prints counts, cost and the wrong ones, writes `data/out/media-check.html`. `--apply` marks the wrong ones `needs_ai`; `--recheck`, `--words`, `--max-cost` (default 2), `--workers` (default 4), `--model`, `--media-dir`, `--report`, `--database-url` |
+| `uv run pipeline media-generate --dry-run` | No | The `needs_ai` senses, the first 3 prompts and the cost estimate. Calls and saves nothing; needs the SSH tunnel but no OpenAI key |
+| `uv run pipeline media-generate --limit 20` | Yes, OpenAI images (about $0.0038 each by the estimate; 20 about $0.08, all 743 about $2.80) | Make AI pictures for `needs_ai` senses, save them in `data/media/` and `media_generation`, write `data/out/media-generate.html`. Never passes `--max-cost` (default 5). `--words`, `--model` (default `gpt-image-1-mini`), `--provider` (only `openai`), `--regenerate`, `--workers` (default 2), `--media-dir`, `--report`, `--database-url` |
+| `uv run pipeline media-generate --link` | No | After `rsync`: link the newest picture of each sense that is still `needs_ai` and whose file is on the server (`--media-base-url`, default `MEDIA_BASE_URL` or `https://api.loffy.me/media`). Then `export` and a new app build |
 | `uv run pipeline export` | No | Build `data/out/dictionary.sqlite`, `.jsonl` and `media/` from Postgres (read-only). A sense with `image_type = 'none'` or `media_status = 'removed'` gets no `image_url` (TASK-76). `--media-dir`, `--database-url` |
 | `uv run pipeline export-local` | No | Old: build `dictionary.sqlite` from `data/pipeline.db` |
 | `uv run pipeline topics candidates` | No | Topic word candidates from WordNet + wordfreq into `topic_words` (`--zipf`, default 3.5). Resume-safe ([cli.py:207-233](../../../pipeline/src/pipeline/cli.py#L207-L233)) |
@@ -341,6 +352,7 @@ Price: Haiku 5.5 is $0.10 / $0.50 per million tokens (`PRICES` in `media_check.p
 | [test_topics.py](../../../pipeline/tests/test_topics.py) | Topic words with a fake WordNet and a fake judge: topics from lexfile and hypernym, NGSL, blocked, rare and topicless words skipped, the hand list, re-saving keeps judged rows, verdicts for other words ignored, the judge can change the topic, failed calls and missing verdicts are retried, dry run, prompt and TSV, the reviewed overrides (applied on top, safe to run again, lists do not overlap), promote (rank after NGSL, topic, forms, skips existing words, safe to run again), older databases get the `topic` column |
 
 | [test_media_check.py](../../../pipeline/tests/test_media_check.py) | TASK-78 with a fake Claude client and a fake ffmpeg: the prompt, base64 image content, JSON parsing (code fence, malformed answers), the clip frame from the middle, a failed check is not saved, already-checked senses are skipped (unless `--recheck`), the stop at `--max-cost`, `--apply` marks only `wrong`, the HTML report. Two Postgres tests (need `TEST_DATABASE_URL`): which senses are pending, `apply_wrong`. |
+| [test_media_generate.py](../../../pipeline/tests/test_media_generate.py) | TASK-53 with a fake image generator and a fake HTTP transport (no real OpenAI call): prompt, file name, request body and real cost, retries, stop on a wrong key, the cap is never passed, dry run, link rules, the report. Three Postgres tests (need `TEST_DATABASE_URL`). |
 | [test_postgres.py](../../../pipeline/tests/test_postgres.py) | Import counts match the file (words, senses, forms, media), columns and media facts, Pixabay attribution from `pipeline.db`, import twice changes nothing, admin edits survive a re-import (and `--overwrite` replaces them), a failed import changes nothing, round trip (import then export gives the same schema and rows), word numbering by rank, an edit in Postgres is in the next export, missing media files, read-only connection. Last test: the whole bundled file (2,750 words, 7,779 senses, 5,542 forms) round-trips. |
 
 Run: `uv run pytest` in `pipeline/` (no API key needed). The Postgres tests need `TEST_DATABASE_URL` (a Postgres you can write to, for example `postgresql://postgres@localhost:5432/postgres`); without it they are skipped. Each test makes its own schema from the backend's Flyway files and drops it. CI starts a Postgres for them.
