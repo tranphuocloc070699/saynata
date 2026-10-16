@@ -19,6 +19,7 @@ what can go wrong, which tests cover it, and what is still missing.
 | [Media and images](doc-15%20-%20Media-and-images.md) | Photos and clips work (pipeline, backend, admin); AI images not built (TASK-53); server loading in the app comes with PR #48 | Python, backend, admin, iOS |
 | [Accounts and limits](doc-17%20-%20Accounts-and-limits.md) | Backend built (TASK-66 to 69): email-code sign-in, sign-in for new Claude calls, rate limits, $1 daily cap. The iOS sign-in screen waits for a mockup | Backend |
 | [Mac app](doc-20%20-%20Mac-app.md) | Built: menu-bar popover, ⌥⇧Space shortcut, Services item, open at login (TASK-85.2 to 85.4) | macOS target, shares the iOS app code |
+| [Browser extension](doc-19%20-%20Browser-extension.md) | TASK-86.1 built: skeleton, API client, stream, tests, CI. Icon, card, settings and sign-in next | Chromium MV3 extension (`extension/`, TypeScript, Vite) |
 
 Not started yet: **text to speech** (TASK-7), **speech to text with a score** (TASK-8). Add a page when work starts.
 
