@@ -18,7 +18,7 @@ what can go wrong, which tests cover it, and what is still missing.
 | [Admin CMS](doc-14%20-%20Admin-CMS.md) | Web app built (TASK-49.2), tested in a browser against the 49.1 backend | React web app (`admin/`) |
 | [Media and images](doc-15%20-%20Media-and-images.md) | Photos and clips work (pipeline, backend, admin); AI images not built (TASK-53); server loading in the app comes with PR #48 | Python, backend, admin, iOS |
 | [Accounts and limits](doc-17%20-%20Accounts-and-limits.md) | Backend built (TASK-66 to 69): email-code sign-in, sign-in for new Claude calls, rate limits, $1 daily cap. The iOS sign-in screen waits for a mockup | Backend |
-| [Mac app](doc-20%20-%20Mac-app.md) | Menu-bar popover built (TASK-85.2); shortcut and Services next | macOS target, shares the iOS app code |
+| [Mac app](doc-20%20-%20Mac-app.md) | Menu-bar popover and ⌥⇧Space shortcut built (TASK-85.2, 85.3); Services next | macOS target, shares the iOS app code |
 
 Not started yet: **text to speech** (TASK-7), **speech to text with a score** (TASK-8). Add a page when work starts.
 

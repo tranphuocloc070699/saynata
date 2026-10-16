@@ -1,9 +1,11 @@
 ---
 id: TASK-85.3
 title: 'Mac: global shortcut ⌥⇧Space opens Saynata with the cursor in the box'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-10-16 09:00'
+updated_date: '2026-10-16 09:50'
 labels:
   - mac
 dependencies:
@@ -32,3 +34,9 @@ doc-16 Part 1 step 3. Add the KeyboardShortcuts package (sindresorhus, MIT). Def
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+KeyboardShortcuts 2.4.0 (SPM, Mac target only). Name .openSaynata, default ⌥⇧Space; onKeyUp toggles the popover; Esc closes (NSPopover). SettingsView gets a generic moreSections (EmptyView on iOS); the Mac adds a Shortcut section with the recorder. MenuBarFocus.isSettingsOpen. Checked: Settings snapshot shows the recorder with ⌥⇧Space. Hotkey press could not be automated (no Accessibility permission for osascript), so the developer tests it. iOS 313 tests pass.
+<!-- SECTION:NOTES:END -->

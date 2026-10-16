@@ -16,12 +16,12 @@ struct MenuBarContentView: View {
     @Environment(AccountStore.self) private var account
     @Environment(MenuBarFocus.self) private var focus
     @FocusState private var isInputFocused: Bool
-    @State private var isSettingsOpen = false
 
     static let size = CGSize(width: 420, height: 560)
 
     var body: some View {
         @Bindable var store = store
+        @Bindable var focus = focus
 
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -52,8 +52,10 @@ struct MenuBarContentView: View {
             SignInSheet(account: account) { await store.resumeAfterSignIn() }
                 .frame(width: Self.size.width - 40, height: 380)
         }
-        .sheet(isPresented: $isSettingsOpen) {
-            SettingsView(targetLanguage: store.targetLanguage)
+        .sheet(isPresented: $focus.isSettingsOpen) {
+            SettingsView(targetLanguage: store.targetLanguage) {
+                MacSettingsSections()
+            }
             .frame(width: Self.size.width - 40, height: Self.size.height - 60)
         }
     }
@@ -74,7 +76,7 @@ struct MenuBarContentView: View {
             .labelsHidden()
             .pickerStyle(.menu)
             .fixedSize()
-            IconButton(systemImage: "gearshape", label: "Settings") { isSettingsOpen = true }
+            IconButton(systemImage: "gearshape", label: "Settings") { focus.isSettingsOpen = true }
         }
     }
 
