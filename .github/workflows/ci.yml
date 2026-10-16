@@ -80,6 +80,24 @@ jobs:
       - run: npm run build
       - run: npm test
 
+  extension:
+    name: Browser extension
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - run: npm ci
+      - run: npm test
+      # Type check, then the unpacked extension in dist/ (load it in Brave or Chrome).
+      - run: npm run build
+
   docs:
     name: Doc links
     runs-on: ubuntu-latest
