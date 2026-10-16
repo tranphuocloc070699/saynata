@@ -33,6 +33,7 @@
     uv run pipeline topics export-tsv    # data/out/topic_words.tsv for review
     uv run pipeline prefill collect --source words --dry-run   # TASK-83.2: counts and a sample, writes nothing
     uv run pipeline prefill collect --source words    # queue common words the backend night job will answer (no LLM)
+    uv run pipeline prefill collect --source words --all-wordfreq --dry-run  # TASK-83.7: every word wordfreq has seen
     uv run pipeline prefill collect --source phrases  # queue phrasal verbs and idioms (no LLM)
     uv run pipeline prefill report       # queue counts by kind/status/source and the cost of the pending items
 """
@@ -369,10 +370,13 @@ def prefill_command(args) -> None:
             bundled |= prefill.bundled_from_postgres(pg)
         topic_keep = prefill.kept_topic_words(pipeline_db)
         print(f"Bundled words and forms: {len(bundled)}, kept topic words: {len(topic_keep)}")
-        items = prefill.collect_words(prefill.read_word_list("scowl-70.txt"), bundled | topic_keep, args.zipf)
+        # The backend accepts SCOWL-70 plus NGSL (EnglishWords); NGSL is bundled, so only SCOWL-70 can add words.
+        accepted = prefill.read_word_list("scowl-70.txt") | prefill.read_word_list("ngsl.txt")
+        items = prefill.collect_words(accepted, bundled | topic_keep, args.zipf, above_zero=args.all_wordfreq)
     else:
         items = prefill.collect_phrases(prefill.wordnet_lemmas(prefill.load_wordnet()), args.zipf)
-    print(f"{len(items)} {args.source} found at Zipf >= {args.zipf}")
+    found_at = "Zipf > 0 (--all-wordfreq)" if args.all_wordfreq else f"Zipf >= {args.zipf}"
+    print(f"{len(items)} {args.source} found at {found_at}")
 
     queued = prefill.queued_keys(pg) if queue_ready else set()
     new_items = [i for i in items if (i.kind, i.text, i.target_lang) not in queued]
@@ -383,6 +387,8 @@ def prefill_command(args) -> None:
     for item in new_items[:15]:
         print(f"  {item.priority:>4}  {item.text}")
     if dry_run:
+        counts = (len(new_items), 0) if args.source == "words" else (0, len(new_items))
+        print("\n".join(prefill.night_lines(*counts)))
         print("Dry run: nothing was written.")
     else:
         added = prefill.insert_items(pg, new_items)
@@ -504,12 +510,17 @@ def main() -> None:
     collect_parser = prefill_commands.add_parser("collect", help="add common words or phrases to prefill_item")
     collect_parser.add_argument("--source", required=True, choices=["words", "phrases"])
     collect_parser.add_argument("--zipf", type=float, help="minimum wordfreq Zipf (default 3.5 words, 2.0 phrases)")
+    collect_parser.add_argument("--all-wordfreq", action="store_true",
+                                help="words only: every word with wordfreq Zipf > 0 that the backend accepts (ignores --zipf)")
     collect_parser.add_argument("--limit", type=int, help="queue only the N most frequent new items")
     collect_parser.add_argument("--dry-run", action="store_true", help="print counts and a sample, write nothing")
     collect_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     prefill_report_parser = prefill_commands.add_parser("report", help="queue counts and the cost of the pending items")
     prefill_report_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     args = parser.parse_args()
+    if args.command == "prefill" and args.prefill_command == "collect" and args.all_wordfreq \
+            and args.source != "words":
+        parser.error("--all-wordfreq works with --source words only")
     if args.command == "prefill" and args.prefill_command == "collect" and args.zipf is None:
         from pipeline import prefill
 
