@@ -1,6 +1,7 @@
 package com.englishtranslation.backend.admin;
 
 import com.englishtranslation.backend.media.SenseMedia;
+import com.englishtranslation.backend.media.SenseReview;
 import com.englishtranslation.backend.word.WordEntry;
 import java.time.Instant;
 import java.util.List;
@@ -17,8 +18,12 @@ import java.util.List;
  * @param reviewReasons why the word needs review: the lines of SimpleWords.problems for the current entry, for example
  *               "sense 1: the definition uses hard words [abstain]". Computed on every read, not stored. Empty when the
  *               word does not need review, or when the entry is simple enough now (for example after an edit).
+ * @param wrongMediaCount    how many senses are marked needs_ai (picture review, TASK-80)
+ * @param mediaToReviewCount how many senses have a picture or clip that nobody approved and that is not marked needs_ai
+ * @param mediaReview one item per sense, same order: state ("approved", "to_review", "wrong" or "none") and the newest
+ *               Claude check of the current media (verdict and reason, read-only; null when it was not checked)
  */
 public record AdminWord(String id, String word, WordEntry entry, String ipa, boolean needsReview, String source,
         String model, String promptVersion, Instant createdAt, List<SenseMedia> media, List<String> mediaStatus,
-        List<String> reviewReasons) {
+        List<String> reviewReasons, int wrongMediaCount, int mediaToReviewCount, List<SenseReview> mediaReview) {
 }

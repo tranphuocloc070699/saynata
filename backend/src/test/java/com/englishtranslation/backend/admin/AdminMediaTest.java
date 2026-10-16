@@ -621,4 +621,158 @@ class AdminMediaTest {
         mockMvc.perform(asAdmin(delete("/api/admin/words/b-999999/media"))).andExpect(status().isNotFound());
         mockMvc.perform(asAdmin(delete("/api/admin/words/w-999999/media"))).andExpect(status().isNotFound());
     }
+
+    // ---- picture review (TASK-80) ----
+
+    private void addPicture(String wordId, int position, int pixabayId) throws Exception {
+        mockMvc.perform(asAdmin(put("/api/admin/words/" + wordId + "/senses/" + position + "/media"))
+                .content(chosen("photo", pixabayId))).andExpect(status().isOk());
+    }
+
+    /** The fake converter writes the same bytes every time, so the same media row would be reused. Make the next file different. */
+    private void nextFileWillDiffer() throws Exception {
+        doAnswer(call -> {
+            Files.write(call.getArgument(1), new byte[] {7, 7, 7, (byte) System.nanoTime()});
+            return null;
+        }).when(converter).toPhoto(any(), any());
+    }
+
+    private int totalFor(String filter) throws Exception {
+        String count = mockMvc.perform(get("/api/admin/words?" + filter).cookie(adminCookie))
+                .andExpect(status().isOk()).andReturn().getResponse().getHeader("X-Total-Count");
+        return Integer.parseInt(count);
+    }
+
+    @Test
+    void filtersAndCountsSplitWrongToReviewAndApproved() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        DictionaryWord walk = saveBundled("walk", "walk picture");
+        WordLookup zebra = saveBackend("zebra");
+        String runId = "b-" + run.getId();
+        String walkId = "b-" + walk.getId();
+        String zebraId = "w-" + zebra.getId();
+        addPicture(runId, 0, 11);           // run sense 0: to review
+        addPicture(runId, 1, 12);           // run sense 1: wrong
+        mockMvc.perform(asAdmin(post("/api/admin/words/" + runId + "/senses/1/media/mark-for-ai"))).andExpect(status().isOk());
+        addPicture(walkId, 0, 13);          // walk: approved, nothing left to review
+        mockMvc.perform(asAdmin(post("/api/admin/words/" + walkId + "/senses/0/media/approve"))).andExpect(status().isOk());
+        addPicture(zebraId, 0, 14);         // backend word: to review
+
+        mockMvc.perform(asAdmin(get("/api/admin/words/" + runId)))
+                .andExpect(jsonPath("$.wrongMediaCount").value(1))
+                .andExpect(jsonPath("$.mediaToReviewCount").value(1))
+                .andExpect(jsonPath("$.mediaReview[0].state").value("to_review"))
+                .andExpect(jsonPath("$.mediaReview[1].state").value("wrong"));
+        mockMvc.perform(asAdmin(get("/api/admin/words/" + walkId)))
+                .andExpect(jsonPath("$.wrongMediaCount").value(0))
+                .andExpect(jsonPath("$.mediaToReviewCount").value(0))
+                .andExpect(jsonPath("$.mediaReview[0].state").value("approved"))
+                .andExpect(jsonPath("$.mediaReview[1].state").value("none"));
+
+        assertThat(totalFor("media=wrong")).isEqualTo(1);
+        assertThat(totalFor("media=to-review")).isEqualTo(2); // run and zebra, not walk
+        assertThat(totalFor("media=with")).isEqualTo(3);
+        mockMvc.perform(get("/api/admin/words?media=wrong").cookie(adminCookie))
+                .andExpect(jsonPath("$[0].word").value("run"))
+                .andExpect(jsonPath("$[0].wrongMediaCount").value(1))
+                .andExpect(jsonPath("$[0].mediaToReviewCount").value(1));
+        mockMvc.perform(get("/api/admin/words?media=to-review&source=backend").cookie(adminCookie))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].word").value("zebra"));
+        mockMvc.perform(get("/api/admin/words?media=nonsense").cookie(adminCookie)).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void approvalBelongsToTheMediaFileSoANewPictureNeedsAReview() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        String id = "b-" + run.getId();
+        addPicture(id, 0, 21);
+        mockMvc.perform(asAdmin(post("/api/admin/words/" + id + "/senses/0/media/approve")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mediaReview[0].state").value("approved"));
+        assertThat(totalFor("media=to-review")).isZero();
+
+        // Pick another: a new media file, so the old approval does not count.
+        nextFileWillDiffer();
+        addPicture(id, 0, 22);
+        mockMvc.perform(asAdmin(get("/api/admin/words/" + id)))
+                .andExpect(jsonPath("$.mediaReview[0].state").value("to_review"))
+                .andExpect(jsonPath("$.mediaToReviewCount").value(1));
+        assertThat(totalFor("media=to-review")).isEqualTo(1);
+    }
+
+    @Test
+    void approveClearsNeedsAiAndUndoMakesTheSenseToReviewAgain() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        WordLookup zebra = saveBackend("zebra");
+        String id = "b-" + run.getId();
+        String zebraId = "w-" + zebra.getId();
+        addPicture(id, 0, 31);
+        addPicture(zebraId, 0, 32);
+        mockMvc.perform(asAdmin(post("/api/admin/words/" + id + "/senses/0/media/mark-for-ai"))).andExpect(status().isOk());
+        mockMvc.perform(asAdmin(post("/api/admin/words/" + zebraId + "/senses/0/media/mark-for-ai"))).andExpect(status().isOk());
+        assertThat(totalFor("media=wrong")).isEqualTo(2);
+
+        mockMvc.perform(asAdmin(post("/api/admin/words/" + id + "/senses/0/media/approve")))
+                .andExpect(jsonPath("$.mediaStatus[0]").doesNotExist())
+                .andExpect(jsonPath("$.mediaReview[0].state").value("approved"));
+        mockMvc.perform(asAdmin(post("/api/admin/words/" + zebraId + "/senses/0/media/approve")))
+                .andExpect(jsonPath("$.mediaReview[0].state").value("approved"));
+        assertThat(totalFor("media=wrong")).isZero();
+        mockMvc.perform(get("/api/admin/media?status=needs_ai").cookie(adminCookie))
+                .andExpect(jsonPath("$.length()").value(0));
+
+        mockMvc.perform(asAdmin(delete("/api/admin/words/" + id + "/senses/0/media/approve")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mediaReview[0].state").value("to_review"))
+                .andExpect(jsonPath("$.mediaStatus[0]").doesNotExist());
+        assertThat(totalFor("media=to-review")).isEqualTo(1);
+    }
+
+    @Test
+    void aSenseWithoutMediaCannotBeApproved() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        mockMvc.perform(asAdmin(post("/api/admin/words/b-" + run.getId() + "/senses/0/media/approve")))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(asAdmin(post("/api/admin/words/b-" + run.getId() + "/senses/9/media/approve")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void theClaudeVerdictOfTheCurrentMediaIsShownReadOnly() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        String id = "b-" + run.getId();
+        addPicture(id, 0, 41);
+        long senseId = jdbc.queryForObject("select id from dictionary_sense where word_id = ? and position = 0",
+                Long.class, run.getId());
+        long mediaId = jdbc.queryForObject("select media_id from dictionary_sense where id = ?", Long.class, senseId);
+        jdbc.update("insert into media_check (sense_id, media_id, verdict, reason, model, checked_at, input_tokens,"
+                + " output_tokens, cost_usd) values (?, ?, 'good', 'old', 'm', ?, 1, 1, 0)", senseId, mediaId,
+                java.time.OffsetDateTime.now().minusDays(1));
+        jdbc.update("insert into media_check (sense_id, media_id, verdict, reason, model, checked_at, input_tokens,"
+                + " output_tokens, cost_usd) values (?, ?, 'wrong', 'the picture shows a toy phone', 'm', ?, 1, 1, 0)",
+                senseId, mediaId, java.time.OffsetDateTime.now());
+
+        mockMvc.perform(asAdmin(get("/api/admin/words/" + id)))
+                .andExpect(jsonPath("$.mediaReview[0].verdict").value("wrong"))
+                .andExpect(jsonPath("$.mediaReview[0].reason").value("the picture shows a toy phone"))
+                .andExpect(jsonPath("$.mediaReview[1].verdict").doesNotExist());
+
+        // A check of an older picture says nothing about the new one.
+        nextFileWillDiffer();
+        addPicture(id, 0, 42);
+        mockMvc.perform(asAdmin(get("/api/admin/words/" + id)))
+                .andExpect(jsonPath("$.mediaReview[0].verdict").doesNotExist());
+    }
+
+    @Test
+    void approveEndpointsNeedTheAdminRole() throws Exception {
+        DictionaryWord run = saveBundled("run", "run picture");
+        String url = "/api/admin/words/b-" + run.getId() + "/senses/0/media/approve";
+        mockMvc.perform(post(url).contentType(MediaType.APPLICATION_JSON)).andExpect(status().isUnauthorized());
+        mockMvc.perform(delete(url).contentType(MediaType.APPLICATION_JSON)).andExpect(status().isUnauthorized());
+        User plain = users.save(new User("plain2@example.com", passwordEncoder.encode("another-long-password"), "Plain", Role.USER));
+        Cookie cookie = new Cookie("saynata_admin", tokens.createToken(plain.getId()));
+        mockMvc.perform(post(url).cookie(cookie).contentType(MediaType.APPLICATION_JSON)).andExpect(status().isUnauthorized());
+    }
 }

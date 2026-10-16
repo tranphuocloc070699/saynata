@@ -3,11 +3,11 @@ id: doc-15
 title: Media and images
 type: specification
 created_date: '2026-10-15 04:02'
-updated_date: '2026-10-16 02:10'
+updated_date: '2026-10-16 02:38'
 ---
 # Media and images
 
-> Status: **working for photos and clips from Pixabay, and for files the admin uploads** (TASK-23, 49.3, 49.4, 52, 79). AI images are not built yet (TASK-53). The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-16 (the admin can upload their own picture or clip: TASK-79; Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
+> Status: **working for photos and clips from Pixabay, and for files the admin uploads** (TASK-23, 49.3, 49.4, 52, 79). AI images are not built yet (TASK-53). The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-16 (picture review: the admin can approve a picture and filter wrong or unreviewed media: TASK-80; the admin can upload their own picture or clip: TASK-79; Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
 > Why: a small picture or a short clip helps a learner remember a meaning (doc-1, Vision and spec). Postgres on the server is the source of truth for content (doc-7).
 
 ## What it does
@@ -178,9 +178,10 @@ sequenceDiagram
 | Pick another | `PUT /api/admin/words/{id}/senses/{n}/media` | [controller:51](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L51), [replace:127](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L127) | The result comes from the browser, so [checked:130](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L130) only accepts Pixabay https addresses. Then `MediaStore.save`, then the link. A sense that was "no image" gets `image_type = photo` again. |
 | No image | `DELETE .../media` | [controller:57](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L57), [clear:208](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L208) | `media_id` becomes null. For a bundled sense, `image_type = none` tells the pipeline not to fetch again. For a backend word the claim row stays, so the job does not fetch again. |
 | Mark for AI | `POST .../media/mark-for-ai` | [controller:62](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L62), [markForAi:263](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L263) | Sets `media_status = needs_ai`. The old picture stays until an AI image replaces it (TASK-53). Picking another picture clears the status. |
+| Picture looks right | `POST` and `DELETE .../media/approve` | [controller:87](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L87), [approve:282](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L282) | TASK-80. Stores the approval for the current media file (`media_reviewed_media_id`) and clears `needs_ai`; DELETE undoes it. See "Reviewing pictures" below. |
 | Upload | `POST /api/admin/words/{id}/senses/{n}/media/upload` (multipart, part `file`) | [controller:76](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L76), [upload:160](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L160) | TASK-79. See the next section. The admin's own file becomes the media of the sense. Works with no Pixabay key. |
 | Remove all media | `DELETE /api/admin/words/{id}/media` | [controller:63](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L63), [removeAllMedia:228](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L228) | TASK-76. Every sense of the word (bundled or backend) loses its media in one transaction and gets `media_status = removed`. A bundled sense also gets `image_type = none`; a backend sense gets a claim row, so the background job never fills it. Then the unused files are deleted (next section). |
-| (list) | `GET /api/admin/media?status=needs_ai` | [controller:44](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L44), [listByStatus:281](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L281) | All marked senses, from both tables. Any other status is a 400. |
+| (list) | `GET /api/admin/media?status=needs_ai` | [controller:44](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L44), [listByStatus:316](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L281) | All marked senses, from both tables. Any other status is a 400. |
 
 Shared details:
 
@@ -358,7 +359,14 @@ flowchart LR
 
 How to run it, the costs and the table: doc-6, section 12. In short: `uv run pipeline media-check --limit 50`, open the report, then the full run, then `--apply`. `--apply` writes the same `media_status = 'needs_ai'` as the admin's Mark for AI, so the existing list shows the result. A sense that already has a status (`removed`, `needs_ai`) is never checked or changed.
 
-The admin does not show the verdict yet (follow-up): the word detail Media row could show the newest `media_check` verdict and reason, read-only. It needs a mockup first (project rule) and changes `AdminWord`, its service and the React app, so it was left out of TASK-78.
+The admin shows the newest verdict and reason for the current media, read-only, under the picture (TASK-80, see "Reviewing pictures").
+
+## Reviewing pictures (TASK-80)
+
+Picture review is separate from the word-text "Needs review" flag. Four states per sense (`SenseReview.stateOf`): `wrong` (`media_status = needs_ai`, for example the 743 senses that `media-check --apply` marked), `to_review` (has media, nobody approved this file), `approved`, `none`. **The meaning of `media_status` and its changes did not change**; the approval is stored apart, in `media_reviewed_at` and `media_reviewed_media_id` on `dictionary_sense` and `word_lookup_media` ([V15](../../../backend/src/main/resources/db/migration/V15__add_media_review.sql)). A sense counts as approved only while its current `media_id` equals `media_reviewed_media_id`, so a new picture (Pick another, upload, AI) needs a new review by itself. The same bytes give the same `media` row (see Upload), so choosing an identical file keeps the approval, which is correct: it is the same file.
+
+- "Picture looks right" (`POST .../media/approve`) also clears `needs_ai`. The admin is the final judge, so the AI image job (TASK-53) must skip a sense that is no longer `needs_ai` (it re-checks the status before each paid call). `DELETE .../media/approve` undoes the approval; it does not bring `needs_ai` back.
+- The words list filters `media=wrong` and `media=to-review`, and every word has `wrongMediaCount`, `mediaToReviewCount` and `mediaReview[]` (doc-13). The admin has the chips **Wrong media** and **Media to review**, row badges, and a check button on the Media row (doc-14).
 
 ## TASK-53: AI images (not built)
 
@@ -366,7 +374,7 @@ AI images plug in at `media_status = needs_ai` (set by Mark for AI or by `pipeli
 
 ## Finding words by media (TASK-60)
 
-`GET /api/admin/words?media=with` keeps the words where any sense has a media file, `media=without` the words where no sense has one (doc-13). A bundled word counts through `dictionary_sense.media_id`, a backend word through `word_lookup_media.media_id`. A claim row with no file does not count. The admin has two chips for it, **Has media** and **No media** (doc-14). This is the way to see which bundled words the Pixabay pass has not reached yet: press "No media", and the count line shows how many are left.
+`GET /api/admin/words?media=with` keeps the words where any sense has a media file, `media=without` the words where no sense has one (doc-13). A bundled word counts through `dictionary_sense.media_id`, a backend word through `word_lookup_media.media_id`. A claim row with no file does not count. The admin has two chips for it, **Has media** and **No media** (doc-14). `media=wrong` and `media=to-review` find the pictures to look at (TASK-80). This is the way to see which bundled words the Pixabay pass has not reached yet: press "No media", and the count line shows how many are left.
 
 ## Known gaps
 

@@ -83,6 +83,18 @@ public class AdminMediaController {
         return service.markForAi(id, position);
     }
 
+    /** The admin looked at the picture and it is right (TASK-80). Also clears needs_ai. Returns the changed word. */
+    @PostMapping("/words/{id}/senses/{position}/media/approve")
+    public AdminWord approve(@PathVariable String id, @PathVariable int position) {
+        return service.approve(id, position);
+    }
+
+    /** Undo the approval: the sense is "to review" again. */
+    @DeleteMapping("/words/{id}/senses/{position}/media/approve")
+    public AdminWord unapprove(@PathVariable String id, @PathVariable int position) {
+        return service.unapprove(id, position);
+    }
+
     private static int position(String text) {
         try {
             return Integer.parseInt(text);
