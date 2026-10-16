@@ -7,7 +7,13 @@ import AppKit
 import KeyboardShortcuts
 import SwiftUI
 
-/// Owns the menu-bar icon and the popover under it (TASK-85.2, mockup option A).
+/// Owns the menu-bar icon, the popover under it (TASK-85.2, mockup option A) and the floating panel.
+///
+/// Two ways to show the same content:
+/// - **Popover** under the icon, for a click on the icon the user can see.
+/// - **Floating panel** in the middle near the top of the screen, for the shortcut, the Services item and when the icon
+///   is hidden (behind the notch, or pushed off a full menu bar). Anchoring to a hidden icon put the popover in the
+///   wrong place on the developer's MacBook.
 ///
 /// It is AppKit (`NSStatusItem` + `NSPopover`), not SwiftUI's `MenuBarExtra`: the shortcut and the Services item must
 /// open the window from code and put the cursor in the box, and `MenuBarExtra` has no way to open itself (doc-7).
@@ -21,12 +27,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
+    private var panel: FloatingPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(systemSymbolName: "character.book.closed", accessibilityDescription: "Saynata")
         item.button?.target = self
-        item.button?.action = #selector(togglePopover)
+        item.button?.action = #selector(iconClicked)
         statusItem = item
 
         popover.behavior = .transient
@@ -34,20 +41,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.appearance = NSAppearance(named: .aqua)
         popover.delegate = self
         popover.contentSize = MenuBarContentView.size
-        popover.contentViewController = NSHostingController(
-            rootView: MenuBarContentView()
-                .environment(store)
-                .environment(speechPlayer)
-                .environment(account)
-                .environment(focus))
+        popover.contentViewController = makeContentController()
+
+        let panel = FloatingPanel(contentViewController: makeContentController(), size: MenuBarContentView.size)
+        panel.onClose = { [weak self] in self?.speechPlayer.stop() }
+        self.panel = panel
 
         // Right-click → Services → Explain with Saynata (TASK-85.4). The item is declared in Info.plist (`NSServices`).
         NSApp.servicesProvider = self
         NSUpdateDynamicServices()
 
-        // The global shortcut (TASK-85.3). It opens the popover from any app, or closes it when it is open.
+        // The global shortcut (TASK-85.3). It opens the panel from any app, or closes the window that is open.
         KeyboardShortcuts.onKeyUp(for: .openSaynata) { [weak self] in
-            self?.togglePopover()
+            self?.toggleFromShortcut()
         }
 
         #if DEBUG
@@ -56,35 +62,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             explain(CommandLine.arguments[index + 1])
         }
         if CommandLine.arguments.contains("-settings") {
-            showPopover()
+            showPanel()
             focus.isSettingsOpen = true
         }
         // `-snapshot` saves the popover as a PNG in the app's temp folder after 6 s (no screen-recording permission needed).
         if CommandLine.arguments.contains("-snapshot") {
+            panel.keepsOpen = true
             Task {
                 try? await Task.sleep(for: .seconds(6))
                 // A sheet (sign-in) is its own window on top of the popover; save that one when it is open.
-                let window = popover.contentViewController?.view.window
+                let window = panel.isVisible ? panel : popover.contentViewController?.view.window
                 guard let view = (window?.attachedSheet ?? window)?.contentView,
                       let image = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
                 view.cacheDisplay(in: view.bounds, to: image)
                 let file = URL.temporaryDirectory.appending(path: "saynata-popover.png")
                 try? image.representation(using: .png, properties: [:])?.write(to: file)
                 print("Snapshot: \(file.path(percentEncoded: false))")
+                print("Window frame: \(window?.frame ?? .zero), screen: \(window?.screen?.visibleFrame ?? .zero)")
+                print("Icon visible: \(isStatusItemVisible)")
             }
         }
         #endif
     }
 
-    @objc func togglePopover() {
-        if popover.isShown {
-            popover.performClose(nil)
-        } else {
+    /// The same view in each window. Each has its own hosting controller, but they share the store, so the text and
+    /// the result are the same in both.
+    private func makeContentController() -> NSViewController {
+        let controller = NSHostingController(
+            rootView: MenuBarContentView()
+                .environment(store)
+                .environment(speechPlayer)
+                .environment(account)
+                .environment(focus))
+        // The panel's title bar is hidden but still there; without this the content moves down under it.
+        controller.safeAreaRegions = []
+        return controller
+    }
+
+    private var isOpen: Bool { popover.isShown || panel?.isVisible == true }
+
+    private func closeAll() {
+        if popover.isShown { popover.performClose(nil) }
+        if panel?.isVisible == true { panel?.close() }
+    }
+
+    /// A click on the icon: the popover under it. If the icon cannot really be seen, the panel instead.
+    @objc func iconClicked() {
+        if isOpen {
+            closeAll()
+        } else if isStatusItemVisible {
             showPopover()
+        } else {
+            showPanel()
         }
     }
 
-    /// Opens the popover in front of the app the user is in, with the cursor in the box.
+    private func toggleFromShortcut() {
+        if isOpen {
+            closeAll()
+        } else {
+            showPanel()
+        }
+    }
+
+    /// Opens the popover under the icon, in front of the app the user is in, with the cursor in the box.
     func showPopover() {
         guard let button = statusItem?.button else { return }
         // A menu-bar app is never the active app, so without this the box would not get the keyboard.
@@ -94,13 +135,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         focus.request += 1
     }
 
+    /// Opens the floating panel near the top middle of the screen with the mouse, with the cursor in the box.
+    func showPanel() {
+        if popover.isShown { popover.performClose(nil) }
+        panel?.showCentred()
+        focus.request += 1
+    }
+
+    /// False when the icon has no window, its window is not on any screen or covered, or it sits behind the notch
+    /// (between the two menu-bar areas left and right of the camera, `auxiliaryTopLeftArea` / `auxiliaryTopRightArea`).
+    private var isStatusItemVisible: Bool {
+        guard let button = statusItem?.button, let window = button.window,
+              window.occlusionState.contains(.visible) else { return false }
+        let frame = window.convertToScreen(button.convert(button.bounds, to: nil))
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(NSPoint(x: frame.midX, y: frame.midY)) })
+        else { return false }
+        if let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea,
+           frame.maxX > left.maxX, frame.minX < right.minX {
+            return false
+        }
+        return true
+    }
+
     func popoverDidClose(_ notification: Notification) {
         speechPlayer.stop()
     }
 
-    /// Opens the popover and explains `text`, as if the user had typed it.
+    /// Opens the panel and explains `text`, as if the user had typed it.
     func explain(_ text: String) {
-        showPopover()
+        showPanel()
         store.inputText = text
         Task { await store.translate() }
     }

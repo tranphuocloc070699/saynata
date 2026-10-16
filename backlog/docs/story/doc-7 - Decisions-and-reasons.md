@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 10:36'
+updated_date: '2026-10-16 10:39'
 ---
 # Decisions and reasons
 
@@ -135,6 +135,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | **The Mac app shares code by compiling the app folder** (the same way the Share and Translation extensions do, doc-10), with `#if os(iOS)` / `#if os(macOS)` around the few UIKit parts, instead of moving code into a `SaynataCore` Swift package (doc-16 step 1) | A package needs `public` on every type, property and init the app uses (hundreds of edits) and changes how the tests import the code. Compiling the folder gives the same sharing with a much smaller diff and no change to the iOS app | `SaynataCore` local Swift package | Claude |
 | 10-16 | **The Mac app signs in with the same email code** as iOS (doc-17) and keeps its own tokens in the Mac Keychain; it does not share the iPhone's sign-in | The backend has `REQUIRE_SIGN_IN=true`, so new sentences need a user. Sharing tokens across devices needs iCloud Keychain and a paid account | Guest-only Mac app (cached and bundled answers only) | Claude (from the session brief) |
 | 10-16 | **The Mac popover is AppKit's `NSStatusItem` + `NSPopover`** hosting the SwiftUI view, not SwiftUI's `MenuBarExtra` | The shortcut and the Services item must open the window from code and put the cursor in the box. `MenuBarExtra` has no public way to open itself; the known workaround clicks the status item through private window classes | `MenuBarExtra(.window)` (doc-16), the MenuBarExtraAccess package | Claude |
+| 10-16 | **The shortcut and Services open a Spotlight-style floating panel** near the top middle of the screen; a click on a visible menu-bar icon still opens the popover under it. A hidden icon (notch, full menu bar) also gets the panel | The developer's test: "It shows at the wrong place." On a MacBook with a notch and a full menu bar the icon was hidden, so the popover pointed at the Help menu | Popover only; moving the icon; asking the user to free menu-bar space | Developer (bug), Claude (panel design, from the session brief) |
 | 10-16 | **Browser extension, doc-16 Part 2 option A** (TASK-86): one Chromium MV3 extension in TypeScript (`extension/`, Vite), loaded unpacked in Brave; Safari later inside the Mac app | "Implement chrome extension, show popover on selected words, sentences like gg translate, deepL." Brave is the developer's browser | Safari Web Extension first (it must ship inside a Mac or iOS app) | Claude (doc-16), developer chose |
 | 10-16 | **Selection icon A** (a round teal "S", the app icon style) and the cards as drawn in the mockup: quote, Meaning, Words, the target-language row last and closed; a lock card with a round sign-in button for a guest | Mockup approved. Reason: not recorded. | B: white square with a book icon (Google Translate style); C: a pill with S and a caret (DeepL style) | Developer |
 | 10-16 | All extension network calls go through the **service worker** with `host_permissions`, so the backend needs no CORS change | An extension service worker with host permission is not bound by CORS; a content script would be (it runs with the page's origin). No backend PR needed | A CORS rule for the `chrome-extension://` origin on `/api/*` | Claude |
