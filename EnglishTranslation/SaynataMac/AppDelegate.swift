@@ -4,6 +4,7 @@
 //
 
 import AppKit
+import KeyboardShortcuts
 import SwiftUI
 
 /// Owns the menu-bar icon and the popover under it (TASK-85.2, mockup option A).
@@ -40,12 +41,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 .environment(account)
                 .environment(focus))
 
+        // The global shortcut (TASK-85.3). It opens the popover from any app, or closes it when it is open.
+        KeyboardShortcuts.onKeyUp(for: .openSaynata) { [weak self] in
+            self?.togglePopover()
+        }
+
         #if DEBUG
         // For checking the window without a click: `open SaynataMac.app --args -explain "run late"`.
         if let index = CommandLine.arguments.firstIndex(of: "-explain"), index + 1 < CommandLine.arguments.count {
             showPopover()
             store.inputText = CommandLine.arguments[index + 1]
             Task { await store.translate() }
+        }
+        if CommandLine.arguments.contains("-settings") {
+            showPopover()
+            focus.isSettingsOpen = true
         }
         // `-snapshot` saves the popover as a PNG in the app's temp folder after 6 s (no screen-recording permission needed).
         if CommandLine.arguments.contains("-snapshot") {
@@ -87,8 +97,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 }
 
-/// Tells the popover's view to put the cursor in the input box. The view watches `request`.
+/// What the app delegate asks of the popover's view: put the cursor in the box (the view watches `request`),
+/// or show Settings.
 @Observable
 final class MenuBarFocus {
     var request = 0
+    var isSettingsOpen = false
 }
