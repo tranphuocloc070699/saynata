@@ -14,6 +14,8 @@
     uv run pipeline import-to-postgres   # one time: copy the bundled dictionary.sqlite into Postgres (DATABASE_URL)
     uv run pipeline export               # build data/out/dictionary.sqlite (+ media/) from Postgres
     uv run pipeline link-media           # after the media pass: add its media to senses in Postgres (no text changes)
+    uv run pipeline media-check --limit 50   # Claude Haiku looks at 50 pictures/clips; saves verdicts, writes data/out/media-check.html
+    uv run pipeline media-check --apply  # also mark the "wrong" senses needs_ai (needs the SSH tunnel, DATABASE_URL)
     uv run pipeline export-local         # old: build dictionary.sqlite from data/pipeline.db
     uv run pipeline topics candidates    # topic words from WordNet + wordfreq into topic_words (no LLM)
     uv run pipeline topics judge --dry-run --limit 50   # one Haiku call, prints the verdicts, saves nothing
@@ -204,6 +206,25 @@ def export_from_postgres(args) -> None:
               f"{', '.join(result.media_missing[:3])}. Copy the server media folder there first (--media-dir).")
 
 
+def check_media(args) -> None:
+    """The Claude vision check of sense pictures and clips (TASK-78). See media_check.py."""
+    from pipeline import media_check
+
+    media_dir = Path(args.media_dir)
+    pg = postgres.connect(postgres.database_url(args.database_url))
+    store_ = media_check.PostgresStore(pg)
+    summary = media_check.run(
+        store_, media_dir, args.model, lambda model, content: media_check.fetch_from_claude(model, content),
+        words=args.words, limit=args.limit, recheck=args.recheck, apply=args.apply, max_cost=args.max_cost,
+        workers=args.workers,
+    )
+    media_check.print_summary(summary, applied=args.apply)
+    rows = store_.latest_checks()
+    media_check.write_report(rows, Path(args.report), media_dir)
+    pg.close()
+    print(f"\nReport with {len(rows)} checked senses: {args.report}")
+
+
 def topic_words(args) -> None:
     """Topic words (TASK-61): candidates, the Haiku judge, and review. See topics.py."""
     from pipeline import topics
@@ -267,6 +288,17 @@ def main() -> None:
     media_parser.add_argument("--workers", type=int, default=4, help="concurrent media downloads (default 4)")
     media_parser.add_argument("--words", nargs="+", help="only these words (to try it on a few)")
     media_parser.add_argument("--dry-run", action="store_true", help="query Pixabay and print matches, save nothing")
+    check_parser = commands.add_parser("media-check", help="Claude looks at each sense picture/clip and says good, wrong or unsure")
+    check_parser.add_argument("--limit", type=int, default=100000)
+    check_parser.add_argument("--words", nargs="+", help="only these words (to try it on a few)")
+    check_parser.add_argument("--apply", action="store_true", help="mark the wrong senses needs_ai (never unsure)")
+    check_parser.add_argument("--recheck", action="store_true", help="also check senses that were checked before")
+    check_parser.add_argument("--model", default="claude-haiku-5-5")
+    check_parser.add_argument("--max-cost", type=float, default=2.0, help="stop starting new checks at this many US dollars (default 2)")
+    check_parser.add_argument("--workers", type=int, default=4, help="Claude calls in parallel (default 4)")
+    check_parser.add_argument("--media-dir", default="data/media", help="folder with the media files (default data/media)")
+    check_parser.add_argument("--report", default="data/out/media-check.html")
+    check_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     commands.add_parser("revalidate")
     commands.add_parser("report")
     commands.add_parser("export-local")
@@ -308,6 +340,8 @@ def main() -> None:
         add_examples(args.limit, args.workers, args.words, args.dry_run)
     elif args.command == "media":
         add_media(args.limit, args.workers, args.words, args.dry_run)
+    elif args.command == "media-check":
+        check_media(args)
     elif args.command == "revalidate":
         revalidate()
     elif args.command == "report":

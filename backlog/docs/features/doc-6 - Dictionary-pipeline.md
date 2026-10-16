@@ -3,9 +3,9 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-15 14:43'
+updated_date: '2026-10-15 18:52'
 ---
-> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-15 (`link-media` and `export` skip senses the admin removed media from: TASK-76; topic words, TASK-61; before that Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
+> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-16 (new `media-check` command: Claude looks at every sense picture, TASK-78; `link-media` and `export` skip senses the admin removed media from: TASK-76; topic words, TASK-61; before that Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
 > **Since TASK-49.3 the server Postgres is the source of truth** for the bundled words, senses, forms and media rows. `dictionary.sqlite` is built *from* Postgres by `export`; the generate passes below still fill `data/pipeline.db`.
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
 
@@ -287,6 +287,22 @@ flowchart LR
 
 Numbers on 2026-10-15 (Zipf 3.5): **1,378 candidates**. The judge (28 Haiku calls, under $0.10; Haiku 5.5 is $0.10 / $0.50 per million tokens) kept 980; after `topics review`: **944 keep**, 434 drop. Kept per topic: food and drink 160, animals 157, tools and objects 96, home 96, places and the street 80, plants 71, people and jobs 61, clothes 55, transport 56, nature 52, the body 40, weather 20.
 
+### 12. Media check: [media_check.py](../../../pipeline/src/pipeline/media_check.py) (TASK-78)
+
+Developer decision (2026-10-15, doc-7): check **every** Pixabay picture and clip with Claude first, mark the wrong ones `needs_ai`, and make AI images only for those (TASK-53). Full flow and the admin side: doc-15.
+
+`uv run pipeline media-check` reads the bundled senses that have media straight from Postgres (through the SSH tunnel, `DATABASE_URL`), loads each file from `--media-dir` (default `data/media`), and asks Claude Haiku 5.5 for `{"verdict": "good" | "wrong" | "unsure", "reason": "..."}`. A clip is checked on one frame from its middle (ffprobe for the length, ffmpeg for the frame). Results are saved one by one in the table `media_check` (Flyway V12), so stopping the run loses nothing and the next run goes on.
+
+| Part | Where | What |
+|---|---|---|
+| Senses to check | `PostgresStore.pending_senses` | Has media, `image_type` is not `none`, `media_status` is not `removed` or `needs_ai`, and no check exists for the media it has now (`--recheck` ignores that). Most common words first. |
+| One check | `check_one` | Worker thread: file, ffmpeg, Claude. A missing file, a failed call or a malformed answer is a failure: nothing is saved and the sense is tried again next run (the tokens of a malformed answer still count in the cost). |
+| The run | `run` | 4 calls at a time (`--workers`). No new call starts once the running cost reaches `--max-cost` (default $2); at most 4 calls finish after that. The SDK client retries 429, 5xx and network errors by itself (`max_retries=5`). |
+| `--apply` | `PostgresStore.apply_wrong` | Sets `media_status = 'needs_ai'` on every sense whose **newest** check of its current media is `wrong` and that has no status yet. It also covers checks from an earlier run, so you can review the report first and apply later without paying again. `unsure` is never applied. The old media stays until an AI image replaces it. |
+| Report | `write_report` | `data/out/media-check.html`: thumbnail (a clip plays on hover), word, meaning, verdict, reason; wrong first, then unsure, then good. It lists the newest check of every sense. |
+
+Price: Haiku 5.5 is $0.10 / $0.50 per million tokens (`PRICES` in `media_check.py`, same numbers as `application.properties`). A 320 px picture is about 100 image tokens; the whole call is about 500 input tokens.
+
 ## Commands ([cli.py](../../../pipeline/src/pipeline/cli.py))
 
 | Command | LLM? | Use |
@@ -303,6 +319,7 @@ Numbers on 2026-10-15 (Zipf 3.5): **1,378 candidates**. The judge (28 Haiku call
 | `uv run pipeline report` | No | Counts per status + the problem list |
 | `uv run pipeline import-to-postgres` | No | One time: copy the bundled `dictionary.sqlite` (+ media facts) into Postgres. Re-run safe; `--overwrite`, `--sqlite`, `--media-dir`, `--database-url` |
 | `uv run pipeline link-media` | No | After the media pass: add its media rows and links to senses in Postgres, changing no text and no existing media. It also skips a sense with `image_type = 'none'` or `media_status = 'removed'` (the admin removed its media, TASK-76), so a removed picture does not come back from an older file. `--sqlite` (default `data/out/dictionary.sqlite`, from `export-local`), `--media-dir`, `--database-url`. Then `rsync` the files to the server (doc-11, section 9) |
+| `uv run pipeline media-check --limit 50` | Yes, 1 Haiku call per sense (about $0.0001 each; full run of 3,372 senses about $0.35) | Claude looks at each sense picture or clip and says good, wrong or unsure. Needs the SSH tunnel. Saves to `media_check`, prints counts, cost and the wrong ones, writes `data/out/media-check.html`. `--apply` marks the wrong ones `needs_ai`; `--recheck`, `--words`, `--max-cost` (default 2), `--workers` (default 4), `--model`, `--media-dir`, `--report`, `--database-url` |
 | `uv run pipeline export` | No | Build `data/out/dictionary.sqlite`, `.jsonl` and `media/` from Postgres (read-only). A sense with `image_type = 'none'` or `media_status = 'removed'` gets no `image_url` (TASK-76). `--media-dir`, `--database-url` |
 | `uv run pipeline export-local` | No | Old: build `dictionary.sqlite` from `data/pipeline.db` |
 | `uv run pipeline topics candidates` | No | Topic word candidates from WordNet + wordfreq into `topic_words` (`--zipf`, default 3.5). Resume-safe ([cli.py:207-233](../../../pipeline/src/pipeline/cli.py#L207-L233)) |
@@ -323,6 +340,7 @@ Numbers on 2026-10-15 (Zipf 3.5): **1,378 candidates**. The judge (28 Haiku call
 | [test_examples.py](../../../pipeline/tests/test_examples.py) | Example checks (levels, 2 words outside the list for harder, headword or a form), an example that repeats another one is dropped, the examples pass with a fake LLM (definitions untouched, order, resume, no retry, drops, old examples kept as a fallback, dry run), old string examples load, form types (ran, went, running, apples, runs, …), export stores levels and form types |
 | [test_topics.py](../../../pipeline/tests/test_topics.py) | Topic words with a fake WordNet and a fake judge: topics from lexfile and hypernym, NGSL, blocked, rare and topicless words skipped, the hand list, re-saving keeps judged rows, verdicts for other words ignored, the judge can change the topic, failed calls and missing verdicts are retried, dry run, prompt and TSV, the reviewed overrides (applied on top, safe to run again, lists do not overlap), promote (rank after NGSL, topic, forms, skips existing words, safe to run again), older databases get the `topic` column |
 
+| [test_media_check.py](../../../pipeline/tests/test_media_check.py) | TASK-78 with a fake Claude client and a fake ffmpeg: the prompt, base64 image content, JSON parsing (code fence, malformed answers), the clip frame from the middle, a failed check is not saved, already-checked senses are skipped (unless `--recheck`), the stop at `--max-cost`, `--apply` marks only `wrong`, the HTML report. Two Postgres tests (need `TEST_DATABASE_URL`): which senses are pending, `apply_wrong`. |
 | [test_postgres.py](../../../pipeline/tests/test_postgres.py) | Import counts match the file (words, senses, forms, media), columns and media facts, Pixabay attribution from `pipeline.db`, import twice changes nothing, admin edits survive a re-import (and `--overwrite` replaces them), a failed import changes nothing, round trip (import then export gives the same schema and rows), word numbering by rank, an edit in Postgres is in the next export, missing media files, read-only connection. Last test: the whole bundled file (2,750 words, 7,779 senses, 5,542 forms) round-trips. |
 
 Run: `uv run pytest` in `pipeline/` (no API key needed). The Postgres tests need `TEST_DATABASE_URL` (a Postgres you can write to, for example `postgresql://postgres@localhost:5432/postgres`); without it they are skipped. Each test makes its own schema from the backend's Flyway files and drops it. CI starts a Postgres for them.
