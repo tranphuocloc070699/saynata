@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-16 01:58'
-updated_date: '2026-10-16 01:58'
+updated_date: '2026-10-16 02:12'
 labels:
   - backend
   - admin
@@ -46,3 +46,9 @@ Developer decision 2026-10-16: the admin can upload their own file for a sense, 
 5. Pipeline export test for an uploaded row.
 6. Docs: doc-7, 13, 14, 15, 11. Tests: mvnw, npm test/build, pytest, check_docs.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/71 (into main). Test it: Goal: upload a picture and a clip for a sense in https://admin.loffy.me. Steps: (1) deploy this backend branch (V13 migration runs by itself); (2) Words > open a word > Media row of sense 1 shows 4 icon buttons incl. Upload; (3) Upload a PNG/JPEG, see the caption 'Uploaded by the admin', open the viewer, see the list thumbnail change; (4) drag an MP4/MOV onto the Media row (dashed outline), it becomes a 3 s muted clip; (5) failure: upload a PDF or a text file named .png (400 simple message), and a file over 25 MB (413). Expected: as above, old picture stays on errors, Waiting-for-AI note disappears. Automated: backend 328 tests (./mvnw -B test), admin 67 tests + build (npm test && npm run build), pipeline 133 tests with TEST_DATABASE_URL, check_docs 0 problems. Not tried in a browser against the VPS.
+<!-- SECTION:NOTES:END -->
