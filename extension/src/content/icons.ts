@@ -9,6 +9,8 @@ export const ICONS = {
   check: svg('<path d="M20 6 9 17l-5-5"/>'),
   close: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
   chevronDown: svg('<path d="m6 9 6 6 6-6"/>'),
+  chevronRight: svg('<path d="m9 6 6 6-6 6"/>'),
+  back: svg('<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>'),
   lock: svg('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),
   signIn: svg('<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/>'),
   retry: svg('<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>'),

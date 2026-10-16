@@ -7,7 +7,9 @@ import { SESSION_KEY } from "../shared/auth";
 import { EXPLAIN_PORT, type ExplainEvent, type RuntimeRequest, type TabMessage } from "../shared/messages";
 import { loadSettings, rowStartsOpen, saveSettings } from "../shared/settings";
 import { classify, cleanSelection } from "../shared/textKind";
-import { applyEvent, initialState, renderCard, type CardActions, type CardState } from "./card";
+import { API_BASE } from "../shared/config";
+import { applyEvent, applyOpenedEvent, initialState, renderCard, type CardActions, type CardState } from "./card";
+import { MediaNodes } from "./media";
 import { cardTop, iconPosition, placeCard, type CardPlacement, type Rect, type Viewport } from "./placement";
 import { Speech } from "./speech";
 import { STYLES } from "./styles";
@@ -25,6 +27,9 @@ class SelectionPopover {
   private card: HTMLElement | null = null;
   private state: CardState | null = null;
   private port: chrome.runtime.Port | null = null;
+  /** The request for a word opened from the Words list (its own port, so Back can cancel it). */
+  private wordPort: chrome.runtime.Port | null = null;
+  private readonly media = new MediaNodes(API_BASE, (src) => chrome.runtime.getURL(`media.html?src=${encodeURIComponent(src)}`));
   /** Where the card sits; chosen once when it opens (placeCard), so it never jumps. */
   private placement: CardPlacement | null = null;
   /** The card's top once the answer is complete; fixed from then on (cardTop). */
@@ -98,7 +103,8 @@ class SelectionPopover {
 
   /** After a sign-in, a card that asked for one runs the same text again (like the iOS sheet). */
   private onSignedIn(): void {
-    if (this.state?.error?.kind === "signInRequired") this.actions.retry();
+    if (this.state?.opened?.error?.kind === "signInRequired") this.requestOpenedWord();
+    else if (this.state?.error?.kind === "signInRequired") this.actions.retry();
   }
 
   // The icon.
@@ -169,9 +175,33 @@ class SelectionPopover {
     port.postMessage({ text: this.state.text, targetLang: this.state.targetLang });
   }
 
+  /** Asks for the opened word's card; its events go to `state.opened` only. */
+  private requestOpenedWord(): void {
+    const opened = this.state?.opened;
+    if (!this.state || !opened) return;
+    this.wordPort?.disconnect();
+    this.state = { ...this.state, opened: { word: opened.word } };
+    this.render();
+    const port = chrome.runtime.connect({ name: EXPLAIN_PORT });
+    this.wordPort = port;
+    port.onMessage.addListener((event: ExplainEvent) => {
+      if (this.wordPort !== port || !this.state?.opened) return;
+      this.state = applyOpenedEvent(this.state, event);
+      this.render();
+      if (event.type === "word" || event.type === "error") {
+        port.disconnect();
+        this.wordPort = null;
+      }
+    });
+    port.postMessage({ text: opened.word, targetLang: this.state.targetLang });
+  }
+
   private closeCard(): void {
     this.port?.disconnect();
     this.port = null;
+    this.wordPort?.disconnect();
+    this.wordPort = null;
+    this.media.clear();
     this.speech.stop();
     this.card?.remove();
     this.card = null;
@@ -201,8 +231,28 @@ class SelectionPopover {
     signIn: () => {
       void chrome.runtime.sendMessage<RuntimeRequest>({ type: "openSignIn" });
     },
+    openWord: (word) => {
+      if (!this.state) return;
+      this.speech.stop();
+      this.state = { ...this.state, opened: { word } };
+      this.requestOpenedWord();
+      this.card?.scrollTo({ top: 0 });
+    },
+    back: () => {
+      if (!this.state) return;
+      this.wordPort?.disconnect();
+      this.wordPort = null;
+      this.speech.stop();
+      this.state = { ...this.state, opened: undefined };
+      this.render();
+    },
+    media: (url) => this.media.get(url),
     retry: () => {
       if (!this.state) return;
+      if (this.state.opened) {
+        this.requestOpenedWord();
+        return;
+      }
       this.frozenTop = null;
       this.state = initialState(this.state.text, this.state.kind, this.state.targetLang, this.state.rowOpen);
       this.render();

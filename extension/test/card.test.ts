@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
-import { applyEvent, initialState, renderCard, shortPos, type CardActions } from "../src/content/card";
+import { applyEvent, applyOpenedEvent, initialState, renderCard, shortPos, type CardActions, type CardState } from "../src/content/card";
 import { sentenceResponse, wordResponse } from "./helpers";
 import type { TranslationResponse, WordResponse } from "../src/shared/api";
 
@@ -143,5 +143,93 @@ describe("English as the target language", () => {
   it("has no target-language row, like the app", () => {
     const state = { ...sentenceDone(), targetLang: "en" as const };
     expect(renderCard(state, actions()).querySelector(".fold")).toBeNull();
+  });
+});
+
+describe("open a word from the sentence card", () => {
+  const sentenceWithWords = () =>
+    applyEvent(initialState("they went ahead reluctantly", "sentence", "vi", false), {
+      type: "sentence",
+      response: {
+        ...(sentenceResponse as TranslationResponse),
+        explanation: {
+          ...sentenceResponse.explanation,
+          words: [
+            { word: "reluctantly", partOfSpeech: "adverb", meaning: "not wanting to" },
+            { word: "went ahead", partOfSpeech: "phrasal verb", meaning: "happened as planned" },
+          ],
+        },
+      } as TranslationResponse,
+    });
+
+  it("each single word has an icon-only Open button; a phrase has none", () => {
+    const a = { ...actions(), openWord: vi.fn() };
+    const card = renderCard(sentenceWithWords(), a);
+    const open = Array.from(card.querySelectorAll<HTMLButtonElement>(".word-row button"));
+    expect(open.map((b) => b.getAttribute("aria-label"))).toEqual(["Open reluctantly"]);
+    expect(open[0].textContent).toBe("");
+    open[0].click();
+    expect(a.openWord).toHaveBeenCalledWith("reluctantly");
+  });
+
+  it("the opened word shows a word card with Back, then its answer", () => {
+    const a = { ...actions(), back: vi.fn() };
+    let state: CardState = { ...sentenceDone(), opened: { word: "reluctant" } };
+    const loading = renderCard(state, a);
+    expect(loading.querySelector(".headword")?.textContent).toBe("reluctant");
+    expect(loading.querySelectorAll(".skeleton").length).toBe(3);
+    state = applyOpenedEvent(state, { type: "word", response: wordResponse as WordResponse });
+    const card = renderCard(state, a);
+    expect(card.querySelector(".definition")?.textContent).toBe("Not wanting to do something.");
+    const back = card.querySelector<HTMLButtonElement>('[aria-label="Back"]');
+    expect(back?.textContent).toBe("");
+    back?.click();
+    expect(a.back).toHaveBeenCalled();
+  });
+
+  it("keeps the sentence answer while a word is open", () => {
+    const state = applyOpenedEvent({ ...sentenceDone(), opened: { word: "reluctant" } }, {
+      type: "word",
+      response: wordResponse as WordResponse,
+    });
+    expect(state.sentence?.explanation.meaning).toBe("Not wanting to say yes to the plan.");
+    expect(renderCard({ ...state, opened: undefined }, actions()).querySelector(".meaning")?.textContent).toBe(
+      "Not wanting to say yes to the plan.",
+    );
+  });
+
+  it("a guest opening an uncached word sees the sign-in card inside the word view", () => {
+    const state = applyOpenedEvent({ ...sentenceDone(), opened: { word: "zyzzyva" } }, {
+      type: "error",
+      kind: "signInRequired",
+      message: "Sign in to get a new explanation.",
+    });
+    const card = renderCard(state, { ...actions(), back: vi.fn() });
+    expect(card.querySelector(".message")?.textContent).toBe("Sign in to get a new explanation.");
+    expect(card.querySelector('[aria-label="Back"]')).not.toBeNull();
+  });
+});
+
+describe("pictures in the word card", () => {
+  const withMedia = {
+    ...wordResponse,
+    entry: {
+      senses: [
+        { ...wordResponse.entry.senses[0], imageUrl: "https://api.loffy.me/media/reluctant_1.webp" },
+        { ...wordResponse.entry.senses[0], simpleDefinition: "Second meaning." },
+      ],
+    },
+  } as WordResponse;
+
+  it("puts the picture under its meaning and before the example; a sense without one has none", () => {
+    const frame = document.createElement("div");
+    frame.className = "media";
+    const media = vi.fn(() => frame);
+    const state = applyEvent(initialState("reluctant", "word", "vi", false), { type: "word", response: withMedia });
+    const card = renderCard(state, { ...actions(), media });
+    expect(media).toHaveBeenCalledWith("https://api.loffy.me/media/reluctant_1.webp");
+    expect(card.querySelectorAll(".media-row")).toHaveLength(1);
+    const order = Array.from(card.children).map((e) => e.className.split(" ")[0]);
+    expect(order).toEqual(["head", "sense", "media-row", "example", "sense", "example", "fold"]);
   });
 });
