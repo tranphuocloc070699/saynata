@@ -33,6 +33,14 @@ struct SignInSheet: View {
         .padding(.top, Theme.Spacing.xLarge)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.Colors.background)
+        #if os(macOS)
+        // A Mac sheet cannot be dragged down, so it gets a Close button (Esc too).
+        .overlay(alignment: .topTrailing) {
+            IconButton(systemImage: "xmark", label: "Close") { dismiss() }
+                .keyboardShortcut(.cancelAction)
+                .padding(Theme.Spacing.medium)
+        }
+        #endif
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .animation(.default, value: model.step)
@@ -55,6 +63,7 @@ struct SignInSheet: View {
 
             HStack(spacing: Theme.Spacing.medium) {
                 TextField("Email", text: $model.email)
+                    .textFieldStyle(.plain)
                     .emailFieldStyle()
                     .autocorrectionDisabled()
                     .submitLabel(.send)

@@ -1,9 +1,11 @@
 ---
 id: TASK-85.2
 title: 'Mac target: menu-bar window with explain results and sign-in'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-10-16 09:00'
+updated_date: '2026-10-16 09:44'
 labels:
   - mac
 dependencies:
@@ -33,3 +35,9 @@ doc-16 Part 1 step 2. New macOS 15 SwiftUI target SaynataMac in the same Xcode p
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+AppKit NSStatusItem + NSPopover (doc-7) hosting MenuBarContentView: header (name, language picker, Settings), input (Return explains, grows to 4 lines), shared TranslateResultView. Sign-in and Settings are sheets on the popover (checked: they work). SignInSheet gets a Mac Close button (Esc) and a plain email field. CharacterCounter moved to DesignSystem/Components. Debug -explain/-snapshot arguments for checks. Checked with snapshots: apple word card with picture, sentence opens sign-in. iOS 313 tests pass. Feature page doc-20.
+<!-- SECTION:NOTES:END -->
