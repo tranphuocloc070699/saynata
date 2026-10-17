@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-17 16:43'
-updated_date: '2026-10-17 16:44'
+updated_date: '2026-10-17 16:55'
 labels: []
 dependencies: []
 parent_task_id: TASK-89
@@ -40,3 +40,9 @@ A new sentence takes ~1.15 s to the first token, and the words list plus transla
 <!-- SECTION:PLAN:BEGIN -->
 1. SENTENCE_PROMPT v8 + schema (isEnglish, summary, translation), drop words. 2. Map summary to meaning, words empty in public JSON. 3. Stream reads summary. 4. Version bump backend + iOS line. 5. Tests. 6. doc-4.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/111. Test it: run the backend, POST /api/translations/stream with a new sentence. Expect meaning-delta (from summary), meaning, done with words = [] and a translation. Gibberish gives 422 and nothing cached. Automated: cd backend && ./mvnw -B test (397 pass).
+<!-- SECTION:NOTES:END -->
