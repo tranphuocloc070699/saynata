@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-16 11:05'
+updated_date: '2026-10-17 06:41'
 ---
 # Decisions and reasons
 
@@ -36,6 +36,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-14 | F3 Listen first; F4 Speak and score later | "I think it's necessary at this time." | F3 and F4 together | Developer |
 | 10-14 | F3 reads three things: the headword, each sense's simple explanation, each example sentence. Not the Vietnamese line, Grammar examples, other languages, slow speed or accent choice | "I think those are necessary. I can add other types of content later." Claude's brainstorm also suggested slow speed on a second tap and hiding a speaker with no voice. | Read all text; also Vietnamese; also Grammar examples | Developer chose from Claude's list |
 | 10-10 | Icon-only buttons with VoiceOver labels | "I think they look clean, and I've seen a lot of apps do it that way." It came after "too much text, users don't know where to focus." | Labelled Listen / Speak buttons | Developer |
+| 10-17 | **Explain copied text as a Shortcuts card** (TASK-87): an App Intent with `openAppWhenRun = false` and an App Shortcut, run from Back Tap or the Action Button, shows the meaning over the current app. **Layout B** (up to 3 meanings or words) over A (one meaning). The Vietnamese line is the last small line, open, because an iOS 18 card cannot fold a row. The card uses colors written as numbers (`Theme.SnippetColors`) because Shortcuts could not read the asset catalog | "Open Saynata in as few steps as possible, even on older devices, without interrupting the current app." Why B over A: reason not recorded | Layout A (one meaning); hiding the Vietnamese line; a keyboard extension or a widget (more steps, or no copied text) | Developer picked B; Claude proposed the Shortcuts card |
 
 ## Design
 
@@ -173,3 +174,4 @@ go here as questions.
 - 10-16: Why pre-fill through a backend job, Zipf 3.5, a loose sentence match, no guest misses, and a nightly $0.50 cap? The recommended options were picked; reasons not recorded.
 - 10-16: Why every wordfreq word, and why queue the words of every sentence? Only what to do was said. Reason not recorded.
 - 10-16: Why no pictures for prefilled words (cost, disk, quality of pictures for rare words)? Reason not recorded.
+- 10-17: Why layout B (up to 3 meanings or words) over A (one meaning) for the Explain copied text card? Reason not recorded.
