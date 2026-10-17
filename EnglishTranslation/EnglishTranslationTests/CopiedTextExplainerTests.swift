@@ -50,6 +50,7 @@ private struct FakeTranslator: Translating {
 
 private let sampleExplanation = Explanation(meaning: "She did not want to go.", words: [], translation: "Cô ấy không muốn đi.")
 
+@MainActor
 private func makeExplainer(
     clipboard: String?,
     word: Result<WordEntry, Error> = .success(.run),
@@ -66,6 +67,7 @@ private func makeExplainer(
     return explainer
 }
 
+@MainActor
 struct CopiedTextExplainerTests {
     // MARK: - Word or sentence
 

@@ -41,10 +41,12 @@ enum CopiedTextResult: Equatable, Sendable {
 /// Reads the clipboard and explains it, the same way as the app: one word (or "an apple") goes to the word lookup
 /// (bundle, phone cache, backend), more goes to the sentence API (phone cache, backend). Used by
 /// `ExplainCopiedTextIntent`, which shows the result as a Shortcuts card over the current app.
-struct CopiedTextExplainer: Sendable {
+/// On the main actor like `TranslationStore`, because `TranslatorFactory` is; the network calls still run off it.
+@MainActor
+struct CopiedTextExplainer {
     let clipboard: any ClipboardReading
-    let makeWordLookup: @Sendable () throws -> any WordLooking
-    let makeTranslator: @Sendable () throws -> any Translating
+    let makeWordLookup: @MainActor () throws -> any WordLooking
+    let makeTranslator: @MainActor () throws -> any Translating
     var language: TargetLanguage = .vietnamese
     /// A Shortcuts card cannot show an answer that is still coming, so after this many seconds the card says
     /// "still working" instead. Bundled and cached answers come back long before this.
@@ -144,7 +146,7 @@ struct CopiedTextExplainer: Sendable {
     /// False for text that is clearly not English, so it never costs a backend call: no Latin letters at all
     /// ("你好"), or three or more words that the on-device recognizer is sure are another language
     /// ("Tôi muốn đi học"). Short or mixed text gets the benefit of the doubt; the server checks again.
-    static func looksLikeEnglish(_ text: String) -> Bool {
+    nonisolated static func looksLikeEnglish(_ text: String) -> Bool {
         let hasLatinLetter = text.unicodeScalars.contains { ("a"..."z").contains($0) || ("A"..."Z").contains($0) }
         guard hasLatinLetter else { return false }
 

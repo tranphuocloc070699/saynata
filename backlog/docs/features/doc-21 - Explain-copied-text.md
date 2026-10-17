@@ -3,7 +3,7 @@ id: doc-21
 title: Explain copied text
 type: specification
 created_date: '2026-10-17 06:39'
-updated_date: '2026-10-17 06:40'
+updated_date: '2026-10-17 06:43'
 ---
 # Explain copied text (Back Tap and Action Button)
 
@@ -39,12 +39,12 @@ flowchart TD
 |---|---|---|
 | 1 | [ExplainCopiedTextIntent.swift:26](../../../EnglishTranslation/EnglishTranslation/Intents/ExplainCopiedTextIntent.swift#L26) | `openAppWhenRun = false`, so the intent runs in the background and returns a snippet view. An optional `text` parameter lets a user's own shortcut pass text; empty means the clipboard. |
 | 2 | [ExplainCopiedTextIntent.swift:38](../../../EnglishTranslation/EnglishTranslation/Intents/ExplainCopiedTextIntent.swift#L38) | `SystemClipboard` checks `hasStrings` first (no permission question), then reads `UIPasteboard.general.string`, which shows iOS's "Allow Paste" question unless the user set Paste from Other Apps to Allow. |
-| 3 | [CopiedTextExplainer.swift:54](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L54) | Cleans the text (`CopiedText`, drops the Apple Books citation), checks it with `TextRoute` (empty, over 500) and `looksLikeEnglish`, then routes by `CacheKeys.wordQuery`, the same split as the app. |
-| 4 | [CopiedTextExplainer.swift:84](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L84) | A word goes through `WordLookup` (bundle, phone cache, backend). |
-| 5 | [CopiedTextExplainer.swift:95](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L95) | A sentence goes through `Translating.explain` (phone cache first). Its bundled words are found offline first, so a slow or signed-out card still lists them. |
-| 6 | [CopiedTextExplainer.swift:130](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L130) | Both race an 8-second timer: a card cannot update once it is shown, so a slow answer becomes "Still working…" instead of a long wait. Bundled and cached answers return long before. |
-| 7 | [CopiedTextExplainer.swift:111](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L111) | Errors become cards: 401 `sign_in_required` is "Sign in to explain new text", a 4xx with a message (for example "doesn't look like English") is shown as it is, anything else is "Couldn't explain this". |
-| 8 | [CopiedTextCard.swift:41](../../../EnglishTranslation/EnglishTranslation/Views/CopiedText/CopiedTextCard.swift#L41) | Layout B. The Vietnamese line is the last line, small, open (a Shortcuts card on iOS 18 cannot fold a row). |
+| 3 | [CopiedTextExplainer.swift:56](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L56) | Cleans the text (`CopiedText`, drops the Apple Books citation), checks it with `TextRoute` (empty, over 500) and `looksLikeEnglish`, then routes by `CacheKeys.wordQuery`, the same split as the app. |
+| 4 | [CopiedTextExplainer.swift:86](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L86) | A word goes through `WordLookup` (bundle, phone cache, backend). |
+| 5 | [CopiedTextExplainer.swift:97](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L97) | A sentence goes through `Translating.explain` (phone cache first). Its bundled words are found offline first, so a slow or signed-out card still lists them. |
+| 6 | [CopiedTextExplainer.swift:132](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L132) | Both race an 8-second timer: a card cannot update once it is shown, so a slow answer becomes "Still working…" instead of a long wait. Bundled and cached answers return long before. |
+| 7 | [CopiedTextExplainer.swift:113](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L113) | Errors become cards: 401 `sign_in_required` is "Sign in to explain new text", a 4xx with a message (for example "doesn't look like English") is shown as it is, anything else is "Couldn't explain this". |
+| 8 | [CopiedTextCard.swift:40](../../../EnglishTranslation/EnglishTranslation/Views/CopiedText/CopiedTextCard.swift#L40) | Layout B. The Vietnamese line is the last line, small, open (a Shortcuts card on iOS 18 cannot fold a row). |
 | 9 | [SaynataShortcuts.swift:12](../../../EnglishTranslation/EnglishTranslation/Intents/SaynataShortcuts.swift#L12) | The App Shortcut, so iOS lists "Explain copied text" in the Shortcuts app, Spotlight, Siri and the Action Button with no setup. |
 
 ## The card cannot read the asset catalog
