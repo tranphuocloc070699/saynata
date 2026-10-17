@@ -36,10 +36,13 @@ struct ExplainCopiedTextIntent: AppIntent {
 /// The real clipboard. Reading it may show iOS's "Allow Paste" question, unless the user set
 /// Settings > Saynata > Paste from Other Apps to Allow.
 struct SystemClipboard: ClipboardReading {
-    func text() async -> String? {
+    func content() async -> ClipboardContent {
         await MainActor.run {
-            // `hasStrings` does not ask for permission, so an empty clipboard never shows the question.
-            UIPasteboard.general.hasStrings ? UIPasteboard.general.string : nil
+            // `hasStrings` never asks for permission, so an empty clipboard never shows the question.
+            guard UIPasteboard.general.hasStrings else { return .empty }
+            // Text is there but `string` is nil: iOS refused the paste.
+            guard let text = UIPasteboard.general.string else { return .notAllowed }
+            return .text(text)
         }
     }
 }

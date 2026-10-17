@@ -8,8 +8,16 @@ import NaturalLanguage
 
 /// Anything that can read the text on the clipboard. `SystemClipboard` (UIKit) is the real one; tests use a fake.
 protocol ClipboardReading: Sendable {
-    /// The copied text. Nil when the clipboard has no text.
-    func text() async -> String?
+    func content() async -> ClipboardContent
+}
+
+/// What the clipboard gave.
+enum ClipboardContent: Equatable, Sendable {
+    case text(String)
+    /// No text was copied.
+    case empty
+    /// There is text, but iOS did not let Saynata read it ("Don't Allow Paste", or Paste from Other Apps is Deny).
+    case notAllowed
 }
 
 /// What the "Explain copied text" card shows (TASK-87).
@@ -58,7 +66,17 @@ struct CopiedTextExplainer {
         if let text {
             copied = text
         } else {
-            copied = await clipboard.text() ?? ""
+            switch await clipboard.content() {
+            case let .text(text):
+                copied = text
+            case .empty:
+                copied = ""
+            case .notAllowed:
+                return .problem(
+                    title: "Paste is blocked",
+                    message: "iOS did not let Saynata read what you copied. Tap Allow Paste next time, or set "
+                        + "Settings > Apps > Saynata > Paste from Other Apps to Allow.")
+            }
         }
         let cleaned = CopiedText.cleaned(copied)
 

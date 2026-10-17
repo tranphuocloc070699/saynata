@@ -10,7 +10,11 @@ import Testing
 /// A clipboard with fixed text.
 private struct FakeClipboard: ClipboardReading {
     var copied: String?
-    func text() async -> String? { copied }
+    var isAllowed = true
+    func content() async -> ClipboardContent {
+        guard isAllowed else { return .notAllowed }
+        return copied.map { .text($0) } ?? .empty
+    }
 }
 
 /// Records what it was asked, so a test can check which path the text took.
@@ -118,6 +122,23 @@ struct CopiedTextExplainerTests {
         }
         #expect(title == "Nothing to explain")
         #expect(calls.words.isEmpty && calls.sentences.isEmpty)
+    }
+
+    @Test func aBlockedPasteSaysHowToAllowIt() async {
+        let calls = Calls()
+        var explainer = makeExplainer(clipboard: "run", calls: calls)
+        explainer = CopiedTextExplainer(
+            clipboard: FakeClipboard(copied: "run", isAllowed: false),
+            makeWordLookup: explainer.makeWordLookup,
+            makeTranslator: explainer.makeTranslator)
+        let result = await explainer.explain()
+        guard case let .problem(title, message) = result else {
+            Issue.record("Expected a problem, got \(result)")
+            return
+        }
+        #expect(title == "Paste is blocked")
+        #expect(message.contains("Paste from Other Apps"))
+        #expect(calls.words.isEmpty)
     }
 
     @Test func textOverTheLimitIsNotSent() async {
