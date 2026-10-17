@@ -3,11 +3,11 @@ id: doc-21
 title: Explain copied text
 type: specification
 created_date: '2026-10-17 06:39'
-updated_date: '2026-10-17 06:43'
+updated_date: '2026-10-17 07:46'
 ---
 # Explain copied text (Back Tap and Action Button)
 
-> Status: **built** (TASK-87), tested in the iPhone 16 Pro (iOS 18.5) simulator through the Shortcuts app. Back Tap and the Action Button need a real phone. Last traced from code: 2026-10-17.
+> Status: **built** (TASK-87), tested in the iPhone 16 Pro (iOS 18.5) simulator through the Shortcuts app. Back Tap and the Action Button need a real phone. Last traced from code: 2026-10-17. Also run on the iOS 26.3 simulator (iPhone 17e).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Builds on [Word lookup](doc-5%20-%20Word-lookup.md) and [Sentence translation](doc-4%20-%20Sentence-translation.md).
 
 ## What it does
@@ -91,5 +91,7 @@ Run: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -
 ## Known gaps
 
 - The card cannot play audio or fold rows (iOS 18 cards have no buttons, only links).
+- iOS 26 cuts a card at a fixed height, so meanings and words stop at two lines (the sentence meaning at four). The open link shows the full result.
+- On the developer's iPhone 13 (iOS 26.5, free Apple ID) the first run said "Unable to run App Shortcut", while the iOS 26.3 and 18.5 simulators work. Cause not found yet.
 - The target language is always Vietnamese: the app does not save the picked language yet.
 - Back Tap and the Action Button were not tested in the simulator (no hardware); the same intent was run from the Shortcuts app there.
