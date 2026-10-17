@@ -8,6 +8,9 @@ package com.englishtranslation.backend.media;
  * @param photographer Pixabay user name
  * @param pageUrl      the Pixabay page of the file
  * @param source       "pixabay", "upload" when the admin uploaded the file (then photographer and pageUrl are null, TASK-79), or "ai" for an AI image from the pipeline (licenseNote names the model, TASK-53)
+ * @param width        the file's size in pixels, so the app can size the frame before the file loads; null when not known (clips, most backend media)
+ * @param height       the same, height
  */
-public record SenseMedia(String url, String kind, String photographer, String pageUrl, String licenseNote, String source) {
+public record SenseMedia(String url, String kind, String photographer, String pageUrl, String licenseNote, String source,
+                         Integer width, Integer height) {
 }

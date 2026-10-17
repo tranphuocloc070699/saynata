@@ -91,6 +91,21 @@ class WordImageUrlTest {
     }
 
     @Test
+    void aPhotoWithAKnownSizeSendsItsWidthAndHeight() throws Exception {
+        link(0, "reluctant_1_ab12cd34.webp", "photo");
+        link(1, "reluctant_2_ef56ab78.mp4", "clip");
+        jdbc.sql("update media set width = 320, height = 470 where file_name = 'reluctant_1_ab12cd34.webp'").update();
+
+        mockMvc.perform(get("/api/words/reluctant"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entry.senses[0].imageWidth").value(320))
+                .andExpect(jsonPath("$.entry.senses[0].imageHeight").value(470))
+                .andExpect(jsonPath("$.entry.senses[1].imageUrl").exists())
+                .andExpect(jsonPath("$.entry.senses[1].imageWidth").doesNotExist())
+                .andExpect(jsonPath("$.entry.senses[1].imageHeight").doesNotExist());
+    }
+
+    @Test
     void aWordWithNoMediaAtAllLooksLikeBefore() throws Exception {
         mockMvc.perform(get("/api/words/reluctant"))
                 .andExpect(status().isOk())

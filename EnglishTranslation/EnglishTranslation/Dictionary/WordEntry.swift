@@ -3,6 +3,7 @@
 //  EnglishTranslation
 //
 
+import CoreGraphics
 import Foundation
 
 /// A dictionary entry for one word: how to say it, and its meanings.
@@ -46,15 +47,19 @@ struct Sense: Codable, Equatable, Sendable {
     let usage: [Usage]
     /// Optional relative path or URL to an image or action clip.
     let imageUrl: String?
+    /// The picture's size in pixels, when known, so the frame has the right shape before the file loads.
+    let imageWidth: Int?
+    let imageHeight: Int?
 
     private enum CodingKeys: String, CodingKey {
         case pos, cefr, simpleDefinition, vietnamese, examples, usage
-        case imageUrl
+        case imageUrl, imageWidth, imageHeight
         case imageURL = "image_url"
     }
 
     init(pos: String, cefr: String, simpleDefinition: String, vietnamese: String,
-         examples: [Example], usage: [Usage] = [], imageUrl: String? = nil) {
+         examples: [Example], usage: [Usage] = [], imageUrl: String? = nil,
+         imageWidth: Int? = nil, imageHeight: Int? = nil) {
         self.pos = pos
         self.cefr = cefr
         self.simpleDefinition = simpleDefinition
@@ -62,6 +67,14 @@ struct Sense: Codable, Equatable, Sendable {
         self.examples = examples
         self.usage = usage
         self.imageUrl = imageUrl
+        self.imageWidth = imageWidth
+        self.imageHeight = imageHeight
+    }
+
+    /// The picture's size, or nil when it is not known (the view then waits for the file).
+    var imagePixelSize: CGSize? {
+        guard let imageWidth, let imageHeight, imageWidth > 0, imageHeight > 0 else { return nil }
+        return CGSize(width: imageWidth, height: imageHeight)
     }
 
     // `usage` may be missing in older JSON, so it falls back to an empty list.
@@ -75,6 +88,8 @@ struct Sense: Codable, Equatable, Sendable {
         usage = try container.decodeIfPresent([Usage].self, forKey: .usage) ?? []
         imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
             ?? container.decodeIfPresent(String.self, forKey: .imageURL)
+        imageWidth = try container.decodeIfPresent(Int.self, forKey: .imageWidth)
+        imageHeight = try container.decodeIfPresent(Int.self, forKey: .imageHeight)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -86,6 +101,8 @@ struct Sense: Codable, Equatable, Sendable {
         try container.encode(examples, forKey: .examples)
         try container.encode(usage, forKey: .usage)
         try container.encodeIfPresent(imageUrl, forKey: .imageUrl)
+        try container.encodeIfPresent(imageWidth, forKey: .imageWidth)
+        try container.encodeIfPresent(imageHeight, forKey: .imageHeight)
     }
 }
 

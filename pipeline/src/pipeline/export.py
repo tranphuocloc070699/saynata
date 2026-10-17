@@ -41,7 +41,9 @@ CREATE TABLE senses (
     usage             TEXT NOT NULL,  -- JSON list of {kind, pattern, example}
     image_type        TEXT NOT NULL,
     image_query       TEXT NOT NULL,
-    image_url         TEXT            -- filled by the image step
+    image_url         TEXT,           -- filled by the image step
+    image_width       INTEGER,        -- pixels, so the app sizes the frame before the file loads; NULL when not known
+    image_height      INTEGER
 );
 CREATE INDEX idx_words_lemma ON words(lemma COLLATE NOCASE);
 CREATE INDEX idx_forms_form  ON forms(form COLLATE NOCASE);
@@ -131,7 +133,8 @@ def export_from_postgres(pg: psycopg.Connection, media_dir: Path = MEDIA_DIR) ->
         words = cursor.fetchall()
         cursor.execute(
             """SELECT s.word_id, s.pos, s.cefr, s.simple_definition, s.vietnamese, s.examples_json, s.usage_json,
-                      s.image_type, s.image_query, m.file_name, s.media_status
+                      s.image_type, s.image_query, m.file_name, s.media_status,
+                      m.width, m.height
                FROM dictionary_sense s LEFT JOIN media m ON m.id = s.media_id
                ORDER BY s.word_id, s.position"""
         )
@@ -155,7 +158,8 @@ def export_from_postgres(pg: psycopg.Connection, media_dir: Path = MEDIA_DIR) ->
             form_count += len(forms_of.get(pg_id, []))
             jsonl_senses = []
             for position, sense in enumerate(senses_of.get(pg_id, [])):
-                pos, cefr, definition, vietnamese, examples, usage, image_type, image_query, file_name, media_status = sense
+                (pos, cefr, definition, vietnamese, examples, usage, image_type, image_query, file_name, media_status,
+                 width, height) = sense
                 # Parse and write again, so the text is always the same format, also after an admin edit.
                 examples_json = json.dumps(json.loads(examples), ensure_ascii=False)
                 usage_json = json.dumps(json.loads(usage), ensure_ascii=False)
@@ -164,12 +168,14 @@ def export_from_postgres(pg: psycopg.Connection, media_dir: Path = MEDIA_DIR) ->
                 image_url = MEDIA_URL_PREFIX + file_name if file_name else None
                 if file_name:
                     media_files.append(file_name)
+                else:
+                    width = height = None
                 app_db.execute(
                     """INSERT INTO senses (word_id, position, pos, cefr, simple_definition, vietnamese,
-                       examples, usage, image_type, image_query, image_url)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       examples, usage, image_type, image_query, image_url, image_width, image_height)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (app_id, position, pos, cefr, definition, vietnamese, examples_json, usage_json,
-                     image_type, image_query, image_url),
+                     image_type, image_query, image_url, width, height),
                 )
                 jsonl_senses.append({
                     "pos": pos, "cefr": cefr, "simple_definition": definition, "vietnamese": vietnamese,

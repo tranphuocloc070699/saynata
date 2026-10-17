@@ -298,6 +298,21 @@ def test_export_lists_media_files_it_cannot_find(app_db, pg, media_dir, out_dir)
                                                 ).fetchone() == ("media/run_1.mp4",)
 
 
+def test_export_writes_the_picture_size_so_the_app_can_size_the_frame(app_db, pg, media_dir, out_dir):
+    postgres.import_dictionary(app_db, pg, media_dir=media_dir)
+    pg.execute("UPDATE media SET width = 320, height = 470 WHERE file_name = 'run_1.mp4'")
+    pg.commit()
+
+    path = export.export_from_postgres(pg, media_dir=media_dir).path
+
+    exported = sqlite3.connect(path)
+    assert exported.execute("SELECT image_width, image_height FROM senses WHERE image_query = 'person running'"
+                            ).fetchone() == (320, 470)
+    # No picture, no size.
+    assert exported.execute("SELECT count(*) FROM senses WHERE image_url IS NULL AND image_width IS NOT NULL"
+                            ).fetchone() == (0,)
+
+
 def test_export_writes_no_image_url_for_removed_senses(app_db, pg, media_dir, out_dir):
     postgres.import_dictionary(app_db, pg, media_dir=media_dir)
     # Even if a media link is left behind, "none" and "removed" win, so the next app build drops the picture.
