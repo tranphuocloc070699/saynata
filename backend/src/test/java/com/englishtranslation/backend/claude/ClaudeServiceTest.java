@@ -34,27 +34,19 @@ class ClaudeServiceTest {
     }
 
     @Test
-    void sentencePromptAsksForTheExplanationFirstAndTheTranslationLast() {
+    void sentencePromptAsksForTheSummaryFirstAndTheTranslationLast() {
         String prompt = ClaudeService.SENTENCE_PROMPT;
 
-        assertThat(prompt.indexOf("1. meaning")).isPositive().isLessThan(prompt.indexOf("2. words"));
-        assertThat(prompt.indexOf("2. words")).isLessThan(prompt.indexOf("3. translation"));
-        assertThat(prompt).contains("main answer is a simple English explanation", "small helper");
+        assertThat(prompt.indexOf("1. summary")).isPositive().isLessThan(prompt.indexOf("2. translation"));
+        assertThat(prompt).contains("main answer is the sentence in simple English", "small helper");
     }
 
     @Test
-    void sentencePromptKeepsTheMeaningShortAndDirect() {
+    void sentencePromptKeepsTheSummaryAboutAsLongAndDirect() {
         assertThat(onOneLine(ClaudeService.SENTENCE_PROMPT))
-                .contains("One or two short sentences, at most 20 words in all")
+                .contains("about the same length as the original sentence")
                 .contains("Never describe the sentence")
-                .doesNotContain("One to three short sentences");
-    }
-
-    @Test
-    void sentencePromptOnlyAllowsBaseFormForInflectedWords() {
-        assertThat(onOneLine(ClaudeService.SENTENCE_PROMPT))
-                .contains("Add \"base form: X\" only when the word is an inflected form")
-                .contains("Never add it to a word that is already its base form");
+                .doesNotContain("at most 20 words");
     }
 
     @Test
@@ -75,12 +67,35 @@ class ClaudeServiceTest {
     void sentenceSchemaHasTheIsEnglishFlag() {
         String schema = StructuredOutputConfig.<SentenceAnswer>builder().format(SentenceAnswer.class).build().toString();
 
-        assertThat(schema).contains("isEnglish", "meaning", "words", "translation");
+        assertThat(schema).contains("isEnglish", "summary", "translation").doesNotContain("words");
+    }
+
+    @Test
+    void v8PromptAsksForSummaryThenTranslationAndNoWordsList() {
+        String prompt = onOneLine(ClaudeService.SENTENCE_PROMPT);
+
+        assertThat(prompt).contains("1. summary", "2. translation").doesNotContain("words:", "meaning:", "base form");
+        assertThat(prompt.indexOf("0. isEnglish")).isLessThan(prompt.indexOf("1. summary"));
+        assertThat(prompt.indexOf("1. summary")).isLessThan(prompt.indexOf("2. translation"));
+    }
+
+    @Test
+    void v8AnswerJsonHasSummaryAndTheExplanationKeepsTheOldShape() {
+        JsonMapper mapper = JsonMapper.builder().build();
+
+        SentenceAnswer answer = mapper.readValue(
+                "{\"isEnglish\":true,\"summary\":\"He did not want to leave.\",\"translation\":\"Anh ấy không muốn đi.\"}",
+                SentenceAnswer.class);
+
+        assertThat(ClaudeService.toExplanation(answer))
+                .isEqualTo(new Explanation("He did not want to leave.", List.of(), "Anh ấy không muốn đi."));
+        assertThat(mapper.writeValueAsString(ClaudeService.toExplanation(answer)))
+                .isEqualTo("{\"meaning\":\"He did not want to leave.\",\"words\":[],\"translation\":\"Anh ấy không muốn đi.\"}");
     }
 
     @Test
     void answerNotEnglishBecomesAnException() {
-        SentenceAnswer notEnglish = new SentenceAnswer(false, "", List.of(), "");
+        SentenceAnswer notEnglish = new SentenceAnswer(false, "", "");
 
         assertThatThrownBy(() -> ClaudeService.toExplanation(notEnglish))
                 .isInstanceOf(NotEnglishException.class)
@@ -89,7 +104,7 @@ class ClaudeServiceTest {
 
     @Test
     void answerEnglishBecomesTheExplanation() {
-        SentenceAnswer english = new SentenceAnswer(true, "A greeting.", List.of(), "Xin chào");
+        SentenceAnswer english = new SentenceAnswer(true, "A greeting.", "Xin chào");
 
         assertThat(ClaudeService.toExplanation(english))
                 .isEqualTo(new Explanation("A greeting.", List.of(), "Xin chào"));
@@ -100,7 +115,7 @@ class ClaudeServiceTest {
         JsonMapper mapper = JsonMapper.builder().build();
 
         SentenceAnswer answer = mapper.readValue(
-                "{\"isEnglish\":false,\"meaning\":\"\",\"words\":[],\"translation\":\"\"}", SentenceAnswer.class);
+                "{\"isEnglish\":false,\"summary\":\"\",\"translation\":\"\"}", SentenceAnswer.class);
 
         assertThat(answer.isEnglish()).isFalse();
     }
