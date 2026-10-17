@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-16 09:14'
+updated_date: '2026-10-17 12:54'
 ---
 # Deploy to a VPS
 
@@ -167,8 +167,12 @@ The Claude key stays on the server. The app never sends one.
 
 After CI passes on `main`, [.github/workflows/deploy.yml](../../../.github/workflows/deploy.yml) logs in to the VPS
 over SSH, moves `~/saynata` to the commit CI tested (`git merge --ff-only`), and runs
-[backend/scripts/deploy.sh](../../../backend/scripts/deploy.sh). That script runs `docker compose up -d --build --wait`,
-so the run turns red if the backend does not become healthy, and it prints the last backend logs.
+[backend/scripts/deploy.sh](../../../backend/scripts/deploy.sh). That script builds the backend image
+(`docker compose build backend`), then runs `docker compose up -d --wait`, so the run turns red if the backend does not
+become healthy, and it prints the last backend logs.
+Each build try is stopped after 6 minutes (`DEPLOY_BUILD_TIMEOUT`, in seconds, set it on the server to change it) and
+tried once more; if both tries fail, the old backend keeps running. The GitHub jobs stop after 20 minutes (backend)
+and 10 minutes (admin). A normal deploy takes about 3 minutes.
 A second job, `deploy-admin`, then builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
 `ADMIN_API_URL` repository variable, default `https://api.loffy.me`) and copies `admin/dist` to the server with
 `rsync --delete` (section 8). The VPS needs `rsync`, but no Node.
@@ -590,4 +594,5 @@ Watch **Reputation metrics** in SES now and then. Later you can add a configurat
 | App says it needs a sign-in for a new sentence (401 `sign_in_required`) | The app has no sign-in screen yet (it waits for a mockup). Set `REQUIRE_SIGN_IN=false` in `.env` and redeploy until the app with sign-in is released. Cached sentences and bundled words work either way. |
 | New explanations stop with 503 `daily_limit_reached` | Today's Claude spend reached `CLAUDE_DAILY_BUDGET_USD` (UTC day). See the spend: `GET /api/admin/usage?days=1` with the admin cookie. Raise the cap in `.env` if you want. |
 | Prefill run does nothing | `GET /api/admin/prefill` shows `running`, the counts by status and the last runs (`stoppedBecause`: `queue-empty`, `cap`, `limit`, `failures`). Items are added by the pipeline collector (TASK-83.2) or by an admin; `PREFILL_CRON` empty means no night run. A run that stops with `cap` is normal: the next run continues. |
+| Deploy hangs (the build log stops, the server is idle) | Seen on 2026-10-17: dockerd logged `session healthcheck failed fatally` and the BuildKit build waited forever. `deploy.sh` now stops a build after 6 minutes and tries once more, and the job stops after 20 minutes. If a run still hangs: 1. Cancel it (Actions tab, the run, **Cancel workflow**). 2. On the server, look for leftover build processes: `pgrep -af 'docker compose\|buildx'`, and stop them: `pkill -f 'buildx.*bake'; pkill -f 'docker compose -f docker-compose.prod.yml'`. 3. If builds still hang, restart Docker: `sudo systemctl restart docker` (the backend and Postgres restart too, a short outage). 4. Re-run the workflow (**Re-run all jobs**). The old backend keeps running until a new build succeeds. |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |
