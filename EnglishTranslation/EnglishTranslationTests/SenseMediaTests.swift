@@ -6,6 +6,7 @@
 //  TASK-51 (bundled path vs https URL, the disk cache).
 //
 
+import CoreGraphics
 import Foundation
 import SQLite3
 import Testing
@@ -69,6 +70,59 @@ struct SenseMediaTests {
 
         #expect(entry.senses.first?.imageUrl == nil)
         #expect(entry.senses.first?.simpleDefinition == "an animal")
+    }
+
+    // MARK: - Picture size (the frame keeps the picture's shape)
+
+    @Test func senseDecodesImageSize() throws {
+        let json = Self.senseJSON(extra: #","imageUrl":"media/dog_1.webp","imageWidth":320,"imageHeight":470"#)
+        let sense = try JSONDecoder().decode(Sense.self, from: json)
+        #expect(sense.imagePixelSize == CGSize(width: 320, height: 470))
+
+        let again = try JSONDecoder().decode(Sense.self, from: JSONEncoder().encode(sense))
+        #expect(again.imagePixelSize == CGSize(width: 320, height: 470))
+    }
+
+    @Test func senseWithoutOrWithAZeroSizeHasNoPixelSize() throws {
+        let missing = try JSONDecoder().decode(Sense.self, from: Self.senseJSON(extra: ""))
+        let zero = try JSONDecoder().decode(Sense.self, from: Self.senseJSON(extra: #","imageWidth":0,"imageHeight":470"#))
+        #expect(missing.imagePixelSize == nil)
+        #expect(zero.imagePixelSize == nil)
+    }
+
+    @Test func dictionaryFileWithSizeColumnsIsRead() throws {
+        let url = Self.temporaryFile(named: "dictionary-size.sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Self.writeDictionary(at: url, withImageColumn: true, withSizeColumns: true)
+
+        let entry = try #require(try DictionaryStore(url: url).lookUp("dog"))
+
+        #expect(entry.senses.first?.imagePixelSize == CGSize(width: 320, height: 470))
+    }
+
+    @Test func dictionaryFileWithoutSizeColumnsGivesNoSize() throws {
+        let url = Self.temporaryFile(named: "dictionary-no-size.sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Self.writeDictionary(at: url, withImageColumn: true)
+
+        let entry = try #require(try DictionaryStore(url: url).lookUp("dog"))
+
+        #expect(entry.senses.first?.imageUrl == "media/dog_1.webp")
+        #expect(entry.senses.first?.imagePixelSize == nil)
+    }
+
+    @Test func tallPictureIsTallAndNotCut() {
+        #expect(SenseMediaView.frameSize(for: CGSize(width: 320, height: 470)) == CGSize(width: 163, height: 240))
+    }
+
+    @Test func widePictureIsWide() {
+        #expect(SenseMediaView.frameSize(for: CGSize(width: 320, height: 214)) == CGSize(width: 240, height: 161))
+        #expect(SenseMediaView.frameSize(for: CGSize(width: 1920, height: 1080)) == CGSize(width: 240, height: 135))
+    }
+
+    @Test func unknownSizeUsesTheDefaultFrame() {
+        #expect(SenseMediaView.frameSize(for: nil) == SenseMediaView.defaultSize)
+        #expect(SenseMediaView.frameSize(for: .zero) == SenseMediaView.defaultSize)
     }
 
     // MARK: - SenseMediaSource (TASK-51)
@@ -261,12 +315,17 @@ struct SenseMediaTests {
     }
 
     /// A tiny dictionary file with "dog". `withImageColumn` adds the `senses.image_url` column (TASK-23).
-    private static func writeDictionary(at url: URL, withImageColumn: Bool) throws {
+    /// `withSizeColumns` adds `image_width` and `image_height` (320 × 470).
+    private static func writeDictionary(at url: URL, withImageColumn: Bool, withSizeColumns: Bool = false) throws {
         var db: OpaquePointer?
         guard sqlite3_open(url.path(percentEncoded: false), &db) == SQLITE_OK else { throw DictionaryError.fileMissing }
         defer { sqlite3_close(db) }
-        let imageColumn = withImageColumn ? ", image_url TEXT" : ""
-        let imageValue = withImageColumn ? ", 'media/dog_1.webp'" : ""
+        var imageColumn = withImageColumn ? ", image_url TEXT" : ""
+        var imageValue = withImageColumn ? ", 'media/dog_1.webp'" : ""
+        if withSizeColumns {
+            imageColumn += ", image_width INTEGER, image_height INTEGER"
+            imageValue += ", 320, 470"
+        }
         let sql = """
             CREATE TABLE words (id INTEGER PRIMARY KEY, lemma TEXT NOT NULL UNIQUE, rank INTEGER NOT NULL, ipa TEXT);
             CREATE TABLE forms (form TEXT NOT NULL, word_id INTEGER NOT NULL);

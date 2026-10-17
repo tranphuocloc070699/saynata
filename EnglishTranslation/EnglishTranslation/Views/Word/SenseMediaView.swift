@@ -15,13 +15,27 @@ import SwiftUI
 /// - Bundled path: the file inside the app if it is there, else the same file from the server (`SenseMediaSource.resolved`).
 /// - Server photo: saved in `MediaFileCache`, so it shows again offline after the first view.
 /// - Server clip: streamed by AVPlayer; the file is saved for next time. A saved file plays instead of the stream.
-/// - Loading: the frame keeps its size but is invisible, so nothing jumps. Failed: nothing is shown, no error.
+/// - Size: the frame has the picture's own shape, fitted inside `maxSide` × `maxSide`, so nothing is cut off.
+///   With `pixelSize` (from the dictionary or the backend) the shape is right before the file loads, so nothing jumps.
+///   Without it, the frame is 16:9 until a photo loads, then takes the photo's shape. Clips stay 16:9.
+/// - Loading: the frame keeps its size but is invisible. Failed: nothing is shown, no error.
 /// - A clip plays only while about a third of it is on screen and the app is active (TASK-47).
 struct SenseMediaView: View {
     let path: String
+    /// The picture's size in pixels, when known.
+    var pixelSize: CGSize?
 
-    private static let mediaWidth: CGFloat = 240
-    private static let mediaHeight: CGFloat = 135
+    /// The longest side of the frame. A wide picture is this wide, a tall one this tall.
+    static let maxSide: CGFloat = 240
+    /// The frame when the size is not known yet (and for clips): 240 × 135.
+    static let defaultSize = CGSize(width: 240, height: 135)
+
+    /// The frame for a picture of `pixelSize`: same shape, fitted inside `maxSide` × `maxSide`.
+    static func frameSize(for pixelSize: CGSize?) -> CGSize {
+        guard let pixelSize, pixelSize.width > 0, pixelSize.height > 0 else { return defaultSize }
+        let scale = maxSide / max(pixelSize.width, pixelSize.height)
+        return CGSize(width: (pixelSize.width * scale).rounded(), height: (pixelSize.height * scale).rounded())
+    }
 
     /// How much of the frame must be visible before a clip plays.
     private static let visibleShare = 0.33
@@ -39,8 +53,9 @@ struct SenseMediaView: View {
 
     var body: some View {
         if let source = SenseMediaSource(path: path), !isFailed {
+            let size = Self.frameSize(for: pixelSize ?? loadedPhotoSize)
             content
-                .frame(width: Self.mediaWidth, height: Self.mediaHeight)
+                .frame(width: size.width, height: size.height)
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.block))
                 .overlay {
@@ -67,6 +82,12 @@ struct SenseMediaView: View {
         case .loading, .failed:
             Color.clear
         }
+    }
+
+    /// The loaded photo's size, used only when `pixelSize` was not given.
+    private var loadedPhotoSize: CGSize? {
+        if case .photo(let image) = loadState { return image.size }
+        return nil
     }
 
     private var isLoading: Bool {

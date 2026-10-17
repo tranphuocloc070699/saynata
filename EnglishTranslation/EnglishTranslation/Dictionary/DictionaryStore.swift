@@ -26,6 +26,8 @@ final class DictionaryStore: @unchecked Sendable {
     private var hasFormTypeColumn = false
     /// Added by TASK-23 (media pass). Then imageUrl is filled.
     private var hasImageUrlColumn = false
+    /// Added for the picture frame size (`image_width`, `image_height`). Older files have no size: the view waits for the file.
+    private var hasImageSizeColumns = false
 
     /// Opens the dictionary file at `url`.
     init(url: URL) throws {
@@ -38,6 +40,7 @@ final class DictionaryStore: @unchecked Sendable {
         hasUsageColumn = try columnExists("usage", in: "senses")
         hasFormTypeColumn = try columnExists("type", in: "forms")
         hasImageUrlColumn = try columnExists("image_url", in: "senses")
+        hasImageSizeColumns = try columnExists("image_width", in: "senses")
     }
 
     /// Opens the dictionary inside the app bundle.
@@ -104,8 +107,9 @@ final class DictionaryStore: @unchecked Sendable {
         // Without the column, SELECT NULL so the column numbers stay the same.
         let usageColumn = hasUsageColumn ? "usage" : "NULL"
         let imageColumn = hasImageUrlColumn ? "image_url" : "NULL"
+        let sizeColumns = hasImageSizeColumns ? "image_width, image_height" : "NULL, NULL"
         let sql = """
-            SELECT pos, cefr, simple_definition, vietnamese, examples, \(usageColumn), \(imageColumn)
+            SELECT pos, cefr, simple_definition, vietnamese, examples, \(usageColumn), \(imageColumn), \(sizeColumns)
             FROM senses WHERE word_id = ?1 ORDER BY position
             """
         return try run(sql, int: wordID) { statement in
@@ -116,7 +120,9 @@ final class DictionaryStore: @unchecked Sendable {
                 vietnamese: Self.text(statement, 3) ?? "",
                 examples: Self.decodeExamples(Self.text(statement, 4)),
                 usage: Self.decodeUsage(Self.text(statement, 5)),
-                imageUrl: Self.text(statement, 6)
+                imageUrl: Self.text(statement, 6),
+                imageWidth: Self.optionalInt(statement, 7),
+                imageHeight: Self.optionalInt(statement, 8)
             )
         }
     }
@@ -162,6 +168,11 @@ final class DictionaryStore: @unchecked Sendable {
     private static func text(_ statement: OpaquePointer, _ column: Int32) -> String? {
         guard let pointer = sqlite3_column_text(statement, column) else { return nil }
         return String(cString: pointer)
+    }
+
+    private static func optionalInt(_ statement: OpaquePointer, _ column: Int32) -> Int? {
+        guard sqlite3_column_type(statement, column) != SQLITE_NULL else { return nil }
+        return Int(sqlite3_column_int64(statement, column))
     }
 
     /// Reads a JSON list like `["a", "b"]`. A broken value gives an empty list.
