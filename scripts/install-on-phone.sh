@@ -59,10 +59,12 @@ if [ "${PAID_ACCOUNT:-0}" != "1" ]; then
 fi
 
 echo "Building ($CONFIG)..."
-# -quiet prints only warnings and errors. -allowProvisioningUpdates lets Xcode make the signing profile.
+# -quiet prints only warnings and errors. -allowProvisioningUpdates lets Xcode make the signing profile;
+# -allowProvisioningDeviceRegistration adds this phone to the developer account when it is not there yet
+# (a paid team starts with no devices).
 xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration "$CONFIG" \
   -destination "platform=iOS,id=$DEVICE_UDID" -derivedDataPath "$BUILD_DIR" \
-  -allowProvisioningUpdates -quiet ${signing_override[@]+"${signing_override[@]}"} build
+  -allowProvisioningUpdates -allowProvisioningDeviceRegistration -quiet ${signing_override[@]+"${signing_override[@]}"} build
 
 APP="$BUILD_DIR/Build/Products/$CONFIG-iphoneos/$SCHEME.app"
 echo "Installing $APP..."

@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-11 15:39'
-updated_date: '2026-10-14 11:25'
+updated_date: '2026-10-17 10:27'
 labels:
   - ios
 dependencies:
@@ -50,4 +50,6 @@ PR: https://github.com/tranphuocloc070699/saynata/pull/27. Test it. Goal: Transl
 2026-10-14 phone test: Saynata does NOT appear in Settings > Apps > Default Apps > Translation. Likely cause: the com.apple.developer.translation-app entitlement was removed for the Personal Team build (local stash 'Personal Team entitlements'); a free Personal Team cannot sign this restricted capability. Blocked until a paid Apple Developer Program account (and, if Apple requires it, approval of the capability). Also needs iOS 18.4+.
 
 2026-10-14: the developer parked this ('leave TASK-42 for later') until a paid Apple Developer account.
+
+2026-10-17: paid account enrolled. PAID_ACCOUNT=1 scripts/install-on-phone.sh failed at signing: Xcode has no Apple account signed in ('No Accounts'), and the profile 'iOS Team Provisioning Profile: com.luke.EnglishTranslation' (team SVPCB3XQCD) lacks App Groups and Default Translation App. Code is unchanged and ready (app has com.apple.developer.translation-app + App Group; extension has App Group and the network-access key). Next: developer signs in to Xcode with the paid Apple ID, picks the paid Team on EnglishTranslation, ShareExtension, TranslationExtension, then reruns PAID_ACCOUNT=1 scripts/install-on-phone.sh.
 <!-- SECTION:NOTES:END -->

@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-17 08:14'
+updated_date: '2026-10-17 11:28'
 ---
 # Decisions and reasons
 
@@ -157,6 +157,8 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | The night job is the **Spring `@Scheduled` job from TASK-83.1** (`PREFILL_CRON`), not a VPS cron | It already runs inside the backend with ClaudeGate, the prefill cap and the PREFILL usage type. A VPS cron would need an admin password or token in a crontab and one more moving part. Downside: one server only (true today), and a night missed while the server is down is caught up the next night | A VPS cron that calls the admin URL | Claude |
 | 10-16 | **No pictures for prefilled words** (wordfreq words and the night queue): inside a prefill run the backend skips the Pixabay job (no call, no claim row, no ffmpeg), and `media-ai` stays on bundled senses only. A user's own lookup of a new word still gets a Pixabay picture. `PREFILL_DELAY` drops from 3 s to 0 s, since it only protected Pixabay | The developer's words: "about the generate all words, remember that don't generate images for those words". Further reason: not recorded | Pixabay for every prefilled word (the TASK-83.1 first build); AI pictures for them | Developer |
 | 10-16 | **Shorter sentence meaning, prompt v7**: one or two short sentences, at most 20 words, the meaning itself (never "The speaker says..."), idioms said plainly; `app.claude.sentence-prompt-version` and the iOS `PromptVersions.sentence` go from v6 to v7 | "currently sentence explanation too long. I want to make it shorter but still easy to understand." The developer approved 4 before/after examples (2 real answers from the cache). Old cached and prefilled sentences become misses once and cost a new Claude call | Keep v6 (old long answers stay next to new short ones); a shorter limit for the words list too | Developer, Claude wrote the prompt |
+| 10-17 | **Paid Apple Developer Program (team TRAN LOC, same Team ID SVPCB3XQCD)**: the phone build is signed with the real entitlements (`PAID_ACCOUNT=1`), and the install script registers a new phone itself (`-allowProvisioningDeviceRegistration`) | Saynata as the default translation app (TASK-42) needs the `translation-app` capability, which a Personal Team cannot sign | Stay on the free Apple ID (no Translate button, 7-day installs) | Developer |
+| 10-17 | **The Share and Translation extensions share the app's sign-in** through the App Group Keychain group; each process reads the Keychain again before it uses or refreshes a token | "it showed that I'm not sign in while I already did that": the Translate sheet must work for a signed-in user | A separate `keychain-access-groups` entitlement (more setup, same result); passing the token through App Group UserDefaults (not encrypted); keeping the extensions as guests | Developer (problem), Claude (how) |
 
 ## Questions answered
 

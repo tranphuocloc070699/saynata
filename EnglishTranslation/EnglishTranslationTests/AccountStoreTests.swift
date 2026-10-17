@@ -142,6 +142,55 @@ struct AccountStoreTests {
         #expect(server.requests(to: "/api/auth/refresh").count == 1)
     }
 
+    // MARK: - Shared with the extensions (one Keychain item, two processes)
+
+    @Test func aSessionAnotherProcessSavedIsUsed() async throws {
+        let store = makeStore()
+        // The app signs in while the extension's store is already alive.
+        try secrets.setSecret(signedInJSON, forKey: "session")
+
+        #expect(await store.accessToken() == "A1")
+        #expect(store.isSignedIn)
+    }
+
+    @Test func aRefreshAnotherProcessDidIsNotDoneAgain() async throws {
+        server.handler = { _ in tokenReply(access: "A3", refresh: "R3") }
+        let store = makeStore(saved: signedInJSON)
+        // The other process refreshed: R1 is used up on the server, the Keychain holds the new pair.
+        try secrets.setSecret(savedSessionJSON(access: "A2", refresh: "R2"), forKey: "session")
+
+        let fresh = try await store.refreshedAccessToken(replacing: "A1")
+
+        #expect(fresh == "A2")
+        #expect(server.requests(to: "/api/auth/refresh").isEmpty)
+    }
+
+    @Test func aRefreshUsesTheNewestRefreshTokenFromTheKeychain() async throws {
+        server.handler = { _ in tokenReply(access: "A3", refresh: "R3") }
+        let store = makeStore(saved: signedInJSON)
+        try secrets.setSecret(savedSessionJSON(access: "A2", refresh: "R2"), forKey: "session")
+
+        // A2 ended too: the refresh must send R2, never the used R1.
+        let fresh = try await store.refreshedAccessToken(replacing: "A2")
+
+        #expect(fresh == "A3")
+        #expect(server.requests.first?.json["refreshToken"] as? String == "R2")
+    }
+
+    @Test func keychainStoreSavesReadsAndDeletes() throws {
+        // A test service name, so the real tokens are never touched. In the simulator test build the shared group
+        // may be missing: then the store falls back to its own group, which is the free-account path.
+        let store = KeychainSecretStore(service: "com.luke.EnglishTranslation.tests.\(UUID().uuidString)")
+        defer { try? store.setSecret(nil, forKey: "session") }
+
+        try store.setSecret("one", forKey: "session")
+        try store.setSecret("two", forKey: "session")
+        #expect(store.secret(forKey: "session") == "two")
+
+        try store.setSecret(nil, forKey: "session")
+        #expect(store.secret(forKey: "session") == nil)
+    }
+
     @Test func requestsThatFailTogetherShareOneRefresh() async throws {
         server.handler = { _ in tokenReply(access: "A2", refresh: "R2") }
         let store = makeStore(saved: signedInJSON)
