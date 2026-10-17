@@ -10,7 +10,7 @@ import { classify, cleanSelection } from "../shared/textKind";
 import { API_BASE } from "../shared/config";
 import { applyEvent, applyOpenedEvent, initialState, renderCard, type CardActions, type CardState } from "./card";
 import { MediaNodes } from "./media";
-import { cardTop, iconPosition, placeCard, type CardPlacement, type Rect, type Viewport } from "./placement";
+import { cardMaxHeight, cardTop, iconPosition, placeCard, type CardPlacement, type Rect, type Viewport } from "./placement";
 import { Speech } from "./speech";
 import { STYLES } from "./styles";
 
@@ -35,6 +35,7 @@ class SelectionPopover {
   /** The card's top once the answer is complete; fixed from then on (cardTop). */
   private frozenTop: number | null = null;
   private selectionRect: Rect | null = null;
+  private lastLine: Rect | null = null;
   private pendingText = "";
   private readonly speech = new Speech((speaking) => this.update({ speaking }));
 
@@ -98,7 +99,7 @@ class SelectionPopover {
     const selection = currentSelection();
     const text = message.type === "explainText" ? message.text : (selection?.text ?? "");
     const rect = selection?.rect ?? centreRect();
-    void this.openCard(text, rect);
+    void this.openCard(text, rect, selection?.lastLine ?? rect);
   }
 
   /** After a sign-in, a card that asked for one runs the same text again (like the iOS sheet). */
@@ -129,9 +130,9 @@ class SelectionPopover {
     // Keep the page selection: a mousedown on a button would clear it.
     button.addEventListener("mousedown", (event) => event.preventDefault());
     button.addEventListener("click", () => {
-      const rect = currentSelection()?.rect ?? selection.rect;
+      const now = currentSelection() ?? selection;
       this.hideTrigger();
-      void this.openCard(this.pendingText, rect);
+      void this.openCard(this.pendingText, now.rect, now.lastLine);
     });
     this.layer.append(button);
     this.trigger = button;
@@ -144,12 +145,13 @@ class SelectionPopover {
 
   // The card.
 
-  private async openCard(rawText: string, rect: Rect): Promise<void> {
+  private async openCard(rawText: string, rect: Rect, lastLine: Rect): Promise<void> {
     this.closeCard();
     const text = cleanSelection(rawText);
     const kind = classify(text).kind === "word" ? "word" : "sentence";
     const settings = await loadSettings(chrome.storage.sync);
     this.selectionRect = rect;
+    this.lastLine = lastLine;
     this.placement = null;
     this.frozenTop = null;
     this.state = initialState(text, kind, settings.targetLang, rowStartsOpen(settings));
@@ -275,14 +277,18 @@ class SelectionPopover {
     next.scrollTop = scrollTop;
     if (hadFocus) next.focus({ preventScroll: true });
 
+    const view = viewport();
     if (!this.placement) {
-      // Once, at open: the side, the left edge and the height limit. Later renders only follow the height.
-      this.placement = placeCard(this.selectionRect, next.offsetWidth, viewport());
+      // Once, at open, from the first render's size: the side and the left edge (beside the text, centred).
+      this.placement = placeCard(this.selectionRect, this.lastLine ?? this.selectionRect, { width: next.offsetWidth, height: next.offsetHeight }, view);
     }
     next.style.left = `${this.placement.left}px`;
-    next.style.maxHeight = `${this.placement.maxHeight}px`;
+    // Measure the natural height (up to the whole window), then place it and limit it from its top.
+    next.style.maxHeight = `${this.placement.maxBottom - this.placement.minTop}px`;
     const top = cardTop(this.placement, next.offsetHeight, this.frozenTop);
     next.style.top = `${top}px`;
+    next.style.maxHeight = `${cardMaxHeight(this.placement, top)}px`;
+    // Once the answer is complete the top stays: a row, a word or a picture only grows the card downward.
     if (this.state.phase === "done" || this.state.phase === "error") this.frozenTop = top;
   }
 }
