@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-11 15:39'
-updated_date: '2026-10-17 10:27'
+updated_date: '2026-10-17 11:29'
 labels:
   - ios
 dependencies:
@@ -52,4 +52,6 @@ PR: https://github.com/tranphuocloc070699/saynata/pull/27. Test it. Goal: Transl
 2026-10-14: the developer parked this ('leave TASK-42 for later') until a paid Apple Developer account.
 
 2026-10-17: paid account enrolled. PAID_ACCOUNT=1 scripts/install-on-phone.sh failed at signing: Xcode has no Apple account signed in ('No Accounts'), and the profile 'iOS Team Provisioning Profile: com.luke.EnglishTranslation' (team SVPCB3XQCD) lacks App Groups and Default Translation App. Code is unchanged and ready (app has com.apple.developer.translation-app + App Group; extension has App Group and the network-access key). Next: developer signs in to Xcode with the paid Apple ID, picks the paid Team on EnglishTranslation, ShareExtension, TranslationExtension, then reruns PAID_ACCOUNT=1 scripts/install-on-phone.sh.
+
+2026-10-17 phone test (developer): Settings > Default Apps > Translation lists Saynata, and Translate on selected text in Books opens the Saynata sheet (AC #3 seen). It showed 'Sign in to get a new explanation' because the extensions had their own Keychain; fixed in PR #106 (App Group Keychain group, reload before refresh). Waiting for the developer's retest on PR #106.
 <!-- SECTION:NOTES:END -->
