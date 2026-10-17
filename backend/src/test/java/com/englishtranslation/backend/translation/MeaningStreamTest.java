@@ -21,7 +21,7 @@ class MeaningStreamTest {
     void thePiecesInsideOneThrottleWindowAreJoinedIntoOneDelta() {
         MeaningStream stream = newStream();
 
-        stream.feed("{\"meaning\":\"He "); // the first one goes out at once
+        stream.feed("{\"summary\":\"He "); // the first one goes out at once
         now += 10 * MS;
         stream.feed("did "); // too soon: waits
         now += 10 * MS;
@@ -36,16 +36,16 @@ class MeaningStreamTest {
     void whatIsStillWaitingIsSentBeforeTheFullMeaning() {
         MeaningStream stream = newStream();
 
-        stream.feed("{\"meaning\":\"Hi ");
+        stream.feed("{\"summary\":\"Hi ");
         now += 5 * MS;
-        stream.feed("there\",\"words\":[]}");
+        stream.feed("there\",\"translation\":\"\"}");
 
         assertThat(log).containsExactly("delta:Hi ", "delta:there", "meaning:Hi there");
     }
 
     @Test
     void deltasAddUpToTheFullMeaningForAnyPieceSize() {
-        String json = "{\"isEnglish\":true,\"meaning\":\"Caf\\u00e9 \\ud83d\\ude00 \\\"ok\\\"\\n!\",\"words\":[]}";
+        String json = "{\"isEnglish\":true,\"summary\":\"Caf\\u00e9 \\ud83d\\ude00 \\\"ok\\\"\\n!\",\"translation\":\"\"}";
         String expected = "Café 😀 \"ok\"\n!";
         for (int size = 1; size <= json.length(); size++) {
             log.clear();
@@ -65,7 +65,7 @@ class MeaningStreamTest {
     void aBlankMeaningSendsNothing() {
         MeaningStream stream = newStream();
 
-        stream.feed("{\"isEnglish\":false,\"meaning\":\"\",\"words\":[],\"translation\":\"\"}");
+        stream.feed("{\"isEnglish\":false,\"summary\":\"\",\"translation\":\"\",\"translation\":\"\"}");
 
         assertThat(log).isEmpty();
     }
@@ -73,7 +73,7 @@ class MeaningStreamTest {
     @Test
     void aFastStreamMakesFewEvents() {
         MeaningStream stream = newStream();
-        stream.feed("{\"meaning\":\"");
+        stream.feed("{\"summary\":\"");
         for (int i = 0; i < 1000; i++) {
             now += MS; // 1 ms per piece: 1000 pieces in one second
             stream.feed("x");

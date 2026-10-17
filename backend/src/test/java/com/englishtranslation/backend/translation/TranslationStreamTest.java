@@ -54,8 +54,8 @@ class TranslationStreamTest {
 
     /** Claude's JSON answer, cut into pieces the way a stream would. */
     private static final List<String> PIECES = List.of(
-            "{\"isEnglish\":tr", "ue,\"meaning\":\"He did not ", "want to leave.\",\"wo",
-            "rds\":[{\"word\":\"reluctant\",\"meaning\":\"x\"}],\"translation\":\"...\"}");
+            "{\"isEnglish\":tr", "ue,\"summary\":\"He did not ", "want to leave.\",\"tra",
+            "nslation\":\"...\"}");
 
     /** Makes the fake Claude stream PIECES and return `result`. */
     private void claudeStreams(String text, Explanation result) {

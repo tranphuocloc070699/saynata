@@ -1,9 +1,11 @@
 ---
 id: TASK-89.1
 title: 'Backend: sentence prompt v8, simple summary and no words list'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-17 16:43'
+updated_date: '2026-10-17 16:44'
 labels: []
 dependencies: []
 parent_task_id: TASK-89
@@ -32,3 +34,9 @@ A new sentence takes ~1.15 s to the first token, and the words list plus transla
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. SENTENCE_PROMPT v8 + schema (isEnglish, summary, translation), drop words. 2. Map summary to meaning, words empty in public JSON. 3. Stream reads summary. 4. Version bump backend + iOS line. 5. Tests. 6. doc-4.
+<!-- SECTION:PLAN:END -->
