@@ -3,7 +3,7 @@ id: doc-20
 title: Mac app
 type: guide
 created_date: '2026-10-16 09:43'
-updated_date: '2026-10-16 11:01'
+updated_date: '2026-10-17 17:01'
 ---
 # Mac app
 
@@ -43,7 +43,7 @@ flowchart LR
 | Panel | [AppDelegate.swift:154](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L154), [FloatingPanel.swift](../../../EnglishTranslation/SaynataMac/FloatingPanel.swift) | The shortcut, the Services item and a hidden icon open a Spotlight-style panel: the same view, 420 × 560 pt, centred on the screen with the mouse, a sixth of the way down. Non-activating (the other app stays in front) but it takes the keyboard. Esc or a click outside closes it; an open sheet keeps it open |
 | Focus | [MenuBarContentView.swift:13](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L13) | Watches `MenuBarFocus.request` and puts the cursor in the box |
 | Explain | [MenuBarContentView.swift:115](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L115) | Return or the arrow button runs `TranslationStore.translate()`, the same code as iOS |
-| Result | [MenuBarContentView.swift:34](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L34) | `TranslateResultView`: word card or sentence cards, speakers, folded target language |
+| Result | [MenuBarContentView.swift:34](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L34) | `TranslateResultView`: word card or the sentence card (TASK-89.2: the sentence and its simple summary in one card, speakers, folded target language). Every word is a tappable link with a dotted underline and opens the word card in a sheet. Selecting text uses the normal Mac menu; the popup for a selected part is **iOS only for now** (the Mac uses a `Text` with links, not an `NSTextView`) |
 | Sign in | [MenuBarContentView.swift:52](../../../EnglishTranslation/SaynataMac/MenuBarContentView.swift#L52) | `sign_in_required` opens the shared `SignInSheet` as a sheet on the popover. On the Mac it has a Close button (Esc) |
 | Services | [AppDelegate.swift:188](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L188) | `NSServices` in [Info.plist](../../../EnglishTranslation/SaynataMac/Info.plist) declares "Explain with Saynata" for plain text; `NSApp.servicesProvider = self` at start. macOS calls `explainSelection` with the selected text on a pasteboard, which calls `explain(_:)`. No Accessibility permission |
 | Login | [MacSettingsSections.swift:52](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift#L52) | Settings → Start → Open at login: `SMAppService.mainApp.register()` / `unregister()`. If macOS wants approval, the footer says where |

@@ -36,6 +36,7 @@ struct SentenceWordSheet: View {
             case let .failed(message):
                 Text(message)
                     .foregroundStyle(Theme.Colors.error)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
             }
         }

@@ -113,51 +113,42 @@ struct TranslationStoreTests {
         #expect(result.sentence == "Hello there")
     }
 
-    // MARK: - Word cards in a sentence result (TASK-41)
+    // MARK: - Tapped words in a sentence result (TASK-41, TASK-89.2)
 
-    @Test func sentenceWordsGetTheirPillAndChipFromTheBundle() async {
-        let explanation = Explanation(
-            meaning: "x",
-            words: [
-                .init(word: "blurred", partOfSpeech: "verb", meaning: "made hard to see"),
-                .init(word: "edges", partOfSpeech: "noun", meaning: "outside parts (base form: edge)"),
-            ],
-            translation: "y")
-        let lookup = FakeWordLookup(.success(.depend))
-        lookup.bundled["blurred"] = WordEntry(
-            word: "blur", ipa: nil, senses: WordEntry.depend.senses,
-            matchedForm: MatchedForm(text: "blurred", type: "past tense"))
-        let store = TranslationStore(
-            makeTranslator: { FakeTranslator(result: .success(explanation)) },
-            makeWordLookup: { lookup })
-        store.inputText = "The mist blurred the edges"
+    @Test func theSummaryIsTheMeaningOfTheResult() async {
+        let explanation = Explanation(meaning: "The fog hid the hills.", words: [], translation: "y")
+        let store = TranslationStore(makeTranslator: { FakeTranslator(result: .success(explanation)) })
+        store.inputText = "The mist blurred the hills"
         await store.translate()
 
         guard case let .loaded(result) = store.state else {
             Issue.record("Expected .loaded, got \(store.state)")
             return
         }
-        #expect(result.words[0].pillText == "past tense of blur")
-        #expect(result.words[0].chipText == "verb · A2")
-        #expect(result.words[1].pillText == "base form: edge")
-        #expect(result.words[1].chipText == nil)
+        #expect(result.explanation.meaning == "The fog hid the hills.")
     }
 
     @Test func sentenceStillLoadsWhenThereIsNoWordLookup() async {
-        let explanation = Explanation(
-            meaning: "x", words: [.init(word: "edges", partOfSpeech: "noun", meaning: "outside parts")], translation: "y")
+        let explanation = Explanation(meaning: "x", words: [], translation: "y")
         let store = TranslationStore(
             makeTranslator: { FakeTranslator(result: .success(explanation)) },
             makeWordLookup: { throw AppConfig.ConfigError.missing("BackendBaseURL") })
         store.inputText = "The edges of it"
         await store.translate()
 
-        guard case let .loaded(result) = store.state else {
+        guard case .loaded = store.state else {
             Issue.record("Expected .loaded, got \(store.state)")
             return
         }
-        #expect(result.words.count == 1)
-        #expect(result.words[0].chipText == nil)
+    }
+
+    @Test func aTappedWordFromTheSentenceIsLookedUpByItsLowercaseForm() async throws {
+        let lookup = FakeWordLookup(.success(.run))
+        let store = TranslationStore(makeWordLookup: { lookup })
+        let token = try #require(SentenceTokenizer.tokens(in: "The Blurred edges").dropFirst().first)
+        let entry = try await store.wordEntry(for: SentenceWordInfo(tappedWord: token.lookupWord))
+        #expect(entry == .run)
+        #expect(lookup.lastWord == "blurred")
     }
 
     @Test func tappedWordUsesTheBundleEntryWithoutALookup() async throws {

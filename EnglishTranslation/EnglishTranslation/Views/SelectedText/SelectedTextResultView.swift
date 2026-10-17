@@ -54,7 +54,7 @@ struct SelectedTextResultView: View {
                 WordCardView(entry: entry, targetLanguage: store.targetLanguage, showsHeader: false)
             } else {
                 if showsSentenceHeader {
-                    // The sentence result draws its own header (the sentence, Listen, Copy): only Open and Close stay here.
+                    // The sentence result draws its own card (the sentence, Listen, Copy): only Open and Close stay here.
                     if onOpenApp != nil || onClose != nil {
                         HStack(spacing: Theme.Spacing.small) {
                             Spacer()
@@ -64,9 +64,12 @@ struct SelectedTextResultView: View {
                 } else {
                     textHeader(store.inputText.trimmingCharacters(in: .whitespacesAndNewlines), quoted: route == .sentence)
                 }
-                TranslateResultView(state: store.state, targetLanguage: store.targetLanguage) { word in
-                    Task { await store.lookUp(suggestion: word) }
-                }
+                TranslateResultView(
+                    state: store.state,
+                    targetLanguage: store.targetLanguage,
+                    onSuggestionTap: { word in Task { await store.lookUp(suggestion: word) } },
+                    // Tapped words in the sentence open the word card, as in the app (TASK-89.2).
+                    loadWordEntry: { word in try await store.wordEntry(for: word) })
                 // The extensions share the app's sign-in through the App Group Keychain, but they have no sign-in
                 // sheet: a signed-out user (or a free-account build, which has no App Group) signs in in the app.
                 if store.textNeedingSignIn != nil {
@@ -138,7 +141,7 @@ struct SelectedTextResultView: View {
         }
     }
 
-    /// True when the result below shows the sentence in its own header (`SentenceHeader`), so this sheet must not repeat it.
+    /// True when the result below shows the sentence in its own card (`SentenceCard`), so this sheet must not repeat it.
     private var showsSentenceHeader: Bool {
         switch store.state {
         case .meaning, .loaded: true
