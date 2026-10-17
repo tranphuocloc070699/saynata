@@ -17,5 +17,14 @@ struct SaynataShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Explain copied text",
             systemImageName: "text.magnifyingglass")
+        // Stays over the current app (a full-screen video too): iOS asks for the text, then shows a card.
+        AppShortcut(
+            intent: QuickExplainIntent(),
+            phrases: [
+                "Quick explain with \(.applicationName)",
+                "Quick explain in \(.applicationName)",
+            ],
+            shortTitle: "Quick explain",
+            systemImageName: "text.bubble")
     }
 }
