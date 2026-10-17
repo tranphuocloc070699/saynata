@@ -41,12 +41,17 @@ struct CopiedTextCard: View {
         switch result {
         case let .word(entry):
             header { WordTitle(entry: entry) }
-            ForEach(Array(entry.senses.prefix(Self.maxItems).enumerated()), id: \.offset) { _, sense in
-                VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
-                    Chip(text: sense.cefr.isEmpty ? sense.pos : "\(sense.pos) · \(sense.cefr)")
-                    Text(sense.simpleDefinition)
-                        .font(.body)
-                        .foregroundStyle(Colors.textPrimary)
+            // The chip sits on the same line as the meaning, and long meanings stop at two lines: iOS 26 cuts
+            // a card at a fixed height, and the Vietnamese line must still show at the bottom.
+            VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                ForEach(Array(entry.senses.prefix(Self.maxItems).enumerated()), id: \.offset) { _, sense in
+                    HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.small) {
+                        Chip(text: sense.cefr.isEmpty ? sense.pos : "\(sense.pos) · \(sense.cefr)")
+                        Text(sense.simpleDefinition)
+                            .font(.subheadline)
+                            .foregroundStyle(Colors.textPrimary)
+                            .lineLimit(2)
+                    }
                 }
             }
             targetLanguageLine(
@@ -105,6 +110,7 @@ struct CopiedTextCard: View {
                         + Text(item.type.isEmpty ? "  " : "  \(item.type)  ").foregroundColor(Colors.textMuted)
                         + Text(item.meaning).foregroundColor(Colors.textSecondary))
                         .font(.subheadline)
+                        .lineLimit(2)
                 }
             }
         }
@@ -124,6 +130,7 @@ struct CopiedTextCard: View {
                 Text("\(title) · \(text)")
                     .font(.footnote)
                     .foregroundStyle(Colors.textSecondary)
+                    .lineLimit(2)
             }
         }
     }
@@ -166,6 +173,7 @@ private struct Meaning: View {
         Text(text)
             .font(.system(.body, design: .serif))
             .foregroundStyle(Colors.textPrimary)
+            .lineLimit(4)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Theme.Spacing.medium)
             .background(Colors.meaningBlock, in: RoundedRectangle(cornerRadius: Theme.Radius.block))
