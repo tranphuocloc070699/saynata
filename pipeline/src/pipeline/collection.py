@@ -727,6 +727,23 @@ def write_rows(connection: sqlite3.Connection, rows: list[sqlite3.Row], writer: 
     return summary
 
 
+def revalidate(connection: sqlite3.Connection, vocabulary: set[str] | None = None) -> Counter:
+    """Checks the saved entries of retry and needs_review rows again (no LLM call), for example after the word
+    list was fixed. A row with no problems left becomes done; the others keep their status with the new problems."""
+    vocabulary = vocabulary if vocabulary is not None else simple_vocabulary()
+    changed: Counter = Counter()
+    rows = connection.execute("SELECT id, text, status, entry FROM collection WHERE status IN ('retry', 'needs_review') "
+                              "AND entry IS NOT NULL AND batch_id IS NULL").fetchall()
+    for row_id, text, status, entry_json in rows:
+        problems = entry_problems(Entry.model_validate_json(entry_json), text, vocabulary)
+        new_status = status if problems else "done"
+        changed[f"{status} -> {new_status}"] += 1
+        connection.execute("UPDATE collection SET status = ?, problems = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                           (new_status, json.dumps(problems), row_id))
+    connection.commit()
+    return changed
+
+
 # ---------- compare ----------
 
 

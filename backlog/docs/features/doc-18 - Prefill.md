@@ -3,7 +3,7 @@ id: doc-18
 title: Prefill
 type: other
 created_date: '2026-10-16 08:28'
-updated_date: '2026-10-17 19:18'
+updated_date: '2026-10-17 19:45'
 ---
 # Prefill
 
@@ -223,3 +223,5 @@ Any change to how the card looks needs a mockup first.
 - A phrase's Zipf comes from its words combined (wordfreq cannot count phrases), so it only says "made of common words".
 - The backend example check counts "giving" as hard for "give" (only words that start with the headword are free). The copy keeps that rule for words, so Codex entries get the same verdicts as Claude entries.
 - Phrases pushed to `word_lookup` are not served until the backend and app change above.
+- Fixed 2026-10-18: `backend/src/main/resources/words/ngsl.txt` missed 219 NGSL lemmas and forms (the 59 NGSL words that were never bundled, such as group, eat, air, black, angry, color, and their forms), so the backend's `SimpleWords` and this copy called them hard. They are added. `uv run pipeline collection revalidate` checks the `retry` and `needs_review` entries again with no LLM call (it moved 3,585 rows to `done`).
+- With the Claude batch, about 48% of first answers failed the checks (rare words need harder words to explain them: "informal", "clever", place names). Like the backend, they get one retry with feedback and are then `needs_review`.

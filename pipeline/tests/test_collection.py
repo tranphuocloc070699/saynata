@@ -420,3 +420,13 @@ def test_push_adds_new_words_and_never_overwrites(pg, db):
     # a bundled word is offered again (the dictionary may drop it later); the rest is marked pushed
     assert [r["text"] for r in c.push_rows(db, ["word"], include_review=True, limit=None)] == ["run"]
     assert status_of(db, "abide")["pushed_at"] is not None  # already there: not offered again
+
+
+def test_revalidate_marks_entries_done_when_the_word_list_allows_them(db):
+    add(db, "give up", "go on")
+    run(db, FakeWriter({"give up": (HARD, HARD), "go on": GOOD}))
+    db.execute("UPDATE collection SET status = 'retry' WHERE text = 'give up'")
+    assert c.revalidate(db, VOCAB) == {"retry -> retry": 1}
+    assert c.revalidate(db, VOCAB | {"relinquish"}) == {"retry -> done": 1}
+    row = status_of(db, "give up")
+    assert row["status"] == "done" and json.loads(row["problems"]) == []

@@ -422,6 +422,8 @@ def collection_command(args) -> None:
         _push(db, args)
     elif args.collection_command == "batch":
         _batch(db, args)
+    elif args.collection_command == "revalidate":
+        print(", ".join(f"{k}: {n}" for k, n in collection.revalidate(db).most_common()) or "Nothing to check.")
     db.close()
 
 
@@ -740,6 +742,7 @@ def main() -> None:
     c_collect.add_argument("--phrase-zipf", type=float, default=3.0,
                            help="minimum Zipf for WordNet phrases (default 3.0)")
     collection_commands.add_parser("report", help="counts per kind, source and status")
+    collection_commands.add_parser("revalidate", help="check retry and needs_review entries again (no LLM)")
     c_write = collection_commands.add_parser("write", help="Codex writes the pending rows")
     c_write.add_argument("--kind", nargs="+", choices=["word", "phrasal_verb", "idiom", "collocation"])
     c_write.add_argument("--texts", nargs="+", help="only these rows, for example --texts abide 'give up'")
