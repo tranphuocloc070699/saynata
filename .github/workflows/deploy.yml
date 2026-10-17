@@ -22,6 +22,9 @@ jobs:
     name: Deploy backend to VPS
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
+    # A normal deploy takes about 3 minutes. deploy.sh limits each build try to 6 minutes (two tries) and the start
+    # to 6 minutes, so this only stops a run that hangs outside it (for example a dead SSH link). Doc-11, Troubleshooting.
+    timeout-minutes: 20
     steps:
       - name: Deploy over SSH
         env:
@@ -41,7 +44,9 @@ jobs:
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # ServerAlive: notice a dead connection in about 3 minutes instead of waiting forever.
           ssh -i ~/.ssh/deploy_key -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
             "${VPS_USER:-root}@$VPS_HOST" \
             "set -e; cd ${VPS_APP_DIR:-saynata}; git fetch -q origin main; git merge --ff-only $SHA; backend/scripts/deploy.sh"
 
@@ -52,6 +57,7 @@ jobs:
     name: Deploy admin web app to VPS
     needs: deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
@@ -89,7 +95,7 @@ jobs:
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          ssh_cmd="ssh -i $HOME/.ssh/deploy_key -p ${VPS_PORT:-22} -o StrictHostKeyChecking=yes"
+          ssh_cmd="ssh -i $HOME/.ssh/deploy_key -p ${VPS_PORT:-22} -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=6"
           target="${VPS_USER:-root}@$VPS_HOST"
           dist="${VPS_APP_DIR:-saynata}/admin/dist"
           $ssh_cmd "$target" "mkdir -p $dist"
