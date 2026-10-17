@@ -5,36 +5,27 @@
 
 import SwiftUI
 
-/// A sentence result while the answer is still coming (TASK-65, TASK-73, TASK-74). It has the same header and
-/// Meaning card as `SentenceResultView`, so nothing jumps when the full result replaces it.
-/// - Before any text: an empty meaning, shown as a spinner inside the card.
-/// - While the meaning grows, and after it: the text, then a small spinner for the rest of the answer.
-/// The target-language row is left out until the answer is complete. The bundled dictionary words show below at
-/// once; Claude's words are added above them when the full result arrives.
+/// A sentence result while the answer is still coming (TASK-65, TASK-73, TASK-74, TASK-89.2). It is the same
+/// `SentenceCard` as `SentenceResultView`, so nothing jumps when the full result replaces it:
+/// - Before any text: the original sentence at once, and a spinner where the summary will be.
+/// - While the summary grows: the text, word by word.
+/// The target-language row is left out until the answer is complete.
 struct SentenceMeaningView: View {
-    /// The meaning so far. An empty `meaning` means nothing has been written yet.
+    /// The summary so far. An empty `meaning` means nothing has been written yet.
     let partial: SentenceMeaning
-    /// The words found in the bundled dictionary.
-    var localWords: [SentenceWordInfo] = []
     var loadWordEntry: (SentenceWordInfo) async throws -> WordEntry = { word in
         guard let entry = word.entry else { throw WordLookupError.notOneWord }
         return entry
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-            SentenceHeader(sentence: partial.sentence)
-
-            MeaningCard(meaning: partial.meaning, translation: nil, language: partial.language)
-
-            if !partial.meaning.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            SentenceWordsSection(words: localWords, language: partial.language, loadWordEntry: loadWordEntry)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        SentenceCard(
+            sentence: partial.sentence,
+            summary: partial.meaning,
+            translation: nil,
+            language: partial.language,
+            loadWordEntry: loadWordEntry)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

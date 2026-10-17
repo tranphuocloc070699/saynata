@@ -15,7 +15,7 @@ final class TranslationStore {
     /// The language of the translation at the bottom of the result.
     var targetLanguage: TargetLanguage = .vietnamese
     private(set) var state: TranslationState = .idle
-    /// While a sentence waits for Claude: the sentence and its bundled dictionary words, shown at once (TASK-74).
+    /// While a sentence waits for Claude: the sentence, shown at once in its card (TASK-74, TASK-89.2).
     /// Nil at all other times.
     private(set) var pendingSentence: PendingSentence?
     /// True once the full `meaning` arrived. Late word-by-word pieces are then ignored (TASK-73).
@@ -159,35 +159,6 @@ final class TranslationStore {
         return try await makeWordLookup().lookUp(word.word)
     }
 
-    /// Streams the answer so the meaning shows first (TASK-65). If the stream breaks before the full answer,
-    /// the old non-streaming call is tried once. A clear "no" from the server (a 4xx, for example "not English")
-    /// is not retried: asking again would give the same answer.
-    private func explainWithFallback(
-        _ sentence: String,
-        language: TargetLanguage,
-        translator: any Translating
-    ) async throws -> Explanation {
-        do {
-            return try await translator.explainStreaming(
-                sentence,
-                translatingTo: language,
-                onMeaningDelta: { [weak self] piece in
-                    self?.appendToMeaning(piece, sentence: sentence, language: language)
-                },
-                onMeaning: { [weak self] meaning in
-                    self?.showMeaning(SentenceMeaning(sentence: sentence, meaning: meaning, language: language))
-                })
-        } catch let error as BackendError where error.isFinalAnswer {
-            throw error
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch let error as URLError where error.code == .cancelled {
-            throw error
-        } catch {
-            return try await translator.explain(sentence, translatingTo: language)
-        }
-    }
-
     /// Adds the next characters of the meaning (TASK-73), so the text grows on screen.
     /// Ignored once the full meaning is there, and when the request is no longer running.
     private func appendToMeaning(_ piece: String, sentence: String, language: TargetLanguage) {
@@ -216,25 +187,22 @@ final class TranslationStore {
         // Copy these first. The user can change the picker or the text while we wait.
         let sentence = trimmedInput
         let language = targetLanguage
-        // The bundled dictionary gives each word card its pill and chip, and its words are found offline,
-        // so they can show before Claude answers (TASK-74). No dictionary is fine.
-        let lookup = try? makeWordLookup()
         meaningIsFinal = false
-        pendingSentence = PendingSentence(
-            sentence: sentence,
-            language: language,
-            localWords: SentenceWordFinder.extraWords(
-                in: sentence, skipping: [], bundledEntry: { lookup?.bundledEntry(for: $0) }))
-        // Loaded or failed: the local cards go. (A loaded result brings its own words, merged with Claude's.)
+        pendingSentence = PendingSentence(sentence: sentence, language: language)
+        // Loaded or failed: the loading card goes.
         defer { pendingSentence = nil }
         do {
             let translator = try makeTranslator()
-            let explanation = try await explainWithFallback(sentence, language: language, translator: translator)
-            state = .loaded(SentenceResult(
-                sentence: sentence,
-                explanation: explanation,
+            let explanation = try await translator.explainWithFallback(
+                sentence,
                 language: language,
-                bundledEntry: { lookup?.bundledEntry(for: $0) }))
+                onMeaningDelta: { [weak self] piece in
+                    self?.appendToMeaning(piece, sentence: sentence, language: language)
+                },
+                onMeaning: { [weak self] meaning in
+                    self?.showMeaning(SentenceMeaning(sentence: sentence, meaning: meaning, language: language))
+                })
+            state = .loaded(SentenceResult(sentence: sentence, explanation: explanation, language: language))
         } catch BackendError.signInRequired {
             askForSignIn(text: sentence)
         } catch {

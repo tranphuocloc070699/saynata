@@ -5,8 +5,8 @@
 
 import SwiftUI
 
-/// A sentence result as cards (TASK-41): the sentence, the Meaning card (translation folded, last),
-/// then the Words. The language comes from the result, not from the picker (TASK-14).
+/// A sentence result (TASK-41, TASK-89.2): one `SentenceCard` with the sentence, its simple summary, and the
+/// target language folded last. The language comes from the result, not from the picker (TASK-14).
 struct SentenceResultView: View {
     let result: SentenceResult
     /// Gets the full word card for a tapped word. The real one is `TranslationStore.wordEntry(for:)`.
@@ -16,17 +16,13 @@ struct SentenceResultView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-            SentenceHeader(sentence: result.sentence)
-
-            MeaningCard(
-                meaning: result.explanation.meaning,
-                translation: result.explanation.translation,
-                language: result.language)
-
-            SentenceWordsSection(words: result.words, language: result.language, loadWordEntry: loadWordEntry)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        SentenceCard(
+            sentence: result.sentence,
+            summary: result.explanation.meaning,
+            translation: result.explanation.translation,
+            language: result.language,
+            loadWordEntry: loadWordEntry)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -34,22 +30,13 @@ struct SentenceResultView: View {
     ScrollView {
         SentenceResultView(
             result: SentenceResult(
-                sentence: "The mist blurred the edges of the world.",
+                sentence: "The mist blurred the edges of the world, so the hikers turned back before noon.",
                 explanation: Explanation(
-                    meaning: "The fog made the edges of everything hard to see clearly.",
-                    words: [
-                        .init(word: "mist", partOfSpeech: "noun", meaning: "a thin cloud of water close to the ground"),
-                        .init(word: "blurred", partOfSpeech: "verb", meaning: "made something hard to see clearly"),
-                        .init(word: "edges", partOfSpeech: "noun", meaning: "the outside parts (base form: edge)"),
-                    ],
-                    translation: "Màn sương làm nhòe đi các đường biên của thế giới."),
-                language: .vietnamese,
-                bundledEntry: { word in
-                    word == "blurred"
-                        ? WordEntry(word: "blur", ipa: "/blɝ/", senses: WordEntry.depend.senses,
-                                    matchedForm: MatchedForm(text: "blurred", type: "past tense"))
-                        : nil
-                }))
+                    meaning: "The fog made everything hard to see, so the walkers went back before midday.",
+                    words: [],
+                    translation: "Sương mù làm mờ mọi thứ, nên những người đi bộ quay lại trước buổi trưa."),
+                language: .vietnamese),
+            loadWordEntry: { _ in .depend })
             .padding()
     }
     .background(Theme.Colors.background)

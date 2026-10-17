@@ -5,7 +5,7 @@
 
 import Foundation
 
-/// What one word card in a sentence result shows: the word, a form pill, a level chip and a short explanation.
+/// One word of a sentence, as the word sheet needs it: the word, and (when known) a form pill, a level chip and a short explanation.
 ///
 /// The pill and the chip come from the bundled dictionary when the word is there. If it is not,
 /// the pill uses the backend's "base form: X" note and there is no chip.
@@ -51,21 +51,15 @@ struct SentenceWordInfo: Equatable, Identifiable {
         }
     }
 
-    /// A word the app found by itself in the sentence (TASK-56). The explanation is the dictionary's
-    /// first meaning, and the pill and chip come from the entry like for Claude's words.
-    /// - Parameters:
-    ///   - sentenceWord: The word as it appears in the sentence, for example "apples".
-    ///   - entry: Its bundled dictionary entry.
-    init(sentenceWord: String, entry: WordEntry) {
-        word = sentenceWord
-        explanation = entry.senses.first?.simpleDefinition ?? ""
-        self.entry = entry
-        if let form = entry.matchedForm {
-            pillText = "\(form.type) of \(entry.word)"
-        } else {
-            pillText = nil
-        }
-        chipText = entry.senses.first?.chipText
+    /// A word the user tapped in a sentence (TASK-89.2). Nothing is known about it yet:
+    /// the word sheet looks it up (bundled dictionary first, then the cache and the backend).
+    /// - Parameter tappedWord: The word to look up, for example `SentenceToken.lookupWord`.
+    init(tappedWord: String) {
+        word = tappedWord
+        explanation = ""
+        entry = nil
+        pillText = nil
+        chipText = nil
     }
 
     /// Splits "took out (base form: draw out)" into "took out" and "base form: draw out".
