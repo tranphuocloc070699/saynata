@@ -125,6 +125,27 @@ final class TranslationStore {
         await translate()
     }
 
+    /// Back Tap opened the app (TASK-87, `CopiedTextLaunch`): copied text goes into the input and is explained.
+    /// With nothing copied, or the paste not allowed, the input and the result are cleared instead.
+    /// - Returns: true when the input is empty, so the screen gives it the keyboard.
+    @discardableResult
+    func startFromClipboard(_ clipboard: any ClipboardReading) async -> Bool {
+        // A sign-in sheet left open from the last text would cover the new start.
+        isSignInSheetOpen = false
+        if case let .text(copied) = await clipboard.content() {
+            let cleaned = CopiedText.cleaned(copied)
+            if !cleaned.isEmpty {
+                inputText = cleaned
+                await translate()
+                return false
+            }
+        }
+        inputText = ""
+        state = .idle
+        textNeedingSignIn = nil
+        return true
+    }
+
     /// The user tapped a "did you mean" word: put it in the input and look it up.
     func lookUp(suggestion word: String) async {
         inputText = word

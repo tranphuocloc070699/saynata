@@ -3,96 +3,81 @@ id: doc-21
 title: Explain copied text
 type: specification
 created_date: '2026-10-17 06:39'
-updated_date: '2026-10-17 07:55'
+updated_date: '2026-10-17 08:13'
 ---
 # Explain copied text (Back Tap and Action Button)
 
-> Status: **built** (TASK-87), tested in the iPhone 16 Pro (iOS 18.5) simulator through the Shortcuts app. Back Tap and the Action Button need a real phone. Last traced from code: 2026-10-17. Also run on the iOS 26.3 simulator (iPhone 17e).
+> Status: **built** (TASK-87). Tested on the iPhone 17e (iOS 26.3) simulator from the Shortcuts app. The developer's iPhone 13 (iOS 26.5) runs the shortcut from Back Tap. Last traced from code: 2026-10-17.
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Builds on [Word lookup](doc-5%20-%20Word-lookup.md) and [Sentence translation](doc-4%20-%20Sentence-translation.md).
 
 ## What it does
 
-The user copies text in any app, then double-taps the back of the phone (Back Tap) or presses the Action Button. A Shortcuts card opens on top of that app, and Saynata itself does not open. The card shows the simple English meaning first (layout B: up to three senses for a word; the meaning and up to three words for a sentence) and the Vietnamese line last, small. An icon-only link opens the full result in Saynata.
+The user copies text in any app, then double-taps the back of the phone (Back Tap) or presses the Action Button. Saynata opens with the copied text in the input and explains it at once, the same as typing it. With nothing copied (or the paste refused), the input is empty and has the keyboard, so the user types.
 
-iOS cannot draw over other apps, so a Shortcuts card is the fastest way that works on older phones too: Back Tap needs an iPhone 8 or later on iOS 14+, the Action Button an iPhone 15 Pro or later.
+Back Tap works on an iPhone 8 or later (iOS 14+), the Action Button on an iPhone 15 Pro or later.
+
+## Why it opens the app (and is not a card over the current app)
+
+The first version (same task, same day) showed a Shortcuts card over the current app without opening Saynata. On the developer's phone (iOS 26.5) it read nothing: a background App Intent cannot show iOS's "Allow Paste" question, so the paste was refused silently, and the "Paste from Other Apps" setting never appeared (iOS adds it only after the first question). The card also had to copy the theme colors as numbers and was cut at a fixed height on iOS 26. The developer chose to open the app instead (doc-7, 10-17). The app reads the clipboard while it is on screen, so iOS asks normally.
 
 ## Big picture
 
 ```mermaid
 flowchart TD
-    TRIGGER["Back Tap / Action Button / Siri / Spotlight"] --> INTENT["ExplainCopiedTextIntent.perform() (app process, app not opened)"]
-    INTENT --> CLIP["SystemClipboard: UIPasteboard (Allow Paste question)"]
-    CLIP --> EXPL["CopiedTextExplainer.explain()"]
-    EXPL --> CLEAN["CopiedText.cleaned + TextRoute + looksLikeEnglish"]
-    CLEAN -- "empty, too long, not English" --> PROBLEM[".problem: a message, no network"]
-    CLEAN -- "one word (or 'an apple')" --> WORD["WordLookup: bundle, phone cache, backend"]
-    CLEAN -- "more words" --> SENT["BackendClient.explain: phone cache, backend"]
-    WORD --> RACE["withTimeLimit (8 s)"]
-    SENT --> RACE
-    RACE --> CARD["CopiedTextCard (snippet view)"]
-    CARD -- "icon link" --> APP["saynata://lookup?text=... opens the app on the full result"]
+    TRIGGER["Back Tap / Action Button / Siri / Spotlight"] --> INTENT["ExplainCopiedTextIntent (openAppWhenRun = true)"]
+    INTENT --> LAUNCH["CopiedTextLaunch.request(): requestCount + 1"]
+    LAUNCH --> VIEW["TranslateView .task(id: requestCount)"]
+    VIEW --> CLIP["SystemClipboard (Allow Paste question)"]
+    CLIP --> STORE["TranslationStore.startFromClipboard"]
+    STORE -- "text" --> PASTE["inputText = cleaned text, translate() (word or sentence, as usual)"]
+    STORE -- "empty or refused" --> BLANK["input and result cleared, keyboard on the input"]
 ```
 
 ## Step by step
 
 | Step | File | What happens |
 |---|---|---|
-| 1 | [ExplainCopiedTextIntent.swift:26](../../../EnglishTranslation/EnglishTranslation/Intents/ExplainCopiedTextIntent.swift#L26) | `openAppWhenRun = false`, so the intent runs in the background and returns a snippet view. An optional `text` parameter lets a user's own shortcut pass text; empty means the clipboard. |
-| 2 | [ExplainCopiedTextIntent.swift:38](../../../EnglishTranslation/EnglishTranslation/Intents/ExplainCopiedTextIntent.swift#L38) | `SystemClipboard` checks `hasStrings` first (no permission question), then reads `UIPasteboard.general.string`, which shows iOS's "Allow Paste" question unless the user set Paste from Other Apps to Allow. |
-| 3 | [CopiedTextExplainer.swift:64](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L64) | Cleans the text (`CopiedText`, drops the Apple Books citation), checks it with `TextRoute` (empty, over 500) and `looksLikeEnglish`, then routes by `CacheKeys.wordQuery`, the same split as the app. |
-| 4 | [CopiedTextExplainer.swift:104](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L104) | A word goes through `WordLookup` (bundle, phone cache, backend). |
-| 5 | [CopiedTextExplainer.swift:115](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L115) | A sentence goes through `Translating.explain` (phone cache first). Its bundled words are found offline first, so a slow or signed-out card still lists them. |
-| 6 | [CopiedTextExplainer.swift:150](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L150) | Both race an 8-second timer: a card cannot update once it is shown, so a slow answer becomes "Still working…" instead of a long wait. Bundled and cached answers return long before. |
-| 7 | [CopiedTextExplainer.swift:131](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextExplainer.swift#L131) | Errors become cards: 401 `sign_in_required` is "Sign in to explain new text", a 4xx with a message (for example "doesn't look like English") is shown as it is, anything else is "Couldn't explain this". |
-| 8 | [CopiedTextCard.swift:40](../../../EnglishTranslation/EnglishTranslation/Views/CopiedText/CopiedTextCard.swift#L40) | Layout B. The Vietnamese line is the last line, small, open (a Shortcuts card on iOS 18 cannot fold a row). |
-| 9 | [SaynataShortcuts.swift:12](../../../EnglishTranslation/EnglishTranslation/Intents/SaynataShortcuts.swift#L12) | The App Shortcut, so iOS lists "Explain copied text" in the Shortcuts app, Spotlight, Siri and the Action Button with no setup. |
-
-## The card cannot read the asset catalog
-
-When Shortcuts draws the card, the app process logs `No color named 'Theme/TextPrimary' found in asset catalog` and the text comes out invisible (seen on the iOS 18.5 simulator). So the card uses `Theme.SnippetColors`, the same colors written as numbers ([Theme+Snippet.swift:14](../../../EnglishTranslation/EnglishTranslation/DesignSystem/Theme+Snippet.swift#L14)), and small copies of `LevelChip` and `MeaningBlock`. `ThemeSnippetColorsTests` fails if the catalog and the numbers drift apart.
+| 1 | [ExplainCopiedTextIntent.swift:21](../../../EnglishTranslation/EnglishTranslation/Intents/ExplainCopiedTextIntent.swift#L21) | `openAppWhenRun = true`: iOS opens Saynata, then `perform()` calls `CopiedTextLaunch.shared.request()`. |
+| 2 | [CopiedTextLaunch.swift:31](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedTextLaunch.swift#L31) | An `@Observable` counter. A count (not a flag) so two Back Taps in a row are both seen. |
+| 3 | [TranslateView.swift:45](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift#L45) | `.task(id: requestCount)` runs on each request, and also on a cold start (the count is already 1). If a sign-in sheet was open it waits 0.5 s before focusing, since a closing sheet takes the focus. |
+| 4 | [ExplainCopiedTextIntent.swift:29](../../../EnglishTranslation/EnglishTranslation/Intents/ExplainCopiedTextIntent.swift#L29) | `SystemClipboard`: `hasStrings` first (never asks), then `UIPasteboard.string` (asks "Allow Paste"). Text there but `string` nil means the user refused. |
+| 5 | [TranslationStore.swift:132](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L132) | Closes a leftover sign-in sheet, cleans the text (`CopiedText`, drops the Apple Books citation), puts it in the input and calls `translate()`. Otherwise clears the input and result and returns true (keyboard). |
+| 6 | [SaynataShortcuts.swift:12](../../../EnglishTranslation/EnglishTranslation/Intents/SaynataShortcuts.swift#L12) | The App Shortcut, so iOS lists "Explain copied text" in Shortcuts, Spotlight, Siri, Back Tap and the Action Button with no setup. |
 
 ## Setup on the phone
 
-- **Action Button** (iPhone 15 Pro and later): Settings, Action Button, swipe to Shortcut, tap the shortcut name, pick Saynata, then Explain copied text. No Shortcuts app setup.
-- **Back Tap** (iPhone 8 and later): Settings, Accessibility, Touch, Back Tap, Double Tap, then pick "Explain copied text" in the Shortcuts part of the list. If it is not listed there, add it to My Shortcuts once: Shortcuts app, Shortcuts tab, App Shortcuts, Saynata, touch and hold "Explain copied text", Add to My Shortcuts.
-- **No paste question each time:** Settings, Apps, Saynata, Paste from Other Apps, Allow.
+- **Back Tap:** Settings, Accessibility, Touch, Back Tap, Double Tap, then **Explain copied text**.
+- **Action Button** (iPhone 15 Pro and later): Settings, Action Button, Shortcut, then Saynata, **Explain copied text**.
+- **No paste question each time:** after the first question, Settings, Apps, Saynata, Paste from Other Apps, Allow. On iOS 26 the highlighted button of the question is Don't Allow Paste.
 
 ## The app is not built into the extensions
 
-`Intents/` is in the membership exceptions of ShareExtension, TranslationExtension and SaynataMac in `project.pbxproj`: an `AppShortcutsProvider` belongs to the app only. `CopiedTextExplainer`, `CopiedTextCard` and `Theme+Snippet` compile everywhere (they are plain Swift and SwiftUI).
+`Intents/` is in the membership exceptions of ShareExtension, TranslationExtension and SaynataMac in `project.pbxproj`: an `AppShortcutsProvider` belongs to the app only, and `SystemClipboard` uses UIKit. `CopiedTextLaunch` and `startFromClipboard` compile everywhere.
 
 ## Errors
 
-| Cause | Where | HTTP | What the user sees |
-|---|---|---|---|
-| Clipboard empty or only spaces | `explain` | none | "Nothing to explain. Copy some English text, then try again." |
-| Text copied but iOS refused the paste ("Don't Allow Paste", the highlighted button on iOS 26, or Paste from Other Apps = Deny): `hasStrings` is true but `string` is nil | `SystemClipboard` | none | "Paste is blocked" with where to allow it |
-| Over 500 characters | `TextRoute` | none | "Text too long" with the length |
-| No Latin letters, or 3+ words the recognizer is sure are another language | `looksLikeEnglish` | none | "Not English" |
-| Guest, answer not cached | backend | 401 | "Sign in to explain new text", the bundled words, a person icon that opens the app (which shows its sign-in sheet) |
-| No answer in 8 seconds | `withTimeLimit` | none | "Still working…", the bundled words, the open link |
-| Word not English, server "no" | `WordLookup` / backend | 4xx | "Can't explain this" with the message |
-| No network, other errors | backend | any | "Couldn't explain this" with the message |
+| Cause | What the user sees |
+|---|---|
+| Nothing copied, or only spaces | Empty input with the keyboard |
+| Don't Allow Paste | Empty input with the keyboard |
+| Over 500 characters | The text in the input with "Make it shorter", no request |
+| Guest, answer not cached | The text in the input and the sign-in sheet (doc-17) |
+| Anything else | The normal error under the input, as when typing |
 
 ## Tests
 
 | Test file | What it covers |
 |---|---|
-| `EnglishTranslationTests/CopiedTextExplainerTests.swift` | Word vs sentence routing, "an apple", Books citation, empty / too long / not English, guest (word and sentence with bundled words), slow answer, fast answer not cut, server 400, no network, the open link text, the Vietnamese line without repeats |
-| `EnglishTranslationTests/ThemeSnippetColorsTests.swift` | `Theme.SnippetColors` equals the asset catalog |
+| `EnglishTranslationTests/StartFromClipboardTests.swift` | A copied word is pasted and looked up, a sentence is explained, the Books citation is left out, empty / refused / spaces clear the input and the result, close the sign-in sheet and ask for the keyboard, each request is counted |
 
 Run: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' -only-testing:EnglishTranslationTests -parallel-testing-enabled NO`.
 
 ## Change checklist
 
-- A Theme color changes: update `Theme.SnippetColors` (the test tells you).
-- The word or sentence lookup order changes: `CopiedTextExplainer` reuses `WordLookup` and `Translating`, so nothing else should be needed; check the card still has the meaning first.
 - A new file in `Intents/`: add it to the three membership exception lists.
+- `TranslateView` or the input focus changes: keep the `.task(id: launch.requestCount)` and the focus after the sheet closes.
 
 ## Known gaps
 
-- The card cannot play audio or fold rows (iOS 18 cards have no buttons, only links).
-- iOS 26 cuts a card at a fixed height, so meanings and words stop at two lines (the sentence meaning at four). The open link shows the full result.
-- On the developer's iPhone 13 (iOS 26.5, free Apple ID) the first run said "Unable to run App Shortcut", while the iOS 26.3 and 18.5 simulators work. Cause not found yet.
-- The target language is always Vietnamese: the app does not save the picked language yet.
-- Back Tap and the Action Button were not tested in the simulator (no hardware); the same intent was run from the Shortcuts app there.
+- iOS asks "Allow Paste" every time until the user sets Paste from Other Apps to Allow.
+- The app opens on the text; going back to the app you were in is the system "◀ App" link at the top left.

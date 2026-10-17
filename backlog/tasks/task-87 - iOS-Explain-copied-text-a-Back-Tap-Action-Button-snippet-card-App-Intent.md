@@ -1,10 +1,12 @@
 ---
 id: TASK-87
-title: 'iOS: Explain copied text, a Back Tap / Action Button snippet card (App Intent)'
+title: >-
+  iOS: Explain copied text, Back Tap or the Action Button opens Saynata on the
+  copied text
 status: In Progress
 assignee: []
 created_date: '2026-10-17 06:10'
-updated_date: '2026-10-17 06:41'
+updated_date: '2026-10-17 08:13'
 labels:
   - ios
   - feature
@@ -21,13 +23,12 @@ The learner reads in other apps (Safari, Books, Messages) and wants a meaning wi
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An App Intent "Explain copied text" reads the clipboard and shows a snippet card without opening the app (openAppWhenRun = false)
-- [ ] #2 One word uses the word lookup (bundle, local cache, backend); more than one word uses the sentence API (local cache first)
-- [ ] #3 The card shows the simple English meaning first and the target-language line last, with an icon-only "Open in Saynata" button for the full result
-- [ ] #4 It is an App Shortcut, so it can be picked in Back Tap and the Action Button with no Shortcuts setup
-- [ ] #5 Empty or non-English clipboard shows a short message in the card; a guest asking for an answer that is not cached sees a clear "sign in in Saynata" line; a slow network shows a clear message instead of hanging
-- [ ] #6 Swift Testing tests cover the clipboard to request logic behind a protocol
-- [ ] #7 Feature doc, doc-7 row and CLAUDE.md overview updated; PR goes into feature/local
+- [ ] #1 An App Intent and App Shortcut "Explain copied text" opens Saynata (openAppWhenRun = true) and can be picked in Back Tap and the Action Button with no Shortcuts setup
+- [ ] #2 With text on the clipboard the app puts it in the input and explains it, the same as typing (word or sentence)
+- [ ] #3 With nothing copied, only spaces, or the paste refused, the input and result are cleared and the input gets the keyboard
+- [ ] #4 A sign-in sheet left from an earlier text does not cover the new start
+- [ ] #5 Swift Testing tests cover the clipboard to store logic behind ClipboardReading
+- [ ] #6 Feature doc, doc-7 row and CLAUDE.md overview updated; PR goes into feature/local
 <!-- AC:END -->
 
 ## Definition of Done
@@ -54,4 +55,6 @@ Simulator (iOS 18.5, Shortcuts app): App Shortcut listed under App Shortcuts > S
 Found: the card first rendered blank because the app process could not read the asset catalog while Shortcuts drew it ('No color named Theme/TextPrimary'). Fixed with Theme.SnippetColors (numbers) + ThemeSnippetColorsTests.
 Not tested: Back Tap and the Action Button themselves (no hardware in the simulator).
 Pre-existing, not this task: CacheKeysTests sentenceKey* fail on feature/local since prompt v7 (#100) because the expected hashes still use v6.
+
+2026-10-17 afternoon: changed by the developer. On the iPhone 13 (iOS 26.5) the Shortcuts card read nothing because a background intent cannot ask Allow Paste (no Paste from Other Apps row either). Developer: 'Back tap is good, so could you change the feature to open the app, check if the clipboard has data, paste it. Otherwise just make the input blank.' The card, CopiedTextExplainer and Theme.SnippetColors are removed. Tested on the iPhone 17e (iOS 26.3) simulator: paste question, text pasted and explained (guest: sign-in sheet), empty clipboard: empty input with focus after closing the old sheet.
 <!-- SECTION:NOTES:END -->

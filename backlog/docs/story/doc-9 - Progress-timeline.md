@@ -3,7 +3,7 @@ id: doc-9
 title: Progress timeline
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-17 06:41'
+updated_date: '2026-10-17 08:13'
 ---
 # Progress timeline
 
@@ -29,6 +29,7 @@ A dated story of the project, for the video. Add a line at the end of each worki
 | 2026-10-16 (evening) | **F6 Saynata on the Mac** (TASK-85): "I want to open with shortcut." The developer picked the popover under the menu-bar icon from a mockup. Built in four stacked PRs: a macOS target that compiles the iPhone app's code (no package, no change on iOS, 313 tests still pass), the popover with the same results, speech and email sign-in, a global ⌥⇧Space shortcut, and a Services item "Explain with Saynata" plus open at login. All of it runs with a free Apple ID. | Reusing the iPhone code made a whole Mac app a few hundred lines. |
 | 2026-10-16 | A browser extension for Brave and Chrome (TASK-86): select English on any page, a small teal "S" appears (icon A from the mockup), and a card shows the simple English meaning as it streams, the words, and the Vietnamese row last and closed. Right-click and Alt+Shift+S work too. A settings popup has the language and Show translation, and sign-in uses the same email code as the app. No backend change: the service worker makes every call. | "Implement chrome extension, show popover on selected words, sentences like gg translate, deepL." |
 | 2026-10-17 | **Explain copied text** (TASK-87): copy text anywhere, double-tap the back of the phone or press the Action Button, and a Shortcuts card shows the meaning over the app you are in. Layout B from the mockup: up to three meanings or words, Vietnamese last. Guests see "Sign in" plus the bundled words; a slow network gives "Still working" after 8 seconds. On the simulator the card first came out blank: Shortcuts could not read the app's asset colors, so the card now uses the same colors as numbers. | "In as few steps as possible, even on older devices, without interrupting the current app." |
+| 2026-10-17 (afternoon) | On the developer's iPhone 13 (iOS 26.5) the card said "Nothing to explain": iOS cannot ask "Allow Paste" for an app in the background, so it gave nothing. The developer chose to open the app instead: Back Tap now opens Saynata with the copied text explained, or an empty input with the keyboard. | "Back tap is good." Lesson: test clipboard and permission features on the real phone early; the simulator showed the question, the phone did not. |
 
 ## Numbers to show
 

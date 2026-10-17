@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-17 06:41'
+updated_date: '2026-10-17 08:13'
 ---
 # Decisions and reasons
 
@@ -37,6 +37,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-14 | F3 reads three things: the headword, each sense's simple explanation, each example sentence. Not the Vietnamese line, Grammar examples, other languages, slow speed or accent choice | "I think those are necessary. I can add other types of content later." Claude's brainstorm also suggested slow speed on a second tap and hiding a speaker with no voice. | Read all text; also Vietnamese; also Grammar examples | Developer chose from Claude's list |
 | 10-10 | Icon-only buttons with VoiceOver labels | "I think they look clean, and I've seen a lot of apps do it that way." It came after "too much text, users don't know where to focus." | Labelled Listen / Speak buttons | Developer |
 | 10-17 | **Explain copied text as a Shortcuts card** (TASK-87): an App Intent with `openAppWhenRun = false` and an App Shortcut, run from Back Tap or the Action Button, shows the meaning over the current app. **Layout B** (up to 3 meanings or words) over A (one meaning). The Vietnamese line is the last small line, open, because an iOS 18 card cannot fold a row. The card uses colors written as numbers (`Theme.SnippetColors`) because Shortcuts could not read the asset catalog | "Open Saynata in as few steps as possible, even on older devices, without interrupting the current app." Why B over A: reason not recorded | Layout A (one meaning); hiding the Vietnamese line; a keyboard extension or a widget (more steps, or no copied text) | Developer picked B; Claude proposed the Shortcuts card |
+| 10-17 | **Explain copied text opens the app** instead of the Shortcuts card (same day, TASK-87): Back Tap opens Saynata, pastes the copied text and explains it; with nothing copied the input is empty and has the keyboard. The card code is removed | "Honestly, this is not what I want. Back tap is good, so could you change the feature to open the app, check if the clipboard has data, paste it. Otherwise just make the input blank. I'll fill my own." On the phone the card read nothing: a background intent cannot ask "Allow Paste", so iOS refused silently | Keep the card and read the clipboard through a user-made shortcut ("Get Clipboard" then the Saynata action) | Developer |
 
 ## Design
 
