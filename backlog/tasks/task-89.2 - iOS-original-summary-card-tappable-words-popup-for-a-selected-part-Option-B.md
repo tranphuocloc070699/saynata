@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-17 16:43'
-updated_date: '2026-10-17 17:02'
+updated_date: '2026-10-17 17:03'
 labels: []
 dependencies:
   - TASK-89.1
@@ -55,4 +55,6 @@ The developer picked mockup Option B (https://claude.ai/artifact/RxDfLAMiHKNFQdo
 
 <!-- SECTION:NOTES:BEGIN -->
 Built: SentenceCard (one card), SelectableSentenceText (UITextView, iOS; Text with links on Mac), SentencePartPopup + SentencePartStore, tokenizer and selection logic with tests. Removed Words list and SentenceWordFinder. Tests: 349 pass on iPhone 16 Pro iOS 18.5; SaynataMac and both extensions build. Screenshots in docs/design/screenshots/task-89.2-*.png.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/112. Test it: type a sentence; summary streams in one card; tap a word (sheet); long-press-drag a part (popup under it, tap outside closes); one word selected opens the sheet. Automated: 349 tests (xcodebuild test, iPhone 16 Pro iOS 18.5).
 <!-- SECTION:NOTES:END -->
