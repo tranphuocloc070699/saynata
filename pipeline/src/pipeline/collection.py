@@ -40,7 +40,7 @@ CLAUDE_SERVICE = BACKEND / "src/main/java/com/englishtranslation/backend/claude/
 APPLICATION_PROPERTIES = BACKEND / "src/main/resources/application.properties"
 
 KINDS = ("word", "phrasal_verb", "idiom", "collocation")
-STATUSES = ("pending", "done", "needs_review", "skipped", "failed")
+STATUSES = ("pending", "retry", "done", "needs_review", "skipped", "failed")  # retry: Claude batch, see collection_batch.py
 MAX_ATTEMPTS = 3  # a failed row (Codex error, bad JSON) is tried again by later runs until this many tries
 
 SOURCE_SCOWL = prefill.SOURCE_WORDS  # common words not bundled (SCOWL-70 + wordfreq)
@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS collection (
     claude_entry   TEXT,                       -- a Claude entry to compare with (compare --claude), same JSON
     claude_model   TEXT,
     pushed_at      TEXT,                       -- when push wrote it to the server
+    batch_id       TEXT,                       -- waiting in this Claude batch (collection_batch.py)
     updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_collection_next ON collection (status, priority DESC, id);
@@ -77,6 +78,9 @@ def connect(path: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(path)
     connection.row_factory = sqlite3.Row
     connection.executescript(SCHEMA)
+    if "batch_id" not in {row[1] for row in connection.execute("PRAGMA table_info(collection)")}:
+        connection.execute("ALTER TABLE collection ADD COLUMN batch_id TEXT")  # tables made before the batch writer
+        connection.commit()
     return connection
 
 
@@ -483,7 +487,7 @@ def report_lines(connection: sqlite3.Connection) -> list[str]:
         per_kind[kind] += sum(counts.values())
     lines.append("")
     lines.append("Per kind: " + ", ".join(f"{kind} {per_kind[kind]}" for kind in KINDS))
-    pending = totals["pending"] + totals["failed"]
+    pending = totals["pending"] + totals["failed"] + totals["retry"]
     lines.append(f"To write: {pending} rows. At {BATCH_SIZE} per Codex call, about {SECONDS_PER_CALL} s a call and "
                  f"{DEFAULT_WORKERS} calls at once: about {estimate_hours(pending):.1f} hours.")
     return lines
@@ -650,6 +654,7 @@ def rows_to_write(connection: sqlite3.Connection, kinds: list[str] | None, texts
     if kinds:
         where.append(f"kind IN ({','.join('?' * len(kinds))})")
         params += kinds
+    where.append("batch_id IS NULL")  # a row waiting in a Claude batch is not written twice
     rows = connection.execute(f"SELECT * FROM collection WHERE {' AND '.join(where)} ORDER BY priority DESC, id",
                               params).fetchall()
     if per_kind:

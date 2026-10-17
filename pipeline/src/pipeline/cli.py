@@ -46,6 +46,7 @@
 """
 
 import argparse
+from collections import Counter
 import json
 import os
 import sqlite3
@@ -419,6 +420,8 @@ def collection_command(args) -> None:
         _compare(db, args)
     elif args.collection_command == "push":
         _push(db, args)
+    elif args.collection_command == "batch":
+        _batch(db, args)
     db.close()
 
 
@@ -525,6 +528,61 @@ def _compare(db, args) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(collection.compare_page(rows), encoding="utf-8")
     print(f"Wrote {len(rows)} items to {path}")
+
+
+def _batch(db, args) -> None:
+    """Claude Haiku 5.5 through the Message Batches API (half price). See collection_batch.py."""
+    import time
+
+    import anthropic
+
+    from pipeline import collection_batch as cb
+
+    cb.prepare(db)
+    if args.batch_command == "status":
+        print("\n".join(cb.status_lines(db)))
+        return
+    if args.batch_command == "submit":
+        rows = cb.rows_to_submit(db, args.kind, args.limit, args.per_kind)
+        if not rows:
+            print("Nothing to send.")
+            return
+        cost = cb.estimate_usd(len(rows))
+        kinds = Counter(row["kind"] for row in rows)
+        retries = sum(1 for row in rows if row["status"] == "retry")
+        print(f"{len(rows)} rows ({', '.join(f'{k} {n}' for k, n in kinds.most_common())}; {retries} retries) "
+              f"in {-(-len(rows) // cb.CHUNK)} batches to {cb.MODEL}: about ${cost:.2f} at the batch price.")
+        if cost > args.max_cost:
+            raise SystemExit(f"That is over --max-cost ${args.max_cost:.2f}. Use --limit, or raise --max-cost.")
+        if args.dry_run:
+            print(json.dumps(cb.request_for(rows[0], collection_word_prompt()), ensure_ascii=False)[:1500])
+            print("Dry run: nothing was sent.")
+            return
+        ids = cb.submit(db, rows, anthropic.Anthropic())
+        print("Sent: " + ", ".join(ids))
+        print("Most batches end within an hour. Then: uv run pipeline collection batch collect")
+        return
+    client = anthropic.Anthropic()
+    while True:
+        summary = cb.collect(db, client, progress=print if args.verbose else None)
+        if summary.batches:
+            print(f"Collected {summary.batches} batches, ${summary.cost:.2f}: "
+                  + ", ".join(f"{s} {n}" for s, n in summary.counts.most_common()))
+        if not summary.waiting or not args.wait:
+            break
+        print(f"{summary.waiting} batches still running, checking again in 2 minutes...", flush=True)
+        time.sleep(120)
+    if summary.waiting:
+        print(f"{summary.waiting} batches still running. Run collect again later (or with --wait).")
+    retry = db.execute("SELECT count(*) FROM collection WHERE status = 'retry' AND batch_id IS NULL").fetchone()[0]
+    if retry:
+        print(f"{retry} rows failed the checks once. Send their retry: uv run pipeline collection batch submit")
+
+
+def collection_word_prompt() -> str:
+    from pipeline import collection
+
+    return collection.backend_word_prompt()
 
 
 def _push(db, args) -> None:
@@ -708,6 +766,19 @@ def main() -> None:
     c_push.add_argument("--limit", type=int)
     c_push.add_argument("--yes", action="store_true", help="write; without it this is a dry run")
     c_push.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    c_batch = collection_commands.add_parser("batch", help="Claude Haiku 5.5 through the Batch API (paid, half price)")
+    batch_commands = c_batch.add_subparsers(dest="batch_command", required=True)
+    b_submit = batch_commands.add_parser("submit", help="send pending, failed and retry rows")
+    b_submit.add_argument("--kind", nargs="+", choices=["word", "phrasal_verb", "idiom", "collocation"])
+    b_submit.add_argument("--limit", type=int)
+    b_submit.add_argument("--per-kind", type=int)
+    b_submit.add_argument("--max-cost", type=float, default=5.0,
+                          help="refuse to send when the estimate is over this many US dollars (default 5)")
+    b_submit.add_argument("--dry-run", action="store_true", help="print the count, the cost and one request")
+    b_collect = batch_commands.add_parser("collect", help="read the ended batches and save the entries")
+    b_collect.add_argument("--wait", action="store_true", help="check every 2 minutes until every batch ended")
+    b_collect.add_argument("--verbose", action="store_true", help="print every row")
+    batch_commands.add_parser("status", help="the batches, their counts and cost")
     args = parser.parse_args()
     if args.command == "prefill" and args.prefill_command == "collect" and args.all_wordfreq \
             and args.source != "words":

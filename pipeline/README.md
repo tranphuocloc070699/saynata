@@ -67,6 +67,8 @@ uv run pipeline prefill report       # queue counts and the cost of the pending 
 uv run pipeline collection collect   # TASK-83.9: 17,124 words and phrases into the collection table (no LLM, 30 s)
 uv run pipeline collection write --per-kind 20   # the trial: Codex writes 20 of each kind (ChatGPT plan, about 5 minutes)
 uv run pipeline collection compare --claude      # data/out/collection-compare.html, Codex next to Claude (about $0.03)
+uv run pipeline collection batch submit --max-cost 15   # Claude Haiku 5.5, Batch API: every waiting row (about $12.40)
+uv run pipeline collection batch collect --wait          # save the answers when the batches end; submit again for retries
 uv run pipeline collection push      # dry run; --yes writes the done words into the server cache word_lookup
 uv run pipeline topics promote      # kept topic words join the words table as pending (no LLM); then generate --limit 1000
 uv run pipeline topics report       # counts and samples per topic; `topics export-tsv` writes data/out/topic_words.tsv
