@@ -27,7 +27,8 @@ final class AccountStore: AccessTokenProviding {
 
     var isSignedIn: Bool { user != nil }
 
-    /// The one store the app and the extensions' stores use. Each process has its own (extensions are guests).
+    /// The one store of this process. The app and the extensions each have one, and they share the session
+    /// through the Keychain (`KeychainSecretStore`, App Group), so the extensions are signed in too.
     static let shared = AccountStore()
 
     @ObservationIgnored private var session: SavedSession?
@@ -44,11 +45,24 @@ final class AccountStore: AccessTokenProviding {
     ) {
         self.secrets = secrets
         self.client = client
-        if let json = secrets.secret(forKey: Self.sessionKey),
-           let saved = try? JSONDecoder().decode(SavedSession.self, from: Data(json.utf8)) {
+        if let saved = Self.savedSession(in: secrets) {
             session = saved
             user = saved.user
         }
+    }
+
+    private static func savedSession(in secrets: any SecretStoring) -> SavedSession? {
+        guard let json = secrets.secret(forKey: sessionKey) else { return nil }
+        return try? JSONDecoder().decode(SavedSession.self, from: Data(json.utf8))
+    }
+
+    /// Takes the session another process saved since. The app and an extension share the Keychain item, and the
+    /// server accepts each refresh token once: refreshing with an old one would end every session of the user.
+    /// An empty Keychain changes nothing here (a refused save keeps the user signed in until the app closes).
+    private func reloadSavedSession() {
+        guard let saved = Self.savedSession(in: secrets), saved != session else { return }
+        session = saved
+        if user != saved.user { user = saved.user }
     }
 
     // MARK: - Signing in
@@ -96,10 +110,13 @@ final class AccountStore: AccessTokenProviding {
     // MARK: - AccessTokenProviding
 
     func accessToken() async -> String? {
-        session?.accessToken
+        reloadSavedSession()
+        return session?.accessToken
     }
 
     func refreshedAccessToken(replacing rejected: String) async throws -> String? {
+        // A refresh already running here has the newest token; else another process may have refreshed.
+        if refreshTask == nil { reloadSavedSession() }
         guard let current = session else { return nil }
         // Another request already got a new token while this one waited.
         if current.accessToken != rejected { return current.accessToken }
