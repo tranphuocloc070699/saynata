@@ -40,7 +40,7 @@
     uv run pipeline collection report    # counts per kind, source and status, and the time to write the rest
     uv run pipeline collection write --per-kind 20   # the trial: Codex writes 20 of each kind (ChatGPT plan, no API cost)
     uv run pipeline collection write --limit 500     # the next 500 rows, most frequent first; safe to stop and run again
-    uv run pipeline collection compare --claude      # data/out/collection-compare.html: Codex next to Claude (about $0.06)
+    uv run pipeline collection compare --claude      # data/out/collection-compare.html: Codex next to Claude (about $0.30)
     uv run pipeline collection push                  # dry run: what would go into the server cache word_lookup
     uv run pipeline collection push --yes            # write it (only after the developer's go-ahead)
 """

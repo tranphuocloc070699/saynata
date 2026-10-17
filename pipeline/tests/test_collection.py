@@ -383,7 +383,7 @@ def test_claude_from_api_stops_at_the_cap(db):
         asked.append((text, kind))
         return entry(), 0.001
 
-    answered, spent = c.claude_from_api(db, c.compare_rows(db, 20), max_cost=0.003, ask=ask, word_prompt="P")
+    answered, spent = c.claude_from_api(db, c.compare_rows(db, 20), max_cost=0.0065, ask=ask, word_prompt="P")
     assert answered == 2 and spent == pytest.approx(0.002)
     assert asked == [("give up", "phrasal_verb"), ("go on", "phrasal_verb")]
     assert status_of(db, "give up")["claude_model"] == c.CLAUDE_MODEL

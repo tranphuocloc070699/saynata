@@ -778,7 +778,9 @@ def claude_from_server(connection: sqlite3.Connection, pg, prompt_version: str) 
 
 
 CLAUDE_MODEL = "claude-haiku-5-5"  # app.claude.model
-CLAUDE_COST_PER_ITEM = prefill.COST_PER_WORD  # production average, Claude Haiku 5.5, word prompt
+# Measured 2026-10-18: 52 answers cost $0.249 here (the whole word prompt each call, no prompt cache), much more than
+# the production average in prefill.COST_PER_WORD.
+CLAUDE_COST_PER_ITEM = 0.005
 
 
 def claude_entry(text: str, kind: str, word_prompt: str) -> tuple[Entry, float]:
@@ -807,7 +809,7 @@ def claude_from_api(connection: sqlite3.Connection, rows: list[sqlite3.Row], max
     for row in rows:
         if row["claude_entry"]:
             continue
-        if spent + CLAUDE_COST_PER_ITEM * 2 > max_cost:
+        if spent + CLAUDE_COST_PER_ITEM > max_cost:
             break
         entry, cost = ask(row["text"], row["kind"], word_prompt)
         spent += cost
