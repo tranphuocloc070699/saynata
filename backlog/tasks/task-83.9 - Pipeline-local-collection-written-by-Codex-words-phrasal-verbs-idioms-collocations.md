@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-17 16:36'
-updated_date: '2026-10-17 16:49'
+updated_date: '2026-10-17 19:57'
 labels:
   - pipeline
 dependencies: []
@@ -48,4 +48,6 @@ Build a local collection in pipeline.db of English entries Saynata can answer wi
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-10-17: built. collect gives 17,124 rows (word 7,243, phrasal_verb 1,818, idiom 2,344, collocation 5,719; 173 SCOWL names skipped). Smoke test: Codex wrote 'elevation' and 'give up' (2 calls, 18 s, both done). Collocation source: the bundled entries' usage items (TASK-24) without placeholders; other options for later: Pearson Academic Collocation List, COCA n-grams (ngrams.info). Push target B (bundled tables) is not built; phrases need a backend + app change (proposal in doc-18). Trial and full runs are the developer's to start. Tests: 259 pass with TEST_DATABASE_URL.
+
+2026-10-18: Claude Haiku 5.5 Batch writer built (collection batch submit/collect/status). Developer approved the run: words down to Zipf 2 (+33,427) and everything waiting, 49,472 rows. Round 1 $4.87, retries (20,366) $3.48; total $8.42 (+$0.025 compare). Result: 31,700 done, 9,534 needs_review, 9,317 skipped (mostly names). Fixed ngsl.txt (219 missing NGSL words/forms); revalidate moved 3,585 rows to done. Nothing pushed yet.
 <!-- SECTION:NOTES:END -->
