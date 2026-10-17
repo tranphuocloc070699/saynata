@@ -778,9 +778,11 @@ def claude_from_server(connection: sqlite3.Connection, pg, prompt_version: str) 
 
 
 CLAUDE_MODEL = "claude-haiku-5-5"  # app.claude.model
-# Measured 2026-10-18: 52 answers cost $0.249 here (the whole word prompt each call, no prompt cache), much more than
-# the production average in prefill.COST_PER_WORD.
-CLAUDE_COST_PER_ITEM = 0.005
+# Claude Haiku 5.5: $0.10 per million input tokens, $0.50 per million output tokens (prompts under 100K tokens).
+CLAUDE_INPUT_USD_PER_MTOK = 0.10
+CLAUDE_OUTPUT_USD_PER_MTOK = 0.50
+# Measured 2026-10-18: 52 answers, about $0.0005 each (the production average, prefill.COST_PER_WORD, is $0.0007).
+CLAUDE_COST_PER_ITEM = 0.0005
 
 
 def claude_entry(text: str, kind: str, word_prompt: str) -> tuple[Entry, float]:
@@ -795,8 +797,8 @@ def claude_entry(text: str, kind: str, word_prompt: str) -> tuple[Entry, float]:
         output_format=Entry, output_config={"effort": "low"})
     if response.parsed_output is None:
         raise RuntimeError(f"Claude gave no entry (stop_reason={response.stop_reason})")
-    # Claude Haiku 5.5: $1 per million input tokens, $5 per million output tokens.
-    cost = response.usage.input_tokens / 1e6 * 1 + response.usage.output_tokens / 1e6 * 5
+    cost = (response.usage.input_tokens * CLAUDE_INPUT_USD_PER_MTOK
+            + response.usage.output_tokens * CLAUDE_OUTPUT_USD_PER_MTOK) / 1e6
     return response.parsed_output, cost
 
 
