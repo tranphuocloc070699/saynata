@@ -9,17 +9,22 @@ import Testing
 
 /// The expected keys were computed with `printf '%s' "<parts joined by |>" | shasum -a 256`,
 /// the same rule as `CacheKeys.key` in the backend (`CacheKeysTest.java`).
+/// The sentence vectors pin prompt version "v6", so a version bump does not break them;
+/// `promptVersionsMatchTheBackendConfig` checks the current version against the backend.
 struct CacheKeysTests {
     @Test func sentenceKeyMatchesTheBackendRule() {
-        #expect(CacheKeys.sentenceKey("I was reluctant to leave.", targetLang: "vi")
+        #expect(CacheKeys.sentenceKey("I was reluctant to leave.", targetLang: "vi", promptVersion: "v6")
             == "c150d055734d1e7b43aec6a0135467e9f3ca4914977a2979051c071623ebbd53")
         // The "v1" key from CacheKeysTest.java has no language part, so use the raw function.
         #expect(CacheKeys.key("sentence", "v1", "hello")
             == "c06d91029579e1afa519f6dde66066df0c1aa512806a052cb168c11b3d098aba")
+        // Without a version, the key uses the current sentence prompt version.
+        #expect(CacheKeys.sentenceKey("I was reluctant to leave.", targetLang: "vi")
+            == CacheKeys.key("sentence", PromptVersions.sentence, "vi", "I was reluctant to leave."))
     }
 
     @Test func sentenceKeyNormalisesBeforeHashing() {
-        #expect(CacheKeys.sentenceKey("  I   love\n US  ", targetLang: "ja")
+        #expect(CacheKeys.sentenceKey("  I   love\n US  ", targetLang: "ja", promptVersion: "v6")
             == "32403ddb6ba25368176ca379827aa36ed598c555efef8e5078fbf07792f14834")
         #expect(CacheKeys.sentenceKey("I love US", targetLang: "ja")
             == CacheKeys.sentenceKey("I love\tUS", targetLang: "ja"))
