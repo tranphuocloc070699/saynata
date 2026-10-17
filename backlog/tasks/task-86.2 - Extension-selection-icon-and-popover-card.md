@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-16 09:00'
-updated_date: '2026-10-17 08:12'
+updated_date: '2026-10-17 08:14'
 labels:
   - extension
 dependencies:
@@ -58,4 +58,6 @@ Fix after the developer's Brave test (the card moved when the Vietnamese row ope
 Pictures option A and open-word with Back (developer's picks after the Brave test). Checked in the harness with real api.loffy.me data: bank (2 pictures), run (a clip), a strict-CSP page where the clip is blocked and the extension-page fallback plays it, open bank from a sentence and Back. 109 tests.
 
 2026-10-17: card placed beside the text, centred on it (developer's rule): right, left, then below/above centred; last line of a wide selection; top frozen once complete. Harness: right (clamped at the top margin), right centred mid-window, the row opens downward, left near the right edge. 114 tests.
+
+2026-10-17: folded rows animate (grid 0fr to 1fr, 220/180 ms, iOS curve, fade, chevron, reduced motion off). Measured in the harness (open shadow root): body height 0 to 37 px over about 220 ms, 37 to 0 in about 150 ms, card top unchanged. 118 tests.
 <!-- SECTION:NOTES:END -->

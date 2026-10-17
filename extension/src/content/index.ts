@@ -227,7 +227,8 @@ class SelectionPopover {
       });
     },
     toggleRow: (open) => {
-      this.update({ rowOpen: open });
+      // The row already changed itself (and animates); only remember it, without a re-render.
+      if (this.state) this.state = { ...this.state, rowOpen: open };
       void saveSettings(chrome.storage.sync, { lastRowOpen: open });
     },
     signIn: () => {

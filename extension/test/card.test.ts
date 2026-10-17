@@ -45,7 +45,7 @@ describe("sentence card", () => {
   it("closes the target-language row by default and opens it when asked", () => {
     const closed = renderCard(sentenceDone(), actions());
     expect(closed.querySelector(".fold-button")?.getAttribute("aria-expanded")).toBe("false");
-    expect(closed.querySelector(".fold-body")).toBeNull();
+    expect(closed.querySelector(".fold")?.classList.contains("open")).toBe(false);
     const open = renderCard({ ...sentenceDone(), rowOpen: true }, actions());
     expect(open.querySelector(".fold-body")?.textContent).toBe("miễn cưỡng chấp thuận kế hoạch");
   });
@@ -53,6 +53,33 @@ describe("sentence card", () => {
   it("names the row after the picked language", () => {
     const state = { ...sentenceDone(), targetLang: "ko" as const };
     expect(renderCard(state, actions()).querySelector(".fold-button")?.textContent).toBe("Korean");
+  });
+
+  it("opening and closing the row toggles its class and aria-expanded in place, so CSS can animate it", () => {
+    const a = actions();
+    const card = renderCard(sentenceDone(), a);
+    const row = card.querySelector(".fold") as HTMLElement;
+    const button = row.querySelector(".fold-button") as HTMLButtonElement;
+    const inner = row.querySelector(".fold-inner") as HTMLElement & { inert: boolean };
+    expect(row.querySelector(".fold-text")?.textContent).toBe("miễn cưỡng chấp thuận kế hoạch");
+    expect(button.getAttribute("aria-controls")).toBe(row.querySelector(".fold-body")?.id);
+    expect(inner.inert).toBe(true);
+    button.click();
+    expect(row.classList.contains("open")).toBe(true);
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    expect(inner.inert).toBe(false);
+    expect(card.querySelector(".fold")).toBe(row);
+    button.click();
+    expect(row.classList.contains("open")).toBe(false);
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(a.toggleRow).toHaveBeenNthCalledWith(1, true);
+    expect(a.toggleRow).toHaveBeenNthCalledWith(2, false);
+  });
+
+  it("a row rendered open starts with the class", () => {
+    const row = renderCard({ ...sentenceDone(), rowOpen: true }, actions()).querySelector(".fold");
+    expect(row?.classList.contains("open")).toBe(true);
+    expect(row?.querySelector(".fold-button")?.getAttribute("aria-expanded")).toBe("true");
   });
 
   it("toggling the row calls the action", () => {
