@@ -607,7 +607,7 @@ def _judge(answer: dict | None, text: str, vocabulary: set[str]) -> tuple[Entry 
     except ValidationError as error:
         return None, [f"not the WordEntry JSON: {error.errors()[0]['msg']}"], "failed"
     if not entry.senses:
-        return entry, ["codex says it is not a real English word or phrase (no senses)"], "skipped"
+        return entry, ["the writer says it is not a real English word or phrase (no senses)"], "skipped"
     problems = entry_problems(entry, text, vocabulary)
     return entry, problems, "retry" if problems else "done"
 
