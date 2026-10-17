@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Saynata</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <header class="top">
+      <span class="logo" aria-hidden="true">S</span>
+      <h1>Saynata</h1>
+    </header>
+
+    <section id="account" class="section" hidden></section>
+
+    <section class="section">
+      <label class="heading" for="language">Language</label>
+      <div class="card">
+        <select id="language"></select>
+      </div>
+      <p class="footer">The language of the small helper row at the bottom of each card.</p>
+    </section>
+
+    <section class="section">
+      <h2 class="heading" id="show-heading">Show translation</h2>
+      <div class="card" role="radiogroup" aria-labelledby="show-heading" id="modes"></div>
+      <p class="footer" id="modes-footer"></p>
+    </section>
+
+    <p class="hint">Select English on any page, then click the <span class="mini">S</span> icon. Or right-click and choose Explain with Saynata, or press <kbd id="shortcut">Alt+Shift+S</kbd>.</p>
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>

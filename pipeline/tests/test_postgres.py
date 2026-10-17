@@ -63,14 +63,20 @@ def count(connection, table: str) -> int:
 
 
 def read_app_db(path: Path) -> dict:
-    """Everything the app reads from a dictionary.sqlite, except meta (it holds the build time)."""
+    """Everything the app reads from a dictionary.sqlite, except meta (it holds the build time).
+
+    Not the picture size columns: only the Postgres export fills them (from the media rows), the old export
+    leaves them empty. test_export_writes_the_picture_size_so_the_app_can_size_the_frame checks them.
+    """
     connection = sqlite3.connect(path)
+    sense_columns = [row[1] for row in connection.execute("PRAGMA table_info(senses)")
+                     if row[1] not in ("image_width", "image_height")]
     return {
         "schema": connection.execute(
             "SELECT type, name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name").fetchall(),
         "words": connection.execute("SELECT * FROM words ORDER BY id").fetchall(),
         "forms": connection.execute("SELECT form, word_id, type FROM forms ORDER BY rowid").fetchall(),
-        "senses": connection.execute("SELECT * FROM senses ORDER BY id").fetchall(),
+        "senses": connection.execute(f"SELECT {', '.join(sense_columns)} FROM senses ORDER BY id").fetchall(),
         "meta_keys": connection.execute("SELECT key FROM meta ORDER BY key").fetchall(),
     }
 
@@ -298,6 +304,21 @@ def test_export_lists_media_files_it_cannot_find(app_db, pg, media_dir, out_dir)
                                                 ).fetchone() == ("media/run_1.mp4",)
 
 
+def test_export_writes_the_picture_size_so_the_app_can_size_the_frame(app_db, pg, media_dir, out_dir):
+    postgres.import_dictionary(app_db, pg, media_dir=media_dir)
+    pg.execute("UPDATE media SET width = 320, height = 470 WHERE file_name = 'run_1.mp4'")
+    pg.commit()
+
+    path = export.export_from_postgres(pg, media_dir=media_dir).path
+
+    exported = sqlite3.connect(path)
+    assert exported.execute("SELECT image_width, image_height FROM senses WHERE image_query = 'person running'"
+                            ).fetchone() == (320, 470)
+    # No picture, no size.
+    assert exported.execute("SELECT count(*) FROM senses WHERE image_url IS NULL AND image_width IS NOT NULL"
+                            ).fetchone() == (0,)
+
+
 def test_export_writes_no_image_url_for_removed_senses(app_db, pg, media_dir, out_dir):
     postgres.import_dictionary(app_db, pg, media_dir=media_dir)
     # Even if a media link is left behind, "none" and "removed" win, so the next app build drops the picture.
@@ -393,4 +414,9 @@ def test_full_bundled_dictionary_round_trip(pg, out_dir):
     for table, pg_table in [("words", "dictionary_word"), ("senses", "dictionary_sense"), ("forms", "dictionary_form")]:
         assert count(pg, pg_table) == count(original, table)
     assert (result.words_written, result.senses, result.forms) == (2750, 7779, 5542)
-    assert read_app_db(exported.path) == read_app_db(BUNDLED_FILE)
+    # The bundled file may be older than the picture size columns (until the next export), so the table
+    # layout is not compared; the data is.
+    new, old = read_app_db(exported.path), read_app_db(BUNDLED_FILE)
+    assert {k: v for k, v in new.items() if k != "schema"} == {k: v for k, v in old.items() if k != "schema"}
+    columns = [row[1] for row in sqlite3.connect(exported.path).execute("PRAGMA table_info(senses)")]
+    assert columns[-2:] == ["image_width", "image_height"]

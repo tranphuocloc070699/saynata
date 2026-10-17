@@ -182,6 +182,7 @@ class SentenceWordQueueTest {
                 .content("{\"text\": \"The lantern glows.\", \"targetLang\": \"vi\"}")).andReturn();
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch(started));
         waitUntilQueued("lantern");
+        waitUntilQueued("glows"); // the worker saves the words one by one
 
         assertThat(queuedTexts()).contains("lantern", "glows");
     }

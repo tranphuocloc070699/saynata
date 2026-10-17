@@ -10,6 +10,7 @@ import java.util.Map;
  * A WordEntry as GET /api/words/{word} sends it: the same fields, plus imageUrl on a sense that has media.
  * WordEntry itself stays as it is, because Claude writes it and the database stores it (no image there).
  * imageUrl is left out of the JSON when the sense has no media, so old app versions see nothing new.
+ * imageWidth and imageHeight (pixels) come with it when the size is known, so the app sizes the frame before it loads.
  */
 public record WordEntryView(List<SenseView> senses) {
 
@@ -20,7 +21,8 @@ public record WordEntryView(List<SenseView> senses) {
             WordEntry.Sense sense = entry.senses().get(i);
             SenseMedia senseMedia = media.get(i);
             senses.add(new SenseView(sense.pos(), sense.cefr(), sense.simpleDefinition(), sense.vietnamese(),
-                    sense.examples(), sense.usage(), senseMedia == null ? null : senseMedia.url()));
+                    sense.examples(), sense.usage(), senseMedia == null ? null : senseMedia.url(),
+                    senseMedia == null ? null : senseMedia.width(), senseMedia == null ? null : senseMedia.height()));
         }
         return new WordEntryView(senses);
     }
@@ -32,6 +34,8 @@ public record WordEntryView(List<SenseView> senses) {
             String vietnamese,
             List<WordEntry.Example> examples,
             List<WordEntry.Usage> usage,
-            @JsonInclude(JsonInclude.Include.NON_NULL) String imageUrl) {
+            @JsonInclude(JsonInclude.Include.NON_NULL) String imageUrl,
+            @JsonInclude(JsonInclude.Include.NON_NULL) Integer imageWidth,
+            @JsonInclude(JsonInclude.Include.NON_NULL) Integer imageHeight) {
     }
 }

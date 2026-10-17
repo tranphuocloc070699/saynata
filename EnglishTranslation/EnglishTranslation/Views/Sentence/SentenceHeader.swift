@@ -39,7 +39,7 @@ struct SentenceHeader: View {
     }
 
     private func copy() {
-        UIPasteboard.general.string = sentence
+        Pasteboard.copy(sentence)
         didCopy = true
         Task {
             try? await Task.sleep(for: .seconds(1.5))

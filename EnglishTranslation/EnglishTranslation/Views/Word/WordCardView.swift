@@ -66,7 +66,7 @@ struct WordCardView: View {
                 speechID: "sense-\(index)")
 
             if let imageUrl = sense.imageUrl {
-                SenseMediaView(path: imageUrl)
+                SenseMediaView(path: imageUrl, pixelSize: sense.imagePixelSize)
                     .padding(.top, Theme.Spacing.xSmall)
             }
 

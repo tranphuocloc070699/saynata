@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		7A000000000000000000000D /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000002 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7B000000000000000000000D /* TranslationExtension.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = 7B0000000000000000000002 /* TranslationExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7C0000000000000000000020 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 7C0000000000000000000022 /* KeyboardShortcuts */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,6 +77,8 @@
 		7A0000000000000000000011 /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
 		7B0000000000000000000002 /* TranslationExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = TranslationExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B0000000000000000000010 /* TranslationExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TranslationExtension.entitlements; sourceTree = "<group>"; };
+		7C0000000000000000000002 /* SaynataMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SaynataMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7C0000000000000000000010 /* SaynataMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SaynataMac.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -100,6 +103,8 @@
 				DesignSystem/DesignSystemGallery.swift,
 				EnglishTranslationApp.swift,
 				Info.plist,
+				Intents/ExplainCopiedTextIntent.swift,
+				Intents/SaynataShortcuts.swift,
 				Lessons/L1_State.swift,
 				Lessons/L2_Binding.swift,
 				Lessons/L3_Observable.swift,
@@ -126,6 +131,8 @@
 				DesignSystem/DesignSystemGallery.swift,
 				EnglishTranslationApp.swift,
 				Info.plist,
+				Intents/ExplainCopiedTextIntent.swift,
+				Intents/SaynataShortcuts.swift,
 				Lessons/L1_State.swift,
 				Lessons/L2_Binding.swift,
 				Lessons/L3_Observable.swift,
@@ -138,6 +145,34 @@
 			);
 			target = 7B0000000000000000000001 /* TranslationExtension */;
 		};
+		7C0000000000000000000004 /* Exceptions for "SaynataMac" folder in "SaynataMac" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7C0000000000000000000001 /* SaynataMac */;
+		};
+		7C0000000000000000000005 /* Exceptions for "EnglishTranslation" folder in "SaynataMac" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ContentView.swift,
+				DesignSystem/DesignSystemGallery.swift,
+				EnglishTranslationApp.swift,
+				Info.plist,
+				Intents/ExplainCopiedTextIntent.swift,
+				Intents/SaynataShortcuts.swift,
+				Lessons/L1_State.swift,
+				Lessons/L2_Binding.swift,
+				Lessons/L3_Observable.swift,
+				Lessons/L4_Environment.swift,
+				Lessons/L5_AsyncState.swift,
+				Lessons/L6_Escaping.swift,
+				Views/Translate/Subviews/TranslateInputView.swift,
+				Views/Translate/Subviews/TranslateOptionsView.swift,
+				Views/Translate/TranslateView.swift,
+			);
+			target = 7C0000000000000000000001 /* SaynataMac */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -147,6 +182,7 @@
 				6642CB603076366500108489 /* Exceptions for "EnglishTranslation" folder in "EnglishTranslation" target */,
 				7A0000000000000000000005 /* Exceptions for "EnglishTranslation" folder in "ShareExtension" target */,
 				7B0000000000000000000005 /* Exceptions for "EnglishTranslation" folder in "TranslationExtension" target */,
+				7C0000000000000000000005 /* Exceptions for "EnglishTranslation" folder in "SaynataMac" target */,
 			);
 			path = EnglishTranslation;
 			sourceTree = "<group>";
@@ -175,6 +211,14 @@
 				7B0000000000000000000004 /* Exceptions for "TranslationExtension" folder in "TranslationExtension" target */,
 			);
 			path = TranslationExtension;
+			sourceTree = "<group>";
+		};
+		7C0000000000000000000003 /* SaynataMac */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7C0000000000000000000004 /* Exceptions for "SaynataMac" folder in "SaynataMac" target */,
+			);
+			path = SaynataMac;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -215,6 +259,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7C0000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7C0000000000000000000020 /* KeyboardShortcuts in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -225,11 +277,13 @@
 				7A0000000000000000000003 /* ShareExtension */,
 				7B0000000000000000000003 /* TranslationExtension */,
 				6650689530750671008C6524 /* EnglishTranslationTests */,
+				7C0000000000000000000003 /* SaynataMac */,
 				6650689F30750671008C6524 /* EnglishTranslationUITests */,
 				665068863075066F008C6524 /* Products */,
 				7A0000000000000000000010 /* EnglishTranslation.entitlements */,
 				7A0000000000000000000011 /* ShareExtension.entitlements */,
 				7B0000000000000000000010 /* TranslationExtension.entitlements */,
+				7C0000000000000000000010 /* SaynataMac.entitlements */,
 			);
 			sourceTree = "<group>";
 		};
@@ -239,6 +293,7 @@
 				665068853075066F008C6524 /* EnglishTranslation.app */,
 				7A0000000000000000000002 /* ShareExtension.appex */,
 				7B0000000000000000000002 /* TranslationExtension.appex */,
+				7C0000000000000000000002 /* SaynataMac.app */,
 				6650689230750671008C6524 /* EnglishTranslationTests.xctest */,
 				6650689C30750671008C6524 /* EnglishTranslationUITests.xctest */,
 			);
@@ -366,6 +421,30 @@
 			productReference = 7B0000000000000000000002 /* TranslationExtension.appex */;
 			productType = "com.apple.product-type.extensionkit-extension";
 		};
+		7C0000000000000000000001 /* SaynataMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7C0000000000000000000009 /* Build configuration list for PBXNativeTarget "SaynataMac" */;
+			buildPhases = (
+				7C0000000000000000000006 /* Sources */,
+				7C0000000000000000000007 /* Frameworks */,
+				7C0000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				665068873075066F008C6524 /* EnglishTranslation */,
+				7C0000000000000000000003 /* SaynataMac */,
+			);
+			name = SaynataMac;
+			packageProductDependencies = (
+				7C0000000000000000000022 /* KeyboardShortcuts */,
+			);
+			productName = SaynataMac;
+			productReference = 7C0000000000000000000002 /* SaynataMac.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -393,6 +472,9 @@
 					7B0000000000000000000001 = {
 						CreatedOnToolsVersion = 26.3;
 					};
+					7C0000000000000000000001 = {
+						CreatedOnToolsVersion = 26.3;
+					};
 				};
 			};
 			buildConfigurationList = 665068803075066F008C6524 /* Build configuration list for PBXProject "EnglishTranslation" */;
@@ -404,6 +486,9 @@
 			);
 			mainGroup = 6650687C3075066F008C6524;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7C0000000000000000000021 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 665068863075066F008C6524 /* Products */;
 			projectDirPath = "";
@@ -413,6 +498,7 @@
 				7A0000000000000000000001 /* ShareExtension */,
 				7B0000000000000000000001 /* TranslationExtension */,
 				6650689130750671008C6524 /* EnglishTranslationTests */,
+				7C0000000000000000000001 /* SaynataMac */,
 				6650689B30750671008C6524 /* EnglishTranslationUITests */,
 			);
 		};
@@ -454,6 +540,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7C0000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -486,6 +579,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7B0000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7C0000000000000000000006 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -921,6 +1021,74 @@
 			};
 			name = Release;
 		};
+		7C000000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SaynataMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SVPCB3XQCD;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SaynataMac/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Saynata;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.luke.EnglishTranslation.Mac;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		7C000000000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SaynataMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SVPCB3XQCD;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SaynataMac/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Saynata;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.luke.EnglishTranslation.Mac;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -978,7 +1146,35 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		7C0000000000000000000009 /* Build configuration list for PBXNativeTarget "SaynataMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7C000000000000000000000A /* Debug */,
+				7C000000000000000000000B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7C0000000000000000000021 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7C0000000000000000000022 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7C0000000000000000000021 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6650687D3075066F008C6524 /* Project object */;
 }

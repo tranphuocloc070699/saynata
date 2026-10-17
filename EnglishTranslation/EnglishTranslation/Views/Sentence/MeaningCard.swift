@@ -34,6 +34,9 @@ struct MeaningCard: View {
                     .font(.system(.body, design: .serif))
                     .foregroundStyle(Theme.Colors.textPrimary)
                     .textSelection(.enabled)
+                    // The meaning grows word by word while it streams (TASK-74). Without this, a selectable Text
+                    // could keep the height of its first line and end in "…" (seen on the developer's iPhone).
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
@@ -44,6 +47,7 @@ struct MeaningCard: View {
                         .font(.body)
                         .foregroundStyle(Theme.Colors.textPrimary)
                         .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .onChange(of: isTranslationOpen) { _, isOpen in

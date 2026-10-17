@@ -53,12 +53,22 @@ struct SelectedTextResultView: View {
                 WordHeaderView(entry: entry, isSpeaking: speechPlayer.currentID == headerSpeechID) { buttons }
                 WordCardView(entry: entry, targetLanguage: store.targetLanguage, showsHeader: false)
             } else {
-                textHeader(store.inputText.trimmingCharacters(in: .whitespacesAndNewlines), quoted: route == .sentence)
+                if showsSentenceHeader {
+                    // The sentence result draws its own header (the sentence, Listen, Copy): only Open and Close stay here.
+                    if onOpenApp != nil || onClose != nil {
+                        HStack(spacing: Theme.Spacing.small) {
+                            Spacer()
+                            buttons
+                        }
+                    }
+                } else {
+                    textHeader(store.inputText.trimmingCharacters(in: .whitespacesAndNewlines), quoted: route == .sentence)
+                }
                 TranslateResultView(state: store.state, targetLanguage: store.targetLanguage) { word in
                     Task { await store.lookUp(suggestion: word) }
                 }
-                // The extensions cannot share the app's sign-in (a free Apple ID has no shared Keychain group),
-                // so they are guests. They send the user to the app to sign in (doc-17, known gaps).
+                // The extensions share the app's sign-in through the App Group Keychain, but they have no sign-in
+                // sheet: a signed-out user (or a free-account build, which has no App Group) signs in in the app.
                 if store.textNeedingSignIn != nil {
                     Text("Sign in from the Saynata app to explain new text.")
                         .font(.subheadline)
@@ -120,12 +130,19 @@ struct SelectedTextResultView: View {
 
     private let headerSpeechID = "selected-text"
 
-    /// What the header speaker reads: the word as shown, or the selected sentence.
+    /// What the header speaker reads: the word as shown. A sentence result has its own Listen button.
     private var headerText: String? {
         switch store.state {
         case let .loadedWord(entry): entry.matchedForm?.text ?? entry.word
-        case .loaded: store.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        case .idle, .loading, .meaning, .failed: nil
+        case .idle, .loading, .meaning, .loaded, .failed: nil
+        }
+    }
+
+    /// True when the result below shows the sentence in its own header (`SentenceHeader`), so this sheet must not repeat it.
+    private var showsSentenceHeader: Bool {
+        switch store.state {
+        case .meaning, .loaded: true
+        case .idle, .loading, .loadedWord, .failed: false
         }
     }
 

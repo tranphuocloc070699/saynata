@@ -3,9 +3,9 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-16 09:02'
+updated_date: '2026-10-17 10:26'
 ---
-> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-16 (`prefill collect --all-wordfreq`: every word wordfreq has seen, TASK-83.7; new `prefill collect` and `prefill report` commands: the word and phrase queue for the backend night job, TASK-83.2; new `media-generate` command: AI pictures for `needs_ai` senses with OpenAI, TASK-53; new `media-check` command: Claude looks at every sense picture, TASK-78; `link-media` and `export` skip senses the admin removed media from: TASK-76; topic words, TASK-61; before that Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
+> Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-17 (`export` writes `senses.image_width`/`image_height` from `media`; `prefill collect --all-wordfreq`: every word wordfreq has seen, TASK-83.7; new `prefill collect` and `prefill report` commands: the word and phrase queue for the backend night job, TASK-83.2; new `media-generate` command: AI pictures for `needs_ai` senses with OpenAI, TASK-53; new `media-check` command: Claude looks at every sense picture, TASK-78; `link-media` and `export` skip senses the admin removed media from: TASK-76; topic words, TASK-61; before that Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
 > **Since TASK-49.3 the server Postgres is the source of truth** for the bundled words, senses, forms and media rows. `dictionary.sqlite` is built *from* Postgres by `export`; the generate passes below still fill `data/pipeline.db`.
 > Spec: R1 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). How to run: [pipeline/README.md](../../../pipeline/README.md).
 
@@ -236,17 +236,17 @@ The tables are made by the backend (Flyway [V6__create_dictionary_tables.sql](..
 
 ### 10. Export: [export.py](../../../pipeline/src/pipeline/export.py)
 
-`uv run pipeline export` ([export_from_postgres:117](../../../pipeline/src/pipeline/export.py#L117)) reads Postgres on a **read-only connection** ([connect:34](../../../pipeline/src/pipeline/postgres.py#L34)) and writes three things into `data/out/`:
+`uv run pipeline export` ([export_from_postgres:119](../../../pipeline/src/pipeline/export.py#L119)) reads Postgres on a **read-only connection** ([connect:34](../../../pipeline/src/pipeline/postgres.py#L34)) and writes three things into `data/out/`:
 
 | Part | Line | Note |
 |---|---|---|
-| App schema | [24-49](../../../pipeline/src/pipeline/export.py#L24-L49) | Unchanged: `meta`, `words`, `forms` ("ran" → run, with a `type` column), `senses` (`examples` JSON list of `{level, text}`, `usage` JSON list of `{kind, pattern, example}`, `image_url`). Case-insensitive indexes on lemma and form. [DictionaryStore.swift](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift) reads it as before. |
-| Words | [130](../../../pipeline/src/pipeline/export.py#L130), [149](../../../pipeline/src/pipeline/export.py#L149) | Every `dictionary_word`, ordered by `word_rank`, numbered 1, 2, 3… Senses by `position`. Forms in the order they were imported. |
-| JSON text | [160-161](../../../pipeline/src/pipeline/export.py#L160-L161) | `examples_json` and `usage_json` are parsed and written again, so the text has one format also after an edit in the admin. |
-| `image_url` | [162](../../../pipeline/src/pipeline/export.py#L162) | `media/<file_name>` from the sense's media row, else empty. |
-| Rebuild | [125](../../../pipeline/src/pipeline/export.py#L125) | Deletes and recreates the file each time. `meta.dictionary_version` = UTC timestamp ([181](../../../pipeline/src/pipeline/export.py#L181)). |
-| Media folder | [191-204](../../../pipeline/src/pipeline/export.py#L191-L204) | Copies the files the senses use from `--media-dir` (default `data/media`) into `data/out/media/` (emptied first). Files that are not there are listed as a warning; the sense still points to them. |
-| `export-local` | [52](../../../pipeline/src/pipeline/export.py#L52) | The old export from `data/pipeline.db` (only `done` words; the usage and examples warnings). Use it only for a fresh `generate` run until those words can be imported into Postgres. |
+| App schema | [24-51](../../../pipeline/src/pipeline/export.py#L24-L51) | `meta`, `words`, `forms` ("ran" → run, with a `type` column), `senses` (`examples` JSON list of `{level, text}`, `usage` JSON list of `{kind, pattern, example}`, `image_url`, and `image_width`/`image_height` in pixels, NULL when not known; older app builds ignore the two new columns). Case-insensitive indexes on lemma and form. [DictionaryStore.swift](../../../EnglishTranslation/EnglishTranslation/Dictionary/DictionaryStore.swift) reads it as before. |
+| Words | [132](../../../pipeline/src/pipeline/export.py#L132), [152](../../../pipeline/src/pipeline/export.py#L152) | Every `dictionary_word`, ordered by `word_rank`, numbered 1, 2, 3… Senses by `position`. Forms in the order they were imported. |
+| JSON text | [164-165](../../../pipeline/src/pipeline/export.py#L164-L165) | `examples_json` and `usage_json` are parsed and written again, so the text has one format also after an edit in the admin. |
+| `image_url` | [166](../../../pipeline/src/pipeline/export.py#L166) | `media/<file_name>` from the sense's media row, else empty. |
+| Rebuild | [127](../../../pipeline/src/pipeline/export.py#L127) | Deletes and recreates the file each time. `meta.dictionary_version` = UTC timestamp ([187](../../../pipeline/src/pipeline/export.py#L187)). |
+| Media folder | [197-210](../../../pipeline/src/pipeline/export.py#L197-L210) | Copies the files the senses use from `--media-dir` (default `data/media`) into `data/out/media/` (emptied first). Files that are not there are listed as a warning; the sense still points to them. |
+| `export-local` | [54](../../../pipeline/src/pipeline/export.py#L54) | The old export from `data/pipeline.db` (only `done` words; the usage and examples warnings). Use it only for a fresh `generate` run until those words can be imported into Postgres. |
 
 An edit made in the admin for a bundled word is in the next `export` (tested: edit one definition in the admin, export, only that sense row differs from the bundled file).
 
