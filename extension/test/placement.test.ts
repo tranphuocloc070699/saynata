@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardTop, iconPosition, placeCard } from "../src/content/placement";
+import { anchorRect, cardMaxHeight, cardTop, iconPosition, placeCard } from "../src/content/placement";
 
 const view = { width: 1000, height: 800, scrollX: 0, scrollY: 0 };
 
@@ -19,35 +19,80 @@ describe("iconPosition", () => {
   });
 });
 
-describe("placeCard", () => {
-  it("opens below the selection, at its left edge, and keeps its top while it grows", () => {
-    const placement = placeCard({ left: 120, right: 400, top: 100, bottom: 120 }, 340, view);
-    expect(placement).toMatchObject({ left: 120, side: "below", edge: 128 });
-    expect(cardTop(placement, 200)).toBe(128);
-    expect(cardTop(placement, 420)).toBe(128);
+describe("placeCard: beside the text, centred on it", () => {
+  const card = { width: 340, height: 200 };
+  // A short phrase in the middle-left of a 1000x800 window: centre y = 310.
+  const phrase = { left: 120, right: 400, top: 300, bottom: 320 };
+
+  it("goes to the right of the text, its centre level with the text's centre", () => {
+    const placement = placeCard(phrase, phrase, card, view);
+    expect(placement).toMatchObject({ side: "right", left: 410 });
+    expect(cardTop(placement, 200)).toBe(210);
+    expect(cardTop(placement, 200) + 100).toBe(310);
   });
 
-  it("never leaves the right edge, and adds the page scroll", () => {
-    const placement = placeCard({ left: 900, right: 990, top: 100, bottom: 120 }, 340, { ...view, scrollY: 1000 });
-    expect(placement.left).toBe(1000 - 340 - 8);
-    expect(placement.edge).toBe(1128);
+  it("goes to the left when the right has no room", () => {
+    const right = { left: 600, right: 760, top: 300, bottom: 320 };
+    const placement = placeCard(right, right, card, view);
+    expect(placement).toMatchObject({ side: "left", left: 600 - 10 - 340 });
+    expect(cardTop(placement, 200)).toBe(210);
   });
 
-  it("opens above near the bottom, and keeps its bottom while it grows", () => {
-    const placement = placeCard({ left: 120, right: 400, top: 650, bottom: 670 }, 340, view);
-    expect(placement).toMatchObject({ side: "above", edge: 642 });
-    expect(cardTop(placement, 200)).toBe(442);
-    expect(cardTop(placement, 300)).toBe(342);
+  it("goes below, centred on the text, when neither side has room", () => {
+    const wide = { left: 300, right: 700, top: 300, bottom: 320 };
+    const placement = placeCard(wide, wide, card, view);
+    expect(placement).toMatchObject({ side: "below", left: 500 - 170, anchorY: 328 });
+    expect(cardTop(placement, 200)).toBe(328);
   });
 
-  it("once the top is frozen, a taller card keeps it (a row opens downward)", () => {
-    const placement = placeCard({ left: 120, right: 400, top: 650, bottom: 670 }, 340, view);
-    const top = cardTop(placement, 250);
-    expect(cardTop(placement, 290, top)).toBe(top);
+  it("goes above, centred, when below has less room too", () => {
+    const wide = { left: 300, right: 700, top: 700, bottom: 720 };
+    const placement = placeCard(wide, wide, card, view);
+    expect(placement.side).toBe("above");
+    expect(cardTop(placement, 200)).toBe(700 - 8 - 200);
   });
 
-  it("limits the height to the room on its side and to 70% of the window", () => {
-    expect(placeCard({ left: 0, right: 0, top: 650, bottom: 670 }, 340, view).maxHeight).toBe(560);
-    expect(placeCard({ left: 0, right: 0, top: 300, bottom: 320 }, 340, view).maxHeight).toBe(464);
+  it("clamps to the window with an 8 px margin, and stays beside the text (never over it)", () => {
+    const top = { left: 120, right: 400, top: 10, bottom: 30 };
+    const high = placeCard(top, top, card, view);
+    expect(cardTop(high, 200)).toBe(8);
+    expect(high.left).toBeGreaterThan(top.right);
+    const low = { left: 120, right: 400, top: 770, bottom: 790 };
+    expect(cardTop(placeCard(low, low, card, view), 200)).toBe(800 - 8 - 200);
+  });
+
+  it("uses the last line of a wide multi-line selection, the whole selection when it is narrow", () => {
+    const lines = { left: 100, right: 900, top: 300, bottom: 360 };
+    const last = { left: 100, right: 380, top: 340, bottom: 360 };
+    expect(anchorRect(lines, last, view)).toBe(last);
+    const placement = placeCard(lines, last, card, view);
+    expect(placement).toMatchObject({ side: "right", left: 390 });
+    expect(cardTop(placement, 200)).toBe(250);
+    const narrow = { left: 100, right: 400, top: 300, bottom: 360 };
+    expect(anchorRect(narrow, last, view)).toBe(narrow);
+  });
+
+  it("below a multi-line selection, it starts under the whole selection, not under its last line", () => {
+    const lines = { left: 100, right: 900, top: 300, bottom: 360 };
+    const last = { left: 100, right: 900, top: 340, bottom: 360 };
+    expect(placeCard(lines, last, card, view)).toMatchObject({ side: "below", anchorY: 368 });
+  });
+
+  it("adds the page scroll", () => {
+    const placement = placeCard(phrase, phrase, card, { ...view, scrollX: 5, scrollY: 1000 });
+    expect(placement.left).toBe(415);
+    expect(cardTop(placement, 200)).toBe(1210);
+  });
+
+  it("once frozen, a taller card keeps its top and scrolls inside at the window's bottom", () => {
+    const placement = placeCard(phrase, phrase, card, view);
+    const top = cardTop(placement, 200);
+    expect(cardTop(placement, 380, top)).toBe(top);
+    expect(cardMaxHeight(placement, 500)).toBe(800 - 8 - 500);
+  });
+
+  it("caps the height at 560 px", () => {
+    const placement = placeCard(phrase, phrase, card, view);
+    expect(cardMaxHeight(placement, 8)).toBe(560);
   });
 });

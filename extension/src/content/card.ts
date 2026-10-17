@@ -269,15 +269,35 @@ function chipText(sense: Sense): string {
   return [shortPos(sense.pos), sense.cefr].filter(Boolean).join(" · ");
 }
 
+/**
+ * A row that opens and closes, like the app's FoldedRow. The body is always in the DOM and the button toggles
+ * the `open` class in place (no re-render), so CSS can animate the real height (styles.ts, "Folded rows").
+ */
 function fold(title: string, lines: string[], open: boolean, actions: CardActions): HTMLElement {
-  const button = h("button", { type: "button", class: "fold-button", "aria-expanded": String(open) }, title, svgNode(ICONS.chevronDown));
+  const id = `saynata-fold-${++foldCount}`;
+  const button = h(
+    "button",
+    { type: "button", class: "fold-button", "aria-expanded": String(open), "aria-controls": id },
+    title,
+    svgNode(ICONS.chevronDown),
+  );
+  const inner = h("div", { class: "fold-inner" }, h("div", { class: "fold-text" }, ...lines.map((line) => h("p", {}, line))));
+  const body = h("div", { class: "fold-body", id, role: "region" }, inner);
+  const row = h("div", { class: open ? "fold open" : "fold" }, button, body);
+  // Closed content cannot be reached with Tab or read aloud.
+  inner.inert = !open;
   button.addEventListener("click", (event) => {
     event.stopPropagation();
-    actions.toggleRow(!open);
+    const next = !row.classList.contains("open");
+    row.classList.toggle("open", next);
+    button.setAttribute("aria-expanded", String(next));
+    inner.inert = !next;
+    actions.toggleRow(next);
   });
-  const body = open ? h("div", { class: "fold-body" }, ...lines.map((line) => h("p", {}, line))) : null;
-  return h("div", { class: "fold" }, button, body);
+  return row;
 }
+
+let foldCount = 0;
 
 function errorBlock(error: { kind: ErrorKind; message: string }, actions: CardActions): HTMLElement {
   if (error.kind === "signInRequired") {

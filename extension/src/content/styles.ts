@@ -75,10 +75,23 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .fold { border-top: 1px solid var(--hairline); }
 .fold-button { width: 100%; display: flex; align-items: center; justify-content: space-between; border: 0;
   background: none; padding: 10px 14px; font-size: 13px; font-weight: 600; color: var(--text2); text-align: left; }
-.fold-button svg { transition: transform .15s; }
-.fold-button[aria-expanded="true"] svg { transform: rotate(180deg); }
-.fold-body { padding: 0 14px 12px; color: var(--text); overflow-wrap: anywhere; }
-.fold-body p { margin: 0 0 4px; }
+/* Folded rows: the real height animates through a grid track (0fr to 1fr), with no measuring. iOS-like curve,
+   about 220 ms to open and 180 ms to close; the text fades in a little behind the height. The card's top is
+   fixed (placement.ts), so only its bottom moves. */
+.fold { --fold-ease: cubic-bezier(0.32, 0.72, 0, 1); }
+.fold-button svg { transition: transform 180ms var(--fold-ease); }
+.fold.open .fold-button svg { transform: rotate(180deg); transition-duration: 220ms; }
+.fold-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 180ms var(--fold-ease); }
+.fold.open .fold-body { grid-template-rows: 1fr; transition-duration: 220ms; }
+.fold-inner { min-height: 0; overflow: hidden; opacity: 0; transform: translateY(-4px);
+  transition: opacity 120ms var(--fold-ease), transform 180ms var(--fold-ease); }
+.fold.open .fold-inner { opacity: 1; transform: none;
+  transition: opacity 180ms var(--fold-ease) 60ms, transform 220ms var(--fold-ease); }
+.fold-text { padding: 0 14px 12px; color: var(--text); overflow-wrap: anywhere; }
+.fold-text p { margin: 0 0 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .fold-button svg, .fold-body, .fold-inner { transition: none !important; }
+}
 
 .skeleton { height: 12px; border-radius: 6px; background: #E3E9E4; margin: 8px 0; animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .5; } }
