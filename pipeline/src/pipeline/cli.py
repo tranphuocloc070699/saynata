@@ -36,9 +36,17 @@
     uv run pipeline prefill collect --source words --all-wordfreq --dry-run  # TASK-83.7: every word wordfreq has seen
     uv run pipeline prefill collect --source phrases  # queue phrasal verbs and idioms (no LLM)
     uv run pipeline prefill report       # queue counts by kind/status/source and the cost of the pending items
+    uv run pipeline collection collect   # TASK-83.9: words, phrasal verbs, idioms, collocations into pipeline.db (no LLM)
+    uv run pipeline collection report    # counts per kind, source and status, and the time to write the rest
+    uv run pipeline collection write --per-kind 20   # the trial: Codex writes 20 of each kind (ChatGPT plan, no API cost)
+    uv run pipeline collection write --limit 500     # the next 500 rows, most frequent first; safe to stop and run again
+    uv run pipeline collection compare --claude      # data/out/collection-compare.html: Codex next to Claude (about $0.30)
+    uv run pipeline collection push                  # dry run: what would go into the server cache word_lookup
+    uv run pipeline collection push --yes            # write it (only after the developer's go-ahead)
 """
 
 import argparse
+from collections import Counter
 import json
 import os
 import sqlite3
@@ -397,6 +405,213 @@ def prefill_command(args) -> None:
         pg.close()
 
 
+def collection_command(args) -> None:
+    """Local collection written by Codex (TASK-83.9). See collection.py."""
+    from pipeline import collection
+
+    db = collection.connect(store.DB_PATH)
+    if args.collection_command == "report":
+        print("\n".join(collection.report_lines(db)))
+    elif args.collection_command == "collect":
+        _collect(db, args)
+    elif args.collection_command == "write":
+        _write(db, args)
+    elif args.collection_command == "compare":
+        _compare(db, args)
+    elif args.collection_command == "push":
+        _push(db, args)
+    elif args.collection_command == "batch":
+        _batch(db, args)
+    elif args.collection_command == "revalidate":
+        print(", ".join(f"{k}: {n}" for k, n in collection.revalidate(db).most_common()) or "Nothing to check.")
+    db.close()
+
+
+def _collect(db, args) -> None:
+    from wordfreq import zipf_frequency
+
+    from pipeline import collection, prefill
+
+    def zipf(text: str) -> float:
+        return zipf_frequency(text, "en")
+
+    pipeline_db = sqlite3.connect(store.DB_PATH)
+    accepted = prefill.read_word_list("scowl-70.txt") | prefill.read_word_list("ngsl.txt")
+    excluded = prefill.bundled_from_files() | collection.all_pipeline_lemmas(pipeline_db)
+    sources_wanted = args.sources or ["words", "pipeline-words", "phrases", "bundled-usage"]
+    wordnet = prefill.load_wordnet() if {"words", "phrases"} & set(sources_wanted) else None
+    if "words" in sources_wanted:
+        found = prefill.collect_words(accepted, excluded, args.word_zipf, zipf, above_zero=args.all_wordfreq)
+        names = collection.name_only_words((w.lemma(), w.pos) for w in wordnet.words() if " " not in w.lemma())
+        items = collection.word_items(found, names)
+        added = collection.insert_items(db, items)
+        skipped = sum(1 for i in items if i.status == "skipped")
+        print(f"words (SCOWL-70, not bundled): {len(found)} found ({skipped} names or blocked, kept as skipped), "
+              f"{added['word']} new")
+    if "pipeline-words" in sources_wanted:
+        found = collection.pipeline_word_items(pipeline_db, accepted, zipf)
+        added = collection.insert_items(db, found)
+        skipped = sum(1 for i in found if i.status == "skipped")
+        print(f"topic and needs_review words: {len(found)} found ({skipped} not on the backend word list, "
+              f"kept as skipped), {added['word']} new")
+    if "phrases" in sources_wanted:
+        found = collection.wordnet_items(prefill.wordnet_lemmas(wordnet), args.phrase_zipf, zipf)
+        added = collection.insert_items(db, found)
+        print(f"WordNet phrases (Zipf >= {args.phrase_zipf}): {len(found)} found, "
+              f"{added['phrasal_verb']} phrasal verbs and {added['idiom']} idioms new")
+    if "bundled-usage" in sources_wanted:
+        entries = [row[0] for row in pipeline_db.execute(
+            "SELECT entry FROM words WHERE status = 'done' AND entry IS NOT NULL")]
+        found = collection.bundled_usage_items(entries, zipf)
+        added = collection.insert_items(db, found)
+        print(f"bundled usage items: {len(found)} found, {added['collocation']} collocations and "
+              f"{added['idiom']} idioms new")
+    pipeline_db.close()
+    print()
+    print("\n".join(collection.report_lines(db)))
+
+
+def _write(db, args) -> None:
+    from pipeline import collection
+
+    rows = collection.rows_to_write(db, args.kind, args.texts, args.limit, args.per_kind, args.redo)
+    if not rows:
+        print("Nothing to write.")
+        return
+    model = args.model or collection.default_codex_model()
+    hours = collection.estimate_hours(len(rows), args.batch, args.workers)
+    print(f"Writing {len(rows)} rows with codex ({model or 'its default model'}, effort {args.effort}), "
+          f"{args.batch} per call, {args.workers} calls at once: about {hours * 60:.0f} minutes.")
+    if args.dry_run:
+        word_prompt = collection.backend_word_prompt()
+        first = collection.batches(rows, args.batch)[0]
+        print("\nThe first Codex message:\n")
+        print(collection.build_prompt([(row["kind"], row["text"]) for row in first], word_prompt))
+        print("\nDry run: nothing was called or saved.")
+        return
+    writer = collection.CodexWriter(model, args.effort)
+    done = [0]
+
+    def progress(result) -> None:
+        done[0] += 1
+        problem = f"  ({result.problems[0][:90]})" if result.problems and result.status != "done" else ""
+        print(f"[{done[0]}/{len(rows)}] {result.status:<12} {result.text}{problem}", flush=True)
+
+    summary = collection.write_rows(db, rows, writer, batch_size=args.batch, workers=args.workers,
+                                    progress=progress)
+    print(f"\nDone in {summary.seconds / 60:.1f} minutes, {summary.calls} Codex calls: "
+          + ", ".join(f"{status} {count}" for status, count in summary.counts.most_common()))
+    if summary.stopped:
+        print(f"Stopped early: {summary.stopped}")
+        print("Run the same command again later; it goes on where it stopped.")
+
+
+def _compare(db, args) -> None:
+    from pipeline import collection
+
+    copied = collection.claude_from_pipeline(db, sqlite3.connect(store.DB_PATH))
+    print(f"Claude entries copied from the NGSL pipeline: {copied}")
+    version = collection.backend_word_prompt_version()
+    if args.from_server:
+        pg = postgres.connect(postgres.database_url(args.database_url), read_only=True)
+        print(f"Claude entries copied from the server cache: {collection.claude_from_server(db, pg, version)}")
+        pg.close()
+    rows = collection.compare_rows(db, args.per_kind, args.texts)
+    if args.claude:
+        answered, spent = collection.claude_from_api(db, rows, args.max_cost)
+        print(f"New Claude answers: {answered}, about ${spent:.3f}")
+        rows = collection.compare_rows(db, args.per_kind, args.texts)
+    else:
+        missing = sum(1 for row in rows if not row["claude_entry"])
+        if missing:
+            print(f"{missing} items have no Claude entry. --claude asks Claude Haiku 5.5 for them "
+                  f"(about ${missing * collection.CLAUDE_COST_PER_ITEM:.3f}).")
+    path = Path(args.out)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(collection.compare_page(rows), encoding="utf-8")
+    print(f"Wrote {len(rows)} items to {path}")
+
+
+def _batch(db, args) -> None:
+    """Claude Haiku 5.5 through the Message Batches API (half price). See collection_batch.py."""
+    import time
+
+    import anthropic
+
+    from pipeline import collection_batch as cb
+
+    cb.prepare(db)
+    if args.batch_command == "status":
+        print("\n".join(cb.status_lines(db)))
+        return
+    if args.batch_command == "submit":
+        rows = cb.rows_to_submit(db, args.kind, args.limit, args.per_kind)
+        if not rows:
+            print("Nothing to send.")
+            return
+        cost = cb.estimate_usd(len(rows))
+        kinds = Counter(row["kind"] for row in rows)
+        retries = sum(1 for row in rows if row["status"] == "retry")
+        print(f"{len(rows)} rows ({', '.join(f'{k} {n}' for k, n in kinds.most_common())}; {retries} retries) "
+              f"in {-(-len(rows) // cb.CHUNK)} batches to {cb.MODEL}: about ${cost:.2f} at the batch price.")
+        if cost > args.max_cost:
+            raise SystemExit(f"That is over --max-cost ${args.max_cost:.2f}. Use --limit, or raise --max-cost.")
+        if args.dry_run:
+            print(json.dumps(cb.request_for(rows[0], collection_word_prompt()), ensure_ascii=False)[:1500])
+            print("Dry run: nothing was sent.")
+            return
+        ids = cb.submit(db, rows, anthropic.Anthropic())
+        print("Sent: " + ", ".join(ids))
+        print("Most batches end within an hour. Then: uv run pipeline collection batch collect")
+        return
+    client = anthropic.Anthropic()
+    while True:
+        summary = cb.collect(db, client, progress=print if args.verbose else None)
+        if summary.batches:
+            print(f"Collected {summary.batches} batches, ${summary.cost:.2f}: "
+                  + ", ".join(f"{s} {n}" for s, n in summary.counts.most_common()))
+        if not summary.waiting or not args.wait:
+            break
+        print(f"{summary.waiting} batches still running, checking again in 2 minutes...", flush=True)
+        time.sleep(120)
+    if summary.waiting:
+        print(f"{summary.waiting} batches still running. Run collect again later (or with --wait).")
+    retry = db.execute("SELECT count(*) FROM collection WHERE status = 'retry' AND batch_id IS NULL").fetchone()[0]
+    if retry:
+        print(f"{retry} rows failed the checks once. Send their retry: uv run pipeline collection batch submit")
+
+
+def collection_word_prompt() -> str:
+    from pipeline import collection
+
+    return collection.backend_word_prompt()
+
+
+def _push(db, args) -> None:
+    from pipeline import collection
+
+    kinds = args.kind or ["word"]
+    if any(kind != "word" for kind in kinds):
+        print("Note: the backend does not answer phrases from word_lookup yet (it checks the word list first, "
+              "and the app sends phrases to the sentence path). See doc-18, Local collection.")
+    rows = collection.push_rows(db, kinds, args.include_review, args.limit)
+    if not rows:
+        print("Nothing to push.")
+        return
+    version = collection.backend_word_prompt_version()
+    pg = postgres.connect(postgres.database_url(args.database_url), read_only=not args.yes)
+    plan = collection.plan_push(pg, rows, version)
+    print(f"{len(rows)} rows: {len(plan.to_insert)} to add to word_lookup (prompt {version}), "
+          f"{len(plan.exists)} already there (left as they are), {len(plan.bundled)} bundled on the server (skipped).")
+    for row in plan.to_insert[:10]:
+        print(f"  + {row['text']} ({row['status']})")
+    if not args.yes:
+        print("Dry run: nothing was written. Add --yes to write.")
+    else:
+        print(f"Added {collection.push(db, pg, plan, version)} rows to word_lookup.")
+    pg.close()
+
+
 def report() -> None:
     db = store.connect()
     for row in db.execute("SELECT status, COUNT(*) AS n, SUM(attempts) AS calls FROM words GROUP BY status"):
@@ -517,6 +732,56 @@ def main() -> None:
     collect_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     prefill_report_parser = prefill_commands.add_parser("report", help="queue counts and the cost of the pending items")
     prefill_report_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    collection_parser = commands.add_parser("collection", help="local entries written by Codex (TASK-83.9)")
+    collection_commands = collection_parser.add_subparsers(dest="collection_command", required=True)
+    c_collect = collection_commands.add_parser("collect", help="fill the collection table (no LLM)")
+    c_collect.add_argument("--sources", nargs="+", choices=["words", "pipeline-words", "phrases", "bundled-usage"],
+                           help="default: all four")
+    c_collect.add_argument("--word-zipf", type=float, default=3.5, help="minimum wordfreq Zipf for words (default 3.5)")
+    c_collect.add_argument("--all-wordfreq", action="store_true", help="every word wordfreq has seen (ignores --word-zipf)")
+    c_collect.add_argument("--phrase-zipf", type=float, default=3.0,
+                           help="minimum Zipf for WordNet phrases (default 3.0)")
+    collection_commands.add_parser("report", help="counts per kind, source and status")
+    collection_commands.add_parser("revalidate", help="check retry and needs_review entries again (no LLM)")
+    c_write = collection_commands.add_parser("write", help="Codex writes the pending rows")
+    c_write.add_argument("--kind", nargs="+", choices=["word", "phrasal_verb", "idiom", "collocation"])
+    c_write.add_argument("--texts", nargs="+", help="only these rows, for example --texts abide 'give up'")
+    c_write.add_argument("--redo", action="store_true", help="with --texts: write them again even when done")
+    c_write.add_argument("--limit", type=int, help="at most N rows")
+    c_write.add_argument("--per-kind", type=int, help="the N most frequent rows of each kind (the trial: 20)")
+    c_write.add_argument("--batch", type=int, default=5, help="items per Codex call (default 5)")
+    c_write.add_argument("--workers", type=int, default=4, help="Codex calls at once (default 4)")
+    c_write.add_argument("--model", help="Codex model (default: model in ~/.codex/config.toml)")
+    c_write.add_argument("--effort", default="low", choices=["minimal", "low", "medium", "high"])
+    c_write.add_argument("--dry-run", action="store_true", help="print the first Codex message, call nothing")
+    c_compare = collection_commands.add_parser("compare", help="HTML page: Codex next to Claude")
+    c_compare.add_argument("--per-kind", type=int, default=20)
+    c_compare.add_argument("--texts", nargs="+", help="only these rows")
+    c_compare.add_argument("--from-server", action="store_true", help="also read Claude answers from word_lookup")
+    c_compare.add_argument("--claude", action="store_true", help="ask Claude Haiku 5.5 for the missing ones (paid)")
+    c_compare.add_argument("--max-cost", type=float, default=0.25, help="cap for --claude in US dollars (default 0.25)")
+    c_compare.add_argument("--out", default="data/out/collection-compare.html")
+    c_compare.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    c_push = collection_commands.add_parser("push", help="done rows into the server cache word_lookup")
+    c_push.add_argument("--kind", nargs="+", choices=["word", "phrasal_verb", "idiom", "collocation"],
+                        help="default: word")
+    c_push.add_argument("--include-review", action="store_true", help="also needs_review rows (saved with needs_review)")
+    c_push.add_argument("--limit", type=int)
+    c_push.add_argument("--yes", action="store_true", help="write; without it this is a dry run")
+    c_push.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    c_batch = collection_commands.add_parser("batch", help="Claude Haiku 5.5 through the Batch API (paid, half price)")
+    batch_commands = c_batch.add_subparsers(dest="batch_command", required=True)
+    b_submit = batch_commands.add_parser("submit", help="send pending, failed and retry rows")
+    b_submit.add_argument("--kind", nargs="+", choices=["word", "phrasal_verb", "idiom", "collocation"])
+    b_submit.add_argument("--limit", type=int)
+    b_submit.add_argument("--per-kind", type=int)
+    b_submit.add_argument("--max-cost", type=float, default=5.0,
+                          help="refuse to send when the estimate is over this many US dollars (default 5)")
+    b_submit.add_argument("--dry-run", action="store_true", help="print the count, the cost and one request")
+    b_collect = batch_commands.add_parser("collect", help="read the ended batches and save the entries")
+    b_collect.add_argument("--wait", action="store_true", help="check every 2 minutes until every batch ended")
+    b_collect.add_argument("--verbose", action="store_true", help="print every row")
+    batch_commands.add_parser("status", help="the batches, their counts and cost")
     args = parser.parse_args()
     if args.command == "prefill" and args.prefill_command == "collect" and args.all_wordfreq \
             and args.source != "words":
@@ -558,6 +823,8 @@ def main() -> None:
         topic_words(args)
     elif args.command == "prefill":
         prefill_command(args)
+    elif args.command == "collection":
+        collection_command(args)
     elif args.command == "export-local":
         path, count, without_usage, without_levels = export.export_from_pipeline_db(store.connect())
         print(f"Exported {count} words to {path}")
