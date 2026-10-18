@@ -6,7 +6,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.springframework.core.io.ClassPathResource;
@@ -46,9 +48,22 @@ public class IpaDictionary {
         }
     }
 
-    /** The IPA with slashes, for example "/ˈɡɹeɪvˌjɑɹd/", or null when the word is not on the list. */
+    /** The IPA with slashes, for example "/ˈɡɹeɪvˌjɑɹd/", or null when the word (or a word of a phrase) is not on the list. */
     public String ipaFor(String word) {
-        return ipaByWord.get(word.toLowerCase(Locale.ROOT));
+        String lower = word.toLowerCase(Locale.ROOT);
+        if (!lower.contains(" ")) {
+            return ipaByWord.get(lower);
+        }
+        // A phrase gets its words' IPA in one pair of slashes ("give up" -> "/ɡɪv ʌp/"), only when every word has one.
+        List<String> parts = new ArrayList<>();
+        for (String part : lower.split(" ")) {
+            String ipa = ipaByWord.get(part);
+            if (ipa == null) {
+                return null;
+            }
+            parts.add(ipa.replace("/", ""));
+        }
+        return "/" + String.join(" ", parts) + "/";
     }
 
     public int size() {

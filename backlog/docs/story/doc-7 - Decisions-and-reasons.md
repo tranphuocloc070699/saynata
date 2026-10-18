@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-17 16:47'
+updated_date: '2026-10-18 02:05'
 ---
 # Decisions and reasons
 
@@ -51,6 +51,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-11 | No dark mode for now | "I'll make a mini game later, and dark mode won't work well with a game UI." | — | Developer |
 | 10-14 | F3 speakers: word speaker stays in the header; a small speaker on each sense title row; a small speaker at the end of each example line (option A) | Easy to find, and VoiceOver reads it as a button. | B: tap the example text itself (cleaner, but hard to find and clashes with text selection) | Developer chose A from the mockup; Claude recommended |
 | 10-14 | Examples rows: level label and a **plain** speaker icon (no circle, no border) on line 1, the sentence on line 2; speaker at the right edge (mockup option A) | The developer's phone test: "it's too narrow". The label, the sentence and a round speaker shared one line, so the sentence wrapped every 2-3 words. A keeps all speakers in one column. | B: speaker right after the label; keep one line (TASK-48) | Developer (layout idea), chose A from Claude's mockup |
+| 10-18 | A phrase ("give up") gets **the same word card as a word, no new parts (mockup A)**, and on **every** word card the **IPA moves onto the headword line** (it goes under it only when the line is too long) | Reason not recorded (the developer picked "A, move the IPA to the same line", then "Every word card") | B: a "Phrasal verb" chip and an "Explain as a sentence" row; A without IPA for phrases; IPA on the same line only for phrases | Claude (A), developer (IPA line) |
 
 ## Stack
 
@@ -183,3 +184,4 @@ go here as questions.
 - 10-16: Why no pictures for prefilled words (cost, disk, quality of pictures for rare words)? Reason not recorded.
 - 10-17: Why layout B (up to 3 meanings or words) over A (one meaning) for the Explain copied text card? Reason not recorded.
 - 10-17: Why mockup option B (one card, dotted words, popup on selection) over A and C? Reason not recorded.
+- 10-18: Why the IPA on the headword line for every word card? Reason not recorded.

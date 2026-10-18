@@ -278,6 +278,28 @@ struct BackendClient: Translating, WordFetching {
         return response.wordEntry
     }
 
+    /// Like `entry(forWord:)` for a phrase, but asks with `cachedOnly=true` (TASK-83.10): the server answers only from
+    /// its cache and never calls Claude, so a guest can ask too. 404 `not_cached` gives nil and nothing is saved.
+    func cachedEntry(forPhrase phrase: String) async throws -> WordEntry? {
+        let key = CacheKeys.wordKey(phrase)
+        if let saved = await cache?.data(forKey: key),
+           let response = try? JSONDecoder().decode(WordResponse.self, from: saved) {
+            return response.wordEntry
+        }
+
+        let url = baseURL.appending(path: "api/words").appending(component: CacheKeys.normalizeWord(phrase))
+            .appending(queryItems: [URLQueryItem(name: "cachedOnly", value: "true")])
+        let data: Data
+        do {
+            data = try await sendChecked(URLRequest(url: url))
+        } catch BackendError.badStatus(404, _) {
+            return nil
+        }
+        let response = try JSONDecoder().decode(WordResponse.self, from: data)
+        await cache?.save(data, forKey: key, kind: .word)
+        return response.wordEntry
+    }
+
     /// Sends the request with the token (when there is one). Returns the body of a 200 reply;
     /// any other status throws a `BackendError`. A 401 with a token refreshes it once and tries again.
     private func sendChecked(_ request: URLRequest) async throws -> Data {

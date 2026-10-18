@@ -144,6 +144,25 @@ struct CacheKeysTests {
         #expect(text.contains("app.claude.sentence-prompt-version=\(PromptVersions.sentence)"))
         #expect(text.contains("app.claude.word-prompt-version=\(PromptVersions.word)"))
     }
+
+    // MARK: - Phrases (TASK-83.10)
+
+    @Test func phraseQueryTakesTwoToSixWordsWithoutEdgeMarks() {
+        #expect(CacheKeys.phraseQuery("give up") == "give up")
+        #expect(CacheKeys.phraseQuery("  Give   up!\n") == "Give up")
+        #expect(CacheKeys.phraseQuery("\u{201C}a piece of cake\u{201D}") == "a piece of cake")
+        #expect(CacheKeys.phraseQuery("well-known for") == "well-known for")
+        #expect(CacheKeys.phraseQuery("don\u{2019}t give up") == "don't give up")
+        #expect(CacheKeys.phraseQuery("one two three four five six") == "one two three four five six")
+    }
+
+    @Test func phraseQueryRejectsOneWordTooManyWordsAndInnerMarks() {
+        #expect(CacheKeys.phraseQuery("apple") == nil)
+        #expect(CacheKeys.phraseQuery("one two three four five six seven") == nil)
+        #expect(CacheKeys.phraseQuery("Hi, how are you") == nil)
+        #expect(CacheKeys.phraseQuery("I have 2 cats") == nil)
+        #expect(CacheKeys.phraseQuery("?!") == nil)
+    }
 }
 
 struct ResultCacheTests {

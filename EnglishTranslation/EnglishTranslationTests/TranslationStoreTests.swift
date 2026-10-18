@@ -49,6 +49,15 @@ private final class FakeWordLookup: WordLooking, @unchecked Sendable {
         lastWord = word
         return try result.get()
     }
+
+    /// Phrases "in the cache", and the phrase it was asked about.
+    var phrases: [String: WordEntry] = [:]
+    var phraseAskedFor: String?
+
+    func phraseEntry(for phrase: String) async -> WordEntry? {
+        phraseAskedFor = phrase
+        return phrases[phrase]
+    }
 }
 
 @MainActor
@@ -126,6 +135,42 @@ struct TranslationStoreTests {
             return
         }
         #expect(result.explanation.meaning == "The fog hid the hills.")
+    }
+
+    // MARK: - Phrases (TASK-83.10)
+
+    @Test func aCachedPhraseShowsItsWordCardWithoutTheSentencePath() async {
+        let giveUp = WordEntry(word: "give up", ipa: nil, senses: [
+            Sense(pos: "phrasal verb", cefr: "A2", simpleDefinition: "to stop trying", vietnamese: "bỏ cuộc", examples: [])])
+        let lookup = FakeWordLookup(.failure(WordLookupError.notOneWord))
+        lookup.phrases = ["Give up": giveUp]
+        let store = TranslationStore(
+            makeTranslator: { FakeTranslator(result: .failure(BackendError.streamEnded)) },
+            makeWordLookup: { lookup })
+        store.inputText = "Give up!"
+        await store.translate()
+
+        #expect(lookup.phraseAskedFor == "Give up")
+        guard case let .loadedWord(entry) = store.state else {
+            Issue.record("Expected .loadedWord, got \(store.state)")
+            return
+        }
+        #expect(entry == giveUp)
+    }
+
+    @Test func aPhraseTheCacheDoesNotKnowIsExplainedAsASentence() async {
+        let lookup = FakeWordLookup(.failure(WordLookupError.notOneWord))
+        let store = TranslationStore(
+            makeTranslator: { FakeTranslator(result: .success(sample("x"))) },
+            makeWordLookup: { lookup })
+        store.inputText = "How are you"
+        await store.translate()
+
+        #expect(lookup.phraseAskedFor == "How are you")
+        guard case .loaded = store.state else {
+            Issue.record("Expected .loaded, got \(store.state)")
+            return
+        }
     }
 
     @Test func sentenceStillLoadsWhenThereIsNoWordLookup() async {
