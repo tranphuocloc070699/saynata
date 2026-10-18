@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-/// The title of a sense card: a number in a circle, the simple explanation, and the level chip.
+/// The title of a sense card: a number in a circle, the simple explanation with the level chip below it.
 /// Used by the full card and the compact card.
 struct SenseTitleRow: View {
     let number: Int
@@ -28,15 +28,17 @@ struct SenseTitleRow: View {
                 .background(Theme.Colors.chipFill, in: Circle())
                 .accessibilityLabel("Meaning \(number)")
 
-            Text(sense.simpleDefinition)
-                .font(.system(.body, design: .serif))
-                .foregroundStyle(Theme.Colors.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.enabled)
-                .speechHighlight(isPlaying: isPlaying)
+            VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                Text(sense.simpleDefinition)
+                    .font(.system(.body, design: .serif))
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                    .textSelection(.enabled)
+                    .speechHighlight(isPlaying: isPlaying)
 
-            LevelChip(text: sense.chipText)
-                .fixedSize()
+                LevelChip(text: sense.chipText)
+                    .fixedSize()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if let speechID {
                 IconButton(
