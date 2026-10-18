@@ -24,6 +24,27 @@ private struct RefreshBody: Encodable {
     let refreshToken: String
 }
 
+private struct EmailLinkBody: Encodable {
+    let email: String
+    let codeChallenge: String
+}
+
+private struct EmailLinkVerifyBody: Encodable {
+    let token: String
+    let codeVerifier: String
+}
+
+private struct IdTokenBody: Encodable {
+    let idToken: String
+    let nonce: String
+}
+
+/// The outside accounts the backend accepts (`POST /api/auth/google`, `POST /api/auth/apple`).
+enum SocialProvider: String, Sendable {
+    case google
+    case apple
+}
+
 /// The plain calls to `/api/auth/*` and `/api/me`. It keeps no state: `AccountStore` decides what to save.
 struct AuthClient: Sendable {
     /// The API root. Nil when `BackendBaseURL` is missing: every call then throws `AppConfig.ConfigError`.
@@ -39,6 +60,27 @@ struct AuthClient: Sendable {
     /// `POST /api/auth/verify`. A right code gives the tokens and the user.
     func verify(email: String, code: String) async throws -> AuthTokenResponse {
         let data = try await send("api/auth/verify", method: "POST", body: VerifyBody(email: email, code: code))
+        return try JSONDecoder().decode(AuthTokenResponse.self, from: data)
+    }
+
+    /// `POST /api/auth/email-link`. The backend emails a sign-in link. `codeChallenge` is the SHA-256 (hex) of the
+    /// secret this app keeps; only the app that has the secret can use the link. Answers 204 for any email.
+    func requestLink(email: String, codeChallenge: String) async throws {
+        _ = try await send("api/auth/email-link", method: "POST",
+                           body: EmailLinkBody(email: email, codeChallenge: codeChallenge))
+    }
+
+    /// `POST /api/auth/email-link/verify`. The token from the link and the kept secret give the tokens and the user.
+    func verifyLink(token: String, codeVerifier: String) async throws -> AuthTokenResponse {
+        let data = try await send("api/auth/email-link/verify", method: "POST",
+                                  body: EmailLinkVerifyBody(token: token, codeVerifier: codeVerifier))
+        return try JSONDecoder().decode(AuthTokenResponse.self, from: data)
+    }
+
+    /// `POST /api/auth/google` or `/apple`. `nonce` is the raw nonce; the ID token holds its SHA-256.
+    func signIn(with provider: SocialProvider, idToken: String, nonce: String) async throws -> AuthTokenResponse {
+        let data = try await send("api/auth/\(provider.rawValue)", method: "POST",
+                                  body: IdTokenBody(idToken: idToken, nonce: nonce))
         return try JSONDecoder().decode(AuthTokenResponse.self, from: data)
     }
 
@@ -96,10 +138,14 @@ struct AuthClient: Sendable {
         case (400, "invalid_email"): return .invalidEmail(problem?.detail)
         case (401, "invalid_code"): return .invalidCode
         case (401, "invalid_refresh_token"): return .invalidRefreshToken
+        case (401, "invalid_link"): return .invalidLink
+        case (401, "invalid_id_token"): return .invalidIdToken(problem?.detail)
+        case (503, "provider_not_configured"): return .providerNotConfigured
         case (403, "admin_account"): return .adminAccount(problem?.detail)
         default: break
         }
         // A 401 without a code: the path tells what was refused.
+        if status == 401, path.hasSuffix("email-link/verify") { return .invalidLink }
         if status == 401, path.hasSuffix("verify") { return .invalidCode }
         if status == 401, path.hasSuffix("refresh") { return .invalidRefreshToken }
         return .badStatus(status, detail: problem?.detail)

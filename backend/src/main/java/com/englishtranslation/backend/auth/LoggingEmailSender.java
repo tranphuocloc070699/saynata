@@ -17,4 +17,10 @@ public class LoggingEmailSender implements EmailSender {
         log.info("[fake email] To: {} | {} | code: {} (valid {} minutes)", toEmail, EmailSender.subject(), code,
                 validMinutes);
     }
+
+    @Override
+    public void sendSignInLink(String toEmail, String link, int validMinutes) {
+        log.info("[fake email] To: {} | {} | link: {} (valid {} minutes)", toEmail, EmailSender.linkSubject(), link,
+                validMinutes);
+    }
 }

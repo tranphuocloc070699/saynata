@@ -7,7 +7,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties({ AuthProperties.class, EmailProperties.class })
+@EnableConfigurationProperties({ AuthProperties.class, EmailProperties.class, SocialAuthProperties.class,
+        SignInLinkProperties.class })
 public class AuthConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AuthConfig.class);

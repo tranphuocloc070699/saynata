@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-18 04:03'
+updated_date: '2026-10-18 07:54'
 ---
 # Deploy to a VPS
 
@@ -70,6 +70,11 @@ nano .env
 | `SES_FROM_EMAIL` | Optional, for later. The older name of `EMAIL_FROM`, used for AWS SES when `RESEND_API_KEY` is empty (section 11). |
 | `AWS_REGION` | Only for SES. The AWS region where you set up SES, for example `ap-southeast-1`. Must be the same region as the SES identity. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The access key of the IAM user that may only send email (section 11). Read by the AWS SDK itself. |
+| `GOOGLE_CLIENT_IDS` | Optional. The iOS OAuth client ID from Google Cloud (section 13), comma-separated for more. Empty = the Google button answers "This sign-in option is not set up yet". |
+| `APPLE_CLIENT_IDS` | Optional. The bundle IDs Apple makes ID tokens for. Default `com.luke.EnglishTranslation,com.luke.EnglishTranslation.Mac`. |
+| `PUBLIC_BASE_URL` | Optional. The public HTTPS address of the backend, default `https://api.loffy.me`. The sign-in link email points to `PUBLIC_BASE_URL/auth/link?token=...`. **Change it when the domain moves** (section 13). |
+| `APP_URL_SCHEME` | Optional. The app's URL scheme the link page opens, default `saynata` (`saynata://sign-in?token=...`). |
+| `APPLE_APP_IDS` | Optional, paid Apple account only. `TEAMID.com.luke.EnglishTranslation`. Set = `/.well-known/apple-app-site-association` is served, so iOS opens the emailed link in the app directly (section 13). |
 | `REQUIRE_SIGN_IN` | Optional. `true` (default): a guest cannot cause a new Claude call (401). **Set `REQUIRE_SIGN_IN=false` until the app with sign-in is released**, because the current app sends no token. Rate limits and the daily budget cap still apply to guests' Claude calls while it is false (a guest IP may cause 30 new calls per hour, `LIMIT_CLAUDE_GUEST_IP_MAX`). Remove the line, or set `true`, when the new app is out. |
 | `CLAUDE_DAILY_BUDGET_USD` | Optional. The most Claude may cost per day in US dollars (UTC day). Default `1.00`. At the cap, new explanations stop until midnight UTC; cached words still work. Prices are in `application.properties` (`app.claude.pricing.*`). |
 | `PREFILL_CRON` | Optional. When the prefill job runs by itself (TASK-83.1, feature page "Prefill"): a six-field Spring cron (`second minute hour day month weekday`) in **UTC**. Empty (default) = it never runs by itself. A night run in Vietnam: `PREFILL_CRON=0 0 20 * * *` (20:00 UTC = 03:00). You can always start a run by hand with `POST /api/admin/prefill/run`. |
@@ -628,6 +633,58 @@ The admin web app can draw an AI picture for one sense: Sparkles button, edit th
 
 To turn it off again: `AI_PICTURES_ENABLED=false` and redeploy. To remove the login: `sudo rm /var/lib/saynata/codex/auth.json`.
 
+
+## 13. Sign in with Google, Apple and a link (TASK-92)
+
+The app can sign in four ways: the email code (sections 10 and 11), an emailed **link**, **Google** and **Apple**. How it works: doc-17, "Other ways to sign in". The link works as soon as email works. Google and Apple need these steps by hand.
+
+**Google (free):**
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), pick or make a project. Set up the **OAuth consent screen** (External, app name Saynata, your email, scopes `openid` and `email`). While it is in "Testing", add your Gmail as a test user.
+2. **Create credentials, OAuth client ID, type iOS**. Bundle ID: `com.luke.EnglishTranslation`. Copy the client ID (`123-abc.apps.googleusercontent.com`). An iOS client has no secret.
+3. Server: `GOOGLE_CLIENT_IDS=<that client ID>` in `backend/.env`, then `./scripts/deploy.sh`.
+4. App: put the same ID in `EnglishTranslation/EnglishTranslation/Info.plist`, key `GoogleIOSClientID`, and build again. Nothing else: the app uses the system web sign-in sheet, no Google SDK.
+
+**Apple (needs the paid Apple Developer account):**
+
+1. developer.apple.com, Certificates, Identifiers & Profiles, Identifiers, `com.luke.EnglishTranslation`: turn on **Sign in with Apple**. The app's `EnglishTranslation.entitlements` already asks for it.
+2. Install with `PAID_ACCOUNT=1 scripts/install-on-phone.sh`. A free Apple ID cannot sign this capability, so on a free build the Apple button shows "Sign in with Apple did not work".
+3. Nothing on the server: `APPLE_CLIENT_IDS` already has the bundle IDs.
+
+**The emailed link:** the email has `PUBLIC_BASE_URL/auth/link?token=...`. That page (served by the backend; Caddy already forwards every path) opens `saynata://sign-in?token=...`, so it works with a free Apple ID. Mail apps do not open a custom scheme straight from an email, so the page in between is needed. Later, with the paid account, it can become a **universal link** (iOS opens the app directly, no page and no "Open in Saynata?" question):
+
+1. Set `APPLE_APP_IDS=<TEAMID>.com.luke.EnglishTranslation` on the server. Check `curl https://api.loffy.me/.well-known/apple-app-site-association`.
+2. Add the **Associated Domains** capability to the app with `applinks:api.loffy.me` (the host of `PUBLIC_BASE_URL`). The app already reads `https://.../auth/link?token=...`.
+
+**When the domain moves** (for example to the new domain you plan to buy; check its exact spelling first), change these:
+
+| Where | What |
+|---|---|
+| `backend/.env` | `PUBLIC_BASE_URL=https://api.<new domain>` (link emails), `MEDIA_BASE_URL`, `EMAIL_FROM` (verify the new domain in Resend first) |
+| Caddy | a site block for the new host (section 5) |
+| App `Info.plist` | `BackendBaseURL` |
+| Associated Domains (paid only) | `applinks:api.<new domain>`; `APPLE_APP_IDS` stays the same |
+| Google Cloud | nothing for the iOS client. Add the domain to the consent screen's authorized domains only if a web client comes later. |
+| Admin web app | `VITE_API_URL` at build time, its Caddy block (section 8), and `app.admin.allowed-origins` in `application.properties` (CORS) |
+| Browser extension | the backend address in `extension/src/shared/config.ts` |
+
+Links already sent keep the old address, so keep the old domain working for 15 minutes (the link lifetime), or users ask for a new link.
+
+**How to test** (with your own email):
+
+```bash
+# 1. Ask for a link. codeChallenge is the SHA-256 (hex) of a secret you keep.
+SECRET=my-test-secret-$(date +%s)
+CHALLENGE=$(printf %s "$SECRET" | shasum -a 256 | cut -d' ' -f1)
+curl -i -X POST https://api.loffy.me/api/auth/email-link -H 'Content-Type: application/json' \
+  -d "{\"email\":\"you@gmail.com\",\"codeChallenge\":\"$CHALLENGE\"}"
+# HTTP/2 204. Copy the token from the link in the email.
+curl -s -X POST https://api.loffy.me/api/auth/email-link/verify -H 'Content-Type: application/json' \
+  -d "{\"token\":\"<token>\",\"codeVerifier\":\"$SECRET\"}"
+# {"accessToken":"...","refreshToken":"...","expiresIn":3600,"user":{...}}
+# 2. Google before GOOGLE_CLIENT_IDS is set: {"code":"provider_not_configured",...}; after: {"code":"invalid_id_token",...}
+curl -s -X POST https://api.loffy.me/api/auth/google -H 'Content-Type: application/json' -d '{"idToken":"x","nonce":"y"}'
+```
 
 ## Troubleshooting
 

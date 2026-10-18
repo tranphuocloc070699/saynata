@@ -10,15 +10,22 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Sign in with an email code. All four calls are open (no token needed); the app calls them before it has one. */
+/**
+ * Sign in: with an email code, an emailed link, Google or Apple. All calls are open (no token needed); the app calls
+ * them before it has one. Every sign-in answers with the same {@link AuthService.TokenResponse}.
+ */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
     private final AuthService service;
+    private final SignInLinkService links;
+    private final SocialSignInService social;
 
-    public AuthController(AuthService service) {
+    public AuthController(AuthService service, SignInLinkService links, SocialSignInService social) {
         this.service = service;
+        this.links = links;
+        this.social = social;
     }
 
     public record EmailCodeRequest(@NotBlank String email) {
@@ -28,6 +35,17 @@ public class AuthController {
     }
 
     public record TokenRequest(@NotBlank String refreshToken) {
+    }
+
+    /** {@code codeChallenge}: the SHA-256 (hex) of a secret the app keeps until the link comes back. */
+    public record EmailLinkRequest(@NotBlank String email, @NotBlank String codeChallenge) {
+    }
+
+    public record EmailLinkVerifyRequest(@NotBlank String token, @NotBlank String codeVerifier) {
+    }
+
+    /** {@code nonce}: the raw nonce; the ID token holds its SHA-256 (hex). */
+    public record IdTokenRequest(@NotBlank String idToken, @NotBlank String nonce) {
     }
 
     /** Always 204, whether or not the email has an account. Bad format gives 400, too many requests 429. */
@@ -40,6 +58,28 @@ public class AuthController {
     @PostMapping("/verify")
     public AuthService.TokenResponse verify(@Valid @RequestBody VerifyRequest request) {
         return service.verify(request.email(), request.code());
+    }
+
+    /** Like /email-code: always 204. The email holds a link to {publicBaseUrl}/auth/link that opens the app. */
+    @PostMapping("/email-link")
+    public ResponseEntity<Void> sendLink(@Valid @RequestBody EmailLinkRequest request, HttpServletRequest http) {
+        links.requestLink(request.email(), request.codeChallenge(), ClientIp.of(http));
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/email-link/verify")
+    public AuthService.TokenResponse verifyLink(@Valid @RequestBody EmailLinkVerifyRequest request) {
+        return links.verifyLink(request.token(), request.codeVerifier());
+    }
+
+    @PostMapping("/google")
+    public AuthService.TokenResponse google(@Valid @RequestBody IdTokenRequest request) {
+        return social.signIn(SocialProvider.GOOGLE, request.idToken(), request.nonce());
+    }
+
+    @PostMapping("/apple")
+    public AuthService.TokenResponse apple(@Valid @RequestBody IdTokenRequest request) {
+        return social.signIn(SocialProvider.APPLE, request.idToken(), request.nonce());
     }
 
     @PostMapping("/refresh")

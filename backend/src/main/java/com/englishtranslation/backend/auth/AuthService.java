@@ -22,7 +22,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 /**
- * Sign-in with an email code. No passwords.
+ * Sign-in with an email code. No passwords. The other ways in (an emailed link, Google, Apple) live in
+ * {@link SignInLinkService} and {@link SocialSignInService} and end here, in {@link #issueTokensFor}.
  * <ol>
  * <li>{@link #requestCode}: make a 6-digit code, save only its keyed hash, email it.</li>
  * <li>{@link #verify}: check the code, create the user on the first sign-in, hand out an access token
@@ -50,6 +51,7 @@ public class AuthService {
     }
 
     private final EmailLoginCodeRepository codes;
+    private final EmailLoginLinkRepository links;
     private final RefreshTokenRepository refreshTokens;
     private final UserRepository users;
     private final EmailSender emailSender;
@@ -60,10 +62,11 @@ public class AuthService {
     private final LimitProperties limits;
     private final Clock clock;
 
-    public AuthService(EmailLoginCodeRepository codes, RefreshTokenRepository refreshTokens, UserRepository users,
-            EmailSender emailSender, AccessTokenService accessTokens, AuthProperties properties, AuthKeys keys,
-            RateLimiter rateLimiter, LimitProperties limits, Clock clock) {
+    public AuthService(EmailLoginCodeRepository codes, EmailLoginLinkRepository links,
+            RefreshTokenRepository refreshTokens, UserRepository users, EmailSender emailSender,
+            AccessTokenService accessTokens, AuthProperties properties, AuthKeys keys, RateLimiter rateLimiter, LimitProperties limits, Clock clock) {
         this.codes = codes;
+        this.links = links;
         this.refreshTokens = refreshTokens;
         this.users = users;
         this.emailSender = emailSender;
@@ -118,9 +121,7 @@ public class AuthService {
             throw new InvalidCodeException();
         }
 
-        User user = findOrCreateUser(email);
-        refreshTokens.deleteExpiredBefore(clock.instant().minus(KEEP_EXPIRED_TOKENS));
-        return issueTokens(user);
+        return issueTokensFor(findOrCreateUser(email));
     }
 
     public TokenResponse refresh(String rawRefreshToken) {
@@ -158,10 +159,12 @@ public class AuthService {
         }
         refreshTokens.deleteAllOf(userId);
         codes.deleteCode(user.getEmail());
-        users.delete(user);
+        links.deleteAllFor(user.getEmail());
+        users.delete(user); // its Google and Apple identities go with it (ON DELETE CASCADE)
     }
 
-    private User findOrCreateUser(String email) {
+    /** Finds the user of this (already checked) email, or makes one. Shared by every way of signing in. */
+    User findOrCreateUser(String email) {
         User user = users.findByEmail(email).orElse(null);
         if (user == null) {
             try {
@@ -176,6 +179,12 @@ public class AuthService {
             return users.save(user);
         }
         return user;
+    }
+
+    /** The end of every sign-in (code, link, Google, Apple): a new token pair for this user. */
+    TokenResponse issueTokensFor(User user) {
+        refreshTokens.deleteExpiredBefore(clock.instant().minus(KEEP_EXPIRED_TOKENS));
+        return issueTokens(user);
     }
 
     private TokenResponse issueTokens(User user) {
