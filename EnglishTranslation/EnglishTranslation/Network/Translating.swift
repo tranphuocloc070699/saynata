@@ -48,4 +48,28 @@ extension Translating {
     ) async throws -> Explanation {
         try await explain(text, translatingTo: language)
     }
+
+    /// Streams the answer so the meaning shows first (TASK-65). If the stream breaks before the full answer,
+    /// the old non-streaming call is tried once. A clear "no" from the server (a 4xx, for example "not English")
+    /// is not retried: asking again would give the same answer.
+    /// The main sentence and a selected part of a sentence (TASK-89.2) both use it.
+    func explainWithFallback(
+        _ text: String,
+        language: TargetLanguage,
+        onMeaningDelta: @escaping @MainActor @Sendable (String) -> Void,
+        onMeaning: @escaping @MainActor @Sendable (String) -> Void
+    ) async throws -> Explanation {
+        do {
+            return try await explainStreaming(
+                text, translatingTo: language, onMeaningDelta: onMeaningDelta, onMeaning: onMeaning)
+        } catch let error as BackendError where error.isFinalAnswer {
+            throw error
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError where error.code == .cancelled {
+            throw error
+        } catch {
+            return try await explain(text, translatingTo: language)
+        }
+    }
 }

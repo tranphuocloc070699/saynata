@@ -36,6 +36,7 @@ Since TASK-49.3 the **server Postgres** holds the bundled words, senses, forms a
 | `postgres.py` | Connects to the server Postgres (`DATABASE_URL`) and imports `dictionary.sqlite` into it (one time, re-run safe) |
 | `topics.py` | Topic words (TASK-61): candidates from Open English WordNet + wordfreq, then a Claude Haiku judge (keep or drop, topic) |
 | `prefill.py` | Prefill queue (TASK-83.2): common words and WordNet phrases into the backend `prefill_item` table, no LLM |
+| `collection.py` | Local collection (TASK-83.9): words, phrasal verbs, idioms and collocations written by the Codex CLI with the backend word prompt and checks, then pushed to `word_lookup` (doc-18) |
 | `export.py` | Builds `dictionary.sqlite` + `dictionary.jsonl` + `media/` from Postgres (read-only). `export-local` is the old export from `data/pipeline.db` |
 
 ## Run
@@ -63,6 +64,12 @@ uv run pipeline prefill collect --source words --dry-run   # TASK-83.2: counts a
 uv run pipeline prefill collect --source words    # queue common words for the backend night job (6,304 lemmas, answering them about $4.41)
 uv run pipeline prefill collect --source phrases  # queue phrasal verbs and idioms (2,714, about $0.54)
 uv run pipeline prefill report       # queue counts and the cost of the pending rows
+uv run pipeline collection collect   # TASK-83.9: 17,124 words and phrases into the collection table (no LLM, 30 s)
+uv run pipeline collection write --per-kind 20   # the trial: Codex writes 20 of each kind (ChatGPT plan, about 5 minutes)
+uv run pipeline collection compare --claude      # data/out/collection-compare.html, Codex next to Claude (about $0.03)
+uv run pipeline collection batch submit --max-cost 15   # Claude Haiku 5.5, Batch API: every waiting row (about $12.40)
+uv run pipeline collection batch collect --wait          # save the answers when the batches end; submit again for retries
+uv run pipeline collection push      # dry run; --yes writes the done words into the server cache word_lookup
 uv run pipeline topics promote      # kept topic words join the words table as pending (no LLM); then generate --limit 1000
 uv run pipeline topics report       # counts and samples per topic; `topics export-tsv` writes data/out/topic_words.tsv
 ```

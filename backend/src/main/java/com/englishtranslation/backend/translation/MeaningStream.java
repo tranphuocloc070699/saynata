@@ -7,7 +7,7 @@ import java.util.function.LongSupplier;
 /**
  * Turns Claude's streamed JSON text into two kinds of callbacks (TASK-73):
  * <ul>
- * <li>{@code onDelta}: the new characters of the meaning, as it grows. Sent at most once per
+ * <li>{@code onDelta}: the new characters of the summary (Claude's "summary" field, sent to the app as the meaning), as it grows. Sent at most once per
  * {@link #MIN_GAP_NANOS} so a fast stream does not make thousands of tiny events;</li>
  * <li>{@code onMeaning}: the full meaning, once, when its closing quote arrives. The characters that were still
  * waiting for the throttle are sent as a last delta just before it.</li>
@@ -20,7 +20,7 @@ class MeaningStream {
     /** About one delta every 50 ms. */
     static final long MIN_GAP_NANOS = 50_000_000L;
 
-    private final JsonStringFieldReader reader = new JsonStringFieldReader("meaning");
+    private final JsonStringFieldReader reader = new JsonStringFieldReader("summary");
     private final Consumer<String> onDelta;
     private final Consumer<String> onMeaning;
     private final LongSupplier nanoClock;

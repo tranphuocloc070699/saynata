@@ -130,9 +130,7 @@ struct SpeechPlayerTests {
     @Test func resultKeyStaysTheSameWhenAStreamedMeaningBecomesTheFullResult() {
         let meaning = SentenceMeaning(sentence: "I run.", meaning: "x", language: .vietnamese)
         let explanation = Explanation(meaning: "x", words: [], translation: "y")
-        let loaded = SentenceResult(
-            sentence: "I run.", explanation: explanation, language: .vietnamese,
-            bundledEntry: { _ in nil })
+        let loaded = SentenceResult(sentence: "I run.", explanation: explanation, language: .vietnamese)
         #expect(TranslationState.meaning(meaning).resultKey == TranslationState.loaded(loaded).resultKey)
         #expect(TranslationState.meaning(meaning).resultKey != TranslationState.loading.resultKey)
     }

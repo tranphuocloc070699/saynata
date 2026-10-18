@@ -3,9 +3,11 @@ id: TASK-89.2
 title: >-
   iOS: original + summary card, tappable words, popup for a selected part
   (Option B)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-17 16:43'
+updated_date: '2026-10-17 17:03'
 labels: []
 dependencies:
   - TASK-89.1
@@ -36,3 +38,23 @@ The developer picked mockup Option B (https://claude.ai/artifact/RxDfLAMiHKNFQdo
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. PromptVersions.sentence = v8.
+2. Plain Swift: SentenceTokenizer (words + lookup word), SentencePart (selection -> text, one word or a part).
+3. SentencePartStore (@Observable): streams a part through the same stream path as a sentence.
+4. iOS: SelectableSentenceText (UITextView wrapper: dotted words, tap, debounced selection). Mac/fallback: Text with links.
+5. SentenceTextView (taps open SentenceWordSheet, selection opens popover), SentencePartPopup, SentenceCard; rewrite SentenceResultView / SentenceMeaningView. Remove Words list, SentenceHeader, MeaningCard, SentenceWordCard, SentenceWordsSection and the unused word finder.
+6. Extensions pass loadWordEntry; gallery + design-system + doc-4 / doc-10 / doc-20 updates.
+7. Swift Testing tests; run iOS tests, build SaynataMac and extensions; simulator screenshots.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Built: SentenceCard (one card), SelectableSentenceText (UITextView, iOS; Text with links on Mac), SentencePartPopup + SentencePartStore, tokenizer and selection logic with tests. Removed Words list and SentenceWordFinder. Tests: 349 pass on iPhone 16 Pro iOS 18.5; SaynataMac and both extensions build. Screenshots in docs/design/screenshots/task-89.2-*.png.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/112. Test it: type a sentence; summary streams in one card; tap a word (sheet); long-press-drag a part (popup under it, tap outside closes); one word selected opens the sheet. Automated: 349 tests (xcodebuild test, iPhone 16 Pro iOS 18.5).
+<!-- SECTION:NOTES:END -->

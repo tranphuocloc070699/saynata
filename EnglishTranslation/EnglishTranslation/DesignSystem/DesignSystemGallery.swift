@@ -126,18 +126,26 @@ struct DesignSystemGallery: View {
 
     // MARK: - Sentence cards
 
-    /// The sentence result cards (TASK-41): header, Meaning card, word cards, and the character counter.
+    /// The sentence result (TASK-89.2): the card with the original, the summary and the folded language,
+    /// the popup for a selected part, and the character counter.
     private var sentenceCardsSample: some View {
-        TitledSection(title: "Sentence cards") {
+        TitledSection(title: "Sentence card") {
             VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-                SentenceHeader(sentence: "The mist blurred the edges of the world.")
-                MeaningCard(
-                    meaning: "Thick mist made the shapes of things look unclear.",
-                    translation: "Sương mù làm mờ đi các đường nét của thế giới.",
-                    language: .vietnamese)
-                SentenceWordCard(info: SentenceWordInfo(
-                    word: .init(word: "edges", partOfSpeech: "noun", meaning: "the outer part (base form: edge)"),
-                    entry: nil))
+                SentenceCard(
+                    sentence: "The mist blurred the edges of the world, so the hikers turned back before noon.",
+                    summary: "The fog made everything hard to see, so the walkers went back before midday.",
+                    translation: "Sương mù làm mờ mọi thứ, nên những người đi bộ quay lại trước buổi trưa.",
+                    language: .vietnamese,
+                    loadWordEntry: { _ in .depend })
+                Text("Popup for a selected part")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .textCase(.uppercase)
+                SentencePartPopup(part: "blurred the edges of the world", language: .vietnamese)
+                    .cardSurface()
+                    .environment(
+                        \.makeSentencePartStore,
+                        { SentencePartStore(makeTranslator: { PreviewPartTranslator() }) })
                 CharacterCounter(count: 41, limit: 500)
                 CharacterCounter(count: 512, limit: 500)
             }

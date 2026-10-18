@@ -93,24 +93,4 @@ struct SentenceWordInfoTests {
         #expect(single.canOpenWordCard == true)
         #expect(phrase.canOpenWordCard == false)
     }
-
-    // MARK: - SentenceResult
-
-    @Test func resultBuildsOneInfoPerWordUsingTheBundleLookup() {
-        let explanation = Explanation(
-            meaning: "x",
-            words: [
-                .init(word: "blurred", partOfSpeech: "verb", meaning: "made hard to see"),
-                .init(word: "edges", partOfSpeech: "noun", meaning: "outside parts (base form: edge)"),
-            ],
-            translation: "y")
-        let entry = blurredEntry()
-        let result = SentenceResult(
-            sentence: "s", explanation: explanation, language: .vietnamese,
-            bundledEntry: { $0 == "blurred" ? entry : nil })
-        #expect(result.words.map(\.word) == ["blurred", "edges"])
-        #expect(result.words[0].pillText == "past tense of blur")
-        #expect(result.words[1].pillText == "base form: edge")
-        #expect(result.words[1].chipText == nil)
-    }
 }
