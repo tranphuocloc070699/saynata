@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-17 11:28'
+updated_date: '2026-10-17 16:47'
 ---
 # Decisions and reasons
 
@@ -38,6 +38,8 @@ Quotes are the developer's words, with spelling fixed.
 | 10-10 | Icon-only buttons with VoiceOver labels | "I think they look clean, and I've seen a lot of apps do it that way." It came after "too much text, users don't know where to focus." | Labelled Listen / Speak buttons | Developer |
 | 10-17 | **Explain copied text as a Shortcuts card** (TASK-87): an App Intent with `openAppWhenRun = false` and an App Shortcut, run from Back Tap or the Action Button, shows the meaning over the current app. **Layout B** (up to 3 meanings or words) over A (one meaning). The Vietnamese line is the last small line, open, because an iOS 18 card cannot fold a row. The card uses colors written as numbers (`Theme.SnippetColors`) because Shortcuts could not read the asset catalog | "Open Saynata in as few steps as possible, even on older devices, without interrupting the current app." Why B over A: reason not recorded | Layout A (one meaning); hiding the Vietnamese line; a keyboard extension or a widget (more steps, or no copied text) | Developer picked B; Claude proposed the Shortcuts card |
 | 10-17 | **Explain copied text opens the app** instead of the Shortcuts card (same day, TASK-87): Back Tap opens Saynata, pastes the copied text and explains it; with nothing copied the input is empty and has the keyboard. The card code is removed | "Honestly, this is not what I want. Back tap is good, so could you change the feature to open the app, check if the clipboard has data, paste it. Otherwise just make the input blank. I'll fill my own." On the phone the card read nothing: a background intent cannot ask "Allow Paste", so iOS refused silently | Keep the card and read the clipboard through a user-made shortcut ("Get Clipboard" then the Saynata action) | Developer |
+| 10-17 | **Quick explain, a card over the current app** (TASK-90): an App Intent with a required text parameter, run from Back Tap, the Action Button or Siri; iOS asks for the text in its own small box (type, paste or speak), and the short card (**mockup 2B**: a word shows its first meaning, a sentence its meaning, Vietnamese last) shows over the app. Saynata does not open. The text box avoids the clipboard, which a background intent cannot read (TASK-87) | "My problem is watch youtube video in full screen and I want to explain some words without exit the full screen moide." 2B because it covers less of the video and fits iOS 26's fixed card height (Claude recommended, developer said "ok") | 2A full card (meaning plus up to 3 words); open the app (TASK-87, leaves full screen); Picture in Picture then open Saynata | Developer (need), Claude (how) |
+| 10-17 | **Sentence result = original + simple summary (TASK-89, mockup option B)**: one card with the sentence and the same sentence in simple B1 words; every word has a dotted underline and opens the word card; selecting a part opens a small popup with that part summarized. Prompt v8 drops Claude's words list (about 0.7 s faster) | "update to summarize the sentence with simple words instead of explaining, and I want to only show 2 sentences, the original and the summary, and the user can click words in each sentence to show a bottom dialog with the word definition, or select a part of a sentence to show another sentence popup." New sentences felt slow. Why option B over A and C: reason not recorded | A: two cards, menu item for a part; C: big summary, small grey original, stacked cards; keep the words list | Developer |
 
 ## Design
 
@@ -180,3 +182,4 @@ go here as questions.
 - 10-16: Why every wordfreq word, and why queue the words of every sentence? Only what to do was said. Reason not recorded.
 - 10-16: Why no pictures for prefilled words (cost, disk, quality of pictures for rare words)? Reason not recorded.
 - 10-17: Why layout B (up to 3 meanings or words) over A (one meaning) for the Explain copied text card? Reason not recorded.
+- 10-17: Why mockup option B (one card, dotted words, popup on selection) over A and C? Reason not recorded.
