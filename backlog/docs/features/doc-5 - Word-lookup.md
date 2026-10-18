@@ -3,7 +3,7 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-18 02:05'
+updated_date: '2026-10-18 03:51'
 ---
 > Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-18 (phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -276,14 +276,14 @@ Tests: [SpellingSuggesterTests.swift](../../../EnglishTranslation/EnglishTransla
 
 Built in TASK-27, shown for real lookups since TASK-19, redesigned in TASK-36 (developer mockup v3, doc-7).
 Uses the model from the TASK-4 section above. An empty `cefr` or `vietnamese` (what the store gives for a missing value)
-hides the level or the Vietnamese row. Last traced: 2026-10-14 (Listen: TASK-7).
+hides the level or the Vietnamese row. Last traced: 2026-10-18 (level chip under the explanation; Listen: TASK-7).
 
 | Part | File |
 |---|---|
 | Sample words for previews (`ran`, `apple`, `get`, `run`, `depend`, `oldData`, `sparse`) | [WordEntry+Samples.swift](../../../EnglishTranslation/EnglishTranslation/Models/WordEntry+Samples.swift) |
 | Full card: header, one card per sense, folded rows | [WordCardView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift) |
 | Compact card (word list in a sentence): first sense only | [WordCardCompactView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardCompactView.swift) |
-| Sense title: number circle, simple explanation, level chip, small speaker | [SenseTitleRow.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseTitleRow.swift) |
+| Sense title: number circle, simple explanation with the level chip below it (left-aligned), small speaker at the right | [SenseTitleRow.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseTitleRow.swift) |
 | Form pill ("past tense of run /rʌn/") | [FormPill.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/FormPill.swift) |
 | "Examples" content: per example, line 1 is the easy / medium / harder label and a plain speaker at the right edge, line 2 is the sentence at full width | [WordExamplesSection.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordExamplesSection.swift) |
 | "Grammar" content (usage grouped by kind) | [WordUsageSection.swift](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordUsageSection.swift) |
@@ -306,7 +306,7 @@ Last traced: 2026-10-15. Spec R4, scope in doc-7 (2026-10-14). The app reads thr
 | Part | Where | Notes |
 |---|---|---|
 | Word speaker | [WordCardView.swift:51-60](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L51-L60) (header, drawn by `WordHeaderView`; the share sheet's Listen button reads the word or sentence too), [WordCardCompactView.swift:19-46](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardCompactView.swift#L19-L46) | Regular 44 pt. Reads the displayed word (`matchedForm.text`, else `word`), so "ran" stays "ran". The compact card keeps only this speaker. |
-| Explanation speaker | [SenseTitleRow.swift:18-53](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseTitleRow.swift#L18-L53) | Compact `IconButton`, right of the level chip. Reads `sense.simpleDefinition`. The compact card passes no speech id, so it shows none. |
+| Explanation speaker | [SenseTitleRow.swift:18-55](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseTitleRow.swift#L18-L55) | Compact `IconButton`, at the right of the explanation, level with its first line. Reads `sense.simpleDefinition`. The compact card passes no speech id, so it shows none. |
 | Example speaker | [WordExamplesSection.swift:11-53](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordExamplesSection.swift#L11-L53) | Plain `IconButton` (`style: .plain`, TASK-48) at the right edge of line 1, on the same line as the level label; the sentence is on line 2 at full width. Old data with no level has no label but still shows the speaker. Reads only `example.text`; ids use `example-{sense}-{example}`. |
 | Button and highlight | [IconButton.swift](../../../EnglishTranslation/EnglishTranslation/DesignSystem/Components/IconButton.swift), [SpeechPlayer.swift:67-76](../../../EnglishTranslation/EnglishTranslation/Speech/SpeechPlayer.swift#L67-L76) | The button has a compact 32 pt circle inside its 44 pt tap target, and a `plain` style (icon only, no circle, border or shadow, same 44 pt tap target; `isActive` draws it in the accent colour, used for `stop.fill` on examples). Every view changes its icon to `stop.fill` and VoiceOver label to "Stop" while its id plays. `speechHighlight(isPlaying:)` puts a soft accent background (12% opacity) behind that text. |
 | Player | [SpeechPlayer.swift:14-58](../../../EnglishTranslation/EnglishTranslation/Speech/SpeechPlayer.swift#L14-L58) | `@MainActor @Observable`; API `speak(_:id:)`, `stop()`, `currentID`. A new id stops the old utterance. Tokens ignore a late cancellation callback, and empty text does nothing. One instance is shared with `.environment(speechPlayer)` in [EnglishTranslationApp.swift:9-25](../../../EnglishTranslation/EnglishTranslation/EnglishTranslationApp.swift#L9-L25). |
