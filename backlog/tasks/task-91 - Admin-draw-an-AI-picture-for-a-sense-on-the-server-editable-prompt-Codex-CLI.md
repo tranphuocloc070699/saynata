@@ -3,9 +3,11 @@ id: TASK-91
 title: >-
   Admin: draw an AI picture for a sense on the server (editable prompt, Codex
   CLI)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-18 03:22'
+updated_date: '2026-10-18 03:41'
 labels:
   - admin
   - backend
@@ -38,3 +40,9 @@ Today the admin button Mark for AI only sets media_status = needs_ai and shows '
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Flyway V21 ai_picture_job. 2. Backend: AiPictureProperties, prompt builder (constants from media_ai.py), scene via ClaudeService (Sonnet), caps, ImageDrawer + CodexImageDrawer, single-thread job runner, save+link like upload. 3. Admin endpoints. 4. Dockerfile/compose/env. 5. Admin dialog + polling. 6. Tests. 7. Docs (doc-7,9,11,13,14,15, CLAUDE.md). 8. PR into feature/local.
+<!-- SECTION:PLAN:END -->

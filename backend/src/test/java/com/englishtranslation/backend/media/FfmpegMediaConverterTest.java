@@ -48,6 +48,50 @@ class FfmpegMediaConverterTest {
         assertThat(new String(webp, 8, 4, StandardCharsets.US_ASCII)).isEqualTo("WEBP");
     }
 
+    /** The width and height of a picture file, read with ffprobe (null when ffprobe is not installed). */
+    private static int[] sizeOf(Path file) throws Exception {
+        try {
+            Process process = new ProcessBuilder("ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                    "stream=width,height", "-of", "csv=p=0", file.toString()).redirectErrorStream(true).start();
+            String out = new String(process.getInputStream().readAllBytes(), StandardCharsets.US_ASCII).strip();
+            process.waitFor(30, TimeUnit.SECONDS);
+            String[] parts = out.split(",");
+            return new int[] {Integer.parseInt(parts[0]), Integer.parseInt(parts[1])};
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static byte[] png(int width, int height) throws IOException {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        image.getGraphics().fillRect(0, 0, width / 2, height / 2);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        return out.toByteArray();
+    }
+
+    @Test
+    void anAiPictureIsCroppedToThreeByTwoAndAtMost1536Wide() throws Exception {
+        assumeThat(ffmpegInstalled()).isTrue();
+        // wide (too wide: sides cut), square (top and bottom cut), already 3:2 but big (scaled down), small 3:2 (kept)
+        int[][] cases = {{2000, 1000, 1500, 1000}, {1000, 1000, 1000, 668}, {3000, 2000, 1536, 1024}, {600, 400, 600, 400}};
+        for (int[] c : cases) {
+            Path target = dir.resolve("ai-" + c[0] + "x" + c[1] + ".webp");
+
+            converter.toAiPicture(png(c[0], c[1]), target);
+
+            byte[] webp = Files.readAllBytes(target);
+            assertThat(new String(webp, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("RIFF");
+            assertThat(new String(webp, 8, 4, StandardCharsets.US_ASCII)).isEqualTo("WEBP");
+            int[] size = sizeOf(target);
+            if (size != null) {
+                assertThat(size).as("size of " + c[0] + "x" + c[1]).containsExactly(c[2], c[3]);
+            }
+            // The size MediaStore writes in the media row follows the same rule.
+            assertThat(MediaStore.aiSize(png(c[0], c[1]))).as("row size of " + c[0] + "x" + c[1]).containsExactly(c[2], c[3]);
+        }
+    }
+
     @Test
     void aVideoBecomesAShortMp4() throws Exception {
         assumeThat(ffmpegInstalled()).isTrue();

@@ -61,7 +61,8 @@ export interface WordItem {
   createdAt: string;
   // One item per sense, same order as entry.senses; null when a sense has no media.
   media?: (SenseMedia | null)[];
-  // One item per sense: "needs_ai" when the sense is marked for an AI image, else null (TASK-52).
+  // One item per sense: "needs_ai" when the sense is marked for an AI image (TASK-52), "ai_generated" after the AI job
+  // drew its picture, "ai_drawing" while a job is queued or drawing (TASK-91), else null.
   mediaStatus?: (string | null)[];
   // Picture review (TASK-80): counts for the list badges, and one item per sense (same order as entry.senses).
   wrongMediaCount?: number;
@@ -80,6 +81,33 @@ export interface MediaSearchResult {
   downloadUrl: string;
   photographer: string;
   pageUrl: string;
+}
+
+// The AI picture of a sense (TASK-91). The prompt is the inner image prompt; the server adds the Codex wrapper text.
+export type AiPromptSource = "scene" | "template" | "claude";
+
+export interface AiUsage {
+  picturesToday: number;
+  picturesPerDay: number;
+  sceneUsdToday: number;
+  sceneUsdPerDay: number;
+}
+
+export interface AiPrompt {
+  prompt: string;
+  source: AiPromptSource;
+  // The pipeline prompt version of the saved scene (for example "ai-v1"), only for source "scene".
+  sceneVersion?: string | null;
+  usage: AiUsage;
+}
+
+// One background job. While status is queued or drawing the admin page asks the server every 3 seconds.
+export interface AiJob {
+  id: number;
+  status: "queued" | "drawing" | "done" | "failed";
+  error?: string | null;
+  createdAt: string;
+  finishedAt?: string | null;
 }
 
 export interface MediaSearchResponse {

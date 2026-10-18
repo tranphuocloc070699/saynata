@@ -14,10 +14,20 @@ public class FfmpegMediaConverter implements MediaConverter {
 
     // 320 px wide, never bigger than the original, height rounded to an even number.
     private static final String SCALE = "scale=min(320\\,iw):-2";
+    /** The widest AI picture we keep (pipeline IMAGE_WIDTH). */
+    public static final int AI_MAX_WIDTH = 1536;
 
     @Override
     public void toPhoto(byte[] original, Path target) {
         run(original, target, List.of("-frames:v", "1", "-vf", SCALE, "-c:v", "libwebp", "-quality", "80"));
+    }
+
+    /** The biggest 3:2 area in the middle of the picture, then at most 1536 px wide (height rounded to an even number). */
+    static final String AI_FILTER = "crop=w='min(iw\\,ih*3/2)':h='min(ih\\,iw*2/3)',scale=min(" + AI_MAX_WIDTH + "\\,iw):-2";
+
+    @Override
+    public void toAiPicture(byte[] original, Path target) {
+        run(original, target, List.of("-frames:v", "1", "-vf", AI_FILTER, "-c:v", "libwebp", "-quality", "80"));
     }
 
     @Override

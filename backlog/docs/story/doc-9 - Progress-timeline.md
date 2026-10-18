@@ -3,7 +3,7 @@ id: doc-9
 title: Progress timeline
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-18 02:05'
+updated_date: '2026-10-18 04:03'
 ---
 # Progress timeline
 
@@ -32,6 +32,7 @@ A dated story of the project, for the video. Add a line at the end of each worki
 | 2026-10-17 (afternoon) | On the developer's iPhone 13 (iOS 26.5) the card said "Nothing to explain": iOS cannot ask "Allow Paste" for an app in the background, so it gave nothing. The developer chose to open the app instead: Back Tap now opens Saynata with the copied text explained, or an empty input with the keyboard. | "Back tap is good." Lesson: test clipboard and permission features on the real phone early; the simulator showed the question, the phone did not. |
 | 2026-10-17 (evening) | **Quick explain** (TASK-90): for words heard in a full-screen YouTube video. Back Tap, the Action Button or Siri asks for the text in a small iOS box, and a short card (mockup 2B) shows the meaning over the video; Saynata does not open. It reuses the TASK-87 card code, with the text typed instead of read from the clipboard. | "I want to explain some words without exit the full screen mode." |
 | 2026-10-18 | Phrases as word cards (TASK-83.10): the backend answers a phrase like "give up" only from its cache (never Claude), and the app tries it as a word card before the sentence path. The ~7,200 phrasal verbs, idioms and collocations from the local collection can now be pushed. The IPA moved onto the headword line on every word card. |
+| 2026-10-18 | The admin can draw an AI picture for one sense (TASK-91): the Sparkles button opens a dialog with the prompt already filled in, the developer edits it, and the server draws it with the Codex CLI on the VPS through his ChatGPT login, then links it like an upload. A wand asks Claude for a new scene; caps are 30 pictures and $1 of wand calls a day. | "Fix one wrong picture without leaving the admin." |
 
 ## Numbers to show
 
