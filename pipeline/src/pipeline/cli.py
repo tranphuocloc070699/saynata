@@ -592,8 +592,8 @@ def _push(db, args) -> None:
 
     kinds = args.kind or ["word"]
     if any(kind != "word" for kind in kinds):
-        print("Note: the backend does not answer phrases from word_lookup yet (it checks the word list first, "
-              "and the app sends phrases to the sentence path). See doc-18, Local collection.")
+        print("Note: phrases are served only by a backend with TASK-83.10 (GET /api/words/{phrase} reads "
+              "word_lookup). See doc-18, Local collection.")
     rows = collection.push_rows(db, kinds, args.include_review, args.limit)
     if not rows:
         print("Nothing to push.")
