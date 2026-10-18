@@ -28,6 +28,19 @@ public record ClaudeProperties(String apiKey, String model, String sentencePromp
         this(apiKey, model, sentencePromptVersion, wordPromptVersion, null, null, null, "low");
     }
 
+    /**
+     * True when calls go through a gateway: then the JSON Schema is put in the prompt and the answer is parsed
+     * from the text, because a gateway may ignore the strict JSON setting (STEYG does).
+     */
+    public boolean jsonInPrompt() {
+        return baseUrl != null && !baseUrl.isBlank();
+    }
+
+    /** True when there is an Anthropic key or a gateway token to call with. */
+    public boolean hasCredentials() {
+        return (apiKey != null && !apiKey.isBlank()) || (authToken != null && !authToken.isBlank());
+    }
+
     /** The effort to send, or empty when {@code effort} is blank. */
     public Optional<OutputConfig.Effort> effortLevel() {
         if (effort == null || effort.isBlank()) {

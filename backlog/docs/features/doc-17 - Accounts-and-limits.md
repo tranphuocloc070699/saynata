@@ -3,7 +3,7 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-18 12:47'
+updated_date: '2026-10-18 16:10'
 ---
 # Accounts and limits
 
@@ -245,7 +245,7 @@ flowchart LR
 | Step | File:line | What happens |
 |---|---|---|
 | Table | [V11__create_claude_usage.sql](../../../backend/src/main/resources/db/migration/V11__create_claude_usage.sql) | One row per call: time, model, feature (`SENTENCE`, `WORD`, `ADMIN`, `WARMUP`), input and output tokens, cost in USD (8 decimals). The cost is saved, so a later price change does not rewrite history. |
-| Record | [ClaudeService.recordUsage:232](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L232) | Called for the normal sentence call, the streamed call (the stream accumulator sums the start and end events) and the word call, **before** the answer is read, so a refused or "not English" answer is counted too (it cost money). Never throws. |
+| Record | [ClaudeService.recordUsage:410](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L410) | Called for the normal sentence call, the streamed call (the stream accumulator sums the start and end events) and the word call, **before** the answer is read, so a refused or "not English" answer is counted too (it cost money). Never throws. |
 | Cost | [ClaudeUsageService.cost:74](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L74) | `(input x inputPerMtok + output x outputPerMtok) / 1,000,000`. A model with no price in config is counted at the **highest** configured price (never free) and a warning is logged. |
 | Prices | `app.claude.pricing.<model>.input-per-mtok` / `output-per-mtok` in [application.properties](../../../backend/src/main/resources/application.properties) | `claude-haiku-5-5`: $0.10 in, $0.50 out per million tokens (prompts up to 100K tokens; checked 2026-10-15). **Check them when the model or Anthropic's prices change.** |
 | Cap | [ClaudeUsageService.budgetReached:119](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L119) | Sum of today's rows **except feature `PREFILL`** (the day starts at 00:00 UTC) `>=` `app.claude.daily-budget-usd` (`CLAUDE_DAILY_BUDGET_USD`, default 1.00). Then the answer is 503 `daily_limit_reached`, "Saynata has reached today's limit for new explanations. Cached words still work. Try again tomorrow." |
