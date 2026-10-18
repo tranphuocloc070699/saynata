@@ -3,7 +3,7 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-18 12:35'
+updated_date: '2026-10-18 12:47'
 ---
 # Accounts and limits
 
@@ -69,7 +69,7 @@ Which app offers which way in:
 
 | App | Email code | Email link | Google | Apple | Where the session is kept |
 |---|---|---|---|---|---|
-| iPhone app | Yes | Yes | Yes (needs `GoogleIOSClientID`) | Yes (paid account) | Keychain, App Group group |
+| iPhone app | Yes | Yes | Yes | Yes (paid account) | Keychain, App Group group |
 | Share and Translation extensions | No sheet: they use the app's session | | | | The app's Keychain item |
 | Mac app | Yes | No | No | No | The Mac's own Keychain |
 | Browser extension | Yes | No | No | No | `chrome.storage.local` |
@@ -357,7 +357,7 @@ The old tests set `app.auth.require-sign-in=false` (and a very high guest IP lim
 - Sign-in emails go out only after `RESEND_API_KEY` and `EMAIL_FROM` are set (doc-11, section 10), or SES is set up (section 11). Before that, codes are only in the backend log.
 - A Resend send that fails (after the one retry) is only logged: the learner sees "code sent" and gets nothing. Check the log and the Resend Logs page.
 - Rate limits and the code attempts live partly in memory: a restart clears the rate limits (the code attempts are in Postgres).
-- **Google and Apple need setup by hand** (deploy guide section 13). Until `GOOGLE_CLIENT_IDS` and the app's `GoogleIOSClientID` are set, the Google button says "not set up yet". Sign in with Apple works only in a `PAID_ACCOUNT=1` build.
+- **Google and Apple need setup by hand** (deploy guide section 13). Google is set up (2026-10-18): `GOOGLE_CLIENT_IDS` on the server and `GoogleIOSClientID` in Info.plist hold the same iOS client ID. A new client ID must change both, or the Google button says "not set up yet". Sign in with Apple works only in a `PAID_ACCOUNT=1` build.
 - The emailed link opens the app through the `saynata://` scheme, so iOS asks "Open in Saynata?" on the page. Universal links (no question) need the paid account and Associated Domains.
 - The link works only on the device that asked for it (the secret stays there). Opening it on a Mac or another phone shows the page, but the app there refuses it.
 - The Mac app and the extensions have only the email code. The new options are iOS only.
