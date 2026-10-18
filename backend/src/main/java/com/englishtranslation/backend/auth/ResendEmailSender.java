@@ -48,32 +48,44 @@ public class ResendEmailSender implements EmailSender {
 
     @Override
     public void sendSignInCode(String toEmail, String code, int validMinutes) {
+        send(toEmail, EmailSender.subject(), EmailSender.body(code, validMinutes), html(code, validMinutes),
+                "sign-in code");
+    }
+
+    @Override
+    public void sendSignInLink(String toEmail, String link, int validMinutes) {
+        send(toEmail, EmailSender.linkSubject(), EmailSender.linkBody(link, validMinutes),
+                EmailSender.linkHtml(link, validMinutes), "sign-in link");
+    }
+
+    /** {@code what} names the email in the log ("sign-in code"); the log never has the code or the link. */
+    private void send(String toEmail, String subject, String text, String html, String what) {
         try {
             String json = jsonMapper.writeValueAsString(Map.of(
                     "from", fromAddress,
                     "to", List.of(toEmail),
-                    "subject", EmailSender.subject(),
-                    "text", EmailSender.body(code, validMinutes),
-                    "html", html(code, validMinutes)));
+                    "subject", subject,
+                    "text", text,
+                    "html", html));
             HttpRequest request = HttpRequest.newBuilder(url)
                     .timeout(TIMEOUT)
                     .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(json))
                     .build();
-            if (trySend(request, true)) {
+            if (trySend(request, true, what)) {
                 return;
             }
             sleeper.accept(RETRY_PAUSE_MILLIS);
-            trySend(request, false);
+            trySend(request, false, what);
         } catch (Exception e) {
             // Only the exception type: its message could hold the request.
-            log.error("Resend: could not send the sign-in code ({})", e.getClass().getSimpleName());
+            log.error("Resend: could not send the {} ({})", what, e.getClass().getSimpleName());
         }
     }
 
     /** True when we are done (success, or an error that a second try cannot fix). False = try again. */
-    private boolean trySend(HttpRequest request, boolean mayRetry) throws InterruptedException {
+    private boolean trySend(HttpRequest request, boolean mayRetry, String what) throws InterruptedException {
         try {
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
             int status = response.statusCode();
@@ -81,11 +93,11 @@ public class ResendEmailSender implements EmailSender {
                 return true;
             }
             boolean retry = mayRetry && (status == 429 || status >= 500);
-            log.error("Resend: sending the sign-in code failed with HTTP {}{}", status,
+            log.error("Resend: sending the {} failed with HTTP {}{}", what, status,
                     retry ? " (trying once more)" : "");
             return !retry;
         } catch (IOException e) {
-            log.error("Resend: sending the sign-in code failed ({}){}", e.getClass().getSimpleName(),
+            log.error("Resend: sending the {} failed ({}){}", what, e.getClass().getSimpleName(),
                     mayRetry ? " (trying once more)" : "");
             return !mayRetry;
         }

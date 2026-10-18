@@ -7,12 +7,15 @@ import Foundation
 import Observation
 
 /// The logic of the sign-in sheet: step 1 asks for an email, step 2 asks for the 6-digit code.
+/// Step 1 also offers Google, Apple, and "Email me a link" (TASK-92); a sent link shows the `.linkSent` step.
 /// The sheet (`SignInSheet`) only draws it.
 @Observable
 final class SignInModel {
     enum Step: Equatable {
         case email
         case code
+        /// The sign-in link is on its way. The app signs in when the link opens it.
+        case linkSent
     }
 
     /// The backend makes 6-digit codes.
@@ -36,11 +39,23 @@ final class SignInModel {
     private let account: AccountStore
     /// Called once, after the code was right and the tokens are saved. The sheet closes and the request runs again.
     private let onSignedIn: () async -> Void
+    /// The iOS OAuth client ID for Google, or nil when Info.plist has none yet (the button then says so).
+    private let googleClientID: String?
+    /// The raw nonce of the Apple sign-in that is running. Apple gets only its hash.
+    @ObservationIgnored private var appleNonce: String?
 
-    init(account: AccountStore, onSignedIn: @escaping () async -> Void = {}) {
+    init(
+        account: AccountStore,
+        googleClientID: String? = AppConfig.googleIOSClientID(),
+        onSignedIn: @escaping () async -> Void = {}
+    ) {
         self.account = account
+        self.googleClientID = googleClientID
         self.onSignedIn = onSignedIn
     }
+
+    /// True once the account is signed in, by this sheet or by a link that opened the app.
+    var isAccountSignedIn: Bool { account.isSignedIn }
 
     private var trimmedEmail: String {
         email.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -75,6 +90,104 @@ final class SignInModel {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// "Email me a link". On success the sheet shows `.linkSent`.
+    func sendLink() async {
+        guard canSendCode else { return }
+        isBusy = true
+        errorMessage = nil
+        noticeMessage = nil
+        defer { isBusy = false }
+        do {
+            try await account.requestLink(email: trimmedEmail)
+            step = .linkSent
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Back to step 1, for "Use a code instead" and "Change email".
+    func backToEmail() {
+        step = .email
+        errorMessage = nil
+        noticeMessage = nil
+    }
+
+    // MARK: - Google and Apple
+
+    /// Signs in with Google. `authenticate` shows Google's page in the system web sheet and returns the callback URL
+    /// (SwiftUI's `webAuthenticationSession`); a closed sheet throws a cancel error, which shows nothing.
+    func signInWithGoogle(authenticate: (URL, String) async throws -> URL) async {
+        guard !isBusy else { return }
+        guard let googleClientID else {
+            errorMessage = AuthError.providerNotConfigured.localizedDescription
+            return
+        }
+        isBusy = true
+        errorMessage = nil
+        noticeMessage = nil
+        let flow = GoogleSignInFlow(clientID: googleClientID)
+        do {
+            let idToken = try await flow.idToken(authenticate: authenticate)
+            try await account.signIn(with: .google, idToken: idToken, nonce: flow.nonce)
+            finish()
+        } catch {
+            isBusy = false
+            if !Self.isCancel(error) { errorMessage = error.localizedDescription }
+            return
+        }
+        await onSignedIn()
+    }
+
+    /// Called when the Apple button is tapped: returns the hashed nonce to put in Apple's request.
+    func prepareAppleRequest() -> String {
+        let nonce = SignInSecrets.random()
+        appleNonce = nonce
+        return SignInSecrets.sha256Hex(nonce)
+    }
+
+    /// Apple answered. `idToken` is the credential's identity token; `error` is set when Apple failed or the user
+    /// closed the sheet (`isCancel` true: nothing is shown).
+    func finishApple(idToken: String?, error: Error?, isCancel: Bool) async {
+        guard !isBusy else { return }
+        if isCancel { return }
+        guard error == nil, let idToken, let nonce = appleNonce else {
+            errorMessage = "Sign in with Apple did not work. Try again, or use your email."
+            return
+        }
+        isBusy = true
+        errorMessage = nil
+        noticeMessage = nil
+        do {
+            try await account.signIn(with: .apple, idToken: idToken, nonce: nonce)
+            appleNonce = nil
+            finish()
+        } catch {
+            isBusy = false
+            errorMessage = error.localizedDescription
+            return
+        }
+        await onSignedIn()
+    }
+
+    /// The account was signed in outside this sheet (the emailed link opened the app). Closes the sheet once.
+    func accountSignedInElsewhere() async {
+        guard !didSignIn, account.isSignedIn else { return }
+        finish()
+        await onSignedIn()
+    }
+
+    private func finish() {
+        isBusy = false
+        didSignIn = true
+    }
+
+    /// The user closed Google's web sheet. `ASWebAuthenticationSessionError.canceledLogin` is code 1 in its domain.
+    static func isCancel(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        return nsError.domain == "com.apple.AuthenticationServices.WebAuthenticationSession" && nsError.code == 1
+            || error is CancellationError
     }
 
     // MARK: - Step 2
@@ -125,8 +238,7 @@ final class SignInModel {
         noticeMessage = nil
         do {
             try await account.signIn(email: trimmedEmail, code: code)
-            isBusy = false
-            didSignIn = true
+            finish()
             await onSignedIn()
         } catch AuthError.invalidCode {
             isBusy = false

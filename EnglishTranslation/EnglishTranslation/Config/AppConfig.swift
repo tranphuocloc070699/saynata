@@ -29,6 +29,12 @@ enum AppConfig {
         return url
     }
 
+    /// The iOS OAuth client ID for Sign in with Google (`GoogleIOSClientID` in Info.plist, TASK-92).
+    /// Nil while it is empty: the developer makes it in Google Cloud and fills it in (doc-17).
+    static func googleIOSClientID() -> String? {
+        try? value(for: "GoogleIOSClientID")
+    }
+
     private static func value(for name: String) throws -> String {
         guard let value = Bundle.main.object(forInfoDictionaryKey: name) as? String,
               !value.isEmpty

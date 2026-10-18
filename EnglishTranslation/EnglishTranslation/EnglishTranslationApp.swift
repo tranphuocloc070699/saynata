@@ -24,11 +24,23 @@ struct EnglishTranslationApp: App {
                     if scenePhase == .background { speechPlayer.stop() }
                 }
                 .onOpenURL { url in
+                    // The emailed sign-in link (TASK-92): `saynata://sign-in?token=...`, or later the https link.
+                    if let token = DeepLink.signInToken(from: url) {
+                        Task { await account.completeLinkSignIn(token: token) }
+                        return
+                    }
                     // The share extension sends `saynata://lookup?text=...`. Put the text in the input and explain it.
                     guard let text = DeepLink.text(from: url) else { return }
                     store.inputText = text
                     Task { await store.translate() }
                 }
+                .alert(
+                    "Could not sign in",
+                    isPresented: Binding(
+                        get: { account.linkSignInError != nil },
+                        set: { if !$0 { account.clearLinkSignInError() } }),
+                    actions: { Button("OK", role: .cancel) {} },
+                    message: { Text(account.linkSignInError ?? "") })
         }
     }
 }

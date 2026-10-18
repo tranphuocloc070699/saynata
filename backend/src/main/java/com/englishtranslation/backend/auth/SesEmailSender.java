@@ -27,13 +27,22 @@ public class SesEmailSender implements EmailSender {
 
     @Override
     public void sendSignInCode(String toEmail, String code, int validMinutes) {
+        send(toEmail, EmailSender.subject(), EmailSender.body(code, validMinutes));
+    }
+
+    @Override
+    public void sendSignInLink(String toEmail, String link, int validMinutes) {
+        send(toEmail, EmailSender.linkSubject(), EmailSender.linkBody(link, validMinutes));
+    }
+
+    private void send(String toEmail, String subject, String text) {
         SendEmailRequest request = SendEmailRequest.builder()
                 .fromEmailAddress(fromAddress)
                 .destination(Destination.builder().toAddresses(toEmail).build())
                 .content(EmailContent.builder()
                         .simple(Message.builder()
-                                .subject(utf8(EmailSender.subject()))
-                                .body(Body.builder().text(utf8(EmailSender.body(code, validMinutes))).build())
+                                .subject(utf8(subject))
+                                .body(Body.builder().text(utf8(text)).build())
                                 .build())
                         .build())
                 .build();

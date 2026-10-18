@@ -35,6 +35,12 @@ enum AuthError: LocalizedError, Equatable {
     case invalidCode
     /// `invalid_refresh_token` (401): the refresh token is no longer good.
     case invalidRefreshToken
+    /// `invalid_link` (401): the emailed link is used, old, or was asked for on another device.
+    case invalidLink
+    /// `invalid_id_token` (401): Google or Apple sign-in was refused. The server's own message.
+    case invalidIdToken(String?)
+    /// 503 `provider_not_configured`: the backend has no client ID for this provider yet.
+    case providerNotConfigured
     /// 429 `rate_limited`, with the seconds from `Retry-After` when there is one.
     case rateLimited(retryAfter: Int?)
     /// 403 `admin_account`: `DELETE /api/me` refuses an admin account.
@@ -47,6 +53,9 @@ enum AuthError: LocalizedError, Equatable {
         case let .invalidEmail(message): message ?? "Enter a valid email address."
         case .invalidCode: "That code is wrong or has expired."
         case .invalidRefreshToken: "Your session has ended. Sign in again."
+        case .invalidLink: "This link is used or has expired. Ask for a new one on this iPhone."
+        case let .invalidIdToken(message): message ?? "Sign-in did not work. Try again."
+        case .providerNotConfigured: "This sign-in option is not set up yet. Use your email."
         case let .rateLimited(retryAfter): RateLimitMessage.text(retryAfter: retryAfter)
         case let .adminAccount(message): message ?? "An admin account cannot be deleted here."
         case let .badStatus(code, detail?): "\(detail) (status \(code))"
