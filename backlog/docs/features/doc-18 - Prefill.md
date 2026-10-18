@@ -3,11 +3,11 @@ id: doc-18
 title: Prefill
 type: other
 created_date: '2026-10-16 08:28'
-updated_date: '2026-10-16 09:14'
+updated_date: '2026-10-17 19:45'
 ---
 # Prefill
 
-> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue; cached-only lookups and suggestions (TASK-83.4 and later) come after. Last traced from code: 2026-10-16.
+> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue; cached-only lookups and suggestions (TASK-83.4 and later) come after. The free way, entries written by Codex on the developer's Mac and pushed to `word_lookup`, is [Local collection written by Codex](#local-collection-written-by-codex-task-839) at the end (TASK-83.9). Last traced from code: 2026-10-18.
 > Why: doc-7, decisions of 2026-10-16. Related: [Accounts and limits](doc-17%20-%20Accounts-and-limits.md) (the user budget), [Word lookup](doc-5%20-%20Word-lookup.md), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Media and images](doc-15%20-%20Media-and-images.md), the cron and env keys in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md).
 
 ## What it does
@@ -124,3 +124,104 @@ Run: `cd backend && ./mvnw -B test`. No test calls the real API.
 - The loose sentence match (TASK-83.3) is not here: a phrase is cached under its exact normalized text.
 - Sentence words (TASK-83.8): only the words of sentences that were answered are counted; the work is dropped when 50 texts wait. A word queued before its base was cached is still answered (a cached item is `done` for free). The nightly job is the same Spring `@Scheduled`-style schedule above; there is no second scheduler.
 - A word that Claude returns with no senses is saved by `WordService` like any other word; prefill does not look at the quality of the answer.
+
+## Local collection written by Codex (TASK-83.9)
+
+> Status: **code built, trial not run yet** (2026-10-17). Nothing has been pushed to the server.
+
+The night job above pays Claude for every new answer. The **local collection** is the free way: the Codex CLI on the developer's Mac (`codex exec`, the ChatGPT plan, no per-call cost) writes the entries in advance, the same checks as the backend run on them, and a push step copies the good ones into the server cache `word_lookup`. A pushed word is then an ordinary cached answer: about 25-50 ms, and a guest gets it too.
+
+It covers four kinds: **word**, **phrasal_verb**, **idiom** and **collocation**. Everything lives in one table, `collection`, in `pipeline/data/pipeline.db` (not on the server until the push).
+
+```mermaid
+flowchart LR
+    SC["SCOWL-70 + wordfreq (prefill.collect_words)"] --> C[collection collect]
+    PW["pipeline.db words: topic pending, NGSL needs_review"] --> C
+    WN["WordNet multiword verbs, adjectives, adverbs"] --> C
+    BU["bundled entries: usage collocation and idiom items"] --> C
+    C --> T[(collection table, pipeline.db)]
+    T --> W["collection write"]
+    JAVA["ClaudeService.WORD_PROMPT, read from the Java file"] --> W
+    W -->|"5 items a call"| CX["codex exec --output-schema"]
+    CX --> CHK["checks: JSON shape + SimpleWords port"]
+    CHK -->|"problems: one retry with feedback"| CX
+    CHK --> T
+    T --> CMP["collection compare: HTML, Codex next to Claude"]
+    T --> P["collection push (dry run unless --yes)"]
+    P -->|"INSERT ... ON CONFLICT DO NOTHING"| WL[(server word_lookup)]
+```
+
+| Step | File:line | What happens |
+|---|---|---|
+| Table | [collection.py SCHEMA:52](../../../pipeline/src/pipeline/collection.py#L52) | `collection(kind, text UNIQUE, source, zipf, priority, status pending/done/needs_review/skipped/failed, attempts, model, prompt_version, entry, problems, claude_entry, claude_model, pushed_at)`. `text` is normalised like `CacheKeys.normalizeWord`. The first source that brings a text keeps it. |
+| Collect words | [_collect:428](../../../pipeline/src/pipeline/cli.py#L428), [word_items:404](../../../pipeline/src/pipeline/collection.py#L404), [pipeline_word_items:426](../../../pipeline/src/pipeline/collection.py#L426) | The prefill word collector (SCOWL-70 lemmas, wordfreq Zipf >= 3.5, `--all-wordfreq` for every word), minus everything bundled or already in the `words` table. Plus the kept topic words that are still pending and the NGSL words left `needs_review`. A word the backend would call "not a word" (not on SCOWL-70 or NGSL) starts as `skipped`: the backend answers such a word with "no senses" before it looks in the cache. A word WordNet knows only as a capitalised noun is `skipped` as a name ([name_only_words:390](../../../pipeline/src/pipeline/collection.py#L390)). |
+| Collect phrases | [wordnet_items:367](../../../pipeline/src/pipeline/collection.py#L367), [phrase_kind:352](../../../pipeline/src/pipeline/collection.py#L352) | The prefill phrase collector (WordNet 2025, 2-4 words, verbs, adjectives and adverbs only), `--phrase-zipf` 3.0. A verb whose words after the first are all particles ("give up", "put up with") is a `phrasal_verb`; every other phrase is an `idiom` ("in time", "break the ice"). Rude phrases and numbers are left out. |
+| Collect collocations | [bundled_usage_items:412](../../../pipeline/src/pipeline/collection.py#L412), [typed_phrase:379](../../../pipeline/src/pipeline/collection.py#L379) | The `collocation` and `idiom` usage items of the 2,750 bundled entries (TASK-24), but only the ones a learner could type: no placeholder (`someone`, `+ noun`, `/`), 2-6 words. Each was written for a sense of a common word, so learners meet them. |
+| Prompt | [backend_word_prompt:103](../../../pipeline/src/pipeline/collection.py#L103), [build_prompt:148](../../../pipeline/src/pipeline/collection.py#L148) | `WORD_PROMPT` is read from `ClaudeService.java` at run time (the Java text block rules: common indent removed, `\"` read), so Codex and Claude always get the same instructions. A batch with a phrase also gets `PHRASE_NOTE` (pos "phrasal verb", "idiom" or "phrase"; every example uses the whole phrase). |
+| Codex call | [CodexWriter:528](../../../pipeline/src/pipeline/collection.py#L528) | `codex exec --sandbox read-only --ephemeral --ignore-user-config --output-schema <schema> -o <answer>`, model from `~/.codex/config.toml` (or `--model`), effort `low` like the backend. `--ignore-user-config` keeps the user's notify hook from firing after every call. "usage limit" or "not logged in" stops the run (`ProviderStop`); everything done so far is kept. |
+| Checks | [entry_problems:316](../../../pipeline/src/pipeline/collection.py#L316), [simple_word_problems:276](../../../pipeline/src/pipeline/collection.py#L276) | The JSON must be the `WordEntry` shape; then the shape rules Claude's structured output gives for free (at most 4 senses, exactly 3 examples easy, medium, harder, CEFR A1-C2, at most 3 usage items, no sb/sth), then a line-for-line copy of `SimpleWords.problems` with the same word lists (`ngsl.txt`, `simple-extra.txt`) and the same wording. One addition for phrases: every word of the phrase and its forms count as the headword. |
+| Retry and status | [write_batch:615](../../../pipeline/src/pipeline/collection.py#L615), [write_rows:698](../../../pipeline/src/pipeline/collection.py#L698) | Like `WordService`: one retry with feedback for an item that failed the checks, never more. Then `done`, or `needs_review` (the retry's entry is kept). No senses: `skipped`. A broken call: the batch is `failed` and tried again by the next run, up to 3 calls. The row keeps `model` (for example `codex:gpt-5.6-terra`) and the backend `prompt_version`. |
+| Compare | [compare_page:868](../../../pipeline/src/pipeline/collection.py#L868), [claude_from_api:810](../../../pipeline/src/pipeline/collection.py#L810) | `data/out/collection-compare.html`: the first N written rows of each kind, the Codex entry on the left and a Claude entry on the right. Claude entries come free from the NGSL pipeline (the 59 `needs_review` words) and, with `--from-server`, from `word_lookup`; `--claude` asks Claude Haiku 5.5 exactly like `ClaudeService.describeWord` (paid, about $0.0005 a call, `--max-cost`, default $0.25). |
+| Push | [plan_push:933](../../../pipeline/src/pipeline/collection.py#L933), [push:957](../../../pipeline/src/pipeline/collection.py#L957) | `done` rows (and `needs_review` with `--include-review`, saved with `needs_review = true`) into `word_lookup` under `CacheKeys.key("word", v7, text)`. A word that is bundled on the server is skipped (the bundled entry wins). `ON CONFLICT (cache_key) DO NOTHING`: a Claude row is never overwritten. Without `--yes` it opens a read-only connection and only prints the plan. Pushed words get no picture, like prefilled words. |
+
+### Counts (collected 2026-10-17; words down to Zipf 2 added 2026-10-18)
+
+| Kind | Source | Rows |
+|---|---|---|
+| word | scowl-70, Zipf >= 2 (2026-10-18; 996 skipped as names or blocked) | 39,667 |
+| word | topic (kept topic words, still pending) | 944 |
+| word | ngsl-review | 59 |
+| phrasal_verb | oewn-2025 | 1,818 |
+| idiom | oewn-2025 / bundled-usage | 1,600 / 744 |
+| collocation | bundled-usage | 5,719 |
+| all | | 50,551 (49,476 to write on 2026-10-18) |
+
+### Commands and time
+
+Run in `pipeline/`. Codex calls use the ChatGPT plan's limits, so agents never start these; the developer does.
+
+| Command | What | Time |
+|---|---|---|
+| `uv run pipeline collection collect` | Fill or top up the table (no LLM, safe to run again). | 30 s |
+| `uv run pipeline collection report` | Counts per kind, source and status. | instant |
+| `uv run pipeline collection write --per-kind 20` | The trial: 20 of each kind (80 rows, 16 calls plus retries). | about 5 minutes |
+| `uv run pipeline collection compare --claude` | The side-by-side page; Claude for the items with no Claude entry (about 60 calls, about $0.03; measured $0.0005 a call). | 2 minutes |
+| `uv run pipeline collection write --kind word --limit 1000` | The next 1,000 words. Stop with Ctrl-C at any time; the next run goes on. | about 40 minutes |
+| `uv run pipeline collection write` | Everything left. | about 9 hours (4 calls at once) |
+| `uv run pipeline collection push` | Dry run: what would go into `word_lookup` (needs the SSH tunnel and `DATABASE_URL`). | seconds |
+| `uv run pipeline collection push --yes` | Write, only after the developer's go-ahead. | seconds |
+
+### Claude Haiku 5.5 Batch writer (paid, half price)
+
+The developer chose this for the big run (2026-10-18): Codex is free but needs about 3.3 s a row (about 45 hours for 50,000 rows, with plan limits on the way); Claude Haiku 5.5 through the [Message Batches API](https://platform.claude.com/docs/en/build-with-claude/batch-processing) costs about $0.00025 a row (half of the measured $0.0005) and a batch usually ends within an hour. It is also the model the backend uses, so a pushed entry looks like a live one.
+
+| Step | File:line | What happens |
+|---|---|---|
+| Request | [request_for:69](../../../pipeline/src/pipeline/collection_batch.py#L69) | Exactly `ClaudeService.describeWord`: model `claude-haiku-5-5`, `max_tokens` 8000, system = `WORD_PROMPT` (plus `PHRASE_NOTE` for a phrase) marked for prompt caching, user = `<word>text</word>`, effort low, the `WordEntry` JSON schema. `custom_id` = `c<row id>-a<attempt>`. |
+| Submit | [_batch:533](../../../pipeline/src/pipeline/cli.py#L533) | Retry rows first, then pending and failed rows, in batches of 5,000 (each request carries the 10 KB prompt; a batch may be at most 256 MB). Each row gets `batch_id`, so neither writer sends it twice. `--max-cost` (default $5) refuses a bigger estimate; `--dry-run` prints the count, the cost and one request. |
+| Collect | [collect:164](../../../pipeline/src/pipeline/collection_batch.py#L164), [apply_result:134](../../../pipeline/src/pipeline/collection_batch.py#L134) | For every ended batch: the same checks as Codex. First answer with problems: `retry` (the entry is kept); the next `submit` sends the backend's retry message (`<word>…</word>`, a new line, "Your last answer used words that are too hard… Problems: …"). Second answer: `done` or `needs_review`. Errored or expired: `failed`, sent again (up to 3 tries). The real cost (input, cache writes 1.25x, cache reads 0.1x, output, all at half price) is saved per batch in `collection_batch`. |
+
+Commands (in `pipeline/`): `uv run pipeline collection batch submit --max-cost 15` (all 49,476 rows, about $12.40), `uv run pipeline collection batch collect --wait` (checks every 2 minutes until every batch ended), `uv run pipeline collection batch submit` again for the retries, then `uv run pipeline collection batch status`.
+
+### Where the entries go (developer's choice)
+
+- **A. Server cache `word_lookup` (built).** Works today with no app or backend change for single words. The admin lists them as backend words (`w-...`) with model `codex:...`, so they can be reviewed and fixed. Words are served from the network, not offline.
+- **B. Bundled dictionary tables (not built).** `dictionary_word` / `dictionary_sense` / `dictionary_form`, then `export` puts them in the app: offline and instant, but the app grows (about 2 KB a word, so about 15 MB for 7,000 words before pictures), each sense needs `image_type`/`image_query`, and every word needs a rank and its forms. Best for the 944 topic words, which were always meant to be bundled.
+
+### How the app could show phrases (proposal, not built)
+
+Today a phrase never reaches the word path: the app sends any input with a space to the sentence explanation (`CacheKeys.wordQuery`), and `WordService` checks the word list before the cache, so a pushed "give up" would never be shown. The smallest change:
+
+1. Backend: in `WordService.lookUp`, a text with a space is answered **only from the cache** (`word_lookup`), never from Claude, and never "not a word" when a row exists.
+2. App: for 2-6 words, first ask `GET /api/words/{phrase}?cachedOnly=true` (TASK-83.4); a hit shows the word card (pos "phrasal verb" or "idiom", the simple explanation first, Vietnamese last and closed); a 404 `not_cached` falls back to the sentence path as now.
+
+Any change to how the card looks needs a mockup first.
+
+### Known gaps
+
+- WordNet 2025 has no place or person names, so SCOWL names like "london" or "david" are still collected; Codex may describe them ("London: the capital city of the UK") or return no senses.
+- A phrase's Zipf comes from its words combined (wordfreq cannot count phrases), so it only says "made of common words".
+- The backend example check counts "giving" as hard for "give" (only words that start with the headword are free). The copy keeps that rule for words, so Codex entries get the same verdicts as Claude entries.
+- Phrases pushed to `word_lookup` are not served until the backend and app change above.
+- Fixed 2026-10-18: `backend/src/main/resources/words/ngsl.txt` missed 219 NGSL lemmas and forms (the 59 NGSL words that were never bundled, such as group, eat, air, black, angry, color, and their forms), so the backend's `SimpleWords` and this copy called them hard. They are added. `uv run pipeline collection revalidate` checks the `retry` and `needs_review` entries again with no LLM call (it moved 3,585 rows to `done`).
+- With the Claude batch, about 48% of first answers failed the checks (rare words need harder words to explain them: "informal", "clever", place names). Like the backend, they get one retry with feedback and are then `needs_review`.
