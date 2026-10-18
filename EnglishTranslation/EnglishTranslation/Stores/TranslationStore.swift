@@ -66,13 +66,17 @@ final class TranslationStore {
     }
 
     /// Handles `inputText` and updates `state`. One word (with or without an article, like "an apple") goes to the word lookup (a dictionary entry);
-    /// anything longer goes to the backend as a sentence. Does nothing if `canTranslate` is false.
+    /// 2 to 6 words that the cache knows as a phrase ("give up") show its word card (TASK-83.10);
+    /// anything else goes to the backend as a sentence. Does nothing if `canTranslate` is false.
     func translate() async {
         guard canTranslate else { return }
         state = .loading
         textNeedingSignIn = nil
         if let word = CacheKeys.wordQuery(trimmedInput) {
             await lookUpWord(word)
+        } else if let phrase = CacheKeys.phraseQuery(trimmedInput),
+                  let entry = await (try? makeWordLookup())?.phraseEntry(for: phrase) {
+            state = .loadedWord(entry)
         } else {
             await explainSentence()
         }

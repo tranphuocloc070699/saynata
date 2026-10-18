@@ -120,8 +120,9 @@ class TranslationControllerTest {
     }
 
     @Test
-    void wordWithSpacesIsRejected() throws Exception {
-        mockMvc.perform(get("/api/words/two words"))
+    void wordWithMarksIsRejected() throws Exception {
+        // Spaces are allowed now: a phrase is answered from the cache only (PhraseLookupTest).
+        mockMvc.perform(get("/api/words/two, words"))
                 .andExpect(status().isBadRequest());
     }
 }

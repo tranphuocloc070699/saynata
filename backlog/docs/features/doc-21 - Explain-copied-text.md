@@ -3,7 +3,7 @@ id: doc-21
 title: Explain copied text
 type: specification
 created_date: '2026-10-17 06:39'
-updated_date: '2026-10-17 16:47'
+updated_date: '2026-10-18 02:04'
 ---
 # Explain copied text and Quick explain (Back Tap and Action Button)
 
@@ -76,8 +76,8 @@ flowchart TD
 |---|---|---|
 | 1 | [QuickExplainIntent.swift:22](../../../EnglishTranslation/EnglishTranslation/Intents/QuickExplainIntent.swift#L22) | A required `text` parameter with the dialog "What do you want to explain?": iOS asks for it before `perform()`. `openAppWhenRun = false`. |
 | 2 | [QuickExplainer.swift:49](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L49) | Cleans the text (`CopiedText`), then empty, too long or not English (`looksLikeEnglish`) give a short message and no call. |
-| 3 | [QuickExplainer.swift:67](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L67) | One word (or "an apple") goes to the word lookup; more goes to the sentence API (non-streaming). The token is the shared App Group Keychain one (`AccountStore`, doc-17). |
-| 4 | [QuickExplainer.swift:119](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L119) | An 8 s limit: a card cannot show an answer that is still coming, so after that it says "Still working". |
+| 3 | [QuickExplainer.swift:67](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L67) | One word (or "an apple") goes to the word lookup; a cached phrase ("give up", TASK-83.10) shows its word card; more goes to the sentence API (non-streaming). The token is the shared App Group Keychain one (`AccountStore`, doc-17). |
+| 4 | [QuickExplainer.swift:122](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L122) | An 8 s limit: a card cannot show an answer that is still coming, so after that it says "Still working". |
 | 5 | [QuickExplainCard.swift:42](../../../EnglishTranslation/EnglishTranslation/Views/QuickExplain/QuickExplainCard.swift#L42) | Layout 2B: a word shows its title, IPA and **first** meaning; a sentence shows the sentence (2 lines) and the meaning box; the target-language line is last, small and open (an iOS 18 card cannot fold a row). |
 | 6 | [QuickExplainCard.swift:220](../../../EnglishTranslation/EnglishTranslation/Views/QuickExplain/QuickExplainCard.swift#L220) | The only control is an icon link that opens the full result in Saynata (a `Link`; buttons do not run in a card). |
 | 7 | [Theme+Snippet.swift:14](../../../EnglishTranslation/EnglishTranslation/DesignSystem/Theme+Snippet.swift#L14) | The card's colors as numbers: Shortcuts cannot read the asset catalog, so `Color("Theme/...")` drew invisible text. `ThemeSnippetColorsTests` keeps them equal to the catalog. |

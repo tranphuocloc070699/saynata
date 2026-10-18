@@ -26,12 +26,14 @@ public class WordController {
     }
 
     /**
-     * One word: letters, apostrophes and hyphens only ("don't", "well-known").
+     * One word or a phrase of up to 6 words with single spaces ("don't", "well-known", "give up"): letters,
+     * apostrophes and hyphens only. A phrase is answered only from the cache (else 404 not_cached).
      * {@code cachedOnly=true} answers only from the bundled dictionary or the cache, else 404 not_cached;
      * it never causes a Claude call, so guests can use it while typing.
      */
     @GetMapping("/{word}")
-    public ResponseEntity<WordResponse> lookUp(@PathVariable @Pattern(regexp = "[\\p{L}'-]{1,64}") String word,
+    public ResponseEntity<WordResponse> lookUp(
+            @PathVariable @Pattern(regexp = "(?=.{1,64}$)[\\p{L}'-]+( +[\\p{L}'-]+){0,5}") String word,
             @RequestParam(defaultValue = "false") boolean cachedOnly) {
         WordAnswer answer = service.lookUp(word, cachedOnly);
         ResponseEntity.BodyBuilder response = ResponseEntity.ok();
