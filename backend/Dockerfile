@@ -23,6 +23,28 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl ffmpeg && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app app \
     && mkdir /app/media && chown app:app /app/media
+
+# The Codex CLI draws the AI pictures the admin asks for (TASK-91, doc-11 "AI pictures with Codex"). It is the official
+# static release binary from GitHub (no Node.js needed). TARGETARCH is set by Docker: amd64 or arm64.
+# The version is pinned; to upgrade, change CODEX_VERSION (check: gh release list -R openai/codex).
+ARG TARGETARCH
+ARG CODEX_VERSION=0.163.0
+RUN case "$TARGETARCH" in \
+        amd64) CODEX_ARCH=x86_64 ;; \
+        arm64) CODEX_ARCH=aarch64 ;; \
+        *) echo "No Codex build for $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/codex-${CODEX_ARCH}-unknown-linux-musl.tar.gz" \
+        | tar -xz -C /usr/local/bin \
+    && mv "/usr/local/bin/codex-${CODEX_ARCH}-unknown-linux-musl" /usr/local/bin/codex \
+    && chmod 755 /usr/local/bin/codex \
+    && codex --version
+
+# The Codex login (auth.json) lives in a volume mounted here; the folder must be writable because Codex refreshes
+# the tokens in it. In production the compose file mounts it (CODEX_HOST_DIR).
+RUN mkdir /app/.codex && chown app:app /app/.codex
+ENV CODEX_HOME=/app/.codex
+
 COPY --from=build --chown=app:app /build/app.jar app.jar
 USER app
 

@@ -40,14 +40,38 @@ public class SenseMediaReader {
 
     /** Backend words: which senses the admin marked (status "needs_ai"). Word id, then sense position, then status. */
     public Map<Long, Map<Integer, String>> statusForBackendWords(Collection<Long> lookupIds) {
-        return readStatus("select word_lookup_id as word_id, sense_position, media_status from word_lookup_media"
-                + " where media_status is not null and word_lookup_id in (:ids)", lookupIds);
+        return withDrawingJobs(readStatus("select word_lookup_id as word_id, sense_position, media_status"
+                + " from word_lookup_media where media_status is not null and word_lookup_id in (:ids)", lookupIds),
+                "w-", lookupIds);
     }
 
     /** Bundled words: the same, from dictionary_sense. */
     public Map<Long, Map<Integer, String>> statusForBundledWords(Collection<Long> wordIds) {
-        return readStatus("select word_id, position as sense_position, media_status from dictionary_sense"
-                + " where media_status is not null and word_id in (:ids)", wordIds);
+        return withDrawingJobs(readStatus("select word_id, position as sense_position, media_status"
+                + " from dictionary_sense where media_status is not null and word_id in (:ids)", wordIds),
+                "b-", wordIds);
+    }
+
+    /** The status of a sense while the admin's AI picture is queued or being drawn (TASK-91). It is not saved in the sense. */
+    public static final String AI_DRAWING = "ai_drawing";
+
+    /**
+     * A sense with a queued or drawing AI picture job (ai_picture_job) shows {@link #AI_DRAWING} instead of its saved
+     * status, so the admin page knows to ask the server about the job. When the job ends the saved status shows again.
+     */
+    private Map<Long, Map<Integer, String>> withDrawingJobs(Map<Long, Map<Integer, String>> status, String prefix,
+            Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return status;
+        }
+        List<String> wordIds = ids.stream().map(id -> prefix + id).toList();
+        jdbc.sql("select word_id, position from ai_picture_job where status in ('queued', 'drawing')"
+                + " and word_id in (:ids)").param("ids", wordIds).query((rs, n) -> {
+                    long number = Long.parseLong(rs.getString("word_id").substring(2));
+                    status.computeIfAbsent(number, id -> new HashMap<>()).put(rs.getInt("position"), AI_DRAWING);
+                    return null;
+                }).list();
+        return status;
     }
 
     /** Bundled words: the review state of every sense, with the newest Claude check of the current media (TASK-80). */

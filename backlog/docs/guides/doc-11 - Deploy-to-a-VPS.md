@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-17 12:54'
+updated_date: '2026-10-18 04:03'
 ---
 # Deploy to a VPS
 
@@ -58,6 +58,7 @@ nano .env
 | `CLAUDE_MODEL` | Optional. Default is the model in `application.properties`. |
 | `ADMIN_JWT_SECRET` | Signs the admin login cookie. 32+ characters. Make one with `openssl rand -base64 48`. **The backend does not start without it**, unless `ADMIN_ENABLED=false`. |
 | `ADMIN_EMAIL` | Email of the first admin (for the admin web app). Used only when no admin exists yet. |
+| `AI_PICTURES_ENABLED` | Optional, default `false`. `true` lets the admin draw AI pictures on the server with the Codex CLI (TASK-91). Needs the steps in section 12 first. Also `AI_PICTURES_PER_DAY` (30), `AI_SCENE_DAILY_USD` (1.00), `AI_CODEX_SANDBOX` (`read-only`), `CODEX_HOST_DIR` (`/var/lib/saynata/codex`). |
 | `ADMIN_INITIAL_PASSWORD` | Password of the first admin, 12+ characters. Used only when no admin exists yet; remove it from `.env` after the first start. |
 | `ADMIN_ENABLED` | Optional. `false` turns the admin API off. Default `true`. |
 | `PIXABAY_API_KEY` | Optional. Free key from https://pixabay.com/api/docs/ . With it, a new word that is not in the bundle gets a photo or clip in the background (section 9), except words saved by the prefill job. Empty = no pictures are fetched. |
@@ -362,6 +363,7 @@ use in it:
 | Pixabay | [Pixabay Content License](https://pixabay.com/service/license-summary/) | Free for commercial use, no credit needed; resized copies may be stored and shown. Not allowed: selling the files as they are, or showing people in a bad light. |
 | OpenAI (API, `gpt-image-1-mini`) | [Services Agreement](https://openai.com/policies/services-agreement/), [Usage policies](https://openai.com/policies/usage-policies/) | The customer owns the Output, and OpenAI assigns any rights it has in it, so the pictures may be used in the app and the admin. API data is not used to train OpenAI models unless you opt in. You are responsible for how the pictures are used, and the usage policies apply (the prompt rule "no realistic faces, no text" also keeps us away from people and brands). AI pictures may not get copyright protection in some countries, so others could copy them. Not legal advice. |
 | Admin uploads (TASK-79) | Whoever made the file | Upload only pictures you made or may use. A picture made in ChatGPT falls under OpenAI's consumer [Terms of Use](https://openai.com/policies/terms-of-use/), which also give the user ownership of the Output. |
+| OpenAI ChatGPT login with the Codex CLI (TASK-91) | OpenAI [Terms of Use](https://openai.com/policies/terms-of-use/), [Codex authentication](https://learn.chatgpt.com/docs/auth) | The pictures belong to the user under the consumer terms (like the uploads above). **Known risk, accepted by the developer on 2026-10-18:** the consumer terms forbid extracting Output "automatically or programmatically", and OpenAI's docs say an API key is "the recommended default for automation". The server draws on request, one at a time, at most 30 a day, but the account could still be limited. If that happens, the other choice is the OpenAI image API (about $0.004 a picture). |
 
 ## 10. Resend setup (sign-in emails)
 
@@ -579,6 +581,54 @@ curl -s -X POST https://api.yourdomain.com/api/auth/verify \
 rate limited (5 per hour per IP, 3 per 15 minutes per email), which also limits how much stranger mail it can send.
 Watch **Reputation metrics** in SES now and then. Later you can add a configuration set with bounce notifications.
 
+## 12. AI pictures with Codex (TASK-91)
+
+The admin web app can draw an AI picture for one sense: Sparkles button, edit the prompt, OK. The backend then runs the **Codex CLI** inside its container and links the picture to the sense (doc-15, "AI picture from the admin"). Codex uses **your ChatGPT login** (`auth.json`), so a picture has no per-picture cost and takes about 1 minute. It is off until you finish these steps (`AI_PICTURES_ENABLED=false` by default; then the admin gets "AI pictures are not set up on this server").
+
+**Know the risks first** (the developer chose this on 2026-10-18; the other choice was the OpenAI image API, about $0.004 a picture):
+
+- `auth.json` is like a **password**. Anyone who has it can use your ChatGPT account. Never put it in git, in chat or in a backup you do not control. It is `chmod 600` and owned by user 10001 on the server.
+- Your ChatGPT plan has its own limits. When it is used up, the admin shows "The ChatGPT plan limit is reached". The backend also stops at `AI_PICTURES_PER_DAY` (default 30) pictures a day.
+- OpenAI's consumer terms forbid taking Output "automatically or programmatically", and their docs recommend an API key for automation ([source](https://learn.chatgpt.com/docs/auth)). The account could be limited. See the provider table in section 9.
+- Codex starts with an empty environment (only `PATH`, `HOME`, `CODEX_HOME`, `LANG`), so it never sees `CLAUDE_API_KEY` or `DB_PASSWORD`.
+
+**Steps** (you do these; the Docker image already has Codex, `CODEX_VERSION` in the [Dockerfile](../../../backend/Dockerfile)):
+
+1. On your Mac, sign in with ChatGPT and check it:
+   ```bash
+   codex login
+   codex login status        # Logged in using ChatGPT
+   ```
+2. On the server, make the folder for the login. The container user has the fixed id 10001, and the folder must be **writable** (Codex refreshes the tokens inside `auth.json`):
+   ```bash
+   sudo mkdir -p /var/lib/saynata/codex
+   sudo chown 10001:10001 /var/lib/saynata/codex
+   ```
+3. Copy `auth.json` from your Mac:
+   ```bash
+   scp ~/.codex/auth.json vps_sieutoc:~/auth.json
+   ssh vps_sieutoc 'sudo mv ~/auth.json /var/lib/saynata/codex/auth.json && sudo chown 10001:10001 /var/lib/saynata/codex/auth.json && sudo chmod 600 /var/lib/saynata/codex/auth.json'
+   ```
+4. In `~/saynata/backend/.env` on the server set `AI_PICTURES_ENABLED=true`. Then deploy again (`./scripts/deploy.sh`, or push to main). The first build downloads Codex from GitHub.
+5. Test that Codex is signed in inside the container, then draw one picture from the admin:
+   ```bash
+   docker compose -f docker-compose.prod.yml exec backend codex login status    # Logged in using ChatGPT
+   ```
+   In the admin: open a word, press the Sparkles button on a sense, press OK, wait about a minute. The new picture shows with the caption "AI image (codex)" and the sense is in "Media to review".
+
+**If something goes wrong**
+
+| Problem | Fix |
+|---|---|
+| Admin says "AI pictures are not set up" | `AI_PICTURES_ENABLED` is not `true` in `.env`, or the backend was not redeployed. |
+| "Codex is not signed in on the server" | `auth.json` is missing, not owned by 10001, or the login ended (you logged out on the Mac, or the token was revoked). Copy it again (step 3). The other way is a login made on the server itself: `docker compose -f docker-compose.prod.yml exec backend codex login --device-auth`, then open the address it prints and enter the code. That keeps a separate login for the server. |
+| Drawing fails with a sandbox error (for example `bwrap` or a namespace message in `docker compose logs backend`) | The `read-only` sandbox may not start inside Docker. Set `AI_CODEX_SANDBOX=workspace-write` in `.env` and redeploy. **Never** use a "danger" or "bypass" flag. |
+| "The ChatGPT plan limit is reached" | Wait. The plan limit comes back by itself. |
+| Job stays "drawing" for a long time | After `AI_CODEX_TIMEOUT` (10 minutes) Codex is stopped and the job fails. A restart also marks it failed. |
+
+To turn it off again: `AI_PICTURES_ENABLED=false` and redeploy. To remove the login: `sudo rm /var/lib/saynata/codex/auth.json`.
+
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -596,3 +646,4 @@ Watch **Reputation metrics** in SES now and then. Later you can add a configurat
 | Prefill run does nothing | `GET /api/admin/prefill` shows `running`, the counts by status and the last runs (`stoppedBecause`: `queue-empty`, `cap`, `limit`, `failures`). Items are added by the pipeline collector (TASK-83.2) or by an admin; `PREFILL_CRON` empty means no night run. A run that stops with `cap` is normal: the next run continues. |
 | Deploy hangs (the build log stops, the server is idle) | Seen on 2026-10-17: dockerd logged `session healthcheck failed fatally` and the BuildKit build waited forever. `deploy.sh` now stops a build after 6 minutes and tries once more, and the job stops after 20 minutes. If a run still hangs: 1. Cancel it (Actions tab, the run, **Cancel workflow**). 2. On the server, look for leftover build processes: `pgrep -af 'docker compose\|buildx'`, and stop them: `pkill -f 'buildx.*bake'; pkill -f 'docker compose -f docker-compose.prod.yml'`. 3. If builds still hang, restart Docker: `sudo systemctl restart docker` (the backend and Postgres restart too, a short outage). 4. Re-run the workflow (**Re-run all jobs**). The old backend keeps running until a new build succeeds. |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |
+| AI picture fails (TASK-91) | See section 12, "If something goes wrong": the three usual causes are a missing `AI_PICTURES_ENABLED=true`, an `auth.json` that is not owned by 10001 or has ended, and a sandbox that needs `AI_CODEX_SANDBOX=workspace-write`. |

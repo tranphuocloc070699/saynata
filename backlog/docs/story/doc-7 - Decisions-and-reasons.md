@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-18 02:05'
+updated_date: '2026-10-18 04:03'
 ---
 # Decisions and reasons
 
@@ -52,6 +52,8 @@ Quotes are the developer's words, with spelling fixed.
 | 10-14 | F3 speakers: word speaker stays in the header; a small speaker on each sense title row; a small speaker at the end of each example line (option A) | Easy to find, and VoiceOver reads it as a button. | B: tap the example text itself (cleaner, but hard to find and clashes with text selection) | Developer chose A from the mockup; Claude recommended |
 | 10-14 | Examples rows: level label and a **plain** speaker icon (no circle, no border) on line 1, the sentence on line 2; speaker at the right edge (mockup option A) | The developer's phone test: "it's too narrow". The label, the sentence and a round speaker shared one line, so the sentence wrapped every 2-3 words. A keeps all speakers in one column. | B: speaker right after the label; keep one line (TASK-48) | Developer (layout idea), chose A from Claude's mockup |
 | 10-18 | A phrase ("give up") gets **the same word card as a word, no new parts (mockup A)**, and on **every** word card the **IPA moves onto the headword line** (it goes under it only when the line is too long) | Reason not recorded (the developer picked "A, move the IPA to the same line", then "Every word card") | B: a "Phrasal verb" chip and an "Explain as a sentence" row; A without IPA for phrases; IPA on the same line only for phrases | Claude (A), developer (IPA line) |
+| 10-18 | The AI picture editor in the admin is a **dialog (layout A)**: the prompt filled in, the current picture and the meaning, and icon-only buttons (undo, wand, cancel, check) (TASK-91) | Mockup approved. Reason: not recorded. | An inline panel under the Media row | Developer chose from the mockup |
+| 10-18 | The dialog has a **wand** button: Claude Sonnet 5.5 writes a new scene (about $0.02 a call), with its own **$1 a day cap** (on top of the users' daily budget) (TASK-91) | Reason: not recorded. | Leaving the wand out | Developer |
 
 ## Stack
 
@@ -78,6 +80,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-14 | Shared sentence cache privacy (TASK-9): keep the cache shared, but **do not store** sentences that look personal (email address, phone number, link, long number); they are still explained, just not cached | Reason: not recorded (Claude: the cache returns one user's text to others; this keeps the cost saving without storing personal data). | Per-user cache (needs logins); keep as is | Developer chose 1, Claude recommended |
 | 10-14 | Images: **Pixabay for every picture sense first; AI-generated images only for the ones the developer marks as bad in the admin** (option B). Style rule: flat simple illustration, one subject, light background, Sage and Teal colours, no text in the picture, no realistic faces; a budget cap on every run | Reason: not recorded (Claude: cheapest, about 150-300 images instead of 1,500-4,000). Provider and budget still to choose after a 20-word trial. | A: AI for all ~1,500 picture senses; C: AI for all senses incl. abstract ones (~3,000-4,000) | Developer chose B from Claude's options |
 | 10-15 | **Topic words** (TASK-61): add about 1,000-1,400 everyday concrete words NGSL misses (apple, giraffe, scarf, tram), each with one topic. Start from the **first-sense list** (Open English WordNet 2025 + wordfreq Zipf ≥ 3.5, NGSL removed: 1,271 words, 1,378 with a short hand list), then a **Claude Haiku judge** keeps or drops each word (names, rare meanings, technical words) before any Sonnet money is spent | The developer noticed everyday words are missing ("apple" is not in NGSL, because NGSL is chosen by frequency) and asked where to find vocabulary for streets, vegetables, animals and tools. First-sense list: picked the recommended option (cleaner; the any-sense list finds more animals but much more noise). The judge costs under $0.10. | Any-sense list (1,888 words, more noise); copying the Cambridge Young Learners lists (© Cambridge, used only to check coverage); hand-picking every word | Developer chose, Claude recommended |
+| 10-18 | **The admin draws an AI picture for one sense on the server with the Codex CLI**, signed in with the developer's ChatGPT login (`auth.json` copied to the VPS; Codex is in the backend Docker image) (TASK-91) | No per-picture cost, the same prompt texts and style as `media-ai`, about 1 minute a picture. Reason in the developer's words: not recorded (picked from the options). Known risks: `auth.json` is like a password; the ChatGPT plan has limits (so 30 pictures a day); OpenAI's consumer Terms forbid taking Output "automatically or programmatically". | **The OpenAI image API** (`gpt-image-1-mini`, about $0.004 a picture; OpenAI's own docs say API keys are "the recommended default for automation", https://learn.chatgpt.com/docs/auth) | Developer chose from Claude's options |
 
 ## Workflow
 
@@ -185,3 +188,4 @@ go here as questions.
 - 10-17: Why layout B (up to 3 meanings or words) over A (one meaning) for the Explain copied text card? Reason not recorded.
 - 10-17: Why mockup option B (one card, dotted words, popup on selection) over A and C? Reason not recorded.
 - 10-18: Why the IPA on the headword line for every word card? Reason not recorded.
+- 10-18: Why draw the admin's AI pictures with Codex and the ChatGPT login on the VPS instead of the OpenAI image API, why the dialog (layout A) over an inline panel, and why a wand with a $1 a day cap? Reason not recorded (TASK-91).

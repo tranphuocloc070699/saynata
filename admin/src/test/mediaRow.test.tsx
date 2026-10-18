@@ -62,7 +62,7 @@ describe("media row", () => {
     renderRow();
     expect(screen.getByRole("img", { name: "run, sense 1" })).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.webp");
     expect(screen.getByRole("link", { name: "Jane Photo" })).toBeInTheDocument();
-    for (const name of ["Pick another image", "No image", "Mark for AI image"]) {
+    for (const name of ["Pick another image", "No image", "Draw an AI picture"]) {
       const button = screen.getByRole("button", { name });
       // Icon only (CLAUDE.md): the button has no visible text.
       expect(button).toHaveTextContent("");
@@ -140,17 +140,18 @@ describe("media row", () => {
     expect(del.mock.calls[0][0]).toBe(`${API}/words/b-5/senses/0/media`);
   });
 
-  it("Mark for AI sends POST, and a marked sense shows the waiting note", async () => {
+  it("the Sparkles button opens the AI picture dialog and sends nothing (TASK-91)", async () => {
+    get.mockResolvedValue({ data: { prompt: "A prompt", source: "template", usage: { picturesToday: 0, picturesPerDay: 30, sceneUsdToday: 0, sceneUsdPerDay: 1 } } });
     renderRow();
-    await userEvent.click(screen.getByRole("button", { name: "Mark for AI image" }));
-    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1));
-    expect(post.mock.calls[0][0]).toBe(`${API}/words/b-5/senses/0/media/mark-for-ai`);
+    await userEvent.click(screen.getByRole("button", { name: "Draw an AI picture" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
   });
 
-  it("shows that a sense is waiting for an AI image", () => {
+  it("shows that a sense is waiting for an AI image, and the button still opens the dialog", () => {
     renderRow({ ...word, mediaStatus: ["needs_ai"] });
     expect(screen.getByText("Waiting for an AI image")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mark for AI image" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Draw an AI picture" })).toBeEnabled();
   });
 
   it("shows the message of the backend when a change fails", async () => {

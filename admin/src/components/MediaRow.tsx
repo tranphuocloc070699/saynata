@@ -1,7 +1,8 @@
 import { useApiUrl, useInvalidate } from "@refinedev/core";
 import { Check, ImageOff, Images, Loader2, Maximize2, Search, Sparkles, Upload, X } from "lucide-react";
-import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
-import type { MediaSearchResponse, MediaSearchResult, SenseMedia, WordItem } from "@/api/types";
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import type { AiJob, MediaSearchResponse, MediaSearchResult, SenseMedia, WordItem } from "@/api/types";
+import { AiPictureDialog } from "@/components/AiPictureDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MediaLightbox, type LightboxMedia } from "@/components/MediaLightbox";
@@ -10,6 +11,9 @@ import { cn } from "@/lib/utils";
 
 // The backend wants "Content-Type: application/json" on every write, even without a body.
 const JSON_HEADERS = { "Content-Type": "application/json" };
+
+// How often a drawing AI picture asks the server if it is done (TASK-91).
+export const AI_POLL_MS = 3000;
 
 interface Props {
   word: WordItem;
@@ -91,11 +95,30 @@ export function MediaRow({ word, index }: Props) {
       await refresh();
     }, () => setPanelOpen(false));
 
-  const markForAi = () =>
-    run(async () => {
-      await httpClient.post(`${mediaUrl}/mark-for-ai`, {}, { headers: JSON_HEADERS });
-      await refresh();
-    });
+  // The AI picture (TASK-91): the Sparkles button opens a dialog; OK starts a job on the server. The job state is in
+  // the database, so a reloaded page finds it again: the word says mediaStatus "ai_drawing" and this row keeps asking.
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [job, setJob] = useState<AiJob>();
+  const drawing = job ? job.status === "queued" || job.status === "drawing" : word.mediaStatus?.[index] === "ai_drawing";
+  const jobError = job?.status === "failed" ? (job.error ?? "The AI picture could not be drawn.") : undefined;
+
+  useEffect(() => {
+    if (!drawing) return;
+    const timer = setInterval(() => {
+      httpClient
+        .get<AiJob>(`${mediaUrl}/ai-picture`, { validateStatus: (status) => status === 200 || status === 204 })
+        .then(({ data, status }) => {
+          if (status === 204 || !data) return;
+          setJob(data);
+          // A finished job: read the word again, so the new picture (or the old one) shows.
+          if (data.status === "done" || data.status === "failed") void refresh();
+        })
+        .catch(() => undefined); // a short network problem: ask again in 3 seconds
+    }, AI_POLL_MS);
+    return () => clearInterval(timer);
+    // refresh is made again on every render but does the same thing
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawing, mediaUrl]);
 
   // "Picture looks right" (TASK-80): approve the current file, or undo it. Approving also clears "needs AI image".
   const toggleApproved = () =>
@@ -161,7 +184,17 @@ export function MediaRow({ word, index }: Props) {
       onDrop={onDrop}
     >
       <div className="flex items-start justify-between gap-3">
-        <MediaCell media={media} alt={senseLabel} onOpen={() => media && setViewing(media)} />
+        {drawing ? (
+          <div
+            role="status"
+            className="flex h-24 w-36 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-primary/60 bg-muted/40 p-2 text-center text-xs text-muted-foreground"
+          >
+            <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
+            Drawing an AI picture&hellip; you can leave this page
+          </div>
+        ) : (
+          <MediaCell media={media} alt={senseLabel} onOpen={() => media && setViewing(media)} />
+        )}
         <div className="flex shrink-0 items-center gap-2" role="group" aria-label={`Media actions (sense ${index + 1})`}>
           {approved && <span className="text-xs font-medium text-primary">Approved</span>}
           {media && (
@@ -195,11 +228,11 @@ export function MediaRow({ word, index }: Props) {
           <Button
             variant="outline"
             size="icon"
-            aria-label="Mark for AI image"
-            title="Mark for AI image"
-            aria-pressed={markedForAi}
-            disabled={busy || markedForAi}
-            onClick={markForAi}
+            aria-label="Draw an AI picture"
+            title="Draw an AI picture"
+            aria-haspopup="dialog"
+            disabled={busy || drawing}
+            onClick={() => setDialogOpen(true)}
             className={cn(markedForAi && "border-primary text-primary")}
           >
             <Sparkles className="h-4 w-4" />
@@ -238,11 +271,32 @@ export function MediaRow({ word, index }: Props) {
         </p>
       )}
 
-      {markedForAi && (
+      {markedForAi && !drawing && (
         <p className="flex items-center gap-1 text-xs text-primary">
           <Sparkles className="h-3 w-3" aria-hidden /> Waiting for an AI image
         </p>
       )}
+
+      {jobError && (
+        <p role="alert" className="text-sm text-destructive">
+          The AI picture failed: {jobError} The old picture is kept.
+        </p>
+      )}
+
+      <AiPictureDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        mediaUrl={mediaUrl}
+        word={word.word}
+        senseNumber={index + 1}
+        pos={word.entry?.senses?.[index]?.pos}
+        meaning={word.entry?.senses?.[index]?.simpleDefinition}
+        media={media}
+        onStarted={(started) => {
+          setJob(started);
+          void refresh(); // the word now says ai_drawing
+        }}
+      />
 
       {panelOpen && (
         <section aria-label={`Pick another image (sense ${index + 1})`} className="space-y-3 rounded-md border border-border bg-muted/40 p-3">
