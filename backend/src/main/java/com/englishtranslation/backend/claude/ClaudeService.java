@@ -6,7 +6,6 @@ import com.anthropic.helpers.MessageAccumulator;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.RawMessageStreamEvent;
 import com.anthropic.models.messages.MessageCreateParams;
-import com.anthropic.models.messages.OutputConfig;
 import com.anthropic.models.messages.StopReason;
 import com.anthropic.models.messages.StructuredMessage;
 import com.anthropic.models.messages.StructuredMessageCreateParams;
@@ -162,6 +161,13 @@ public class ClaudeService {
                 return toExplanation(readOutput(message));
         }
 
+        /** JSON output of this shape, with the effort from the settings (none when it is blank). */
+        private <T> StructuredOutputConfig<T> outputConfig(Class<T> type) {
+                StructuredOutputConfig.Builder<T> builder = StructuredOutputConfig.<T>builder().format(type);
+                properties.effortLevel().ifPresent(builder::effort);
+                return builder.build();
+        }
+
         /** The JSON text carried by one stream event, if it carries any. */
         private static Optional<String> textOf(RawMessageStreamEvent event) {
                 return event.contentBlockDelta()
@@ -175,10 +181,7 @@ public class ClaudeService {
                                 .model(properties.model())
                                 .maxTokens(4000L)
                                 .system(SENTENCE_PROMPT)
-                                .outputConfig(StructuredOutputConfig.<SentenceAnswer>builder()
-                                                .format(SentenceAnswer.class)
-                                                .effort(OutputConfig.Effort.LOW)
-                                                .build())
+                                .outputConfig(outputConfig(SentenceAnswer.class))
                                 .addUserMessage(sentenceMessage(text, targetLang))
                                 .build();
         }
@@ -199,8 +202,8 @@ public class ClaudeService {
                                 message.usage().outputTokens());
         }
 
-        /** The model that writes the scene of an AI picture (TASK-91). Same as SCENE_MODEL in pipeline/media_ai.py. */
-        public static final String SCENE_MODEL = "claude-sonnet-5-5";
+        /** The default model that writes the scene of an AI picture (TASK-91), as in pipeline/media_ai.py. */
+        public static final String SCENE_MODEL = ClaudeProperties.DEFAULT_SCENE_MODEL;
 
         /**
          * The admin's wand (TASK-91): Claude Sonnet 5.5 writes the scene for an AI picture. {@code system} and
@@ -210,14 +213,14 @@ public class ClaudeService {
          */
         public String writePictureScene(String system, String userMessage) {
                 MessageCreateParams params = MessageCreateParams.builder()
-                                .model(SCENE_MODEL)
+                                .model(properties.sceneModel())
                                 .maxTokens(4000L) // room for the thinking that is on by default; the answer is short
                                 .system(system)
                                 .addUserMessage(userMessage)
                                 .build();
                 Message message = client.messages().create(params);
                 // Saved before the answer is read, so a refused or broken answer (which still cost money) is counted.
-                usage.record(Feature.ADMIN, SCENE_MODEL, message.usage().inputTokens(), message.usage().outputTokens());
+                usage.record(Feature.ADMIN, properties.sceneModel(), message.usage().inputTokens(), message.usage().outputTokens());
                 if (message.stopReason().filter(StopReason.REFUSAL::equals).isPresent()) {
                         throw new ClaudeRefusedException("Claude declined to write a scene for this word.");
                 }
@@ -253,10 +256,7 @@ public class ClaudeService {
                                 .model(properties.model())
                                 .maxTokens(8000L)
                                 .system(WORD_PROMPT)
-                                .outputConfig(StructuredOutputConfig.<WordEntry>builder()
-                                                .format(WordEntry.class)
-                                                .effort(OutputConfig.Effort.LOW)
-                                                .build())
+                                .outputConfig(outputConfig(WordEntry.class))
                                 .addUserMessage(userMessage)
                                 .build();
 

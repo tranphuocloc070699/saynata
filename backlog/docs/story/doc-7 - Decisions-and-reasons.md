@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-18 07:56'
+updated_date: '2026-10-18 13:15'
 ---
 # Decisions and reasons
 
@@ -170,6 +170,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-18 | The emailed link points to an **HTTPS page on the backend** (`/auth/link`) that opens `saynata://sign-in`; universal links come later with Associated Domains | Works with the free Apple ID and the current domain; mail apps do not open a custom scheme from an email; the same HTTPS address becomes the universal link later, so emails do not change | A custom-scheme link in the email; universal links now (need Associated Domains and the final domain) | Claude |
 | 10-18 | The link only works **in the app that asked for it** (the app keeps a secret, the server keeps its hash: the PKCE idea) | Another app could register the `saynata://` scheme and catch the token; without the secret the token is useless. Opening the page does not use the link up, so mail scanners cannot spend it | A link that works anywhere | Claude |
 | 10-18 | **No domain in the code**: `PUBLIC_BASE_URL`, `APP_URL_SCHEME`, `APPLE_APP_IDS`, `GOOGLE_CLIENT_IDS` are config, and doc-11 section 13 lists what changes when the domain moves | The developer plans to buy a new domain later (spelling to be confirmed: they wrote "saynanta.com", the app is Saynata) | — | Developer |
+| 10-18 | The backend can call Claude through an **Anthropic-compatible gateway** (STEYG: `CLAUDE_BASE_URL` + `CLAUDE_AUTH_TOKEN`, model `claude-haiku-4-5`) instead of the Anthropic API | Reason: not recorded. Context: the Anthropic key on the server started to fail (401), so every new explanation gave 502 | Keep the Anthropic API with a new key; an OpenAI-compatible client | Developer |
 
 ## Questions answered
 
@@ -195,3 +196,4 @@ go here as questions.
 - 10-18: Why the IPA on the headword line for every word card? Reason not recorded.
 - 10-18: Why draw the admin's AI pictures with Codex and the ChatGPT login on the VPS instead of the OpenAI image API, why the dialog (layout A) over an inline panel, and why a wand with a $1 a day cap? Reason not recorded (TASK-91).
 - 10-18: Why add Google, Apple and an emailed link now (TASK-92), and is the new domain "saynanta.com" or "saynata.com"? Reason and spelling not recorded.
+- 10-18: Why the STEYG gateway over a new Anthropic key? Reason not recorded.
