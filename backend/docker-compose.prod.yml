@@ -33,7 +33,12 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      CLAUDE_API_KEY: ${CLAUDE_API_KEY:?Set CLAUDE_API_KEY in .env}
+      # CLAUDE_API_KEY for Anthropic, or CLAUDE_BASE_URL + CLAUDE_AUTH_TOKEN for a gateway (the app checks one is set).
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
+      CLAUDE_BASE_URL: ${CLAUDE_BASE_URL:-}
+      CLAUDE_AUTH_TOKEN: ${CLAUDE_AUTH_TOKEN:-}
+      CLAUDE_SCENE_MODEL: ${CLAUDE_SCENE_MODEL:-claude-sonnet-5-5}
+      CLAUDE_EFFORT: ${CLAUDE_EFFORT-low}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/english_translation
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
