@@ -27,6 +27,9 @@ final class AccountStore: AccessTokenProviding {
 
     var isSignedIn: Bool { user != nil }
 
+    /// Why the last emailed link did not sign in, for the app's alert. Nil when all is fine.
+    private(set) var linkSignInError: String?
+
     /// The one store of this process. The app and the extensions each have one, and they share the session
     /// through the Keychain (`KeychainSecretStore`, App Group), so the extensions are signed in too.
     static let shared = AccountStore()
@@ -38,6 +41,8 @@ final class AccountStore: AccessTokenProviding {
 
     /// The Keychain key. All of the session is one JSON item, so it is saved and deleted in one step.
     private static let sessionKey = "session"
+    /// The secret kept while an emailed link is on its way. It survives the app being closed while the user is in Mail.
+    private static let linkVerifierKey = "pendingLinkVerifier"
 
     init(
         secrets: any SecretStoring = KeychainSecretStore(),
@@ -78,6 +83,45 @@ final class AccountStore: AccessTokenProviding {
         let response = try await client.verify(
             email: email.trimmingCharacters(in: .whitespacesAndNewlines),
             code: code.trimmingCharacters(in: .whitespacesAndNewlines))
+        save(SavedSession(accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user))
+    }
+
+    /// "Email me a link": makes a new secret, keeps it in the Keychain, and asks the backend to email a link that
+    /// only works together with that secret. A new request replaces the old secret (and the server the old link).
+    func requestLink(email: String) async throws {
+        let verifier = SignInSecrets.random()
+        try? secrets.setSecret(verifier, forKey: Self.linkVerifierKey)
+        try await client.requestLink(
+            email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+            codeChallenge: SignInSecrets.sha256Hex(verifier))
+    }
+
+    /// The link from the email opened the app. Signs in with the token and the kept secret.
+    /// Throws `AuthError.invalidLink` when the link is used, old, or was asked for on another device.
+    func signIn(linkToken: String) async throws {
+        guard let verifier = secrets.secret(forKey: Self.linkVerifierKey) else { throw AuthError.invalidLink }
+        let response = try await client.verifyLink(token: linkToken, codeVerifier: verifier)
+        try? secrets.setSecret(nil, forKey: Self.linkVerifierKey)
+        save(SavedSession(accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user))
+    }
+
+    /// The app was opened by a sign-in link. Signs in, or keeps the reason in `linkSignInError` for the alert.
+    func completeLinkSignIn(token: String) async {
+        linkSignInError = nil
+        do {
+            try await signIn(linkToken: token)
+        } catch {
+            linkSignInError = error.localizedDescription
+        }
+    }
+
+    func clearLinkSignInError() {
+        linkSignInError = nil
+    }
+
+    /// Google or Apple gave an ID token for the hashed `nonce`; the backend checks it and answers with our tokens.
+    func signIn(with provider: SocialProvider, idToken: String, nonce: String) async throws {
+        let response = try await client.signIn(with: provider, idToken: idToken, nonce: nonce)
         save(SavedSession(accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user))
     }
 

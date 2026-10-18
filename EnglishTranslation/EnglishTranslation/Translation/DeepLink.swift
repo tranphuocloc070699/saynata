@@ -29,4 +29,19 @@ enum DeepLink {
         else { return nil }
         return text
     }
+
+    /// The token of an emailed sign-in link (TASK-92, doc-17), or nil for any other URL.
+    /// Today the link page opens `saynata://sign-in?token=...`. With the paid account and Associated Domains, iOS
+    /// opens the email's own `https://<backend>/auth/link?token=...` in the app directly (a universal link); iOS only
+    /// does that for our associated domain, so the host needs no check here.
+    static func signInToken(from url: URL) -> String? {
+        let isSchemeLink = url.scheme == scheme && url.host() == "sign-in"
+        let isUniversalLink = url.scheme == "https" && url.path() == "/auth/link"
+        guard isSchemeLink || isUniversalLink,
+              let token = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                  .queryItems?.first(where: { $0.name == "token" })?.value,
+              token.range(of: "^[A-Za-z0-9_-]{20,100}$", options: .regularExpression) != nil
+        else { return nil }
+        return token
+    }
 }

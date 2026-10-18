@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-18 04:03'
+updated_date: '2026-10-18 07:56'
 ---
 # Decisions and reasons
 
@@ -165,6 +165,11 @@ Quotes are the developer's words, with spelling fixed.
 | 10-16 | **Shorter sentence meaning, prompt v7**: one or two short sentences, at most 20 words, the meaning itself (never "The speaker says..."), idioms said plainly; `app.claude.sentence-prompt-version` and the iOS `PromptVersions.sentence` go from v6 to v7 | "currently sentence explanation too long. I want to make it shorter but still easy to understand." The developer approved 4 before/after examples (2 real answers from the cache). Old cached and prefilled sentences become misses once and cost a new Claude call | Keep v6 (old long answers stay next to new short ones); a shorter limit for the words list too | Developer, Claude wrote the prompt |
 | 10-17 | **Paid Apple Developer Program (team TRAN LOC, same Team ID SVPCB3XQCD)**: the phone build is signed with the real entitlements (`PAID_ACCOUNT=1`), and the install script registers a new phone itself (`-allowProvisioningDeviceRegistration`) | Saynata as the default translation app (TASK-42) needs the `translation-app` capability, which a Personal Team cannot sign | Stay on the free Apple ID (no Translate button, 7-day installs) | Developer |
 | 10-17 | **The Share and Translation extensions share the app's sign-in** through the App Group Keychain group; each process reads the Keychain again before it uses or refreshes a token | "it showed that I'm not sign in while I already did that": the Translate sheet must work for a signed-in user | A separate `keychain-access-groups` entitlement (more setup, same result); passing the token through App Group UserDefaults (not encrypted); keeping the extensions as guests | Developer (problem), Claude (how) |
+| 10-18 | **Three more ways to sign in: Sign in with Google, Sign in with Apple, and an emailed link** (TASK-92), next to the email code, with a plain form for now that the developer redesigns later (no mockup for this form) | Chosen by the developer. Reason: not recorded | Email code only | Developer |
+| 10-18 | Google sign-in **without the Google SDK**: the system web sign-in sheet with PKCE (RFC 8252), then the ID token goes to the backend, which checks it against Google's JWKS | No new package in the Xcode project, works the same on iOS and macOS, and the backend check is the real security either way | GoogleSignIn-iOS SDK (a Swift package) | Claude |
+| 10-18 | The emailed link points to an **HTTPS page on the backend** (`/auth/link`) that opens `saynata://sign-in`; universal links come later with Associated Domains | Works with the free Apple ID and the current domain; mail apps do not open a custom scheme from an email; the same HTTPS address becomes the universal link later, so emails do not change | A custom-scheme link in the email; universal links now (need Associated Domains and the final domain) | Claude |
+| 10-18 | The link only works **in the app that asked for it** (the app keeps a secret, the server keeps its hash: the PKCE idea) | Another app could register the `saynata://` scheme and catch the token; without the secret the token is useless. Opening the page does not use the link up, so mail scanners cannot spend it | A link that works anywhere | Claude |
+| 10-18 | **No domain in the code**: `PUBLIC_BASE_URL`, `APP_URL_SCHEME`, `APPLE_APP_IDS`, `GOOGLE_CLIENT_IDS` are config, and doc-11 section 13 lists what changes when the domain moves | The developer plans to buy a new domain later (spelling to be confirmed: they wrote "saynanta.com", the app is Saynata) | — | Developer |
 
 ## Questions answered
 
@@ -189,3 +194,4 @@ go here as questions.
 - 10-17: Why mockup option B (one card, dotted words, popup on selection) over A and C? Reason not recorded.
 - 10-18: Why the IPA on the headword line for every word card? Reason not recorded.
 - 10-18: Why draw the admin's AI pictures with Codex and the ChatGPT login on the VPS instead of the OpenAI image API, why the dialog (layout A) over an inline panel, and why a wand with a $1 a day cap? Reason not recorded (TASK-91).
+- 10-18: Why add Google, Apple and an emailed link now (TASK-92), and is the new domain "saynanta.com" or "saynata.com"? Reason and spelling not recorded.

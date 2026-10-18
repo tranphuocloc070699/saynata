@@ -54,6 +54,13 @@ services:
       AWS_REGION: ${AWS_REGION:-}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # Sign in with Google, Apple and an emailed link (TASK-92, doc-17). An empty value here would switch a default
+      # off, so the defaults are repeated. GOOGLE_CLIENT_IDS empty = the Google button answers "not set up yet".
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+      APPLE_CLIENT_IDS: ${APPLE_CLIENT_IDS:-com.luke.EnglishTranslation,com.luke.EnglishTranslation.Mac}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://api.loffy.me}
+      APP_URL_SCHEME: ${APP_URL_SCHEME:-saynata}
+      APPLE_APP_IDS: ${APPLE_APP_IDS:-}
       # true = guests cannot cause new Claude calls. Set false until the app with sign-in is released.
       REQUIRE_SIGN_IN: ${REQUIRE_SIGN_IN:-true}
       CLAUDE_DAILY_BUDGET_USD: ${CLAUDE_DAILY_BUDGET_USD:-1.00}
