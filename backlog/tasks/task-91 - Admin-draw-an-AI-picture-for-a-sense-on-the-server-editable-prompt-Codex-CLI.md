@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-18 03:22'
-updated_date: '2026-10-18 03:41'
+updated_date: '2026-10-18 04:05'
 labels:
   - admin
   - backend
@@ -46,3 +46,18 @@ Today the admin button Mark for AI only sets media_status = needs_ai and shows '
 <!-- SECTION:PLAN:BEGIN -->
 1. Flyway V21 ai_picture_job. 2. Backend: AiPictureProperties, prompt builder (constants from media_ai.py), scene via ClaudeService (Sonnet), caps, ImageDrawer + CodexImageDrawer, single-thread job runner, save+link like upload. 3. Admin endpoints. 4. Dockerfile/compose/env. 5. Admin dialog + polling. 6. Tests. 7. Docs (doc-7,9,11,13,14,15, CLAUDE.md). 8. PR into feature/local.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/118 (into feature/local).
+
+Test it
+Goal: press Sparkles on a sense in the admin, edit the prompt, OK, and see a new AI picture ("AI image (codex)") after about 1 minute.
+Part 1 (Mac): codex login status; AI_PICTURES_ENABLED=true ./mvnw spring-boot:run in backend/; cd admin && npm run dev; open a word, Sparkles, edit, (optional wand, about $0.02), check icon. The row shows "Drawing an AI picture... you can leave this page" (it survives a reload), then the new picture in "Media to review".
+Failure cases: AI_PICTURES_ENABLED off gives "AI pictures are not set up"; codex logout gives a red "The AI picture failed: Codex is not signed in on the server" and the old picture stays; an empty prompt gives "Write a prompt first."
+Part 2 (server, doc-11 section 12): mkdir /var/lib/saynata/codex (chown 10001), copy ~/.codex/auth.json (chmod 600), AI_PICTURES_ENABLED=true in .env, redeploy, docker compose exec backend codex login status, draw one picture.
+Cost: Codex uses the ChatGPT plan (no per-picture cost, 30 a day); the wand is about $0.02 a call ($1 a day cap).
+Automated: cd backend && ./mvnw -B test (444 pass); cd admin && npm test (97 pass).
+Not verified: a real Codex picture, Codex inside Docker with a login (the read-only sandbox may need workspace-write), the amd64 image build, the dialog in a real browser.
+<!-- SECTION:NOTES:END -->
