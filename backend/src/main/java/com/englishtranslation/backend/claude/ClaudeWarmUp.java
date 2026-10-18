@@ -55,8 +55,8 @@ public class ClaudeWarmUp {
             log.info("Claude warm-up is off (app.claude.warm-up=false).");
             return;
         }
-        if (properties.apiKey() == null || properties.apiKey().isBlank()) {
-            log.info("Claude warm-up skipped: no API key.");
+        if (!properties.hasCredentials()) {
+            log.info("Claude warm-up skipped: no API key or gateway token.");
             return;
         }
         executor.execute(this::warmUp);
