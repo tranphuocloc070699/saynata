@@ -25,7 +25,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ffmpeg && 
     && mkdir /app/media && chown app:app /app/media
 
 # The Codex CLI draws the AI pictures the admin asks for (TASK-91, doc-11 "AI pictures with Codex"). It is the official
-# static release binary from GitHub (no Node.js needed). TARGETARCH is set by Docker: amd64 or arm64.
+# static release binary from GitHub (no Node.js needed), plus codex-code-mode-host, which `codex exec` starts
+# next to itself (without it a draw fails with "Failed to spawn code-mode host"). TARGETARCH is set by Docker: amd64 or arm64.
 # The version is pinned; to upgrade, change CODEX_VERSION (check: gh release list -R openai/codex).
 ARG TARGETARCH
 ARG CODEX_VERSION=0.163.0
@@ -34,10 +35,12 @@ RUN case "$TARGETARCH" in \
         arm64) CODEX_ARCH=aarch64 ;; \
         *) echo "No Codex build for $TARGETARCH" >&2; exit 1 ;; \
     esac \
-    && curl -fsSL "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/codex-${CODEX_ARCH}-unknown-linux-musl.tar.gz" \
-        | tar -xz -C /usr/local/bin \
-    && mv "/usr/local/bin/codex-${CODEX_ARCH}-unknown-linux-musl" /usr/local/bin/codex \
-    && chmod 755 /usr/local/bin/codex \
+    && for BIN in codex codex-code-mode-host; do \
+        curl -fsSL "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/${BIN}-${CODEX_ARCH}-unknown-linux-musl.tar.gz" \
+            | tar -xz -C /usr/local/bin \
+        && mv "/usr/local/bin/${BIN}-${CODEX_ARCH}-unknown-linux-musl" "/usr/local/bin/${BIN}" \
+        && chmod 755 "/usr/local/bin/${BIN}" || exit 1; \
+    done \
     && codex --version
 
 # The Codex login (auth.json) lives in a volume mounted here; the folder must be writable because Codex refreshes
