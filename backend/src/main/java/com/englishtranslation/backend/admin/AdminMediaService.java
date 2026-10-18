@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -196,6 +197,35 @@ public class AdminMediaService {
         }
         cleanup.deleteIfUnused(oldMediaId == null ? Set.of() : Set.of(oldMediaId));
         return words.get(id.text());
+    }
+
+    /** media_status of a sense whose picture was drawn by the AI job (TASK-91, like the pipeline's media-ai). */
+    public static final String AI_GENERATED = "ai_generated";
+
+    /**
+     * The AI job (TASK-91) made a picture: it becomes the picture of the sense, like an upload, but the sense gets
+     * media_status ai_generated and no approval, so it lands in "Media to review". The link, the review reset and
+     * {@code inSameTransaction} (the job row update) happen in ONE transaction; the old file is deleted afterwards
+     * when no other sense uses it. If the admin changed the picture while the job ran, this one still wins: the
+     * admin asked for it last. Throws a 404 when the word or the sense is gone.
+     *
+     * @param inSameTransaction gets the id of the picture that was replaced (or null)
+     */
+    public void linkAiPicture(String wordId, int position, long mediaId, Consumer<Long> inSameTransaction) {
+        AdminWordId id = AdminWordId.parse(wordId);
+        findSense(id, position);
+        Long oldMediaId = transaction.execute(status -> {
+            Long old = currentMediaId(id, position);
+            link(id, position, mediaId, AI_GENERATED);
+            updateReview(id, position, "media_reviewed_at = null, media_reviewed_media_id = null");
+            if (id.bundled()) {
+                jdbc.sql("update dictionary_sense set image_type = 'photo' where word_id = :word and position = :position"
+                        + " and image_type = 'none'").param("word", id.number()).param("position", position).update();
+            }
+            inSameTransaction.accept(old);
+            return old;
+        });
+        cleanup.deleteIfUnused(oldMediaId == null ? Set.of() : Set.of(oldMediaId));
     }
 
     /** 413: shared with the handler for Spring's own size limit. */

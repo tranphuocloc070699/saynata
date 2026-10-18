@@ -3,16 +3,16 @@ id: doc-15
 title: Media and images
 type: specification
 created_date: '2026-10-15 04:02'
-updated_date: '2026-10-17 10:26'
+updated_date: '2026-10-18 04:02'
 ---
 # Media and images
 
-> Status: **working for photos and clips from Pixabay, and for files the admin uploads** (TASK-23, 49.3, 49.4, 52, 79). AI images for `needs_ai` senses: built as a pipeline command (`media-generate`, TASK-53, OpenAI GPT Image mini), trial not run yet. **AI pictures for every sense** (`media-ai`, TASK-82: Claude scene, Codex draws, blind guess, meaning check): built; the 20-sense trial ran on 2026-10-16 (9 passed, 8 failed, 3 none), and the meaning check was added after it. Picture review in the admin ("Wrong media" and "Media to review" chips, "Looks right" approval tied to one picture): TASK-80. The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-17 (the picture frame keeps the picture's shape, from `media.width`/`height`: no more cut-off heads; AI pictures for every sense with `pipeline media-ai`: TASK-82; AI images with `pipeline media-generate`: TASK-53; the admin can upload their own picture or clip: TASK-79; Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
+> Status: **working for photos and clips from Pixabay, and for files the admin uploads** (TASK-23, 49.3, 49.4, 52, 79). AI images for `needs_ai` senses: built as a pipeline command (`media-generate`, TASK-53, OpenAI GPT Image mini), trial not run yet. **AI pictures for every sense** (`media-ai`, TASK-82: Claude scene, Codex draws, blind guess, meaning check): built; the 20-sense trial ran on 2026-10-16 (9 passed, 8 failed, 3 none), and the meaning check was added after it. Picture review in the admin ("Wrong media" and "Media to review" chips, "Looks right" approval tied to one picture): TASK-80. The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-18 (the admin draws an AI picture for one sense with Codex on the server: TASK-91); earlier: 2026-10-17 (the picture frame keeps the picture's shape, from `media.width`/`height`: no more cut-off heads; AI pictures for every sense with `pipeline media-ai`: TASK-82; AI images with `pipeline media-generate`: TASK-53; the admin can upload their own picture or clip: TASK-79; Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
 > Why: a small picture or a short clip helps a learner remember a meaning (doc-1, Vision and spec). Postgres on the server is the source of truth for content (doc-7).
 
 ## What it does
 
-Each sense of a word can have one **photo** (a 320 px WebP) or one **clip** (a 3 second, muted MP4). Nouns and adjectives get photos. Verbs get clips. The files come from Pixabay. There are two ways a sense gets media: the pipeline on the developer's Mac fills it for the 2,750 bundled words, and the backend fills it in the background for every **new** word that Claude writes. An admin can fix any sense in the admin web app: pick another picture, **upload their own picture or clip**, remove it, or mark it for an AI image. The iOS app shows the picture under the explanation of the sense.
+Each sense of a word can have one **photo** (a 320 px WebP) or one **clip** (a 3 second, muted MP4). Nouns and adjectives get photos. Verbs get clips. The files come from Pixabay. There are two ways a sense gets media: the pipeline on the developer's Mac fills it for the 2,750 bundled words, and the backend fills it in the background for every **new** word that Claude writes. An admin can fix any sense in the admin web app: pick another picture, **upload their own picture or clip**, remove it, or **draw an AI picture** (a dialog with an editable prompt, drawn by the Codex CLI on the server, TASK-91). The iOS app shows the picture under the explanation of the sense.
 
 This page follows the files from Pixabay to the screen. It does not repeat the pages for the parts: see [Word lookup](doc-5%20-%20Word-lookup.md), [Dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md), [Admin API](doc-13%20-%20Admin-API.md), [Admin CMS](doc-14%20-%20Admin-CMS.md) and the [VPS guide, section 9](../guides/doc-11%20-%20Deploy-to-a-VPS.md).
 
@@ -148,7 +148,7 @@ Env: `MEDIA_DIR` (folder), `MEDIA_BASE_URL` (public address), `PIXABAY_API_KEY` 
 
 ## 3. Admin: fix one sense (TASK-52) and remove media for real (TASK-76)
 
-In a word's detail, each sense has a media row with four icon buttons: **Pick another**, **No image**, **Mark for AI** and **Upload**. A sense is named by the word id and the position: `b-12:0` is the first sense of bundled word 12, `w-45:2` is the third sense of backend word 45. The screens are described in [Admin CMS](doc-14%20-%20Admin-CMS.md), the login and rules in [Admin API](doc-13%20-%20Admin-API.md).
+In a word's detail, each sense has a media row with four icon buttons: **Pick another**, **No image**, **Draw an AI picture** (Sparkles, TASK-91) and **Upload**. A sense is named by the word id and the position: `b-12:0` is the first sense of bundled word 12, `w-45:2` is the third sense of backend word 45. The screens are described in [Admin CMS](doc-14%20-%20Admin-CMS.md), the login and rules in [Admin API](doc-13%20-%20Admin-API.md).
 
 ```mermaid
 sequenceDiagram
@@ -177,7 +177,7 @@ sequenceDiagram
 | (search) | `GET /api/admin/media/search?sense=b-12:0&q=` | [controller:36](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L36), [AdminMediaService.search:104](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L104) | Up to 6 results (usually 2 clips and the rest photos). With an empty `q`, it uses the sense's `image_query`, or the headword. The answer says which words it used. |
 | Pick another | `PUT /api/admin/words/{id}/senses/{n}/media` | [controller:51](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L51), [replace:127](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L127) | The result comes from the browser, so [checked:130](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L130) only accepts Pixabay https addresses. Then `MediaStore.save`, then the link. A sense that was "no image" gets `image_type = photo` again. |
 | No image | `DELETE .../media` | [controller:57](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L57), [clear:208](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L208) | `media_id` becomes null. For a bundled sense, `image_type = none` tells the pipeline not to fetch again. For a backend word the claim row stays, so the job does not fetch again. |
-| Mark for AI | `POST .../media/mark-for-ai` | [controller:62](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L62), [markForAi:263](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L263) | Sets `media_status = needs_ai`. The old picture stays until an AI image replaces it (TASK-53). Picking another picture clears the status. |
+| (Mark for AI) | `POST .../media/mark-for-ai` | [controller:62](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L62), [markForAi:263](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L263) | Sets `media_status = needs_ai`. The old picture stays until an AI image replaces it (TASK-53). Picking another picture clears the status. Since TASK-91 the admin button no longer calls it (it opens the AI picture dialog, see the section below); the endpoint stays for the pipeline and old clients, and a `needs_ai` sense still shows "Waiting for an AI image". |
 | Picture looks right | `POST` and `DELETE .../media/approve` | [controller:87](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L87), [approve:282](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L282) | TASK-80. Stores the approval for the current media file (`media_reviewed_media_id`) and clears `needs_ai`; DELETE undoes it. See "Reviewing pictures" below. |
 | Upload | `POST /api/admin/words/{id}/senses/{n}/media/upload` (multipart, part `file`) | [controller:76](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L76), [upload:160](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L160) | TASK-79. See the next section. The admin's own file becomes the media of the sense. Works with no Pixabay key. |
 | Remove all media | `DELETE /api/admin/words/{id}/media` | [controller:63](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaController.java#L63), [removeAllMedia:228](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L228) | TASK-76. Every sense of the word (bundled or backend) loses its media in one transaction and gets `media_status = removed`. A bundled sense also gets `image_type = none`; a backend sense gets a claim row, so the background job never fills it. Then the unused files are deleted (next section). |
@@ -306,6 +306,12 @@ Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTes
 | ffmpeg is missing, takes more than 60 s, or the disk fails | Admin upload | 502 "Could not download or convert that file. Try another one." (the same message as Pick another). No file and no row are left. |
 | Sense does not exist | Admin | 404. |
 | Job queue is full (50 waiting) | `mediaExecutor` | Job dropped, the word has no picture. |
+| AI pictures not set up (`AI_PICTURES_ENABLED` false) | Admin AI picture | 503 `ai_unavailable`. |
+| Codex missing, not signed in, or the plan limit is reached | AI job | The job is `failed` with a plain error ("Codex is not signed in on the server...", "The ChatGPT plan limit is reached..."). The old picture stays. |
+| Codex takes longer than the timeout (10 minutes) | AI job | It is stopped; the job is `failed` ("Codex took too long..."). |
+| ffmpeg or the database fails after Codex drew | AI job | The job is `failed` ("Could not save the picture. Try again."); a saved but unlinked file is deleted. |
+| Server restarts while a job is queued or drawing | AI job | The job is `failed` ("The server restarted.") at the next start. |
+| Sense already has a running job, or today's cap is reached | Admin AI picture | 409 `ai_job_running` / 429 `ai_picture_limit`. |
 | File missing in `/var/lib/saynata/media` | Caddy | 404 for the file. The app shows nothing for that sense. |
 | Bundled path, file not in the app, and the server has no such file | iOS | The app asks the server (404), then shows nothing. |
 | Offline, file never saved on the phone | iOS | Nothing is shown. It appears after a first view with the network. |
@@ -318,9 +324,11 @@ Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTes
 | [NoPixabayKeyTest](../../../backend/src/test/java/com/englishtranslation/backend/media/NoPixabayKeyTest.java) | Without a key, Pixabay is never called and nothing is claimed. |
 | [AdminMediaUploadTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaUploadTest.java) | TASK-79 (fake converter): 401 without login and without the ADMIN role, 415 without `X-Requested-With`, PNG for a bundled sense and MP4 for a backend sense, the type comes from the bytes (not the name), the media row (`source = upload`, no author), status cleared (`needs_ai`, `removed`), old file deleted or kept when another sense uses it, wrong type, empty, broken file (400), convert failure (502), over the limit (413), 404. |
 | [AdminMediaUploadFfmpegTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaUploadFfmpegTest.java) | TASK-79 with the real ffmpeg (skipped without it): a 1024 px PNG becomes a 320 px WebP, a 5 s MOV/MP4 becomes an MP4, a broken PNG is 400. |
+| [AiPictureApiTest](../../../backend/src/test/java/com/englishtranslation/backend/aipicture/AiPictureApiTest.java) | TASK-91 with a fake Claude, a fake drawer and a fake converter: 401, the prompt (scene, newest first, `none` skipped, template, backend word), the wand (prompt, `not_drawable`, bad JSON, its own cap, the users' budget), the job (queued to done, new `ai` row, status `ai_generated`, review cleared, the old file deleted or kept, a backend word, the admin changed the picture meanwhile), a failed draw keeps the old picture, empty and too long prompt, 409 with `ai_drawing` on the word, the 429 cap, 204, restart marks jobs failed. |
+| [AiPictureDisabledTest](../../../backend/src/test/java/com/englishtranslation/backend/aipicture/AiPictureDisabledTest.java), [AiPromptsTest](../../../backend/src/test/java/com/englishtranslation/backend/aipicture/AiPromptsTest.java), [CodexImageDrawerTest](../../../backend/src/test/java/com/englishtranslation/backend/aipicture/CodexImageDrawerTest.java), [ClaudeServiceSceneTest](../../../backend/src/test/java/com/englishtranslation/backend/claude/ClaudeServiceSceneTest.java) | TASK-91: 503 when disabled; the prompt blocks and the match with `media_ai.py`; the clean environment, the picture lookup by session id, the error texts, and a real run with a fake `codex` script (arguments, stdin, environment, timeout, missing program); Sonnet call without temperature, usage as `admin`. |
 | [UploadedFileTypeTest](../../../backend/src/test/java/com/englishtranslation/backend/media/UploadedFileTypeTest.java), [TooBigUploadAnswerTest](../../../backend/src/test/java/com/englishtranslation/backend/common/TooBigUploadAnswerTest.java) | TASK-79: magic bytes of each type, text/PDF/SVG refused; Spring's own size limit becomes 413. |
 | [WordImageUrlTest](../../../backend/src/test/java/com/englishtranslation/backend/media/WordImageUrlTest.java) | `imageUrl` is absolute, the field is missing when there is no media, `imageWidth`/`imageHeight` come with a photo whose size is known (none for a clip without one), a new word is answered first. |
-| [FfmpegMediaConverterTest](../../../backend/src/test/java/com/englishtranslation/backend/media/FfmpegMediaConverterTest.java) | Big photo becomes a small WebP, video becomes a short MP4, bad input fails with a clear message. Needs ffmpeg on the machine. |
+| [FfmpegMediaConverterTest](../../../backend/src/test/java/com/englishtranslation/backend/media/FfmpegMediaConverterTest.java) | Big photo becomes a small WebP, video becomes a short MP4, bad input fails with a clear message; TASK-91: an AI picture is cropped to 3:2 and at most 1536 px wide (checked with ffprobe, and `MediaStore.aiSize` gives the same size). Needs ffmpeg on the machine. |
 | [HttpPixabayClientTest](../../../backend/src/test/java/com/englishtranslation/backend/media/HttpPixabayClientTest.java) | Only Pixabay hosts over https are accepted. A fake HTTP client: 429 then 200 succeeds (one 1 s pause), 429 three times gives `PixabayBusyException`, `Retry-After` is used, a `Retry-After` past the budget gives up at once, other errors are not tried again (TASK-63). |
 | [AdminMediaTest](../../../backend/src/test/java/com/englishtranslation/backend/admin/AdminMediaTest.java) | Login and role, search (6 results, default words, rate limit, errors), pick, remove, mark for AI, list, 404. TASK-76: the file and row are deleted when unused and kept while another sense (bundled or backend) uses them, a missing file is fine, picking another deletes the old file, Remove all media for a bundled word and a backend word (also without a claim row), the background job does not fill a removed sense, only ADMIN may call it. |
 | [test_media_check.py](../../../pipeline/tests/test_media_check.py) | TASK-78: the Claude check with a fake client and a fake ffmpeg (see doc-6). |
@@ -330,6 +338,7 @@ Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTes
 | [test_postgres.py](../../../pipeline/tests/test_postgres.py) | TASK-79: `export` keeps and copies an uploaded file, `link-media` does not replace it. TASK-76: `link-media` skips `none` and `removed` senses and makes no media row for them; `export` writes no `image_url` for them. Needs `TEST_DATABASE_URL`. |
 | [mediaUpload.test.tsx](../../../admin/src/test/mediaUpload.test.tsx) | TASK-79: the Upload button is icon only and opens the picker, FormData is sent with the header, spinner while uploading, backend error and 413 text, drop and the dashed outline, the caption "Uploaded by the admin" in the row and the viewer; an AI image (TASK-53) names its model instead. |
 | [mediaRow.test.tsx](../../../admin/src/test/mediaRow.test.tsx) | The admin buttons and the Pick another panel, the full-size viewer (TASK-77). |
+| [aiPicture.test.tsx](../../../admin/src/test/aiPicture.test.tsx) | TASK-91: the dialog, the wand, the validation, OK, and the drawing, done and failed states of the row (doc-14). |
 | [wordRows.test.tsx](../../../admin/src/test/wordRows.test.tsx) | Thumbnails, hover to play, Remove all media (TASK-76, TASK-77). |
 
 Run: `cd backend && ./mvnw -B test`, `cd pipeline && uv run pytest`, `cd admin && npm test`. iOS: `SenseMediaTests.swift` (command in doc-2).
@@ -342,6 +351,7 @@ Run: `cd backend && ./mvnw -B test`, `cd pipeline && uv run pytest`, `cd admin &
 - Add a new media `kind`: `kindFor`, `MediaStore`, `SenseMedia`, the admin `checked`, the iOS source type.
 - Change `MEDIA_BASE_URL` or the folder: [doc-11](../guides/doc-11%20-%20Deploy-to-a-VPS.md), `docker-compose.prod.yml` and the Caddyfile together.
 - Change Pixabay limits: `HttpPixabayClient` (backend), `_wait_for_rate_limit` (pipeline), `MediaSearchRateLimiter` (admin).
+- Change the AI picture prompt texts (`KID`, `STYLE`, `SCENE_SYSTEM`, the Codex wrapper): [AiPrompts](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/AiPrompts.java) **and** `media_ai.py`, with a new `PROMPT_VERSION`, `app.claude.scene-prompt-version`, and `AiPromptsTest` (it fails when they differ).
 
 ## Claude check of the pictures (TASK-78)
 
@@ -498,13 +508,89 @@ This SQL is tested (`test_pg_undo_with_the_sql_from_doc_15_brings_the_old_pictur
 
 Known limits: the scene prompt still asks Claude for 3 distractors, which the code ignores (the guess uses its own separate call; the prompt text is kept word for word from the trial). The report shows old pictures from `https://api.loffy.me/media/`.
 
+## AI picture from the admin (TASK-91)
+
+Developer decisions (2026-10-18, doc-7): the admin fixes **one sense** at a time. The Sparkles button opens a **dialog** (layout A) with the picture prompt already filled in; the admin edits it and presses OK; the **server** draws the picture with the **Codex CLI**, signed in with the developer's ChatGPT login (`auth.json` copied to the VPS; no per-picture cost, about 1 minute), and links it to the sense like Upload does. The wand button has Claude Sonnet 5.5 write a new scene (about $0.02). Caps: 30 pictures a day and $1 a day for the wand. Not chosen: the OpenAI image API (about $0.004 a picture), see doc-7.
+
+```mermaid
+sequenceDiagram
+    participant Web as Admin web app
+    participant C as AiPictureController
+    participant PS as AiPromptService
+    participant CL as Claude Sonnet 5.5
+    participant S as AiPictureService
+    participant W as worker thread (one)
+    participant D as CodexImageDrawer
+    participant X as codex exec
+    participant Store as MediaStore + ffmpeg
+    participant M as AdminMediaService
+    participant DB as Postgres
+
+    Web->>C: GET .../ai-prompt
+    C->>PS: prompt
+    PS->>DB: newest media_generation scene of the sense
+    PS-->>Web: scene prompt or template, plus the caps of the day
+    opt the wand
+        Web->>C: POST .../ai-prompt/scene
+        PS->>PS: ClaudeGate.checkBudget + wand cap ($1 a day)
+        PS->>CL: SCENE_SYSTEM + word, meaning, example, other senses
+        CL-->>PS: JSON (method none: 422 not_drawable)
+        PS-->>Web: new prompt (source claude)
+    end
+    Web->>C: POST .../ai-picture {prompt}
+    C->>S: start
+    S->>S: enabled? prompt ok? no running job? under 30 a day?
+    S->>DB: ai_picture_job (queued)
+    S--)W: run(jobId)
+    S-->>Web: 202 + job
+    loop every 3 seconds, also after the dialog closed
+        Web->>C: GET .../ai-picture
+        C-->>Web: queued, drawing, done or failed
+    end
+    W->>DB: status drawing
+    W->>D: draw(prompt)
+    D->>X: codex exec --sandbox read-only (clean environment, stdin /dev/null, timeout)
+    X-->>D: "session id: uuid" + PNG in CODEX_HOME/generated_images/uuid
+    D-->>W: PNG
+    W->>Store: saveAi: crop 3:2, 1536 px WebP, name word_n_ai_hash.webp, media row source ai
+    W->>M: linkAiPicture
+    M->>DB: ONE transaction: sense.media_id = new, media_status = ai_generated, review cleared, job done
+    M->>M: MediaCleanup.deleteIfUnused(old picture)
+```
+
+| Part | File:line | What happens |
+|---|---|---|
+| Prompt from a scene | [AiPromptService.prompt:107](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/AiPromptService.java#L107), [newestScene:165](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/AiPromptService.java#L165), [AiPrompts.imagePrompt:104](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/AiPrompts.java#L104) | A bundled sense: the newest `media_generation` row with a `scene_json` and a method other than `none` (the pipeline's `media-ai`). The image prompt is built like [codex_prompt](../../../pipeline/src/pipeline/media_ai.py#L154) after "IMAGE PROMPT:": the kid text after the first "the kid", "Main focus: ...  Must not appear: ...", then the style. The admin shows and edits only this inner prompt; the server adds the Codex wrapper text when it runs Codex ([codexPrompt:96](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/AiPrompts.java#L96)). |
+| Prompt from a template | [AiPrompts.template:118](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/AiPrompts.java#L118) | No scene (or a backend word): like [build_prompt](../../../pipeline/src/pipeline/media_generate.py#L77) (word, type, simple meaning, easy example "do not write it in the picture", "Show this meaning clearly...") but ending with the **media-ai style**, so the picture matches the others. Works for `w-45` words too: their senses come from the word JSON. |
+| Locked texts | [AiPrompts.java:15](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/AiPrompts.java#L15) | `KID`, `STYLE`, `SCENE_SYSTEM` and the Codex wrapper are copied word for word from `media_ai.py` and must match `PROMPT_VERSION = "ai-v1"`. [AiPromptsTest](../../../backend/src/test/java/com/englishtranslation/backend/aipicture/AiPromptsTest.java) compares them with the Python file. A change needs a new version in both places and `app.claude.scene-prompt-version`. |
+| The wand | [AiPromptService.newScene:125](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/AiPromptService.java#L125), [ClaudeService.writePictureScene:211](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L211) | `claude-sonnet-5-5`, no temperature (Sonnet 5.5 refuses it), usage saved as feature `ADMIN` with the Sonnet price ([application.properties:112](../../../backend/src/main/resources/application.properties#L112), $2.00 / $10.00 per million tokens, copied from `media_ai.py` PRICES: check them). First `ClaudeGate.checkBudget()` (503 `daily_limit_reached`), then the wand's own cap: today's `ADMIN` spend must be under `app.media.ai.scene-daily-usd` (503 `ai_budget_reached`). Method `none` is 422 `not_drawable`. |
+| Start | [AiPictureService.start:95](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/AiPictureService.java#L95) | Checks in this order: `app.media.ai.enabled` (503 `ai_unavailable`), prompt not empty and at most 4000 characters (400), the sense exists (404), no queued or drawing job for the sense (409 `ai_job_running`), today's started jobs under `pictures-per-day` (429 `ai_picture_limit`). Saves the job and gives it to **one** worker thread, so Codex draws one picture at a time and the other jobs wait. |
+| Run | [AiPictureService.run:129](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/AiPictureService.java#L129) | Never throws: every problem ends as a `failed` job with a plain `error`. A picture that was saved but could not be linked is deleted again. |
+| Codex | [CodexImageDrawer.draw:52](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/CodexImageDrawer.java#L52) | Port of `CodexDrawer`: `codex exec --skip-git-repo-check --sandbox <sandbox> <wrapper + prompt>`, stdin from `/dev/null` (else Codex waits forever), a temp working folder, stdout and stderr in a temp file, a timeout (`app.media.ai.timeout`, 10 minutes) and then `destroyForcibly` (also the child processes). It finds `session id: <uuid>` in the output and takes the newest PNG in `$CODEX_HOME/generated_images/<uuid>/` ([newestPicture:120](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/CodexImageDrawer.java#L120)). "usage limit" gives "The ChatGPT plan limit is reached"; "not logged in", "please log in" or "codex login" gives "Codex is not signed in on the server" ([problemText:138](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/CodexImageDrawer.java#L138)). |
+| Clean environment | [cleanEnvironment:110](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/CodexImageDrawer.java#L110) | `environment().clear()`, then only `PATH`, `HOME`, `CODEX_HOME` and `LANG`. The backend's `CLAUDE_API_KEY`, database password and JWT secrets never reach Codex. The sandbox is `read-only` by default and no "danger" flag is ever passed. Tested with a real fake `codex` script that prints its environment. |
+| Save the file | [MediaStore.saveAi:74](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaStore.java#L74), [aiSize:84](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaStore.java#L84), [FfmpegMediaConverter.toAiPicture:29](../../../backend/src/main/java/com/englishtranslation/backend/media/FfmpegMediaConverter.java#L29) | ffmpeg crops to 3:2 around the middle and scales to at most 1536 px wide (WebP quality 80, like `prepare_images` in the pipeline). The name is `<word>_<n>_ai_<8 hex of sha256>.webp`. The row has `source = 'ai'`, `license_note = 'AI image (codex)'`, and `width`/`height` worked out from the PNG with the same rule. |
+| Link | [AdminMediaService.linkAiPicture:214](../../../backend/src/main/java/com/englishtranslation/backend/admin/AdminMediaService.java#L214) | One transaction, like Upload: the sense points to the new row, `media_status = 'ai_generated'`, `media_reviewed_at` and `media_reviewed_media_id` are cleared (so it is in "Media to review"), a bundled sense with `image_type = none` becomes `photo`, and the job becomes `done`. Then `MediaCleanup.deleteIfUnused(old)`. **If the admin changed the sense's picture while the job ran, the AI picture still wins** (the admin asked for it last); the picture the admin had just chosen is then cleaned up like any replaced picture. |
+| State on the word | [SenseMediaReader.withDrawingJobs:62](../../../backend/src/main/java/com/englishtranslation/backend/media/SenseMediaReader.java#L62) | While a job is queued or drawing, `mediaStatus[n]` of the word answer is `ai_drawing`. It is worked out from `ai_picture_job` on every read, not saved in the sense, so a failed job leaves the sense as it was. |
+| Restart | [AiPictureService.failUnfinishedJobs:78](../../../backend/src/main/java/com/englishtranslation/backend/aipicture/AiPictureService.java#L78) | On `ApplicationReadyEvent`, jobs that were queued or drawing become `failed` with "The server restarted." |
+| Table | [V21](../../../backend/src/main/resources/db/migration/V21__create_ai_picture_job.sql) | `ai_picture_job (id, word_id "b-12"/"w-45", position, prompt, prompt_source, status, error, media_id, old_media_id, created_by, created_at, started_at, finished_at)`, index on `(word_id, position, created_at desc)`. `media_id` and `old_media_id` are `ON DELETE SET NULL`. |
+| Settings | [application.properties:51-62](../../../backend/src/main/resources/application.properties#L51-L62) | `AI_PICTURES_ENABLED` (default **false**), `AI_PICTURES_PER_DAY` (30), `AI_SCENE_DAILY_USD` (1.00), `CODEX_HOME` (default `~/.codex`), `AI_CODEX_SANDBOX` (`read-only`; try `workspace-write` if drawing fails inside Docker), `AI_CODEX_TIMEOUT` (10m). |
+| Server | [Dockerfile](../../../backend/Dockerfile), [docker-compose.prod.yml:67-80](../../../backend/docker-compose.prod.yml#L67-L80) | The image has the static Codex binary (`CODEX_VERSION` 0.163.0, chosen by `TARGETARCH`). The compose file mounts `${CODEX_HOST_DIR:-/var/lib/saynata/codex}` at `/app/.codex` (writable: Codex refreshes the tokens in `auth.json`). Setup steps: doc-11, "AI pictures with Codex". |
+
+**What it costs.** A Codex picture uses the developer's ChatGPT plan and has no per-picture cost. The wand is one Sonnet call, about $0.02, and counts toward the users' daily budget too. The 30 pictures a day cap protects the plan, not money.
+
+**Risks the developer accepted (doc-7, 2026-10-18).** `auth.json` on the server works like a password. The ChatGPT plan has its own limits. OpenAI's consumer terms forbid taking Output "automatically or programmatically", and OpenAI's own docs recommend an API key for automation. If the account is ever blocked, the other choice is the OpenAI image API.
+
+**Not done on purpose.** No blind-guess check on the server: the new picture goes to "Media to review" and the admin is the judge. Jobs are not cancelled; a stuck Codex ends at the timeout.
+
+
 ## Finding words by media (TASK-60)
 
 `GET /api/admin/words?media=with` keeps the words where any sense has a media file, `media=without` the words where no sense has one (doc-13). A bundled word counts through `dictionary_sense.media_id`, a backend word through `word_lookup_media.media_id`. A claim row with no file does not count. The admin has two chips for it, **Has media** and **No media** (doc-14). `media=wrong` and `media=to-review` find the pictures to look at (TASK-80). This is the way to see which bundled words the Pixabay pass has not reached yet: press "No media", and the count line shows how many are left.
 
 ## Known gaps
 
-- AI images (TASK-53): only bundled senses. Backend-word senses marked `needs_ai` (`word_lookup_media`) are not generated yet. The admin has no "Generate with AI" button yet (a mockup first), and does not show the prompt or cost (they are in `media_generation`). The old Pixabay file and row of a linked sense stay on the server; phones with the current app build keep loading the old file until the next export and app build.
+- AI images (TASK-53): only bundled senses. Backend-word senses marked `needs_ai` (`word_lookup_media`) are not generated yet. Since TASK-91 the admin draws one sense at a time with Codex (section above); there is still no button for this OpenAI API generator, and the prompts and jobs of the admin are only in the database (`ai_picture_job`). The old Pixabay file and row of a linked sense stay on the server; phones with the current app build keep loading the old file until the next export and app build.
+- TASK-91: the picture is not checked by Claude on the server (no blind guess). After a failed job the red error line is shown only while the page is open; the job stays in `ai_picture_job`. A job cannot be cancelled. If the server restarts while Codex draws, the job is marked failed (the picture may be lost). Codex was not run inside Docker by the implementer: the read-only sandbox may need `workspace-write` there (doc-11). The `auth.json` login can end if the Mac logs out or the token is revoked; copy it again. The 3:2 size in the media row is worked out from the PNG, so it can be 1 px off the real file for odd sizes.
 
 - The Claude check (`media-check`) looks at the bundled senses only, not at the pictures of backend words (`word_lookup_media`). Its verdict is not shown in the admin yet.
 - Flyway V9 (TASK-58) deleted the `word_lookup` rows of words that are in the bundled dictionary, with their `word_lookup_media` links. The media rows and files of those words stay on disk (same gap as the next lines).

@@ -62,10 +62,22 @@ services:
       # Photos and clips for new words. Empty PIXABAY_API_KEY = none are fetched. MEDIA_DIR is /app/media (Dockerfile).
       PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
       MEDIA_BASE_URL: ${MEDIA_BASE_URL:-https://api.loffy.me/media}
+      # AI pictures drawn from the admin with the Codex CLI and the developer's ChatGPT login (TASK-91, doc-11,
+      # "AI pictures with Codex"). false = the admin gets 503 ai_unavailable and nothing is drawn.
+      AI_PICTURES_ENABLED: ${AI_PICTURES_ENABLED:-false}
+      AI_PICTURES_PER_DAY: ${AI_PICTURES_PER_DAY:-30}
+      AI_SCENE_DAILY_USD: ${AI_SCENE_DAILY_USD:-1.00}
+      # read-only is enough. If drawing fails inside Docker with a sandbox error, try workspace-write (doc-11).
+      AI_CODEX_SANDBOX: ${AI_CODEX_SANDBOX:-read-only}
+      CODEX_HOME: /app/.codex
     volumes:
       # The media folder on the server. The backend writes to it, Caddy serves it read-only at /media/ (doc-11).
       # The folder must be owned by user 10001: sudo chown 10001:10001 /var/lib/saynata/media
       - ${MEDIA_HOST_DIR:-/var/lib/saynata/media}:/app/media
+      # The Codex login (auth.json) and the pictures Codex draws. WRITABLE: Codex refreshes the tokens in auth.json.
+      # Treat auth.json like a password. Make the folder once and copy auth.json into it (doc-11):
+      #   sudo mkdir -p /var/lib/saynata/codex && sudo chown 10001:10001 /var/lib/saynata/codex
+      - ${CODEX_HOST_DIR:-/var/lib/saynata/codex}:/app/.codex
     ports:
       # Port on the server: BACKEND_PORT in .env (default 8081).
       # With a reverse proxy (Caddy) set BACKEND_BIND=127.0.0.1 so only the proxy can reach it.

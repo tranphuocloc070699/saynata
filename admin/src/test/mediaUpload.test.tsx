@@ -54,7 +54,7 @@ describe("upload from my computer", () => {
     expect(button).toHaveTextContent("");
     expect(button.querySelector("svg")).not.toBeNull();
     expect(button).toBeEnabled();
-    for (const name of ["Pick another image", "No image", "Mark for AI image"]) {
+    for (const name of ["Pick another image", "No image", "Draw an AI picture"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
   });

@@ -199,6 +199,35 @@ public class ClaudeService {
                                 message.usage().outputTokens());
         }
 
+        /** The model that writes the scene of an AI picture (TASK-91). Same as SCENE_MODEL in pipeline/media_ai.py. */
+        public static final String SCENE_MODEL = "claude-sonnet-5-5";
+
+        /**
+         * The admin's wand (TASK-91): Claude Sonnet 5.5 writes the scene for an AI picture. {@code system} and
+         * {@code userMessage} come from the aipicture package; the answer is the model's raw text (JSON). No
+         * temperature: Sonnet 5.5 refuses it. The usage is saved as feature ADMIN with the Sonnet price. The caller
+         * checks the budget (ClaudeGate) first. A refusal becomes ClaudeRefusedException (HTTP 422).
+         */
+        public String writePictureScene(String system, String userMessage) {
+                MessageCreateParams params = MessageCreateParams.builder()
+                                .model(SCENE_MODEL)
+                                .maxTokens(4000L) // room for the thinking that is on by default; the answer is short
+                                .system(system)
+                                .addUserMessage(userMessage)
+                                .build();
+                Message message = client.messages().create(params);
+                // Saved before the answer is read, so a refused or broken answer (which still cost money) is counted.
+                usage.record(Feature.ADMIN, SCENE_MODEL, message.usage().inputTokens(), message.usage().outputTokens());
+                if (message.stopReason().filter(StopReason.REFUSAL::equals).isPresent()) {
+                        throw new ClaudeRefusedException("Claude declined to write a scene for this word.");
+                }
+                return message.content().stream()
+                                .flatMap(block -> block.text().stream())
+                                .map(textBlock -> textBlock.text())
+                                .findFirst()
+                                .orElseThrow(() -> new IllegalStateException("Claude returned no text block."));
+        }
+
         /** The 422 rule: a "not English" flag from the model becomes an exception. */
         static Explanation toExplanation(SentenceAnswer answer) {
                 if (!answer.isEnglish()) {

@@ -103,12 +103,17 @@ public class ClaudeUsageService {
     }
 
     /** Start of today in UTC. The budget resets at this moment. */
-    Instant startOfToday() {
+    public Instant startOfToday() {
         return LocalDate.now(clock.withZone(ZoneOffset.UTC)).atStartOfDay(ZoneOffset.UTC).toInstant();
     }
 
     public BigDecimal spentToday() {
         return repository.totalCostSince(startOfToday());
+    }
+
+    /** What the admin tools spent today (UTC day): the AI picture wand has its own daily cap on this (TASK-91). */
+    public BigDecimal adminSpentToday() {
+        return repository.adminCostSince(startOfToday());
     }
 
     /** What the prefill job spent since {@code from} (the start of its run). */
