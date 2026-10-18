@@ -3,11 +3,11 @@ id: doc-21
 title: Explain copied text
 type: specification
 created_date: '2026-10-17 06:39'
-updated_date: '2026-10-17 08:13'
+updated_date: '2026-10-17 16:47'
 ---
-# Explain copied text (Back Tap and Action Button)
+# Explain copied text and Quick explain (Back Tap and Action Button)
 
-> Status: **built** (TASK-87). Tested on the iPhone 17e (iOS 26.3) simulator from the Shortcuts app. The developer's iPhone 13 (iOS 26.5) runs the shortcut from Back Tap. Last traced from code: 2026-10-17.
+> Status: **built** (TASK-87; Quick explain TASK-90, tested on the iPhone 16 Pro iOS 18.5 simulator, not yet on the phone). Tested on the iPhone 17e (iOS 26.3) simulator from the Shortcuts app. The developer's iPhone 13 (iOS 26.5) runs the shortcut from Back Tap. Last traced from code: 2026-10-17 (evening).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Builds on [Word lookup](doc-5%20-%20Word-lookup.md) and [Sentence translation](doc-4%20-%20Sentence-translation.md).
 
 ## What it does
@@ -54,6 +54,47 @@ flowchart TD
 
 `Intents/` is in the membership exceptions of ShareExtension, TranslationExtension and SaynataMac in `project.pbxproj`: an `AppShortcutsProvider` belongs to the app only, and `SystemClipboard` uses UIKit. `CopiedTextLaunch` and `startFromClipboard` compile everywhere.
 
+## Quick explain (TASK-90): a card over the current app
+
+For words heard in a full-screen video, where opening Saynata would leave full screen. Back Tap, the Action Button or Siri runs **Quick explain**; iOS asks "What do you want to explain?" in its own small box (type, paste or speak), and a short card shows the answer over the app. Saynata does not open.
+
+The text is a **parameter the user fills**, not the clipboard: a background App Intent cannot ask "Allow Paste" (see above), but text the user pastes into iOS's own box needs no question.
+
+```mermaid
+flowchart TD
+    TRIGGER["Back Tap / Action Button / Siri"] --> INTENT["QuickExplainIntent (openAppWhenRun = false)"]
+    INTENT --> BOX["iOS text box: What do you want to explain?"]
+    BOX --> EXPLAINER["QuickExplainer.explain(text)"]
+    EXPLAINER -- "one word" --> WORD["WordLookup: bundle, phone cache, GET /api/words"]
+    EXPLAINER -- "more" --> SENT["BackendClient.explain: phone cache, POST /api/translations"]
+    WORD --> CARD["QuickExplainCard (layout 2B) over the current app"]
+    SENT --> CARD
+    CARD -- "icon link" --> APP["Saynata opens on the full result"]
+```
+
+| Step | File | What happens |
+|---|---|---|
+| 1 | [QuickExplainIntent.swift:22](../../../EnglishTranslation/EnglishTranslation/Intents/QuickExplainIntent.swift#L22) | A required `text` parameter with the dialog "What do you want to explain?": iOS asks for it before `perform()`. `openAppWhenRun = false`. |
+| 2 | [QuickExplainer.swift:49](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L49) | Cleans the text (`CopiedText`), then empty, too long or not English (`looksLikeEnglish`) give a short message and no call. |
+| 3 | [QuickExplainer.swift:67](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L67) | One word (or "an apple") goes to the word lookup; more goes to the sentence API (non-streaming). The token is the shared App Group Keychain one (`AccountStore`, doc-17). |
+| 4 | [QuickExplainer.swift:119](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L119) | An 8 s limit: a card cannot show an answer that is still coming, so after that it says "Still working". |
+| 5 | [QuickExplainCard.swift:42](../../../EnglishTranslation/EnglishTranslation/Views/QuickExplain/QuickExplainCard.swift#L42) | Layout 2B: a word shows its title, IPA and **first** meaning; a sentence shows the sentence (2 lines) and the meaning box; the target-language line is last, small and open (an iOS 18 card cannot fold a row). |
+| 6 | [QuickExplainCard.swift:220](../../../EnglishTranslation/EnglishTranslation/Views/QuickExplain/QuickExplainCard.swift#L220) | The only control is an icon link that opens the full result in Saynata (a `Link`; buttons do not run in a card). |
+| 7 | [Theme+Snippet.swift:14](../../../EnglishTranslation/EnglishTranslation/DesignSystem/Theme+Snippet.swift#L14) | The card's colors as numbers: Shortcuts cannot read the asset catalog, so `Color("Theme/...")` drew invisible text. `ThemeSnippetColorsTests` keeps them equal to the catalog. |
+| 8 | [SaynataShortcuts.swift:22](../../../EnglishTranslation/EnglishTranslation/Intents/SaynataShortcuts.swift#L22) | The App Shortcut "Quick explain with Saynata". |
+
+**Setup:** Back Tap: Settings, Accessibility, Touch, Back Tap, Double Tap (or Triple Tap), **Quick explain**. Action Button: Settings, Action Button, Shortcut, Saynata, **Quick explain**. Siri: "Quick explain with Saynata".
+
+| Cause | What the card shows |
+|---|---|
+| Empty or only spaces | "Nothing to explain" |
+| Over 500 characters | "Text too long" |
+| Clearly not English | "Not English", no call |
+| Guest, answer not cached | "Sign in to explain new text", the sentence's bundled words, the link to sign in |
+| No answer in 8 s | "Still working…", the bundled words, the link |
+| The server says no (4xx with a message) | "Can't explain this" and the server's message |
+| Anything else | "Couldn't explain this" and the error |
+
 ## Errors
 
 | Cause | What the user sees |
@@ -68,6 +109,8 @@ flowchart TD
 
 | Test file | What it covers |
 |---|---|
+| `EnglishTranslationTests/QuickExplainerTests.swift` | Quick explain: a word goes to the word lookup, a sentence to the sentence API, the Books citation is left out, empty / too long / non-English text is not sent, a guest is told to sign in (with bundled words), a slow answer says still working, server and network errors |
+| `EnglishTranslationTests/ThemeSnippetColorsTests.swift` | The card's number colors equal the asset catalog |
 | `EnglishTranslationTests/StartFromClipboardTests.swift` | A copied word is pasted and looked up, a sentence is explained, the Books citation is left out, empty / refused / spaces clear the input and the result, close the sign-in sheet and ask for the keyboard, each request is counted |
 
 Run: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' -only-testing:EnglishTranslationTests -parallel-testing-enabled NO`.
@@ -75,9 +118,13 @@ Run: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -
 ## Change checklist
 
 - A new file in `Intents/`: add it to the three membership exception lists.
+- A color in `Assets.xcassets/Theme` changes: update `Theme.SnippetColors` (the test fails until you do).
 - `TranslateView` or the input focus changes: keep the `.task(id: launch.requestCount)` and the focus after the sheet closes.
 
 ## Known gaps
 
 - iOS asks "Allow Paste" every time until the user sets Paste from Other Apps to Allow.
 - The app opens on the text; going back to the app you were in is the system "◀ App" link at the top left.
+- Quick explain: on iOS 26 a card has a fixed height, so long meanings are cut at 2-3 lines.
+- Quick explain: the card always uses the light colors and Vietnamese (the language picked in the app is not saved yet); for a word, other languages show no line.
+- Quick explain over a full-screen YouTube video is not yet checked on the phone.
