@@ -67,6 +67,10 @@ struct QuickExplainer {
         if let word = CacheKeys.wordQuery(cleaned) {
             return await explainWord(word, lookup: lookup)
         }
+        if let phrase = CacheKeys.phraseQuery(cleaned),
+           let entry = try? await withTimeLimit({ await lookup?.phraseEntry(for: phrase) }) {
+            return .word(entry)
+        }
         return await explainSentence(cleaned, lookup: lookup)
     }
 
@@ -83,8 +87,7 @@ struct QuickExplainer {
 
     private func explainSentence(_ sentence: String, lookup: (any WordLooking)?) async -> QuickExplainResult {
         // The bundled words are found offline, so a slow or signed-out card still has something to read.
-        let localWords = SentenceWordFinder.extraWords(
-            in: sentence, skipping: [], bundledEntry: { lookup?.bundledEntry(for: $0) })
+        let localWords = Self.bundledWords(in: sentence, bundledEntry: { lookup?.bundledEntry(for: $0) })
         do {
             let translator = try makeTranslator()
             let language = language
@@ -147,3 +150,48 @@ struct QuickExplainer {
 
 /// The answer took longer than `QuickExplainer.timeLimit`.
 struct TimeLimitReached: Error {}
+
+// MARK: - Bundled words of a sentence
+
+extension QuickExplainer {
+    /// Only these kinds of words are kept. Pronouns, articles, prepositions, conjunctions and numbers are not.
+    private static let contentClasses: Set<NLTag> = [.noun, .verb, .adjective, .adverb]
+
+    /// Helper verbs. "be", "have" and "do" mostly help other verbs, and modals ("can", "will") always do.
+    private static let helperWords: Set<String> = [
+        "be", "have", "do", "can", "could", "will", "would", "shall", "should", "may", "might", "must",
+    ]
+
+    /// The nouns, verbs, adjectives and adverbs of the sentence that are in the bundled dictionary, in order and
+    /// without repeats. Works offline, so a slow or signed-out card still has words to read. (This was
+    /// `SentenceWordFinder`, which TASK-89.2 removed from the app's sentence result.)
+    static func bundledWords(in sentence: String, bundledEntry: (String) -> WordEntry?) -> [SentenceWordInfo] {
+        let tagger = NLTagger(tagSchemes: [.lexicalClass])
+        tagger.string = sentence
+        tagger.setLanguage(.english, range: sentence.startIndex..<sentence.endIndex)
+
+        var seen = Set<String>()
+        var found: [SentenceWordInfo] = []
+        tagger.enumerateTags(
+            in: sentence.startIndex..<sentence.endIndex,
+            unit: .word,
+            scheme: .lexicalClass,
+            options: [.omitWhitespace, .omitPunctuation, .omitOther]
+        ) { tag, range in
+            guard let tag, contentClasses.contains(tag) else { return true }
+            let token = String(sentence[range])
+            guard !seen.contains(token.lowercased()),
+                  let entry = bundledEntry(token),
+                  let sense = entry.senses.first,
+                  !helperWords.contains(entry.word.lowercased()),
+                  !seen.contains(entry.word.lowercased())
+            else { return true }
+            seen.insert(token.lowercased())
+            seen.insert(entry.word.lowercased())
+            let word = Explanation.Word(word: token, partOfSpeech: sense.pos, meaning: sense.simpleDefinition)
+            found.append(SentenceWordInfo(word: word, entry: entry))
+            return true
+        }
+        return found
+    }
+}

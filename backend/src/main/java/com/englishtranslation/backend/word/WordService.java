@@ -78,6 +78,13 @@ public class WordService {
             return new WordAnswer(bundledResponse(normalized, bundledWord.get()), WordAnswer.Origin.BUNDLED);
         }
 
+        // A phrase ("give up", "a piece of cake") is answered only from the cache, filled by the local collection
+        // (TASK-83.9). It never calls Claude and is never "not a word": a miss is 404 not_cached, and the app then
+        // explains the text as a sentence.
+        if (normalized.contains(" ")) {
+            return cachedPhrase(normalized);
+        }
+
         // Not a real word: answer "no senses" (the app shows "not an English word") without calling Claude.
         // Nothing is saved, so a later update of the word list can fix a missing word.
         if (!englishWords.contains(normalized)) {
@@ -125,6 +132,12 @@ public class WordService {
             return new WordAnswer(response(normalized, readEntry(first), true, mediaOf(first.getId())),
                     WordAnswer.Origin.CACHED);
         }
+    }
+
+    private WordAnswer cachedPhrase(String phrase) {
+        String cacheKey = CacheKeys.key("word", properties.wordPromptVersion(), phrase);
+        WordLookup saved = repository.findByCacheKey(cacheKey).orElseThrow(NotCachedException::new);
+        return new WordAnswer(response(phrase, readEntry(saved), true, mediaOf(saved.getId())), WordAnswer.Origin.CACHED);
     }
 
     /** The reply for a bundled word: its entry and media from Postgres, cached = true (nothing was generated). */

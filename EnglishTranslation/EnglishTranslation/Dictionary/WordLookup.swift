@@ -16,6 +16,10 @@ protocol WordLooking: Sendable {
     /// The entry from the bundled dictionary only: no cache, no network. Nil when the word is not there.
     /// A sentence result uses it for the form pill and level chip on each word card.
     func bundledEntry(for word: String) -> WordEntry?
+
+    /// The word card for a phrase ("give up"), only when the phone cache or the server cache has one (TASK-83.10).
+    /// Nil on a miss or any error: the caller then explains the text as a sentence. Never causes a Claude call.
+    func phraseEntry(for phrase: String) async -> WordEntry?
 }
 
 extension WordLooking {
@@ -24,6 +28,9 @@ extension WordLooking {
 
     /// Tests use this default: nothing is in the bundle.
     func bundledEntry(for word: String) -> WordEntry? { nil }
+
+    /// Tests use this default: no phrase is cached.
+    func phraseEntry(for phrase: String) async -> WordEntry? { nil }
 }
 
 /// The second step of a word lookup: the local cache and our backend. `BackendClient` is the real one.
@@ -31,6 +38,15 @@ protocol WordFetching: Sendable {
     /// Returns the entry from the local cache, or asks the backend and saves the answer.
     /// An entry with no senses means the backend says it is not an English word.
     func entry(forWord word: String) async throws -> WordEntry
+
+    /// The cached entry for a phrase: the local cache, then `GET /api/words/{phrase}?cachedOnly=true`.
+    /// Nil when the server says 404 `not_cached`.
+    func cachedEntry(forPhrase phrase: String) async throws -> WordEntry?
+}
+
+extension WordFetching {
+    /// Tests use this default: no phrase is cached.
+    func cachedEntry(forPhrase phrase: String) async throws -> WordEntry? { nil }
 }
 
 /// Why a word has no entry. The message is shown to the user as it is.
@@ -62,6 +78,11 @@ struct WordLookup: WordLooking {
         let cleaned = CacheKeys.trimmingWordPunctuation(word)
         guard !cleaned.isEmpty else { return nil }
         return try? dictionary?.lookUp(cleaned)
+    }
+
+    func phraseEntry(for phrase: String) async -> WordEntry? {
+        guard let entry = try? await backend.cachedEntry(forPhrase: phrase), !entry.senses.isEmpty else { return nil }
+        return entry
     }
 
     func lookUp(_ input: String) async throws -> WordEntry {

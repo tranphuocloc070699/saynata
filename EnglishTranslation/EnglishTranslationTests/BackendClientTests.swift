@@ -178,6 +178,26 @@ struct BackendClientTests {
         #expect(entry.senses.first?.usage == [Usage(kind: .phrase, pattern: "by serendipity", example: "We met by serendipity.")])
     }
 
+    @Test func phraseAsksWithCachedOnlyAndDecodesTheCard() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = Data(#"{"word":"give up","cached":true,"ipa":"/ˈɡɪv ˈəp/","entry":{"senses":[{"pos":"phrasal verb","cefr":"A2","simpleDefinition":"to stop trying","vietnamese":"bỏ cuộc","examples":[]}]}}"#.utf8)
+
+        let entry = try #require(try await client.cachedEntry(forPhrase: "Give up"))
+
+        let request = try #require(StubURLProtocol.lastRequest)
+        #expect(request.url?.absoluteString == "http://localhost:8081/api/words/give%20up?cachedOnly=true")
+        #expect(entry.word == "give up")
+        #expect(entry.ipa == "/ˈɡɪv ˈəp/")
+        #expect(entry.senses.first?.pos == "phrasal verb")
+    }
+
+    @Test func phraseNotCachedIsNil() async throws {
+        StubURLProtocol.status = 404
+        StubURLProtocol.body = Data(#"{"title":"Not Found","status":404,"code":"not_cached"}"#.utf8)
+
+        #expect(try await client.cachedEntry(forPhrase: "look forward to") == nil)
+    }
+
     @Test func wordReplyWithIpaPutsItOnTheEntry() async throws {
         StubURLProtocol.status = 200
         StubURLProtocol.body = Data(#"{"word":"graveyard","cached":true,"ipa":"/ˈɡɹeɪvˌjɑɹd/","entry":{"senses":[]}}"#.utf8)

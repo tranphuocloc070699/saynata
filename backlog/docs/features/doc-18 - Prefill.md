@@ -3,7 +3,7 @@ id: doc-18
 title: Prefill
 type: other
 created_date: '2026-10-16 08:28'
-updated_date: '2026-10-17 19:45'
+updated_date: '2026-10-18 02:04'
 ---
 # Prefill
 
@@ -208,20 +208,18 @@ Commands (in `pipeline/`): `uv run pipeline collection batch submit --max-cost 1
 - **A. Server cache `word_lookup` (built).** Works today with no app or backend change for single words. The admin lists them as backend words (`w-...`) with model `codex:...`, so they can be reviewed and fixed. Words are served from the network, not offline.
 - **B. Bundled dictionary tables (not built).** `dictionary_word` / `dictionary_sense` / `dictionary_form`, then `export` puts them in the app: offline and instant, but the app grows (about 2 KB a word, so about 15 MB for 7,000 words before pictures), each sense needs `image_type`/`image_query`, and every word needs a rank and its forms. Best for the 944 topic words, which were always meant to be bundled.
 
-### How the app could show phrases (proposal, not built)
+### How the app shows phrases (TASK-83.10)
 
-Today a phrase never reaches the word path: the app sends any input with a space to the sentence explanation (`CacheKeys.wordQuery`), and `WordService` checks the word list before the cache, so a pushed "give up" would never be shown. The smallest change:
+1. Backend: in `WordService.lookUp`, a text with a space is answered **only from the cache** (`word_lookup`): a hit is the word card, a miss is 404 `not_cached`. It never calls Claude and is never "not a word". The IPA is the words' IPA joined. See doc-5, "Phrase".
+2. App: for 2-6 words (`CacheKeys.phraseQuery`), it first asks `GET /api/words/{phrase}?cachedOnly=true`; a hit shows the normal word card (the sense `pos` says "phrasal verb", "idiom" or "phrase"; simple explanation first, Vietnamese last and closed); a 404 falls back to the sentence path. Quick explain does the same.
 
-1. Backend: in `WordService.lookUp`, a text with a space is answered **only from the cache** (`word_lookup`), never from Claude, and never "not a word" when a row exists.
-2. App: for 2-6 words, first ask `GET /api/words/{phrase}?cachedOnly=true` (TASK-83.4); a hit shows the word card (pos "phrasal verb" or "idiom", the simple explanation first, Vietnamese last and closed); a 404 `not_cached` falls back to the sentence path as now.
-
-Any change to how the card looks needs a mockup first.
+The phrases still have to be pushed: `uv run pipeline collection push --kind phrasal_verb idiom collocation --yes` (dry run without `--yes`), only after the developer's go-ahead and after the backend change is deployed.
 
 ### Known gaps
 
 - WordNet 2025 has no place or person names, so SCOWL names like "london" or "david" are still collected; Codex may describe them ("London: the capital city of the UK") or return no senses.
 - A phrase's Zipf comes from its words combined (wordfreq cannot count phrases), so it only says "made of common words".
 - The backend example check counts "giving" as hard for "give" (only words that start with the headword are free). The copy keeps that rule for words, so Codex entries get the same verdicts as Claude entries.
-- Phrases pushed to `word_lookup` are not served until the backend and app change above.
+- Phrases match the whole typed text only: "what time is it" does not find "what time".
 - Fixed 2026-10-18: `backend/src/main/resources/words/ngsl.txt` missed 219 NGSL lemmas and forms (the 59 NGSL words that were never bundled, such as group, eat, air, black, angry, color, and their forms), so the backend's `SimpleWords` and this copy called them hard. They are added. `uv run pipeline collection revalidate` checks the `retry` and `needs_review` entries again with no LLM call (it moved 3,585 rows to `done`).
 - With the Claude batch, about 48% of first answers failed the checks (rare words need harder words to explain them: "informal", "clever", place names). Like the backend, they get one retry with feedback and are then `needs_review`.

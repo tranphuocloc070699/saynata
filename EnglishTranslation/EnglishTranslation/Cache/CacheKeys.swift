@@ -94,6 +94,23 @@ enum CacheKeys {
         return word.isEmpty ? nil : word
     }
 
+    /// The most words a phrase can have, and its longest length (the backend accepts the same, `WordController`).
+    static let maxPhraseWords = 6
+    static let maxPhraseLength = 64
+
+    /// The phrase to try as a word card before the sentence path ("give up", "a piece of cake", TASK-83.10), or nil.
+    /// 2 to 6 words of letters, apostrophes and hyphens, with edge punctuation removed ("Give up!" gives "Give up").
+    /// The curly apostrophe the keyboard types becomes "'", the one the phrases are saved with.
+    /// Call it only when `wordQuery` gave nil. Case is kept: `normalizeWord` lowercases later.
+    static func phraseQuery(_ input: String) -> String? {
+        let phrase = trimmingWordPunctuation(input).replacingOccurrences(of: "\u{2019}", with: "'")
+        let tokens = phrase.split(separator: " ")
+        guard (2 ... maxPhraseWords).contains(tokens.count), phrase.count <= maxPhraseLength else { return nil }
+        let allowed = CharacterSet.letters.union(CharacterSet(charactersIn: "'-"))
+        guard tokens.allSatisfy({ $0.unicodeScalars.allSatisfy(allowed.contains) }) else { return nil }
+        return phrase
+    }
+
     /// The key for a sentence answer: sha256 of `sentence|promptVersion|targetLang|text`.
     static func sentenceKey(
         _ text: String,
