@@ -1,6 +1,8 @@
 # Stage 1: build the jar with the Maven wrapper (needs a JDK).
 # Not the -alpine tags: they have no arm64 build, so they fail on Apple Silicon and ARM servers.
-FROM eclipse-temurin:17-jdk AS build
+# Both base images are pinned by digest. Docker Hub is slow from the VPS (about 0.4 MB/s), so a new upstream
+# image made a deploy pass its time limit (2026-10-18). To upgrade: docker pull the tag, then copy its digest here.
+FROM eclipse-temurin:17-jdk@sha256:fe947d993c32dd9cf651a4353a6ed723c2370b3a9d034ea4cab4775404ea531a AS build
 WORKDIR /build
 
 # Copy only what Maven needs to download dependencies first, so this layer is cached
@@ -14,7 +16,7 @@ COPY src src
 RUN ./mvnw -B -q package -DskipTests && mv target/backend-*.jar app.jar
 
 # Stage 2: a small runtime with only a JRE.
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:17-jre@sha256:e04fa72be13b257a59fdec6dc14af78c8f80f035d3c1ed4e03e45552a231d4c8
 WORKDIR /app
 
 # Run as a normal user, not root.
