@@ -3,11 +3,11 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-18 07:55'
+updated_date: '2026-10-18 12:35'
 ---
 # Accounts and limits
 
-> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Sign in with Google, Apple and an emailed link: TASK-92, see "Other ways to sign in". Last traced from code: 2026-10-18.
+> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Sign in with Google, Apple and an emailed link: TASK-92, see "Other ways to sign in". The short version of the whole flow: "Workflow at a glance". Last traced from code: 2026-10-18.
 > Why: doc-7 rows of 2026-10-15. Related: [Admin API](doc-13%20-%20Admin-API.md) (the admin has its own cookie login), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Word lookup](doc-5%20-%20Word-lookup.md), the Resend and SES setup in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md) (sections 10 and 11).
 
 ## What it does
@@ -27,6 +27,56 @@ the bundled words (on the device) and anything already in the shared cache. Clau
 
 An iOS app **without** the sign-in screen sends no token. With the default (`REQUIRE_SIGN_IN=true`), **a new sentence or an uncached word from such an app gives 401**. The app with TASK-70 shows the sign-in sheet instead.
 **Switch `REQUIRE_SIGN_IN`:** keep `REQUIRE_SIGN_IN=false` in `backend/.env` until the app with sign-in is released. Then a guest miss does call Claude, but it still goes through `ClaudeGate`: the daily budget cap applies (503 `daily_limit_reached`), and so does a per-IP limit for guests' new calls (30 per hour by default, 429 `rate_limited`), so one guest cannot burn the budget alone. Bundled words and cached answers work in both modes. Set it back to `true` (or remove the line) when the new app is out.
+
+## Workflow at a glance
+
+The whole life of a sign-in, from guest to signed out. The sections below have the details and the `file:line` links.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Guest
+    Guest --> Guest: cached or bundled answer (no token needed)
+    Guest --> SignIn: new Claude call, 401 sign_in_required
+    Guest --> SignIn: Settings, Sign in
+    state SignIn {
+        [*] --> Choose
+        Choose --> EmailCode: 6-digit code (all apps)
+        Choose --> EmailLink: emailed link (iOS)
+        Choose --> Google: Google ID token (iOS)
+        Choose --> Apple: Apple ID token (iOS, paid account)
+    }
+    SignIn --> SignedIn: AuthService.issueTokensFor gives access (1 h) + refresh (60 days)
+    SignedIn --> SignedIn: Authorization Bearer on every call
+    SignedIn --> Refresh: 401 with a token (access token ended)
+    Refresh --> SignedIn: new pair, old refresh token revoked
+    Refresh --> Guest: refresh token ended, revoked or reused
+    SignedIn --> Guest: Sign out (token revoked on the server)
+    SignedIn --> [*]: Delete account (DELETE /api/me)
+```
+
+**Every way in ends in the same place.** The email code, the link, Google and Apple each prove the email (or the provider account) in their own way, then call `AuthService.issueTokensFor`. After that there is one kind of session, so refresh, sign out, limits and account deletion work the same for all of them.
+
+| Setting | Value | Where |
+|---|---|---|
+| Access token | JWT, 1 hour | `app.auth.access-token-lifetime` |
+| Refresh token | 60 days, rotated on each use | `app.auth.refresh-token-lifetime` |
+| Email code | 10 minutes, 5 tries | `app.auth.code-lifetime`, `app.auth.max-code-tries` |
+| Email link | 15 minutes, works once | `app.auth.link.lifetime` |
+| Google / Apple | Allowed client IDs | `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS` |
+| Guests may call Claude | Off by default | `REQUIRE_SIGN_IN` |
+
+Which app offers which way in:
+
+| App | Email code | Email link | Google | Apple | Where the session is kept |
+|---|---|---|---|---|---|
+| iPhone app | Yes | Yes | Yes (needs `GoogleIOSClientID`) | Yes (paid account) | Keychain, App Group group |
+| Share and Translation extensions | No sheet: they use the app's session | | | | The app's Keychain item |
+| Mac app | Yes | No | No | No | The Mac's own Keychain |
+| Browser extension | Yes | No | No | No | `chrome.storage.local` |
+
+Each app has its own session, except the two iOS extensions, which share the iPhone app's.
+
+Example: Minh opens the iPhone app as a guest and types "give up". It is in the cache, so the answer comes back with no sign-in. Then Minh types a new sentence. The cache misses, `ClaudeGate` answers 401 `sign_in_required`, and the sign-in sheet opens with the sentence kept. Minh taps "Sign in with Google", picks the account, and the app sends the Google ID token to `/api/auth/google`. The backend checks it and returns our two tokens, which go into the Keychain. The app sends the same sentence again with `Authorization: Bearer`, and the explanation streams in. An hour later the access token has ended: the next call gets 401, the app refreshes once and sends the call again, and Minh sees nothing of it. After 60 days with no use, the refresh token has ended too, and Minh is a guest again.
 
 ## Big picture
 
