@@ -129,6 +129,7 @@ class SentenceWordQueueTest {
                         .content("{\"text\": \"The lantern glows.\", \"targetLang\": \"vi\"}"))
                 .andExpect(status().isOk());
         waitUntilQueued("lantern");
+        waitUntilQueued("glows"); // the words are saved one by one, so wait for the last one too
 
         PrefillItem lantern = item("lantern");
         assertThat(lantern.getSource()).isEqualTo("sentence-words");
