@@ -10,6 +10,7 @@ struct TranslateView: View {
     @Environment(TranslationStore.self) private var store
     @Environment(SpeechPlayer.self) private var speechPlayer
     @Environment(AccountStore.self) private var account
+    @Environment(LikedStore.self) private var liked
     /// True while the text box has the keyboard (TASK-50).
     @FocusState private var isInputFocused: Bool
     /// Back Tap / the Action Button asks to start from the clipboard (TASK-87).
@@ -53,8 +54,21 @@ struct TranslateView: View {
         }
         // The backend said "sign in" (TASK-70). The sheet opens over the result; when the code is right it closes
         // and the same request runs again.
-        .sheet(isPresented: $store.isSignInSheetOpen) {
-            SignInSheet(account: account) { await store.resumeAfterSignIn() }
+        .sheet(isPresented: $store.isSignInSheetOpen, onDismiss: { liked.cancelPending() }) {
+            SignInSheet(account: account) {
+                await store.resumeAfterSignIn()
+                await liked.signedIn()
+            }
+        }
+        // A guest tapped the star (TASK-93.2): the same sign-in sheet opens, and the like is sent after sign-in.
+        .onChange(of: liked.signInRequested) { _, isRequested in
+            guard isRequested else { return }
+            liked.signInRequested = false
+            store.isSignInSheetOpen = true
+        }
+        // Signed in: load the liked list. Signed out: it belongs to the account, so it goes from this phone.
+        .task(id: account.user) {
+            if account.isSignedIn { await liked.refresh() } else { liked.clear() }
         }
     }
 
@@ -71,4 +85,5 @@ struct TranslateView: View {
         .environment(TranslationStore())
         .environment(SpeechPlayer.silent())
         .environment(AccountStore(secrets: NoSecretStore()))
+        .environment(LikedStore.live())
 }

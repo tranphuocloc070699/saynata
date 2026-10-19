@@ -35,6 +35,8 @@ final class FakeSecretStore: SecretStoring, @unchecked Sendable {
 struct ScriptedRequest {
     let method: String
     let path: String
+    /// The part after `?`, still encoded. Empty when there is none.
+    var query = ""
     let authorization: String?
     let body: Data
 
@@ -121,6 +123,7 @@ final class ScriptedURLProtocol: URLProtocol, @unchecked Sendable {
         let scripted = ScriptedRequest(
             method: request.httpMethod ?? "GET",
             path: request.url?.path ?? "",
+            query: request.url?.query(percentEncoded: true) ?? "",
             authorization: request.value(forHTTPHeaderField: "Authorization"),
             // URLSession moves httpBody into a stream before it reaches a URLProtocol.
             body: request.httpBody ?? request.httpBodyStream.map(Self.readAll) ?? Data())

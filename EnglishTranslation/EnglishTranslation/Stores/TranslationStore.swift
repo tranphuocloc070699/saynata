@@ -29,15 +29,19 @@ final class TranslationStore {
 
     private let makeTranslator: @MainActor () throws -> any Translating
     private let makeWordLookup: @MainActor () throws -> any WordLooking
+    /// Every final result is added here (TASK-93). Nil: no History.
+    let history: (any HistoryStoring)?
 
     /// - Parameter makeTranslator: Builds the translator on each request, so a
     ///   missing setting shows as a `.failed` state instead of crashing at launch.
     init(
         makeTranslator: @escaping @MainActor () throws -> any Translating = TranslatorFactory.makeTranslator,
-        makeWordLookup: @escaping @MainActor () throws -> any WordLooking = TranslatorFactory.makeWordLookup
+        makeWordLookup: @escaping @MainActor () throws -> any WordLooking = TranslatorFactory.makeWordLookup,
+        history: (any HistoryStoring)? = HistoryStore.shared
     ) {
         self.makeTranslator = makeTranslator
         self.makeWordLookup = makeWordLookup
+        self.history = history
     }
 
     /// The backend accepts 1 to 500 characters (`TranslationRequest.java`).
@@ -76,7 +80,7 @@ final class TranslationStore {
             await lookUpWord(word)
         } else if let phrase = CacheKeys.phraseQuery(trimmedInput),
                   let entry = await (try? makeWordLookup())?.phraseEntry(for: phrase) {
-            state = .loadedWord(entry)
+            await showWord(entry)
         } else {
             await explainSentence()
         }
@@ -87,12 +91,18 @@ final class TranslationStore {
         do {
             let wordLookup = try makeWordLookup()
             lookup = wordLookup
-            state = .loadedWord(try await wordLookup.lookUp(word))
+            await showWord(try await wordLookup.lookUp(word))
         } catch BackendError.signInRequired {
             askForSignIn(text: word)
         } catch {
             state = .failed(error.localizedDescription, spelling: spellingHelp(for: word, after: error, lookup: lookup))
         }
+    }
+
+    /// Shows a word or phrase card and adds it to History (TASK-93).
+    private func showWord(_ entry: WordEntry) async {
+        state = .loadedWord(entry)
+        await history?.record(SavedItem(entry: entry))
     }
 
     /// Close words to show under the error. Only when the backend says it is not an English word,
@@ -206,7 +216,9 @@ final class TranslationStore {
                 onMeaning: { [weak self] meaning in
                     self?.showMeaning(SentenceMeaning(sentence: sentence, meaning: meaning, language: language))
                 })
-            state = .loaded(SentenceResult(sentence: sentence, explanation: explanation, language: language))
+            let result = SentenceResult(sentence: sentence, explanation: explanation, language: language)
+            state = .loaded(result)
+            await history?.record(SavedItem(result: result))
         } catch BackendError.signInRequired {
             askForSignIn(text: sentence)
         } catch {

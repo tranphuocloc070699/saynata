@@ -14,6 +14,7 @@ struct MenuBarContentView: View {
     @Environment(TranslationStore.self) private var store
     @Environment(SpeechPlayer.self) private var speechPlayer
     @Environment(AccountStore.self) private var account
+    @Environment(LikedStore.self) private var liked
     @Environment(MenuBarFocus.self) private var focus
     @FocusState private var isInputFocused: Bool
 
@@ -48,8 +49,20 @@ struct MenuBarContentView: View {
         // The shortcut (or the icon) opened the window: put the cursor in the box (TASK-85.3).
         .onChange(of: focus.request) { isInputFocused = true }
         .onAppear { isInputFocused = true }
-        .sheet(isPresented: $store.isSignInSheetOpen) {
-            SignInSheet(account: account) { await store.resumeAfterSignIn() }
+        .task(id: account.user) {
+            if account.isSignedIn { await liked.refresh() } else { liked.clear() }
+        }
+        // A guest tapped the star (TASK-93.2): open the sign-in sheet, and send the like after sign-in.
+        .onChange(of: liked.signInRequested) { _, isRequested in
+            guard isRequested else { return }
+            liked.signInRequested = false
+            store.isSignInSheetOpen = true
+        }
+        .sheet(isPresented: $store.isSignInSheetOpen, onDismiss: { liked.cancelPending() }) {
+            SignInSheet(account: account) {
+                await store.resumeAfterSignIn()
+                await liked.signedIn()
+            }
                 .frame(width: Self.size.width - 40, height: 380)
         }
         .sheet(isPresented: $focus.isSettingsOpen) {
@@ -123,5 +136,6 @@ struct MenuBarContentView: View {
         .environment(TranslationStore())
         .environment(SpeechPlayer.silent())
         .environment(AccountStore(secrets: NoSecretStore()))
+        .environment(LikedStore.live())
         .environment(MenuBarFocus())
 }

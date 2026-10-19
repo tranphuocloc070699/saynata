@@ -1,9 +1,11 @@
 ---
 id: TASK-93.2
 title: 'iOS: History and Liked sheet, star on results'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-19 13:00'
+updated_date: '2026-10-19 13:13'
 labels:
   - ios
 dependencies:
@@ -35,3 +37,20 @@ See the parent task for the why and the decisions. UI follows the agreed mockup 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. SavedItem model + HistoryStore (SQLite in App Group, dedupe, cap 1000) behind HistoryRecording
+2. LikedStore (@Observable) with LikedAPI protocol (BackendClient GET/PUT/DELETE /api/liked) + local JSON copy; guest -> sign-in request, pending like after sign-in; clear on sign-out
+3. TranslationStore records final results (.loadedWord, .loaded, phrase hit)
+4. HistorySheet (History | Liked, search, day groups, swipe delete, clear all) in Views/History, clock button in TranslateOptionsView
+5. Star IconButton on word header and sentence card; inject environments (app, extensions, Mac)
+6. Swift Testing tests, iOS tests, Mac build, screenshots, feature doc, CLAUDE.md row
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/132 (into feature/local). Test it: Goal: open History from the clock, find an old word or sentence, star results into Liked. Steps: 1) look up a word, a phrase, a sentence; tap the clock. 2) search, tap a row, swipe, trash (asks first). 3) tap the star signed out: sign-in sheet; after sign-in the item is liked. 4) Liked tab shows it; star again unlikes. 5) sign out: Liked empties. 6) Share a word from Safari: it is in History. Expected: rows grouped Today/Yesterday/date, repeats move to top; offline like is undone. Automated: HistoryStoreTests, LikedStoreTests; xcodebuild test (iPhone 16 Pro iOS 18.5): 414 tests passed; SaynataMac and both extensions build. Needs backend PR #131 for the live Liked list.
+<!-- SECTION:NOTES:END -->
