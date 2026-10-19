@@ -21,7 +21,10 @@ protocol HistoryStoring: Sendable {
 actor HistoryStore: HistoryStoring {
     /// The file of the app (and of the extensions, when the App Group works).
     /// Nil if the file cannot be opened: the app then works without History.
+    /// Also nil inside unit tests: the tests run in the app on the simulator, and their made-up words and
+    /// sentences would otherwise show up in the real History list.
     static let shared: HistoryStore? = {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return nil }
         let folder = ResultCache.cacheFolder()
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         return try? HistoryStore(fileURL: folder.appending(path: "history.sqlite"))
