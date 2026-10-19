@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-18 13:15'
+updated_date: '2026-10-19 13:01'
 ---
 # Decisions and reasons
 
@@ -171,6 +171,9 @@ Quotes are the developer's words, with spelling fixed.
 | 10-18 | The link only works **in the app that asked for it** (the app keeps a secret, the server keeps its hash: the PKCE idea) | Another app could register the `saynata://` scheme and catch the token; without the secret the token is useless. Opening the page does not use the link up, so mail scanners cannot spend it | A link that works anywhere | Claude |
 | 10-18 | **No domain in the code**: `PUBLIC_BASE_URL`, `APP_URL_SCHEME`, `APPLE_APP_IDS`, `GOOGLE_CLIENT_IDS` are config, and doc-11 section 13 lists what changes when the domain moves | The developer plans to buy a new domain later (spelling to be confirmed: they wrote "saynanta.com", the app is Saynata) | — | Developer |
 | 10-18 | The backend can call Claude through an **Anthropic-compatible gateway** (STEYG: `CLAUDE_BASE_URL` + `CLAUDE_AUTH_TOKEN`, model `claude-haiku-4-5`) instead of the Anthropic API | Reason: not recorded. Context: the Anthropic key on the server started to fail (401), so every new explanation gave 502 | Keep the Anthropic API with a new key; an OpenAI-compatible client | Developer |
+| 10-19 | **History and Liked open from a clock button** next to Settings, as one sheet with History and Liked segments (TASK-93) | Reason: not recorded. Context: picked option A of the mockup; the main screen stays as it is | A tab bar (Explain, History, Liked) | Developer |
+| 10-19 | **History stays on the device** (SQLite in the App Group, the extensions add to it) | Reason: not recorded. Context: works for guests, no server cost, private | Also sync History to the account | Developer |
+| 10-19 | **Liked is saved on the server per account** (`/api/liked`), so liking needs sign-in | Reason: not recorded. Context: liked items follow the user to the Mac app and the browser extension | Liked only on the device (still behind sign-in) | Developer |
 
 ## Questions answered
 
