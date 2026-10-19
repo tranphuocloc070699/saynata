@@ -28,7 +28,7 @@ actor ResultCache {
     /// Application Support folder: the app and the extension then keep two separate caches, and both still work.
     /// The Mac app has no extension to share with, and asking macOS for a group folder it is not entitled to shows a
     /// privacy prompt, so it always uses its own (sandboxed) Application Support folder.
-    private static func cacheFolder() -> URL {
+    static func cacheFolder() -> URL {
         #if os(macOS)
         URL.applicationSupportDirectory
         #else

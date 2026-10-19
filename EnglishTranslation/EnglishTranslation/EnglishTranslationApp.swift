@@ -11,6 +11,8 @@ struct EnglishTranslationApp: App {
     @State private var speechPlayer = SpeechPlayer()
     /// The same object the backend client reads the token from (`TranslatorFactory`), so a sign-in shows everywhere.
     @State private var account = AccountStore.shared
+    /// The liked words and sentences (TASK-93.2).
+    @State private var liked = LikedStore.live()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -19,6 +21,7 @@ struct EnglishTranslationApp: App {
                 .environment(store)
                 .environment(speechPlayer)
                 .environment(account)
+                .environment(liked)
                 // Stop reading when the app is sent to the background (TASK-46).
                 .onChange(of: scenePhase) {
                     if scenePhase == .background { speechPlayer.stop() }

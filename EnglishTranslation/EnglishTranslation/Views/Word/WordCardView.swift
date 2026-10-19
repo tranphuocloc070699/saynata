@@ -56,6 +56,7 @@ struct WordCardView: View {
             ) {
                 toggleSpeech(displayedWord, id: wordSpeechID)
             }
+            LikeButton(item: SavedItem(entry: entry))
         }
     }
 

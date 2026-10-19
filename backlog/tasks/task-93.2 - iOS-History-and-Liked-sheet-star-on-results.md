@@ -1,9 +1,11 @@
 ---
 id: TASK-93.2
 title: 'iOS: History and Liked sheet, star on results'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-19 13:00'
+updated_date: '2026-10-19 13:02'
 labels:
   - ios
 dependencies:
@@ -35,3 +37,14 @@ See the parent task for the why and the decisions. UI follows the agreed mockup 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. SavedItem model + HistoryStore (SQLite in App Group, dedupe, cap 1000) behind HistoryRecording
+2. LikedStore (@Observable) with LikedAPI protocol (BackendClient GET/PUT/DELETE /api/liked) + local JSON copy; guest -> sign-in request, pending like after sign-in; clear on sign-out
+3. TranslationStore records final results (.loadedWord, .loaded, phrase hit)
+4. HistorySheet (History | Liked, search, day groups, swipe delete, clear all) in Views/History, clock button in TranslateOptionsView
+5. Star IconButton on word header and sentence card; inject environments (app, extensions, Mac)
+6. Swift Testing tests, iOS tests, Mac build, screenshots, feature doc, CLAUDE.md row
+<!-- SECTION:PLAN:END -->

@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let speechPlayer = SpeechPlayer()
     /// The same object the backend client reads the token from, like the iPhone app.
     private let account = AccountStore.shared
+    private let liked = LikedStore.live()
     private let focus = MenuBarFocus()
 
     private var statusItem: NSStatusItem?
@@ -103,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 .environment(store)
                 .environment(speechPlayer)
                 .environment(account)
+                .environment(liked)
                 .environment(focus))
         // The panel's title bar is hidden but still there; without this the content moves down under it.
         controller.safeAreaRegions = []

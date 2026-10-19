@@ -50,7 +50,13 @@ struct SentenceCard: View {
                 SentenceTextView(text: sentence, style: .original, language: language, loadWordEntry: loadWordEntry)
                     .speechHighlight(isPlaying: speechPlayer.currentID == sentenceSpeechID)
                     .padding(.top, Theme.Spacing.small)
-                listenButton(text: sentence, id: sentenceSpeechID, label: "Listen to the sentence")
+                HStack(spacing: Theme.Spacing.small) {
+                    listenButton(text: sentence, id: sentenceSpeechID, label: "Listen to the sentence")
+                    // Only for a finished answer: the summary is what the Liked list shows.
+                    if translation != nil {
+                        LikeButton(item: SavedItem(kind: .sentence, text: sentence, preview: summary))
+                    }
+                }
             }
 
             HairlineDivider()

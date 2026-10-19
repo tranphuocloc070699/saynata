@@ -24,6 +24,9 @@ struct SelectedTextResultView: View {
     @State private var store = TranslationStore()
     /// The extensions have no app around them, so the sheet makes its own player for the speakers (F3).
     @State private var speechPlayer = SpeechPlayer()
+    /// The liked list, for the star (TASK-93.2). The extensions have no sign-in sheet, so a guest gets a note.
+    @State private var liked = LikedStore.live()
+    @State private var showsLikeSignInNote = false
     /// Nil while the text is still being read.
     @State private var selectedText: String?
 
@@ -36,6 +39,13 @@ struct SelectedTextResultView: View {
         }
         .background(Theme.Colors.background)
         .environment(speechPlayer)
+        .environment(liked)
+        .onChange(of: liked.signInRequested) { _, isRequested in
+            guard isRequested else { return }
+            liked.signInRequested = false
+            liked.cancelPending()
+            showsLikeSignInNote = true
+        }
         .task { await explainSelectedText() }
         .onDisappear { speechPlayer.stop() }
     }
@@ -51,6 +61,11 @@ struct SelectedTextResultView: View {
                 Text(message).foregroundStyle(Theme.Colors.textSecondary)
             } else if case let .loadedWord(entry) = store.state {
                 WordHeaderView(entry: entry, isSpeaking: speechPlayer.currentID == headerSpeechID) { buttons }
+                if showsLikeSignInNote {
+                    Text("Sign in from the Saynata app to like words.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
                 WordCardView(entry: entry, targetLanguage: store.targetLanguage, showsHeader: false)
             } else {
                 if showsSentenceHeader {
@@ -72,8 +87,10 @@ struct SelectedTextResultView: View {
                     loadWordEntry: { word in try await store.wordEntry(for: word) })
                 // The extensions share the app's sign-in through the App Group Keychain, but they have no sign-in
                 // sheet: a signed-out user (or a free-account build, which has no App Group) signs in in the app.
-                if store.textNeedingSignIn != nil {
-                    Text("Sign in from the Saynata app to explain new text.")
+                if store.textNeedingSignIn != nil || showsLikeSignInNote {
+                    Text(showsLikeSignInNote
+                        ? "Sign in from the Saynata app to like sentences."
+                        : "Sign in from the Saynata app to explain new text.")
                         .font(.subheadline)
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
@@ -122,6 +139,9 @@ struct SelectedTextResultView: View {
                     speechPlayer.speak(headerText, id: headerSpeechID)
                 }
             }
+        }
+        if case let .loadedWord(entry) = store.state {
+            LikeButton(item: SavedItem(entry: entry))
         }
         if let onOpenApp, let url = openURL {
             IconButton(systemImage: "arrow.up.forward.app", label: "Open in Saynata") { onOpenApp(url) }
