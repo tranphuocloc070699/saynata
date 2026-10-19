@@ -3,11 +3,11 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-18 07:55'
+updated_date: '2026-10-18 16:10'
 ---
 # Accounts and limits
 
-> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Sign in with Google, Apple and an emailed link: TASK-92, see "Other ways to sign in". Last traced from code: 2026-10-18.
+> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Sign in with Google, Apple and an emailed link: TASK-92, see "Other ways to sign in". The short version of the whole flow: "Workflow at a glance". Last traced from code: 2026-10-18.
 > Why: doc-7 rows of 2026-10-15. Related: [Admin API](doc-13%20-%20Admin-API.md) (the admin has its own cookie login), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Word lookup](doc-5%20-%20Word-lookup.md), the Resend and SES setup in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md) (sections 10 and 11).
 
 ## What it does
@@ -27,6 +27,56 @@ the bundled words (on the device) and anything already in the shared cache. Clau
 
 An iOS app **without** the sign-in screen sends no token. With the default (`REQUIRE_SIGN_IN=true`), **a new sentence or an uncached word from such an app gives 401**. The app with TASK-70 shows the sign-in sheet instead.
 **Switch `REQUIRE_SIGN_IN`:** keep `REQUIRE_SIGN_IN=false` in `backend/.env` until the app with sign-in is released. Then a guest miss does call Claude, but it still goes through `ClaudeGate`: the daily budget cap applies (503 `daily_limit_reached`), and so does a per-IP limit for guests' new calls (30 per hour by default, 429 `rate_limited`), so one guest cannot burn the budget alone. Bundled words and cached answers work in both modes. Set it back to `true` (or remove the line) when the new app is out.
+
+## Workflow at a glance
+
+The whole life of a sign-in, from guest to signed out. The sections below have the details and the `file:line` links.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Guest
+    Guest --> Guest: cached or bundled answer (no token needed)
+    Guest --> SignIn: new Claude call, 401 sign_in_required
+    Guest --> SignIn: Settings, Sign in
+    state SignIn {
+        [*] --> Choose
+        Choose --> EmailCode: 6-digit code (all apps)
+        Choose --> EmailLink: emailed link (iOS)
+        Choose --> Google: Google ID token (iOS)
+        Choose --> Apple: Apple ID token (iOS, paid account)
+    }
+    SignIn --> SignedIn: AuthService.issueTokensFor gives access (1 h) + refresh (60 days)
+    SignedIn --> SignedIn: Authorization Bearer on every call
+    SignedIn --> Refresh: 401 with a token (access token ended)
+    Refresh --> SignedIn: new pair, old refresh token revoked
+    Refresh --> Guest: refresh token ended, revoked or reused
+    SignedIn --> Guest: Sign out (token revoked on the server)
+    SignedIn --> [*]: Delete account (DELETE /api/me)
+```
+
+**Every way in ends in the same place.** The email code, the link, Google and Apple each prove the email (or the provider account) in their own way, then call `AuthService.issueTokensFor`. After that there is one kind of session, so refresh, sign out, limits and account deletion work the same for all of them.
+
+| Setting | Value | Where |
+|---|---|---|
+| Access token | JWT, 1 hour | `app.auth.access-token-lifetime` |
+| Refresh token | 60 days, rotated on each use | `app.auth.refresh-token-lifetime` |
+| Email code | 10 minutes, 5 tries | `app.auth.code-lifetime`, `app.auth.max-code-tries` |
+| Email link | 15 minutes, works once | `app.auth.link.lifetime` |
+| Google / Apple | Allowed client IDs | `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS` |
+| Guests may call Claude | Off by default | `REQUIRE_SIGN_IN` |
+
+Which app offers which way in:
+
+| App | Email code | Email link | Google | Apple | Where the session is kept |
+|---|---|---|---|---|---|
+| iPhone app | Yes | Yes | Yes | Yes (paid account) | Keychain, App Group group |
+| Share and Translation extensions | No sheet: they use the app's session | | | | The app's Keychain item |
+| Mac app | Yes | No | No | No | The Mac's own Keychain |
+| Browser extension | Yes | No | No | No | `chrome.storage.local` |
+
+Each app has its own session, except the two iOS extensions, which share the iPhone app's.
+
+Example: Minh opens the iPhone app as a guest and types "give up". It is in the cache, so the answer comes back with no sign-in. Then Minh types a new sentence. The cache misses, `ClaudeGate` answers 401 `sign_in_required`, and the sign-in sheet opens with the sentence kept. Minh taps "Sign in with Google", picks the account, and the app sends the Google ID token to `/api/auth/google`. The backend checks it and returns our two tokens, which go into the Keychain. The app sends the same sentence again with `Authorization: Bearer`, and the explanation streams in. An hour later the access token has ended: the next call gets 401, the app refreshes once and sends the call again, and Minh sees nothing of it. After 60 days with no use, the refresh token has ended too, and Minh is a guest again.
 
 ## Big picture
 
@@ -195,7 +245,7 @@ flowchart LR
 | Step | File:line | What happens |
 |---|---|---|
 | Table | [V11__create_claude_usage.sql](../../../backend/src/main/resources/db/migration/V11__create_claude_usage.sql) | One row per call: time, model, feature (`SENTENCE`, `WORD`, `ADMIN`, `WARMUP`), input and output tokens, cost in USD (8 decimals). The cost is saved, so a later price change does not rewrite history. |
-| Record | [ClaudeService.recordUsage:232](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L232) | Called for the normal sentence call, the streamed call (the stream accumulator sums the start and end events) and the word call, **before** the answer is read, so a refused or "not English" answer is counted too (it cost money). Never throws. |
+| Record | [ClaudeService.recordUsage:410](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L410) | Called for the normal sentence call, the streamed call (the stream accumulator sums the start and end events) and the word call, **before** the answer is read, so a refused or "not English" answer is counted too (it cost money). Never throws. |
 | Cost | [ClaudeUsageService.cost:74](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L74) | `(input x inputPerMtok + output x outputPerMtok) / 1,000,000`. A model with no price in config is counted at the **highest** configured price (never free) and a warning is logged. |
 | Prices | `app.claude.pricing.<model>.input-per-mtok` / `output-per-mtok` in [application.properties](../../../backend/src/main/resources/application.properties) | `claude-haiku-5-5`: $0.10 in, $0.50 out per million tokens (prompts up to 100K tokens; checked 2026-10-15). **Check them when the model or Anthropic's prices change.** |
 | Cap | [ClaudeUsageService.budgetReached:119](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L119) | Sum of today's rows **except feature `PREFILL`** (the day starts at 00:00 UTC) `>=` `app.claude.daily-budget-usd` (`CLAUDE_DAILY_BUDGET_USD`, default 1.00). Then the answer is 503 `daily_limit_reached`, "Saynata has reached today's limit for new explanations. Cached words still work. Try again tomorrow." |
@@ -307,7 +357,7 @@ The old tests set `app.auth.require-sign-in=false` (and a very high guest IP lim
 - Sign-in emails go out only after `RESEND_API_KEY` and `EMAIL_FROM` are set (doc-11, section 10), or SES is set up (section 11). Before that, codes are only in the backend log.
 - A Resend send that fails (after the one retry) is only logged: the learner sees "code sent" and gets nothing. Check the log and the Resend Logs page.
 - Rate limits and the code attempts live partly in memory: a restart clears the rate limits (the code attempts are in Postgres).
-- **Google and Apple need setup by hand** (deploy guide section 13). Until `GOOGLE_CLIENT_IDS` and the app's `GoogleIOSClientID` are set, the Google button says "not set up yet". Sign in with Apple works only in a `PAID_ACCOUNT=1` build.
+- **Google and Apple need setup by hand** (deploy guide section 13). Google is set up (2026-10-18): `GOOGLE_CLIENT_IDS` on the server and `GoogleIOSClientID` in Info.plist hold the same iOS client ID. A new client ID must change both, or the Google button says "not set up yet". Sign in with Apple works only in a `PAID_ACCOUNT=1` build.
 - The emailed link opens the app through the `saynata://` scheme, so iOS asks "Open in Saynata?" on the page. Universal links (no question) need the paid account and Associated Domains.
 - The link works only on the device that asked for it (the secret stays there). Opening it on a Mac or another phone shows the page, but the app there refuses it.
 - The Mac app and the extensions have only the email code. The new options are iOS only.

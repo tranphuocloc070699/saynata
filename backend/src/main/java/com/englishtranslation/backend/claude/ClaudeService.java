@@ -1,12 +1,12 @@
 package com.englishtranslation.backend.claude;
 
 import com.anthropic.client.AnthropicClient;
+import com.anthropic.core.ObjectMappers;
 import com.anthropic.core.http.StreamResponse;
 import com.anthropic.helpers.MessageAccumulator;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.RawMessageStreamEvent;
 import com.anthropic.models.messages.MessageCreateParams;
-import com.anthropic.models.messages.OutputConfig;
 import com.anthropic.models.messages.StopReason;
 import com.anthropic.models.messages.StructuredMessage;
 import com.anthropic.models.messages.StructuredMessageCreateParams;
@@ -14,6 +14,9 @@ import com.anthropic.models.messages.StructuredOutputConfig;
 import com.englishtranslation.backend.translation.Explanation;
 import com.englishtranslation.backend.translation.TargetLanguage;
 import com.englishtranslation.backend.word.WordEntry;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Optional;
 import java.util.function.Consumer;
 import org.springframework.stereotype.Service;
@@ -26,6 +29,10 @@ import org.springframework.stereotype.Service;
  * TranslationService and WordService, not from sampling settings.
  *
  * Haiku 5.5 has no server-side refusal fallback: a refusal becomes ClaudeRefusedException (HTTP 422).
+ *
+ * Through a gateway ({@code CLAUDE_BASE_URL}) the strict JSON setting ({@code output_config.format}) may be
+ * ignored, so there the JSON Schema goes into the system prompt instead and the answer is parsed from the text
+ * ({@link ClaudeProperties#jsonInPrompt()}). A non-streamed answer that is not valid JSON is asked once more.
  */
 @Service
 public class ClaudeService {
@@ -138,6 +145,10 @@ public class ClaudeService {
 
         /** Throws {@link NotEnglishException} when the text is not English, so nothing is cached for it. */
         public Explanation explainSentence(String text, TargetLanguage targetLang) {
+                if (properties.jsonInPrompt()) {
+                        return toExplanation(askForJson(Feature.SENTENCE, SENTENCE_PROMPT,
+                                        sentenceMessage(text, targetLang), 4000L, SentenceAnswer.class));
+                }
                 StructuredMessage<SentenceAnswer> message = client.messages().create(sentenceParams(text, targetLang));
                 recordUsage(Feature.SENTENCE, message);
                 return toExplanation(readOutput(message));
@@ -149,6 +160,9 @@ public class ClaudeService {
          * checked exactly as in {@link #explainSentence}. Throws {@link NotEnglishException} too.
          */
         public Explanation explainSentenceStreaming(String text, TargetLanguage targetLang, Consumer<String> onText) {
+                if (properties.jsonInPrompt()) {
+                        return explainSentenceStreamingJsonInPrompt(text, targetLang, onText);
+                }
                 MessageAccumulator accumulator = MessageAccumulator.create();
                 try (StreamResponse<RawMessageStreamEvent> stream = client.messages()
                                 .createStreaming(sentenceParams(text, targetLang))) {
@@ -160,6 +174,133 @@ public class ClaudeService {
                 StructuredMessage<SentenceAnswer> message = accumulator.message(SentenceAnswer.class);
                 recordUsage(Feature.SENTENCE, message);
                 return toExplanation(readOutput(message));
+        }
+
+        /**
+         * The gateway form of {@link #explainSentenceStreaming}: the same text pieces go to {@code onText} (the
+         * meaning reader skips anything before the first brace), then the whole text is parsed. No second try:
+         * the user has already seen the pieces.
+         */
+        private Explanation explainSentenceStreamingJsonInPrompt(String text, TargetLanguage targetLang,
+                        Consumer<String> onText) {
+                MessageAccumulator accumulator = MessageAccumulator.create();
+                MessageCreateParams params = jsonInPromptParams(SENTENCE_PROMPT, SentenceAnswer.class,
+                                sentenceMessage(text, targetLang), 4000L);
+                try (StreamResponse<RawMessageStreamEvent> stream = client.messages().createStreaming(params)) {
+                        stream.stream().forEach(event -> {
+                                accumulator.accumulate(event);
+                                textOf(event).ifPresent(onText);
+                        });
+                }
+                Message message = accumulator.message();
+                recordUsage(Feature.SENTENCE, message);
+                return toExplanation(parseJson(textOf(message), SentenceAnswer.class));
+        }
+
+        /** Asks with the JSON Schema in the prompt and parses the text; a broken answer is asked once more. */
+        private <T> T askForJson(Feature feature, String system, String userMessage, long maxTokens, Class<T> type) {
+                MessageCreateParams params = jsonInPromptParams(system, type, userMessage, maxTokens);
+                try {
+                        return parseJson(createAndRecord(feature, params), type);
+                } catch (InvalidJsonAnswerException firstTry) {
+                        return parseJson(createAndRecord(feature, params), type);
+                }
+        }
+
+        private String createAndRecord(Feature feature, MessageCreateParams params) {
+                Message message = client.messages().create(params);
+                recordUsage(feature, message);
+                return textOf(message);
+        }
+
+        private MessageCreateParams jsonInPromptParams(String system, Class<?> type, String userMessage,
+                        long maxTokens) {
+                return MessageCreateParams.builder()
+                                .model(properties.model())
+                                .maxTokens(maxTokens)
+                                .system(system + jsonInstruction(type))
+                                .addUserMessage(userMessage)
+                                .build();
+        }
+
+        /** The end of the system prompt in gateway mode: the same JSON Schema the strict mode sends. */
+        static String jsonInstruction(Class<?> type) {
+                return "\nAnswer with ONLY one JSON object that follows this JSON Schema, with the fields in this "
+                                + "order. No Markdown, no code fence, no text before or after the object.\n"
+                                + schemaOf(type) + "\n";
+        }
+
+        /** The JSON Schema the SDK makes from a record, read from a strict request built only for that. */
+        private static <T> String schemaOf(Class<T> type) {
+                MessageCreateParams strict = MessageCreateParams.builder()
+                                .model("schema-only")
+                                .maxTokens(1L)
+                                .addUserMessage("-")
+                                .outputConfig(StructuredOutputConfig.<T>builder().format(type).build())
+                                .build()
+                                .rawParams();
+                try {
+                        return JSON.writeValueAsString(strict.outputConfig().orElseThrow().format().orElseThrow().schema());
+                } catch (JsonProcessingException e) {
+                        throw new IllegalStateException("Could not write the JSON Schema of " + type.getSimpleName(), e);
+                }
+        }
+
+        /** Reads the models' JSON. Extra fields a model adds are ignored. */
+        private static final ObjectMapper JSON = ObjectMappers.jsonMapper().copy()
+                        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+        /**
+         * Reads the JSON object out of a model's text: from the first "{" to the last "}", so a code fence or a
+         * line around it does not matter. A missing required field counts as broken.
+         */
+        static <T> T parseJson(String text, Class<T> type) {
+                int start = text.indexOf('{');
+                int end = text.lastIndexOf('}');
+                if (start < 0 || end < start) {
+                        throw new InvalidJsonAnswerException("The model's answer has no JSON object.");
+                }
+                T value;
+                try {
+                        value = JSON.readValue(text.substring(start, end + 1), type);
+                } catch (JsonProcessingException | RuntimeException e) {
+                        throw new InvalidJsonAnswerException("The model's answer is not valid JSON: " + e.getMessage());
+                }
+                boolean complete = value != null;
+                if (value instanceof SentenceAnswer answer) {
+                        complete = answer.summary() != null && answer.translation() != null;
+                } else if (value instanceof WordEntry entry) {
+                        complete = entry.senses() != null;
+                }
+                if (!complete) {
+                        throw new InvalidJsonAnswerException("The model's answer misses a required field.");
+                }
+                return value;
+        }
+
+        /** The text of a plain answer; a refusal becomes ClaudeRefusedException. */
+        private static String textOf(Message message) {
+                if (message.stopReason().filter(StopReason.REFUSAL::equals).isPresent()) {
+                        throw new ClaudeRefusedException("Claude declined to answer this text.");
+                }
+                return message.content().stream()
+                                .flatMap(block -> block.text().stream())
+                                .map(textBlock -> textBlock.text())
+                                .reduce("", String::concat);
+        }
+
+        /** A gateway answer that is not the JSON we asked for. */
+        static class InvalidJsonAnswerException extends IllegalStateException {
+                InvalidJsonAnswerException(String message) {
+                        super(message);
+                }
+        }
+
+        /** JSON output of this shape, with the effort from the settings (none when it is blank). */
+        private <T> StructuredOutputConfig<T> outputConfig(Class<T> type) {
+                StructuredOutputConfig.Builder<T> builder = StructuredOutputConfig.<T>builder().format(type);
+                properties.effortLevel().ifPresent(builder::effort);
+                return builder.build();
         }
 
         /** The JSON text carried by one stream event, if it carries any. */
@@ -175,10 +316,7 @@ public class ClaudeService {
                                 .model(properties.model())
                                 .maxTokens(4000L)
                                 .system(SENTENCE_PROMPT)
-                                .outputConfig(StructuredOutputConfig.<SentenceAnswer>builder()
-                                                .format(SentenceAnswer.class)
-                                                .effort(OutputConfig.Effort.LOW)
-                                                .build())
+                                .outputConfig(outputConfig(SentenceAnswer.class))
                                 .addUserMessage(sentenceMessage(text, targetLang))
                                 .build();
         }
@@ -199,8 +337,8 @@ public class ClaudeService {
                                 message.usage().outputTokens());
         }
 
-        /** The model that writes the scene of an AI picture (TASK-91). Same as SCENE_MODEL in pipeline/media_ai.py. */
-        public static final String SCENE_MODEL = "claude-sonnet-5-5";
+        /** The default model that writes the scene of an AI picture (TASK-91), as in pipeline/media_ai.py. */
+        public static final String SCENE_MODEL = ClaudeProperties.DEFAULT_SCENE_MODEL;
 
         /**
          * The admin's wand (TASK-91): Claude Sonnet 5.5 writes the scene for an AI picture. {@code system} and
@@ -210,14 +348,14 @@ public class ClaudeService {
          */
         public String writePictureScene(String system, String userMessage) {
                 MessageCreateParams params = MessageCreateParams.builder()
-                                .model(SCENE_MODEL)
+                                .model(properties.sceneModel())
                                 .maxTokens(4000L) // room for the thinking that is on by default; the answer is short
                                 .system(system)
                                 .addUserMessage(userMessage)
                                 .build();
                 Message message = client.messages().create(params);
                 // Saved before the answer is read, so a refused or broken answer (which still cost money) is counted.
-                usage.record(Feature.ADMIN, SCENE_MODEL, message.usage().inputTokens(), message.usage().outputTokens());
+                usage.record(Feature.ADMIN, properties.sceneModel(), message.usage().inputTokens(), message.usage().outputTokens());
                 if (message.stopReason().filter(StopReason.REFUSAL::equals).isPresent()) {
                         throw new ClaudeRefusedException("Claude declined to write a scene for this word.");
                 }
@@ -249,14 +387,14 @@ public class ClaudeService {
         }
 
         private WordEntry describeWordWithMessage(String userMessage) {
+                if (properties.jsonInPrompt()) {
+                        return askForJson(Feature.WORD, WORD_PROMPT, userMessage, 8000L, WordEntry.class);
+                }
                 StructuredMessageCreateParams<WordEntry> params = MessageCreateParams.builder()
                                 .model(properties.model())
                                 .maxTokens(8000L)
                                 .system(WORD_PROMPT)
-                                .outputConfig(StructuredOutputConfig.<WordEntry>builder()
-                                                .format(WordEntry.class)
-                                                .effort(OutputConfig.Effort.LOW)
-                                                .build())
+                                .outputConfig(outputConfig(WordEntry.class))
                                 .addUserMessage(userMessage)
                                 .build();
 
@@ -270,6 +408,10 @@ public class ClaudeService {
          * answer (which still cost money) is counted too.
          */
         private void recordUsage(Feature feature, StructuredMessage<?> message) {
+                usage.record(feature, properties.model(), message.usage().inputTokens(), message.usage().outputTokens());
+        }
+
+        private void recordUsage(Feature feature, Message message) {
                 usage.record(feature, properties.model(), message.usage().inputTokens(), message.usage().outputTokens());
         }
 

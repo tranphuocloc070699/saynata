@@ -18,7 +18,7 @@
 		</dict>
 	</array>
 	<key>GoogleIOSClientID</key>
-	<string></string>
+	<string>324827560698-apu242mo68a0m3iq1f2d5c68hd2jeupj.apps.googleusercontent.com</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
