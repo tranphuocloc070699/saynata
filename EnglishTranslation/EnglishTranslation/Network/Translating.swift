@@ -27,9 +27,16 @@ protocol Translating: Sendable {
         onMeaningDelta: @escaping @MainActor @Sendable (String) -> Void,
         onMeaning: @escaping @MainActor @Sendable (String) -> Void
     ) async throws -> Explanation
+
+    /// Asks only for an answer the server already has and keeps it, so a later `explain` is quick (TASK-83.5).
+    /// Never causes a Claude call, never throws. A miss changes nothing.
+    func prefetchCachedExplanation(_ text: String, translatingTo language: TargetLanguage) async
 }
 
 extension Translating {
+    /// Tests and translators without a cache use this default: nothing to prefetch.
+    func prefetchCachedExplanation(_ text: String, translatingTo language: TargetLanguage) async {}
+
     /// A translator that cannot send the meaning word by word just does not call `onMeaningDelta`.
     func explainStreaming(
         _ text: String,

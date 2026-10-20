@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-18 16:10'
+updated_date: '2026-10-20 02:35'
 ---
-> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-18 (phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
+> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-20 (warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -430,3 +430,40 @@ flowchart TD
 | Play only when seen | [SenseMediaView.swift:64-67](../../../EnglishTranslation/EnglishTranslation/Views/Word/SenseMediaView.swift#L64-L67) | `onScrollVisibilityChange(threshold: 0.33)` (iOS 18) sets `isOnScreen`. The clip plays only when `isOnScreen` and `scenePhase == .active`; it pauses when scrolled away or when the app goes to the background. |
 
 Tests: [SenseMediaTests.swift](../../../EnglishTranslation/EnglishTranslationTests/SenseMediaTests.swift) (Sense decoding, `image_url` column, bundled path vs https, cache hit, offline, failure, size limit). Not covered by tests: the visibility and background rule (needs a real scroll view), checked by hand in the PR card.
+
+## Warm connection and prefetch while typing (TASK-83.5)
+
+> Last traced from code: 2026-10-20. iOS only, no UI change. The server side is TASK-83.4 (`?cachedOnly=true`, 404 `not_cached`).
+
+Two small things make the first answer quicker. Neither can cost money: they only ask the server for answers it already has.
+
+```mermaid
+flowchart TD
+    L["App launch"] --> W["warmUp: GET /actuator/health (answer ignored)"]
+    T["User types"] --> D["inputText didSet: cancel the old prefetch, start a new one"]
+    D --> P{"Text unchanged for 400 ms?"}
+    P -- "no (typed again)" --> C["Task cancelled"]
+    P -- yes --> R{"CacheKeys.wordQuery / phraseQuery"}
+    R -- "one word" --> WP["WordLooking.prefetchCached: skip if bundled, else GET /api/words/{word}?cachedOnly=true"]
+    R -- "2-6 words" --> WP
+    WP --> SP
+    R -- "sentence" --> SP["Translating.prefetchCachedExplanation: POST /api/translations?cachedOnly=true"]
+    SP -- "200" --> SAVE["Saved in ResultCache (the phone cache)"]
+    SP -- "404 / 401 / error" --> NOTHING["Nothing changes, nothing shown"]
+    SUB["User submits: translate()"] --> X["Cancels the prefetch, runs the normal path"]
+    X --> HIT["Phone cache hit: shown at once, then written to History"]
+    SAVE -.-> HIT
+```
+
+| Step | File | What happens |
+|---|---|---|
+| Warm-up | [BackendClient.swift:306-308](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L306-L308), [TranslatorFactory.swift:21-24](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L21-L24), [EnglishTranslationApp.swift:26](../../../EnglishTranslation/EnglishTranslation/EnglishTranslationApp.swift#L26), [AppDelegate.swift:59](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L59) | At launch (the iPhone app's `.task`, the Mac app's `applicationDidFinishLaunching`) one `GET actuator/health` on the shared `URLSession`, so the TLS connection is open when the first lookup runs. Errors are ignored. The extensions do not warm up. |
+| Start | [TranslationStore.swift:15](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L15), [TranslationStore.swift:98-123](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L98-L123) | `inputText` has a `didSet`. Each real change cancels the earlier prefetch `Task` and, for a non-empty text within 500 characters, starts a new one that sleeps `prefetchDelay` (400 ms; tests pass a short one). After the pause it follows the same word / phrase / sentence rule as `translate()`. A phrase tries the word card first, then the sentence. |
+| Cancel | [TranslationStore.swift:86](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L86) | `translate()` cancels the pending prefetch first, so submit never races it. |
+| Words | [WordLookup.swift:95-100](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L95-L100) | `prefetchCached` skips empty text and bundled words, then calls `backend.cachedEntry(forPhrase:)` (the TASK-83.10 call, which also works for one word). A hit is saved in the phone cache under the word key. |
+| Sentences | [BackendClient.swift:313-327](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L313-L327) | `prefetchCachedExplanation` returns at once if the phone cache has the sentence key. Otherwise `POST api/translations?cachedOnly=true`. A 200 that decodes is saved under the same key as a normal answer. `sendChecked` throws on 404, 401 and others; all are swallowed. |
+| Submit | [TranslationStore.swift:84-96](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L84-L96) | Unchanged. `explainStreaming` and `entry(forWord:)` check the phone cache first, so a prefetched answer shows without waiting. History is written only here, after the result is shown. |
+
+Rules this keeps: only `cachedOnly` requests (no Claude call, `ClaudeGate` is never reached), no error text and no sign-in sheet (a prefetch never sets `state` or `textNeedingSignIn`), and nothing in History until the user submits.
+
+Tests: [TranslationStorePrefetchTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStorePrefetchTests.swift) (pause, cancel, route, history), [BackendClientTests.swift](../../../EnglishTranslation/EnglishTranslationTests/BackendClientTests.swift) (`prefetch*`, `warmUp`), [WordLookupTests.swift](../../../EnglishTranslation/EnglishTranslationTests/WordLookupTests.swift) (`prefetch*`).

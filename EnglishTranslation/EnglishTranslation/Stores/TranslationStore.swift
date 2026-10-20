@@ -11,7 +11,9 @@ import Observation
 @Observable
 @MainActor
 final class TranslationStore {
-    var inputText = ""
+    var inputText = "" {
+        didSet { if inputText != oldValue { schedulePrefetch() } }
+    }
     /// The language of the translation at the bottom of the result.
     var targetLanguage: TargetLanguage = .vietnamese
     private(set) var state: TranslationState = .idle
@@ -27,6 +29,11 @@ final class TranslationStore {
     /// True while the sign-in sheet is open over the result. Only the app's main screen opens it.
     var isSignInSheetOpen = false
 
+    /// The pending cached-only prefetch (TASK-83.5). Replaced on each text change, cancelled when `translate()` starts.
+    private var prefetchTask: Task<Void, Never>?
+    /// How long the text must stay unchanged before the prefetch asks the server.
+    private let prefetchDelay: Duration
+
     private let makeTranslator: @MainActor () throws -> any Translating
     private let makeWordLookup: @MainActor () throws -> any WordLooking
     /// Every final result is added here (TASK-93). Nil: no History.
@@ -37,8 +44,10 @@ final class TranslationStore {
     init(
         makeTranslator: @escaping @MainActor () throws -> any Translating = TranslatorFactory.makeTranslator,
         makeWordLookup: @escaping @MainActor () throws -> any WordLooking = TranslatorFactory.makeWordLookup,
-        history: (any HistoryStoring)? = HistoryStore.shared
+        history: (any HistoryStoring)? = HistoryStore.shared,
+        prefetchDelay: Duration = .milliseconds(400)
     ) {
+        self.prefetchDelay = prefetchDelay
         self.makeTranslator = makeTranslator
         self.makeWordLookup = makeWordLookup
         self.history = history
@@ -74,6 +83,7 @@ final class TranslationStore {
     /// anything else goes to the backend as a sentence. Does nothing if `canTranslate` is false.
     func translate() async {
         guard canTranslate else { return }
+        prefetchTask?.cancel()
         state = .loading
         textNeedingSignIn = nil
         if let word = CacheKeys.wordQuery(trimmedInput) {
@@ -83,6 +93,32 @@ final class TranslationStore {
             await showWord(entry)
         } else {
             await explainSentence()
+        }
+    }
+
+    // MARK: - Prefetch while typing (TASK-83.5)
+
+    /// After a pause in typing, asks the server for the answer it already has (cached only) and keeps it in the phone
+    /// cache. Submit then finds it there and shows it at once, through the normal path (so History is written only on
+    /// submit). Shows nothing, never calls Claude, never opens the sign-in sheet; a miss or an error is ignored.
+    private func schedulePrefetch() {
+        prefetchTask?.cancel()
+        let text = trimmedInput
+        guard !text.isEmpty, !isOverLimit else { return }
+        let language = targetLanguage
+        let delay = prefetchDelay
+        prefetchTask = Task { [makeTranslator, makeWordLookup] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            if let word = CacheKeys.wordQuery(text) {
+                await (try? makeWordLookup())?.prefetchCached(word)
+                return
+            }
+            if let phrase = CacheKeys.phraseQuery(text) {
+                await (try? makeWordLookup())?.prefetchCached(phrase)
+                guard !Task.isCancelled else { return }
+            }
+            await (try? makeTranslator())?.prefetchCachedExplanation(text, translatingTo: language)
         }
     }
 

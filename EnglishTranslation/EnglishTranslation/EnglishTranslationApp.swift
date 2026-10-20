@@ -22,6 +22,8 @@ struct EnglishTranslationApp: App {
                 .environment(speechPlayer)
                 .environment(account)
                 .environment(liked)
+                // Open the backend connection now, so the first lookup does not pay for it (TASK-83.5).
+                .task { await TranslatorFactory.warmUpConnection() }
                 // Stop reading when the app is sent to the background (TASK-46).
                 .onChange(of: scenePhase) {
                     if scenePhase == .background { speechPlayer.stop() }

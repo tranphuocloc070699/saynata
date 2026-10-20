@@ -55,6 +55,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         copiedText.start()
 
+        // Open the backend connection now, so the first lookup does not pay for it (TASK-83.5).
+        Task { await TranslatorFactory.warmUpConnection() }
+
         // The global shortcut (TASK-85.3). It opens the panel from any app, or closes the window that is open.
         KeyboardShortcuts.onKeyUp(for: .openSaynata) { [weak self] in
             self?.toggleFromShortcut()
