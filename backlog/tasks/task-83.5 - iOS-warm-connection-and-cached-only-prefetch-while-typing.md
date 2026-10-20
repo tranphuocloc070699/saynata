@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-16 08:19'
-updated_date: '2026-10-20 02:30'
+updated_date: '2026-10-20 02:35'
 labels: []
 dependencies:
   - TASK-83.4
@@ -39,3 +39,9 @@ The app sends nothing until the user submits, and the first request pays about 2
 <!-- SECTION:PLAN:BEGIN -->
 1. BackendClient: warmUp() (GET /actuator/health) and prefetchCachedExplanation() (POST /api/translations?cachedOnly=true, a hit is saved in the phone cache, a miss or error does nothing). 2. Translating and WordLooking get a prefetch method with a no-op default; WordLookup reuses backend.cachedEntry(forPhrase:) and skips bundled words. 3. TranslationStore: inputText didSet starts a 400 ms debounced prefetch Task, cancelled on every change and when translate() starts; submit uses the normal path so History is written only there. 4. App and Mac app call warmUp at launch. 5. Tests with fakes, build all targets, update doc-4, doc-5, CLAUDE.md.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/134 (into feature/local). Test it. Goal: first lookup is quicker; a known word or sentence shows at once on submit; no visible change. Steps: 1) launch app, backend log shows one GET /actuator/health. 2) type a cached sentence, wait 0.5 s, log shows POST /api/translations?cachedOnly=true; submit shows result with no loading. 3) same for a cached non-bundled word (GET /api/words/<word>?cachedOnly=true). 4) type an unknown sentence: 404 in the log, nothing on screen, no error, no sign-in sheet (also signed out). 5) keep typing: only the final text is asked; History stays empty until submit. Automated: 428 iOS tests pass (TranslationStorePrefetchTests, BackendClientTests prefetch/warmUp, WordLookupTests prefetch); SaynataMac, ShareExtension, TranslationExtension build.
+<!-- SECTION:NOTES:END -->
