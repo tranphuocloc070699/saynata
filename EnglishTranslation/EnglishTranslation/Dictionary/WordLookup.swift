@@ -20,6 +20,10 @@ protocol WordLooking: Sendable {
     /// The word card for a phrase ("give up"), only when the phone cache or the server cache has one (TASK-83.10).
     /// Nil on a miss or any error: the caller then explains the text as a sentence. Never causes a Claude call.
     func phraseEntry(for phrase: String) async -> WordEntry?
+
+    /// Asks only for an answer the server already has, and keeps it in the phone cache (TASK-83.5). Skips bundled words.
+    /// Never causes a Claude call, never throws. A miss changes nothing.
+    func prefetchCached(_ word: String) async
 }
 
 extension WordLooking {
@@ -31,6 +35,9 @@ extension WordLooking {
 
     /// Tests use this default: no phrase is cached.
     func phraseEntry(for phrase: String) async -> WordEntry? { nil }
+
+    /// Tests use this default: nothing to prefetch.
+    func prefetchCached(_ word: String) async {}
 }
 
 /// The second step of a word lookup: the local cache and our backend. `BackendClient` is the real one.
@@ -83,6 +90,13 @@ struct WordLookup: WordLooking {
     func phraseEntry(for phrase: String) async -> WordEntry? {
         guard let entry = try? await backend.cachedEntry(forPhrase: phrase), !entry.senses.isEmpty else { return nil }
         return entry
+    }
+
+    func prefetchCached(_ word: String) async {
+        let cleaned = CacheKeys.trimmingWordPunctuation(word)
+        guard !cleaned.isEmpty, bundledEntry(for: cleaned) == nil else { return }
+        // The same cached-only request as a phrase; it also works for one word. The entry is saved by the backend client.
+        _ = try? await backend.cachedEntry(forPhrase: cleaned)
     }
 
     func lookUp(_ input: String) async throws -> WordEntry {

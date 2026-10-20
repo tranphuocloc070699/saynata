@@ -21,6 +21,15 @@ private final class FakeBackend: WordFetching, @unchecked Sendable {
         calls.append(word)
         return try result.get()
     }
+
+    /// The words asked with `cachedOnly` (prefetch), and what the server answers.
+    var cachedCalls: [String] = []
+    var cachedResult: Result<WordEntry?, Error> = .success(nil)
+
+    func cachedEntry(forPhrase phrase: String) async throws -> WordEntry? {
+        cachedCalls.append(phrase)
+        return try cachedResult.get()
+    }
 }
 
 private let backendEntry = WordEntry(
@@ -147,5 +156,29 @@ struct WordLookupTests {
 
         #expect(try await lookup.lookUp("serendipity") == backendEntry)
         #expect(backend.calls == ["serendipity"])
+    }
+
+    // MARK: - Prefetch (TASK-83.5)
+
+    @Test func prefetchAsksCachedOnlyForAWordNotInTheBundle() async throws {
+        let backend = FakeBackend(.success(backendEntry))
+        let lookup = WordLookup(dictionary: try makeDictionary(), backend: backend)
+
+        await lookup.prefetchCached("Serendipity!")
+
+        #expect(backend.cachedCalls == ["Serendipity"])
+        #expect(backend.calls.isEmpty) // never the normal path, which may call Claude
+    }
+
+    @Test func prefetchSkipsBundledWordsAndSwallowsErrors() async throws {
+        let backend = FakeBackend(.success(backendEntry))
+        let lookup = WordLookup(dictionary: try makeDictionary(), backend: backend)
+
+        await lookup.prefetchCached("ran")
+        #expect(backend.cachedCalls.isEmpty)
+
+        backend.cachedResult = .failure(URLError(.notConnectedToInternet))
+        await lookup.prefetchCached("serendipity") // does not throw
+        #expect(backend.cachedCalls == ["serendipity"])
     }
 }

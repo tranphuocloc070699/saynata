@@ -1,9 +1,11 @@
 ---
 id: TASK-83.5
 title: 'iOS: warm connection and cached-only prefetch while typing'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-16 08:19'
+updated_date: '2026-10-20 02:30'
 labels: []
 dependencies:
   - TASK-83.4
@@ -31,3 +33,9 @@ The app sends nothing until the user submits, and the first request pays about 2
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. BackendClient: warmUp() (GET /actuator/health) and prefetchCachedExplanation() (POST /api/translations?cachedOnly=true, a hit is saved in the phone cache, a miss or error does nothing). 2. Translating and WordLooking get a prefetch method with a no-op default; WordLookup reuses backend.cachedEntry(forPhrase:) and skips bundled words. 3. TranslationStore: inputText didSet starts a 400 ms debounced prefetch Task, cancelled on every change and when translate() starts; submit uses the normal path so History is written only there. 4. App and Mac app call warmUp at launch. 5. Tests with fakes, build all targets, update doc-4, doc-5, CLAUDE.md.
+<!-- SECTION:PLAN:END -->

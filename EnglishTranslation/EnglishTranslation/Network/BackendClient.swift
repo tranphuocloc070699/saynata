@@ -300,6 +300,32 @@ struct BackendClient: Translating, WordFetching {
         return response.wordEntry
     }
 
+    // MARK: - Warm-up and prefetch (TASK-83.5)
+
+    /// One cheap request at launch, so the first lookup reuses an open TLS connection. The answer is ignored.
+    func warmUp() async {
+        _ = try? await session.data(from: baseURL.appending(path: "actuator/health"))
+    }
+
+    /// Asks `POST /api/translations?cachedOnly=true` while the user types. The server answers only from its cache and
+    /// never calls Claude. A hit is saved in the phone cache, so the real request later finds it there.
+    /// A miss (404 `not_cached`) or any error does nothing, and no sign-in sheet follows.
+    func prefetchCachedExplanation(_ text: String, translatingTo language: TargetLanguage) async {
+        let key = CacheKeys.sentenceKey(text, targetLang: language.code)
+        guard await savedExplanation(forKey: key) == nil else { return }
+
+        var request = URLRequest(url: baseURL.appending(path: "api/translations")
+            .appending(queryItems: [URLQueryItem(name: "cachedOnly", value: "true")]))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        guard let body = try? JSONEncoder().encode(TranslationRequest(text: text, targetLang: language.code)) else { return }
+        request.httpBody = body
+
+        guard let data = try? await sendChecked(request),
+              (try? JSONDecoder().decode(TranslationResponse.self, from: data)) != nil else { return }
+        await cache?.save(data, forKey: key, kind: .sentence)
+    }
+
     /// Sends the request with the token (when there is one). Returns the body of a 200 reply;
     /// any other status throws a `BackendError`. A 401 with a token refreshes it once and tries again.
     private func sendChecked(_ request: URLRequest) async throws -> Data {
