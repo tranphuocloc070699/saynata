@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-19 13:01'
+updated_date: '2026-10-20 03:13'
 ---
 # Decisions and reasons
 
@@ -174,6 +174,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-19 | **History and Liked open from a clock button** next to Settings, as one sheet with History and Liked segments (TASK-93) | Reason: not recorded. Context: picked option A of the mockup; the main screen stays as it is | A tab bar (Explain, History, Liked) | Developer |
 | 10-19 | **History stays on the device** (SQLite in the App Group, the extensions add to it) | Reason: not recorded. Context: works for guests, no server cost, private | Also sync History to the account | Developer |
 | 10-19 | **Liked is saved on the server per account** (`/api/liked`), so liking needs sign-in | Reason: not recorded. Context: liked items follow the user to the Mac app and the browser extension | Liked only on the device (still behind sign-in) | Developer |
+| 10-20 | **The STEYG gateway uses `deepseek-v4.1-flash`** for sentences and words (price $0.30 / $1.20 per million tokens in `application.properties`) | "api call to steyg take a long time". A test: a 2-word call to `gpt-6-luna` took 1.8-9.3 s; 25 real sentences through the backend with deepseek: median 2.6 s to the first meaning words (gpt-6-luna about 6 s), 1 made-up fact in 25 answers, 2 small added details | Keep `gpt-6-luna` (best answers, 2-3x slower); `glm-5.3` (about 3.4 s, one clumsy answer in 5); Anthropic directly with Haiku | Developer |
 
 ## Questions answered
 
