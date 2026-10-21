@@ -50,6 +50,16 @@ class ClaudeUsageServiceTest {
     }
 
     @Test
+    void aModelIdWithADotKeepsItsPriceFromTheRealConfig(@Autowired UsageProperties realProperties) {
+        // "deepseek-v4.1-flash" needs [brackets] in application.properties; without them Spring splits the id at the dot.
+        UsageProperties.Price price = realProperties.pricing().get("deepseek-v4.1-flash");
+
+        assertThat(price).isNotNull();
+        assertThat(price.inputPerMtok()).isEqualByComparingTo("0.30");
+        assertThat(price.outputPerMtok()).isEqualByComparingTo("1.20");
+    }
+
+    @Test
     void aModelWithoutAPriceIsCountedAtTheHighestPriceNotForFree() {
         ClaudeUsageService service = serviceAt(NOON, "1.00");
 

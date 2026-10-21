@@ -105,6 +105,56 @@ struct BackendClientTests {
         #expect(second == first)
     }
 
+    // MARK: - Prefetch and warm-up (TASK-83.5)
+
+    @Test func prefetchAsksCachedOnlyAndKeepsTheAnswer() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = successBody
+        StubURLProtocol.requestCount = 0
+        var cachedClient = client
+        cachedClient.cache = try ResultCache(fileURL: nil)
+
+        await cachedClient.prefetchCachedExplanation("I was reluctant to leave.", translatingTo: .japanese)
+        let request = try #require(StubURLProtocol.lastRequest)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.absoluteString == "http://localhost:8081/api/translations?cachedOnly=true")
+
+        // The real request later is answered from the phone cache.
+        let explanation = try await cachedClient.explain("I was reluctant to leave.", translatingTo: .japanese)
+        #expect(explanation.meaning == "The speaker did not want to go.")
+        #expect(StubURLProtocol.requestCount == 1)
+    }
+
+    @Test func prefetchMissChangesNothingAndDoesNotThrow() async throws {
+        StubURLProtocol.status = 404
+        StubURLProtocol.body = Data(#"{"title":"Not Found","status":404,"code":"not_cached"}"#.utf8)
+        var cachedClient = client
+        cachedClient.cache = try ResultCache(fileURL: nil)
+
+        await cachedClient.prefetchCachedExplanation("Hello there", translatingTo: .vietnamese)
+
+        #expect(await cachedClient.cache?.data(forKey: CacheKeys.sentenceKey("Hello there", targetLang: "vi")) == nil)
+    }
+
+    @Test func prefetchSignInAnswerIsIgnored() async {
+        StubURLProtocol.status = 401
+        StubURLProtocol.body = Data(#"{"title":"Unauthorized","status":401,"code":"sign_in_required"}"#.utf8)
+
+        // Returns normally: no error to show, and no sign-in sheet follows.
+        await client.prefetchCachedExplanation("Hello there", translatingTo: .vietnamese)
+    }
+
+    @Test func warmUpSendsOneCheapRequest() async {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = Data(#"{"status":"UP"}"#.utf8)
+        StubURLProtocol.requestCount = 0
+
+        await client.warmUp()
+
+        #expect(StubURLProtocol.requestCount == 1)
+        #expect(StubURLProtocol.lastRequest?.url?.absoluteString == "http://localhost:8081/actuator/health")
+    }
+
     @Test func otherLanguageIsNotServedFromTheCache() async throws {
         StubURLProtocol.status = 200
         StubURLProtocol.body = successBody

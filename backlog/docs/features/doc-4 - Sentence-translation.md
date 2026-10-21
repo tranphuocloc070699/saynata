@@ -3,9 +3,9 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-18 16:10'
+updated_date: '2026-10-20 02:35'
 ---
-> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-18 (TASK-89.1: prompt `v8`, Claude writes only `isEnglish`, `summary`, `translation`; `summary` is sent as `meaning`, `words` is always empty, see "Prompt v8" below). Before that, 2026-10-16 (prompt `v7`: a shorter, direct meaning, see "Prompt" below; TASK-83.4 `?cachedOnly=true` on both endpoints, 404 `not_cached` without reaching ClaudeGate; TASK-83.3 loose match: "how are you" finds a saved "How are you?", no prompt change; TASK-73 the meaning streams word by word, TASK-74 local word cards at once while loading, TASK-75 start-up warm-up; TASK-70 sign-in sheet, Bearer token, refresh and retry, coded errors, see doc-17 "iOS app"; TASK-56 extra words from the bundled dictionary; TASK-50 keyboard hides on tap, send and scroll; TASK-65 streaming: the meaning shows as soon as Claude has written it, see "Streaming" below; the line numbers in tables 1-4 are for the non-streaming path and may be a few lines off). Earlier: 2026-10-14 (TASK-9 personal text is never cached; Listen on the sentence header: TASK-7; TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
+> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-20 (warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: TASK-89.1: prompt `v8`, Claude writes only `isEnglish`, `summary`, `translation`; `summary` is sent as `meaning`, `words` is always empty, see "Prompt v8" below). Before that, 2026-10-16 (prompt `v7`: a shorter, direct meaning, see "Prompt" below; TASK-83.4 `?cachedOnly=true` on both endpoints, 404 `not_cached` without reaching ClaudeGate; TASK-83.3 loose match: "how are you" finds a saved "How are you?", no prompt change; TASK-73 the meaning streams word by word, TASK-74 local word cards at once while loading, TASK-75 start-up warm-up; TASK-70 sign-in sheet, Bearer token, refresh and retry, coded errors, see doc-17 "iOS app"; TASK-56 extra words from the bundled dictionary; TASK-50 keyboard hides on tap, send and scroll; TASK-65 streaming: the meaning shows as soon as Claude has written it, see "Streaming" below; the line numbers in tables 1-4 are for the non-streaming path and may be a few lines off). Earlier: 2026-10-14 (TASK-9 personal text is never cached; Listen on the sentence header: TASK-7; TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## Prompt v8 (TASK-89.1, 2026-10-17)
@@ -385,3 +385,40 @@ Example: the user taps "edges". `SelectableSentenceText` finds the word under th
 | Popup data | [SentencePartStore.swift:15-83](../../../EnglishTranslation/EnglishTranslation/Stores/SentencePartStore.swift#L15-L83) | `@Observable`. `explain(part, language:)` calls `explainWithFallback` (same stream as a sentence: `meaning-delta`, `meaning`, `done`), so the summary grows word by word and a part explained before comes from the local `ResultCache`. Phases: `loading`, `summary` (growing), `loaded` (summary and translation), `failed(message)` (for example a guest needs to sign in). A fake can be put in with `.environment(\.makeSentencePartStore, ...)`. |
 
 Known gaps: VoiceOver cannot tap single words (the text is read as one block); no popup on the Mac; the iOS word sheet for a word that is neither bundled nor cached calls the backend, which needs a signed-in user like any new word.
+
+## Warm connection and prefetch while typing (TASK-83.5)
+
+> Last traced from code: 2026-10-20. iOS only, no UI change. The server side is TASK-83.4 (`?cachedOnly=true`, 404 `not_cached`).
+
+Two small things make the first answer quicker. Neither can cost money: they only ask the server for answers it already has.
+
+```mermaid
+flowchart TD
+    L["App launch"] --> W["warmUp: GET /actuator/health (answer ignored)"]
+    T["User types"] --> D["inputText didSet: cancel the old prefetch, start a new one"]
+    D --> P{"Text unchanged for 400 ms?"}
+    P -- "no (typed again)" --> C["Task cancelled"]
+    P -- yes --> R{"CacheKeys.wordQuery / phraseQuery"}
+    R -- "one word" --> WP["WordLooking.prefetchCached: skip if bundled, else GET /api/words/{word}?cachedOnly=true"]
+    R -- "2-6 words" --> WP
+    WP --> SP
+    R -- "sentence" --> SP["Translating.prefetchCachedExplanation: POST /api/translations?cachedOnly=true"]
+    SP -- "200" --> SAVE["Saved in ResultCache (the phone cache)"]
+    SP -- "404 / 401 / error" --> NOTHING["Nothing changes, nothing shown"]
+    SUB["User submits: translate()"] --> X["Cancels the prefetch, runs the normal path"]
+    X --> HIT["Phone cache hit: shown at once, then written to History"]
+    SAVE -.-> HIT
+```
+
+| Step | File | What happens |
+|---|---|---|
+| Warm-up | [BackendClient.swift:306-308](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L306-L308), [TranslatorFactory.swift:21-24](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L21-L24), [EnglishTranslationApp.swift:26](../../../EnglishTranslation/EnglishTranslation/EnglishTranslationApp.swift#L26), [AppDelegate.swift:59](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L59) | At launch (the iPhone app's `.task`, the Mac app's `applicationDidFinishLaunching`) one `GET actuator/health` on the shared `URLSession`, so the TLS connection is open when the first lookup runs. Errors are ignored. The extensions do not warm up. |
+| Start | [TranslationStore.swift:15](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L15), [TranslationStore.swift:98-123](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L98-L123) | `inputText` has a `didSet`. Each real change cancels the earlier prefetch `Task` and, for a non-empty text within 500 characters, starts a new one that sleeps `prefetchDelay` (400 ms; tests pass a short one). After the pause it follows the same word / phrase / sentence rule as `translate()`. A phrase tries the word card first, then the sentence. |
+| Cancel | [TranslationStore.swift:86](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L86) | `translate()` cancels the pending prefetch first, so submit never races it. |
+| Words | [WordLookup.swift:95-100](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L95-L100) | `prefetchCached` skips empty text and bundled words, then calls `backend.cachedEntry(forPhrase:)` (the TASK-83.10 call, which also works for one word). A hit is saved in the phone cache under the word key. |
+| Sentences | [BackendClient.swift:313-327](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L313-L327) | `prefetchCachedExplanation` returns at once if the phone cache has the sentence key. Otherwise `POST api/translations?cachedOnly=true`. A 200 that decodes is saved under the same key as a normal answer. `sendChecked` throws on 404, 401 and others; all are swallowed. |
+| Submit | [TranslationStore.swift:84-96](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L84-L96) | Unchanged. `explainStreaming` and `entry(forWord:)` check the phone cache first, so a prefetched answer shows without waiting. History is written only here, after the result is shown. |
+
+Rules this keeps: only `cachedOnly` requests (no Claude call, `ClaudeGate` is never reached), no error text and no sign-in sheet (a prefetch never sets `state` or `textNeedingSignIn`), and nothing in History until the user submits.
+
+Tests: [TranslationStorePrefetchTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStorePrefetchTests.swift) (pause, cancel, route, history), [BackendClientTests.swift](../../../EnglishTranslation/EnglishTranslationTests/BackendClientTests.swift) (`prefetch*`, `warmUp`), [WordLookupTests.swift](../../../EnglishTranslation/EnglishTranslationTests/WordLookupTests.swift) (`prefetch*`).

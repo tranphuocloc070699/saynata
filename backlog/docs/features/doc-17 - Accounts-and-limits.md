@@ -3,11 +3,11 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-18 16:10'
+updated_date: '2026-10-19 13:05'
 ---
 # Accounts and limits
 
-> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Sign in with Google, Apple and an emailed link: TASK-92, see "Other ways to sign in". The short version of the whole flow: "Workflow at a glance". Last traced from code: 2026-10-18.
+> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Sign in with Google, Apple and an emailed link: TASK-92, see "Other ways to sign in". The short version of the whole flow: "Workflow at a glance". Last traced from code: 2026-10-19.
 > Why: doc-7 rows of 2026-10-15. Related: [Admin API](doc-13%20-%20Admin-API.md) (the admin has its own cookie login), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Word lookup](doc-5%20-%20Word-lookup.md), the Resend and SES setup in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md) (sections 10 and 11).
 
 ## What it does
@@ -266,6 +266,9 @@ flowchart LR
 | No client ID set for that provider | 503 | `provider_not_configured` | "This sign-in option is not set up yet. Use your email." |
 | Unknown, expired or used refresh token | 401 | `invalid_refresh_token` | "Your session has ended. Sign in again." |
 | `/api/me` without a good token | 401 | none (empty body) | |
+| `/api/liked` without a good token | 401 | `sign_in_required` | "Sign in to like words and sentences." |
+| Bad `kind`, empty or too long text, too long preview on `PUT /api/liked` | 400 | `invalid_kind`, `invalid_text`, `invalid_preview` | |
+| More than 5000 liked items | 400 | `liked_limit_reached` | "You can like at most 5000 items. Remove some first." |
 | Delete an admin account through `/api/me` | 403 | `admin_account` | "An admin account cannot be deleted here. Ask the developer." |
 
 The body is Spring problem details (`type`, `title`, `status`, `detail`) plus `code`. The app should switch on `code`, not on the text.
@@ -315,6 +318,19 @@ sequenceDiagram
 
 Tests: `KeychainSecretStoreTests` (the real simulator Keychain, own service name), `AuthClientTests` (fake server, bodies, error mapping, Retry-After), `AccountStoreTests` (save, reload, sign out, refresh, shared refresh, failed refresh signs out, network error keeps the session, delete account), `BackendClientAuthTests` (header on translations, stream and words, 401 then refresh then retry for each, only one retry, guest 401, 429, 503, stream `error` events with codes), `SignInFlowTests` (401 then sheet then verify then the same request runs again, for a sentence and a word; cancel; wrong code; daily limit and rate limit in the result area), `SignInModelTests` (steps, digits only, auto-check at 6, wrong tries, resend), `OtherSignInTests` (TASK-92: link secret and hash, link sign-in, used link, no kept secret, the `.linkSent` step and closing once, deep links, the Google URL, PKCE and token swap, a wrong state, Google not set up, Apple nonce, Apple cancel and refusal). The fake server and Keychain are in `AccountTestSupport.swift`.
 
+## Liked words and sentences (TASK-93.1)
+
+A signed-in user can star words and sentences; the list follows the account to the iPhone, the Mac app and the browser extension. No Claude call, so `ClaudeGate` is not involved.
+
+| Step | Code | What happens |
+|---|---|---|
+| Endpoints | [LikedController.java:30](../../../backend/src/main/java/com/englishtranslation/backend/liked/LikedController.java#L30) | `GET /api/liked`, `PUT /api/liked`, `DELETE /api/liked?kind=&text=`. The user id comes from `CallerContext` (set by the Bearer filter). A guest gets 401 `sign_in_required` with the problem-details body (not the empty 401 of `/api/me`, so the app can show its sign-in sheet). |
+| Like | [LikedService.like:32](../../../backend/src/main/java/com/englishtranslation/backend/liked/LikedService.java#L32) | Checks `kind` (`word` or `sentence`), `text` (1-500 after trim), `preview` (at most 300; empty is fine). The key is kind + normalized text: a word is lowercased with one space (`CacheKeys.normalizeWord`, as the word lookup), a sentence is only trimmed. Liking again updates `text` and `preview` and keeps `createdAt`. At 5000 items a new one gives 400 `liked_limit_reached`. |
+| Unlike | [LikedService.unlike:63](../../../backend/src/main/java/com/englishtranslation/backend/liked/LikedService.java#L63) | Deletes by the same key; 204 even when nothing was there. |
+| Table | `V23__create_liked_item.sql` | `liked_item(user_id, kind, text_key, text, preview, created_at)`, unique on `(user_id, kind, text_key)`, `user_id` has `ON DELETE CASCADE`, so deleting the account (`DELETE /api/me`) deletes the liked rows. |
+
+JSON: `GET` answers `{"items":[{"kind","text","preview","createdAt"}]}` newest first. `PUT` takes `{"kind","text","preview"}` and answers the saved item. Error codes (all 400 unless noted): `invalid_kind`, `invalid_text`, `invalid_preview`, `liked_limit_reached`; 401 `sign_in_required`.
+
 ## Browser extension (TASK-86.3)
 
 The extension signs in the same way, in its toolbar popup, keeps the session in `chrome.storage.local` and shares one refresh in its service worker. Details: [Browser extension](doc-19%20-%20Browser-extension.md).
@@ -326,6 +342,7 @@ The extension signs in the same way, in its toolbar popup, keeps the session in 
 | `AuthFlowTest` | 204 for known and unknown email, bad email 400, the code is 6 digits and only a keyed hash is saved, expiry (10 minutes), 5 wrong tries then locked, a code works once, a second code replaces the first, a failing email sender still gives 204, user created on first sign-in, refresh rotation, reuse of an old refresh token revokes the rest, refresh stored as a hash, expired refresh token, sign-out, `/api/me`, access token vs admin cookie, account deletion (user, tokens, access token), admin account not deletable, app user cannot log in to the admin, email-code rate limits (per email and per IP). |
 | `SocialSignInTest` | A local RSA key plays Google and Apple: a good token creates the user, the same `sub` finds it after an email change, an email-code user keeps the account, wrong `aud`, wrong `iss`, expired, wrong or missing nonce, another key, unverified email, Apple without email (known and unknown `sub`), account deletion removes the identity, 503 with no client IDs. |
 | `SignInLinkTest` | The link works once and only its hash is saved, a wrong secret neither works nor uses the link up, a new link replaces the old, an old link is refused, an existing user keeps the account, bad email and challenge, a failing sender still gives 204, links and codes share the limit, the link page (scheme link, no-referrer, no-store, does not use the link), a broken token page with no echo, the apple-app-site-association file. |
+| `LikedApiTest` | `/api/liked`: empty list, like then list newest first, same word again keeps one row and updates the preview, sentences keep their case, delete by normalized key and delete of nothing (204), users only touch their own rows, guest 401 `sign_in_required` on all three, bad input 400 with codes, the 5000 limit, account deletion removes the rows. |
 | `ClaudeGateTest` | Guest cache hit works with no Claude call, guest miss is 401 (sentence, word, stream error event), signed-in miss calls Claude (also in the stream thread), per-user limit gives 429 + `Retry-After`, cache hits do not use the limit, budget used up gives 503 with **no Claude call** (HTTP and stream) while cached answers still work, per-IP public read limit. |
 | `ClaudeUsageServiceTest` | Cost maths, unknown model price, the UTC day boundary, the budget cap, the report. |
 | `GuestModeTest` | `REQUIRE_SIGN_IN=false`: a guest miss calls Claude, a guest IP over its limit gets 429 (also in the stream), a used-up budget gives 503 with no Claude call. |

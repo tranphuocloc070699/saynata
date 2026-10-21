@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let speechPlayer = SpeechPlayer()
     /// The same object the backend client reads the token from, like the iPhone app.
     private let account = AccountStore.shared
+    private let liked = LikedStore.live()
     private let focus = MenuBarFocus()
 
     private var statusItem: NSStatusItem?
@@ -53,6 +54,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         NSUpdateDynamicServices()
 
         copiedText.start()
+
+        // Open the backend connection now, so the first lookup does not pay for it (TASK-83.5).
+        Task { await TranslatorFactory.warmUpConnection() }
 
         // The global shortcut (TASK-85.3). It opens the panel from any app, or closes the window that is open.
         KeyboardShortcuts.onKeyUp(for: .openSaynata) { [weak self] in
@@ -103,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 .environment(store)
                 .environment(speechPlayer)
                 .environment(account)
+                .environment(liked)
                 .environment(focus))
         // The panel's title bar is hidden but still there; without this the content moves down under it.
         controller.safeAreaRegions = []

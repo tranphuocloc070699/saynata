@@ -300,6 +300,32 @@ struct BackendClient: Translating, WordFetching {
         return response.wordEntry
     }
 
+    // MARK: - Warm-up and prefetch (TASK-83.5)
+
+    /// One cheap request at launch, so the first lookup reuses an open TLS connection. The answer is ignored.
+    func warmUp() async {
+        _ = try? await session.data(from: baseURL.appending(path: "actuator/health"))
+    }
+
+    /// Asks `POST /api/translations?cachedOnly=true` while the user types. The server answers only from its cache and
+    /// never calls Claude. A hit is saved in the phone cache, so the real request later finds it there.
+    /// A miss (404 `not_cached`) or any error does nothing, and no sign-in sheet follows.
+    func prefetchCachedExplanation(_ text: String, translatingTo language: TargetLanguage) async {
+        let key = CacheKeys.sentenceKey(text, targetLang: language.code)
+        guard await savedExplanation(forKey: key) == nil else { return }
+
+        var request = URLRequest(url: baseURL.appending(path: "api/translations")
+            .appending(queryItems: [URLQueryItem(name: "cachedOnly", value: "true")]))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        guard let body = try? JSONEncoder().encode(TranslationRequest(text: text, targetLang: language.code)) else { return }
+        request.httpBody = body
+
+        guard let data = try? await sendChecked(request),
+              (try? JSONDecoder().decode(TranslationResponse.self, from: data)) != nil else { return }
+        await cache?.save(data, forKey: key, kind: .sentence)
+    }
+
     /// Sends the request with the token (when there is one). Returns the body of a 200 reply;
     /// any other status throws a `BackendError`. A 401 with a token refreshes it once and tries again.
     private func sendChecked(_ request: URLRequest) async throws -> Data {
@@ -308,7 +334,7 @@ struct BackendClient: Translating, WordFetching {
 
             let http = response as? HTTPURLResponse
             let statusCode = http?.statusCode ?? 0
-            guard statusCode == 200 else {
+            guard (200..<300).contains(statusCode) else {
                 let problem = try? JSONDecoder().decode(ProblemBody.self, from: data)
                 throw BackendError.make(status: statusCode, problem: problem, retryAfter: Self.retryAfter(in: http))
             }
@@ -343,5 +369,63 @@ struct BackendClient: Translating, WordFetching {
     /// The `Retry-After` header: a whole number of seconds.
     private static func retryAfter(in response: HTTPURLResponse?) -> Int? {
         response?.value(forHTTPHeaderField: "Retry-After").flatMap { Int($0) }
+    }
+}
+
+// MARK: - Liked (TASK-93)
+
+/// One item of `GET /api/liked`: `{ kind, text, preview, createdAt }`.
+private struct LikedItemDTO: Decodable {
+    let kind: SavedItem.Kind
+    let text: String
+    let preview: String
+    let createdAt: Date
+
+    var item: SavedItem { SavedItem(kind: kind, text: text, preview: preview, date: createdAt) }
+}
+
+private struct LikedListResponse: Decodable {
+    let items: [LikedItemDTO]
+}
+
+/// The body of `PUT /api/liked`.
+private struct LikedRequest: Encodable {
+    let kind: String
+    let text: String
+    let preview: String
+}
+
+extension BackendClient: LikedAPI {
+    func likedItems() async throws -> [SavedItem] {
+        let data = try await sendChecked(URLRequest(url: baseURL.appending(path: "api/liked")))
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let text = try decoder.singleValueContainer().decode(String.self)
+            // The server sends an ISO-8601 time, with or without fractions of a second.
+            if let date = try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text) { return date }
+            if let date = try? Date.ISO8601FormatStyle().parse(text) { return date }
+            throw DecodingError.dataCorrupted(
+                .init(codingPath: decoder.codingPath, debugDescription: "Not a date: \(text)"))
+        }
+        return try decoder.decode(LikedListResponse.self, from: data).items.map(\.item)
+    }
+
+    func like(_ item: SavedItem) async throws {
+        var request = URLRequest(url: baseURL.appending(path: "api/liked"))
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            LikedRequest(kind: item.kind.rawValue, text: item.text, preview: item.preview))
+        _ = try await sendChecked(request)
+    }
+
+    func unlike(kind: SavedItem.Kind, text: String) async throws {
+        let url = baseURL.appending(path: "api/liked").appending(queryItems: [
+            URLQueryItem(name: "kind", value: kind.rawValue),
+            URLQueryItem(name: "text", value: text),
+        ])
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        _ = try await sendChecked(request)
     }
 }
