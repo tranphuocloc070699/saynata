@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: 2026-10-16 08:19
-updated_date: '2026-10-22T10:01:00Z'
+updated_date: '2026-10-22T10:03:00Z'
 labels: []
 dependencies: []
 parent_task_id: TASK-83
@@ -58,4 +58,6 @@ Decision: the final '?' does NOT matter ('Is it OK' finds 'Is it OK?'). Reason: 
 Prefill runner uses TranslationService.translate, so it gets the loose match for free (new PrefillRunnerTest: queued 'Looks good!' + 'looks good' = one Claude call, one row, second item cached). Gap: prefill_item is unique on the exact text, so both can still be queued (doc-18 known gaps). The phone cache still uses the exact key (doc-4 known gaps).
 
 Tests: mvn -B test, 496 pass (./mvnw could not download Maven in the cloud box, the installed mvn was used).
+
+PR (follow-up, 2026-10-22): https://github.com/tranphuocloc070699/saynata/pull/138 into feature/local. Test it card in the PR.
 <!-- SECTION:NOTES:END -->
