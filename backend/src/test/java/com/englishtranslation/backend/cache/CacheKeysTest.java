@@ -25,6 +25,18 @@ class CacheKeysTest {
     }
 
     @Test
+    void looseSentenceMakesQuotesStraightAndDropsEllipsisAndCommas() {
+        assertThat(CacheKeys.normalizeSentenceLoose("I\u2019m fine\u2026")).isEqualTo("i'm fine");
+        assertThat(CacheKeys.normalizeSentenceLoose("He said \u201Chi\u201D, then left,"))
+                .isEqualTo("he said \"hi\", then left");
+        assertThat(CacheKeys.normalizeSentenceLoose("Looks\u00A0 good!")).isEqualTo("looks good");
+        // Inner punctuation stays: only the end is loose.
+        assertThat(CacheKeys.normalizeSentenceLoose("Well, okay.")).isEqualTo("well, okay");
+        // The decision (doc-7): a final "?" is ignored like "." and "!".
+        assertThat(CacheKeys.normalizeSentenceLoose("Is it OK?")).isEqualTo(CacheKeys.normalizeSentenceLoose("is it ok"));
+    }
+
+    @Test
     void matchKeyIsTheDocumentedSha256() {
         assertThat(CacheKeys.sentenceMatchKey("v6", "vi", "How are you?"))
                 .isEqualTo(CacheKeys.key("sentence-loose", "v6", "vi", "how are you"))

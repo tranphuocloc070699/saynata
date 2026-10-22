@@ -188,6 +188,21 @@ class PrefillRunnerTest {
     }
 
     @Test
+    void aQueuedSentenceThatDiffersOnlyInCaseAndPunctuationIsAlreadyCached() {
+        when(claude.explainSentence("Looks good!", TargetLanguage.VI)).thenReturn(EXPLANATION);
+        queue.save(new PrefillItem("sentence", "Looks good!", "vi", "test", 1, Instant.now()));
+        queue.save(new PrefillItem("sentence", "looks good", "vi", "test", 0, Instant.now()));
+
+        PrefillRunner.RunSummary summary = runner.runNow("test", new BigDecimal("5"), null);
+
+        // The loose match (TASK-83.3): one Claude call, one saved row, the second item is a cache hit.
+        assertThat(summary.cached()).isEqualTo(1);
+        assertThat(item("looks good").getStatus()).isEqualTo("done");
+        verify(claude, times(1)).explainSentence(anyString(), any());
+        assertThat(sentences.findAll()).hasSize(1);
+    }
+
+    @Test
     void aWordNotOnTheWordListAndPersonalTextAreSkippedWithoutClaude() {
         queueWord("qwzxv", 0);
         queue.save(new PrefillItem("sentence", "write to me at jane@example.com", "vi", "test", 0, Instant.now()));

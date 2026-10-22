@@ -167,6 +167,9 @@ class CachedOnlyTest {
         sentence("how are you").andExpect(status().isOk())
                 .andExpect(jsonPath("$.cached").value(true))
                 .andExpect(jsonPath("$.explanation.meaning").value("A greeting."));
+        sentence("HOW ARE YOU\u2026").andExpect(status().isOk())
+                .andExpect(jsonPath("$.cached").value(true))
+                .andExpect(jsonPath("$.text").value("HOW ARE YOU\u2026"));
 
         verifyNoInteractions(claude, gate);
     }
@@ -188,6 +191,8 @@ class CachedOnlyTest {
         saveSentence("Good morning");
 
         assertThat(stream("Good morning")).contains("event:done").doesNotContain("event:error");
+        // The loose match works in the stream too.
+        assertThat(stream("good morning!")).contains("event:done").doesNotContain("event:error");
         assertThat(stream("A brand new sentence"))
                 .contains("event:error").contains("\"status\":404").contains("\"code\":\"not_cached\"");
 

@@ -2,12 +2,12 @@
 id: doc-18
 title: Prefill
 type: other
-created_date: '2026-10-16 08:28'
-updated_date: '2026-10-18 02:04'
+created_date: 2026-10-16 08:28
+updated_date: '2026-10-22T10:00:00Z'
 ---
 # Prefill
 
-> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue; cached-only lookups and suggestions (TASK-83.4 and later) come after. The free way, entries written by Codex on the developer's Mac and pushed to `word_lookup`, is [Local collection written by Codex](#local-collection-written-by-codex-task-839) at the end (TASK-83.9). Last traced from code: 2026-10-18.
+> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue; cached-only lookups and suggestions (TASK-83.4 and later) come after. The free way, entries written by Codex on the developer's Mac and pushed to `word_lookup`, is [Local collection written by Codex](#local-collection-written-by-codex-task-839) at the end (TASK-83.9). Last traced from code: 2026-10-22 (TASK-83.3: queued phrases and sentences use the loose sentence match).
 > Why: doc-7, decisions of 2026-10-16. Related: [Accounts and limits](doc-17%20-%20Accounts-and-limits.md) (the user budget), [Word lookup](doc-5%20-%20Word-lookup.md), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Media and images](doc-15%20-%20Media-and-images.md), the cron and env keys in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md).
 
 ## What it does
@@ -72,7 +72,7 @@ sequenceDiagram
 | Loop and stop rules | [loop:156](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L156) | Before each item it reads the real spend (`PREFILL` rows since the run start) and stops if `spent + dearest item so far > cap` (`cap`). Other stops: `queue-empty`, `limit`, 5 failures in a row (`failures`, Claude is probably down), `interrupted`. Items come by `priority DESC, id`. |
 | One item | [handle:203](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L203) | `done` after an answer; `skipped` for a non-word, personal text, an unknown language or a Claude "not English"; any other error: `attempts + 1`, `last_error`, status `failed`. |
 | Word | [answerWord:225](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L225) | `WordService.lookUp`. A cached or bundled answer is `done` with no Claude call. "No senses" means not on the word list: `skipped`, nothing saved. |
-| Phrase | [answerSentence:235](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L235) | `PersonalTextDetector` first (email, phone, link, long number): `skipped`, and never sent to Claude or saved. Else `TranslationService.translate(text, language)`. |
+| Phrase | [answerSentence:235](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L235) | `PersonalTextDetector` first (email, phone, link, long number): `skipped`, and never sent to Claude or saved. Else `TranslationService.translate(text, language)`, the same cache rules as users: exact key, then the loose key (case, spaces, curly quotes and the final `. ? ! … ,` ignored, doc-4), so a queued "looks good" after a saved "Looks good!" is `done` as cached with no Claude call. |
 | Pace | [pause:265](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L265) | After each item that made a NEW word the run waits `app.prefill.delay` (default 0 s, so no pause). It was 3 s to protect Pixabay, but prefilled words get no picture any more, so nothing needs the pause; it stays as a knob to slow a run down. Cached items and sentences never wait. |
 | Gate | [ClaudeGate.checkPrefillCap:59](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClaudeGate.java#L59) | On a prefill thread `beforeNewCall` and `checkBudget` skip the sign-in, the per-user limits and the users' budget, and throw `PrefillCapReachedException` when this run's spend reached its cap. The runner leaves that item `pending`. The SimpleWords retry (second call) hits the same check; if it fails the first entry is kept, as for users. |
 | Money | [ClaudeUsageService.record:68](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L68), [totalCostSince](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageRepository.java#L14) | On a prefill thread every call is saved with `Feature.PREFILL`. The users' budget query leaves `PREFILL` out. `report` shows the prefill spend per day under `byFeature.prefill`, and `todayUsd` (what the users' budget counts) leaves it out; `prefillTodayUsd` is new. |
@@ -121,7 +121,7 @@ Run: `cd backend && ./mvnw -B test`. No test calls the real API.
 - `lastRuns` lives in memory (the last 10 runs since the server started). Older spend is in `GET /api/admin/usage`, feature `prefill`.
 - The cap check is "spend so far + the dearest item so far". The first item of a run has no history, so a run can go over its cap by one call.
 - There is no admin screen yet (the admin web app is another task). Use curl.
-- The loose sentence match (TASK-83.3) is not here: a phrase is cached under its exact normalized text.
+- The loose sentence match (TASK-83.3) is used when a phrase or sentence is answered, but not when it is queued: `prefill_item` is unique on the exact text, so "Looks good!" and "looks good" can both be queued. The second costs nothing (a loose cache hit, `done`), but it is a row in the queue and in `prefill report`.
 - Sentence words (TASK-83.8): only the words of sentences that were answered are counted; the work is dropped when 50 texts wait. A word queued before its base was cached is still answered (a cached item is `done` for free). The nightly job is the same Spring `@Scheduled`-style schedule above; there is no second scheduler.
 - A word that Claude returns with no senses is saved by `WordService` like any other word; prefill does not look at the quality of the answer.
 

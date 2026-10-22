@@ -2,8 +2,8 @@
 id: doc-7
 title: Decisions and reasons
 type: guide
-created_date: '2026-10-11 08:52'
-updated_date: '2026-10-20 03:13'
+created_date: 2026-10-11 08:52
+updated_date: '2026-10-22T10:00:00Z'
 ---
 # Decisions and reasons
 
@@ -175,6 +175,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-19 | **History stays on the device** (SQLite in the App Group, the extensions add to it) | Reason: not recorded. Context: works for guests, no server cost, private | Also sync History to the account | Developer |
 | 10-19 | **Liked is saved on the server per account** (`/api/liked`), so liking needs sign-in | Reason: not recorded. Context: liked items follow the user to the Mac app and the browser extension | Liked only on the device (still behind sign-in) | Developer |
 | 10-20 | **The STEYG gateway uses `deepseek-v4.1-flash`** for sentences and words (price $0.30 / $1.20 per million tokens in `application.properties`) | "api call to steyg take a long time". A test: a 2-word call to `gpt-6-luna` took 1.8-9.3 s; 25 real sentences through the backend with deepseek: median 2.6 s to the first meaning words (gpt-6-luna about 6 s), 1 made-up fact in 25 answers, 2 small added details | Keep `gpt-6-luna` (best answers, 2-3x slower); `glm-5.3` (about 3.4 s, one clumsy answer in 5); Anthropic directly with Haiku | Developer |
+| 10-22 | **The loose sentence match ignores a final `?` too** (TASK-83.3): "Is it OK" finds a saved "Is it OK?". The loose key also makes curly quotes and apostrophes straight and drops a final `…` or comma | Claude's call, the task asked it to decide. People often type a question without its `?` (on a phone, in a hurry), and the same words almost always mean the same question, so the saved answer fits. Keeping the `?` would make most prefilled questions miss for exactly the users the prefill is for. The rare cost: "You're coming." and "You're coming?" share one answer. The exact key is still tried first, so a saved "Is it OK" without `?` still wins for that text | The `?` matters (only `.`, `!`, `…`, `,` loose); a separate loose key per final mark | Claude, not yet reviewed by the developer |
 
 ## Questions answered
 
@@ -201,3 +202,4 @@ go here as questions.
 - 10-18: Why draw the admin's AI pictures with Codex and the ChatGPT login on the VPS instead of the OpenAI image API, why the dialog (layout A) over an inline panel, and why a wand with a $1 a day cap? Reason not recorded (TASK-91).
 - 10-18: Why add Google, Apple and an emailed link now (TASK-92), and is the new domain "saynanta.com" or "saynata.com"? Reason and spelling not recorded.
 - 10-18: Why the STEYG gateway over a new Anthropic key? Reason not recorded.
+- 10-22: Is ignoring the final `?` in the loose sentence match OK (TASK-83.3, Claude's call)? Developer's view not recorded.
