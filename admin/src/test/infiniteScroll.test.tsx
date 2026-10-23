@@ -142,7 +142,8 @@ describe("infinite scroll", () => {
     scrollToEnd();
     await screen.findByText("word51");
 
-    const list = screen.getByRole("list");
+    // The word is open in the drawer (a modal), so the table behind it is hidden from the accessibility tree.
+    const list = screen.getByRole("table", { name: "Rows", hidden: true });
     expect(within(screen.getByRole("region", { name: "Entry" })).getByRole("heading", { name: "word3" })).toBeInTheDocument();
     expect(within(list).getByText("word3").closest("button")).toHaveAttribute("aria-pressed", "true");
   });

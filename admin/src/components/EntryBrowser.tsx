@@ -1,5 +1,5 @@
 import { useApiUrl, useCustomMutation, useDelete, useInfiniteList, useInvalidate, useUpdate, type CrudFilter } from "@refinedev/core";
-import { LayoutGrid, List, Loader2, Search } from "lucide-react";
+import { ChevronDown, LayoutGrid, List, Loader2, Search } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,14 @@ export interface Chip {
   // Chips with the same field: "one" (default) = turning one on turns the others off.
   // "any" = they can be on together and their values are OR-ed into one list (A1-A2 and B1-B2).
   combine?: "one" | "any";
+  // Chips with a group sit in one menu (for example the four media chips in "Media"), to keep the bar short.
+  group?: string;
+}
+
+// One column of the table view (TASK-99.2). The first column is always the item: thumbnail, title, subtitle.
+export interface Column<T> {
+  header: string;
+  cell: (item: T) => ReactNode;
 }
 
 interface Props<T extends Item, E> {
@@ -41,6 +49,9 @@ interface Props<T extends Item, E> {
   // When this is set, the header also gets the list/grid toggle.
   itemThumb?: (item: T, hovered: boolean, variant: "row" | "card") => ReactNode;
   itemBadges?: (item: T) => ReactNode;
+  // When set, the list view is a table with these columns and a row opens the entry in a right drawer
+  // (Isomorphic list page, TASK-99.2). Without it the list view is the split view (list left, entry right).
+  columns?: Column<T>[];
   // Words only (TASK-76): when set, the header gets a Remove all media button. It is disabled when this says false.
   hasMedia?: (item: T) => boolean;
   detailRows: (item: T) => FieldRow[];
@@ -69,6 +80,7 @@ export function EntryBrowser<T extends Item, E>({
   itemSubtitle,
   itemThumb,
   itemBadges,
+  columns,
   hasMedia,
   detailRows,
   editableEntry,
@@ -133,8 +145,9 @@ export function EntryBrowser<T extends Item, E>({
 
   // When the sentinel row at the end of the list comes into view, load the next page.
   // It watches again after every page, so a short page keeps loading until the list is full.
-  const listRef = useRef<HTMLUListElement>(null);
-  const sentinelRef = useRef<HTMLLIElement>(null);
+  // The scroll box: the <ul> in the split and grid views, the box around the <table> in the table view.
+  const listRef = useRef<HTMLElement | null>(null);
+  const sentinelRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel || !hasNextPage || isFetchingNextPage || typeof IntersectionObserver === "undefined") return;
@@ -149,6 +162,9 @@ export function EntryBrowser<T extends Item, E>({
   }, [hasNextPage, isFetchingNextPage, loaded.length, fetchNextPage]);
 
   const grid = view === "grid" && !!itemThumb;
+  const table = !grid && !!columns;
+  // The grid and the table use the whole width: the entry opens in a drawer on the right.
+  const drawer = grid || table;
   const selected = items.find((item) => item.id === selectedId);
 
   const apiUrl = useApiUrl();
@@ -197,6 +213,15 @@ export function EntryBrowser<T extends Item, E>({
     }
   }
 
+  // Which chip group menu is open ("Media"), if any.
+  const [openGroup, setOpenGroup] = useState<string>();
+
+  function select(item: T) {
+    setSelectedId(item.id);
+    setEditing(false);
+    setActionError(undefined);
+  }
+
   function toggleChip(chip: Chip) {
     setActiveChips((current) => {
       if (current.includes(chip.id)) return current.filter((id) => id !== chip.id);
@@ -207,6 +232,17 @@ export function EntryBrowser<T extends Item, E>({
     });
     listRef.current?.scrollTo?.({ top: 0 });
   }
+
+  const chipClass = (on: boolean) =>
+    cn(
+      "rounded-full border px-3 py-1 text-xs font-medium",
+      on ? "border-primary bg-accent text-accent-foreground" : "border-border bg-card text-muted-foreground hover:bg-muted",
+    );
+  const chipButton = (chip: Chip) => (
+    <button key={chip.id} type="button" aria-pressed={activeChips.includes(chip.id)} onClick={() => toggleChip(chip)} className={chipClass(activeChips.includes(chip.id))}>
+      {chip.label}
+    </button>
+  );
 
   const entryPane = (
     <>
@@ -241,11 +277,11 @@ export function EntryBrowser<T extends Item, E>({
   );
 
   return (
-    <div className={cn("grid h-full", grid ? "grid-cols-1" : "grid-cols-[minmax(280px,380px)_1fr]")}>
-      <section aria-label="List" className={cn("flex min-h-0 flex-col", !grid && "border-r border-border")}>
+    <div className={cn("grid h-full", drawer ? "grid-cols-1" : "grid-cols-[minmax(280px,380px)_1fr]")}>
+      <section aria-label="List" className={cn("flex min-h-0 flex-col", !drawer && "border-r border-border")}>
         <div className="space-y-3 border-b border-border p-4">
           <div className="flex items-center gap-2">
-            <div className="relative flex-1">
+            <div className={cn("relative flex-1", drawer && "max-w-sm")}>
               <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
@@ -257,7 +293,7 @@ export function EntryBrowser<T extends Item, E>({
               />
             </div>
             {itemThumb && (
-              <div role="group" aria-label="View" className="flex shrink-0 overflow-hidden rounded-md border border-border">
+              <div role="group" aria-label="View" className="ml-auto flex shrink-0 overflow-hidden rounded-md border border-border">
                 {(
                   [
                     ["list", "List view", List],
@@ -282,91 +318,181 @@ export function EntryBrowser<T extends Item, E>({
               </div>
             )}
           </div>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Filters">
-            {chips.map((chip) => (
-              <button
-                key={chip.id}
-                aria-pressed={activeChips.includes(chip.id)}
-                onClick={() => toggleChip(chip)}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium",
-                  activeChips.includes(chip.id) ? "border-primary bg-accent text-accent-foreground" : "border-border bg-card text-muted-foreground",
-                )}
-              >
-                {chip.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filters">
+            {chips.filter((chip) => !chip.group).map(chipButton)}
+            {[...new Set(chips.flatMap((chip) => (chip.group ? [chip.group] : [])))].map((group) => {
+              const members = chips.filter((chip) => chip.group === group);
+              const on = members.find((chip) => activeChips.includes(chip.id));
+              return (
+                <div key={group} className="relative">
+                  <button
+                    type="button"
+                    aria-expanded={openGroup === group}
+                    aria-haspopup="true"
+                    onClick={() => setOpenGroup((current) => (current === group ? undefined : group))}
+                    className={cn(chipClass(!!on), "inline-flex items-center gap-1")}
+                  >
+                    {on ? `${group}: ${on.label}` : group}
+                    <ChevronDown className="h-3 w-3" aria-hidden />
+                  </button>
+                  {openGroup === group && (
+                    <div
+                      role="group"
+                      aria-label={`${group} filters`}
+                      className="absolute left-0 top-9 z-20 flex w-48 flex-col gap-1 rounded-xl border border-border bg-card p-2 shadow-lg"
+                    >
+                      {members.map((chip) => chipButton(chip))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <ul
-          ref={listRef}
-          aria-label={grid ? "Grid" : undefined}
-          className={cn(
-            "min-h-0 flex-1 overflow-y-auto",
-            grid && "grid content-start gap-3 p-4 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]",
-          )}
-        >
-          {listQuery.isLoading && <li className="col-span-full p-4 text-sm text-muted-foreground">Loading...</li>}
-          {listQuery.isError && <li className="col-span-full p-4 text-sm text-destructive">Could not load the list.</li>}
-          {!listQuery.isLoading && !listQuery.isError && items.length === 0 && (
-            <li className="col-span-full p-4 text-sm text-muted-foreground">Nothing found.</li>
-          )}
-          {items.map((item) => (
-            <li key={item.id}>
-              <button
-                aria-pressed={item.id === selectedId}
-                // A finger tap also sends mouse events on a phone; only a real mouse or pen counts as hover.
-                onPointerEnter={(e) => e.pointerType !== "touch" && setHoveredId(item.id)}
-                onPointerLeave={() => setHoveredId((current) => (current === item.id ? undefined : current))}
-                onClick={() => {
-                  setSelectedId(item.id);
-                  setEditing(false);
-                  setActionError(undefined);
-                }}
-                className={
-                  grid
-                    ? cn(
-                        "block h-full w-full space-y-2 rounded-lg border border-border bg-card p-2 text-left hover:bg-muted",
-                        item.id === selectedId && "outline outline-2 outline-primary",
-                      )
-                    : cn("block w-full border-b border-border px-4 py-3 text-left hover:bg-muted", item.id === selectedId && "bg-muted")
-                }
-              >
-                {grid ? (
-                  <>
-                    {itemThumb?.(item, hoveredId === item.id, "card")}
-                    <div className="min-w-0 space-y-1 px-1 pb-1">
-                      <span className="block truncate font-semibold">{itemTitle(item)}</span>
-                      <p className="line-clamp-1 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
-                      <div className="flex flex-wrap items-center gap-1">
-                        {item.needsReview && <Badge variant="warning">Needs review</Badge>}
-                        {itemBadges?.(item)}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    {itemThumb?.(item, hoveredId === item.id, "row")}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold">{itemTitle(item)}</span>
-                        {item.needsReview && <Badge variant="warning">Needs review</Badge>}
-                        {itemBadges?.(item)}
-                      </div>
-                      <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
-                    </div>
-                  </div>
+        {table ? (
+          <div ref={(node) => void (listRef.current = node)} className="min-h-0 flex-1 overflow-y-auto">
+            <table aria-label="Rows" className="w-full border-collapse text-sm">
+              <thead className="sticky top-0 z-10 bg-muted">
+                <tr>
+                  {["", ...columns!.map((column) => column.header)].map((header, i) => (
+                    <th
+                      key={i}
+                      scope="col"
+                      className="border-b border-border px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                    >
+                      {i === 0 ? (resource === "words" ? "Word" : "Sentence") : header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {listQuery.isLoading && (
+                  <tr>
+                    <td colSpan={columns!.length + 1} className="p-4 text-muted-foreground">Loading...</td>
+                  </tr>
                 )}
-              </button>
-            </li>
-          ))}
-          {hasNextPage && (
-            <li ref={sentinelRef} className="col-span-full flex justify-center p-3" aria-hidden={!isFetchingNextPage}>
-              {isFetchingNextPage && <Loader2 role="status" aria-label="Loading more" className="h-4 w-4 animate-spin text-muted-foreground" />}
-            </li>
-          )}
-        </ul>
+                {listQuery.isError && (
+                  <tr>
+                    <td colSpan={columns!.length + 1} className="p-4 text-destructive">Could not load the list.</td>
+                  </tr>
+                )}
+                {!listQuery.isLoading && !listQuery.isError && items.length === 0 && (
+                  <tr>
+                    <td colSpan={columns!.length + 1} className="p-4 text-muted-foreground">Nothing found.</td>
+                  </tr>
+                )}
+                {items.map((item) => (
+                  <tr
+                    key={item.id}
+                    // The whole row opens the entry; the first cell's button is the one for keyboards and screen readers.
+                    onClick={() => select(item)}
+                    onPointerEnter={(e) => e.pointerType !== "touch" && setHoveredId(item.id)}
+                    onPointerLeave={() => setHoveredId((current) => (current === item.id ? undefined : current))}
+                    className={cn("cursor-pointer border-b border-border/60 hover:bg-muted/60", item.id === selectedId && "bg-accent/60")}
+                  >
+                    <td className="px-4 py-2.5">
+                      <button
+                        type="button"
+                        aria-pressed={item.id === selectedId}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          select(item);
+                        }}
+                        className="flex items-center gap-3 text-left"
+                      >
+                        {itemThumb?.(item, hoveredId === item.id, "row")}
+                        <span className="min-w-0">
+                          <span className="block font-semibold">{itemTitle(item)}</span>
+                          <span className="line-clamp-1 text-muted-foreground">{itemSubtitle(item)}</span>
+                        </span>
+                      </button>
+                    </td>
+                    {columns!.map((column) => (
+                      <td key={column.header} className="px-4 py-2.5">
+                        <div className="flex flex-wrap items-center gap-1">{column.cell(item)}</div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                {hasNextPage && (
+                  <tr ref={(node) => void (sentinelRef.current = node)} aria-hidden={!isFetchingNextPage}>
+                    <td colSpan={columns!.length + 1} className="p-3 text-center">
+                      {isFetchingNextPage && (
+                        <Loader2 role="status" aria-label="Loading more" className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <ul
+            ref={(node) => void (listRef.current = node)}
+            aria-label={grid ? "Grid" : undefined}
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto",
+              grid && "grid content-start gap-3 p-4 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]",
+            )}
+          >
+            {listQuery.isLoading && <li className="col-span-full p-4 text-sm text-muted-foreground">Loading...</li>}
+            {listQuery.isError && <li className="col-span-full p-4 text-sm text-destructive">Could not load the list.</li>}
+            {!listQuery.isLoading && !listQuery.isError && items.length === 0 && (
+              <li className="col-span-full p-4 text-sm text-muted-foreground">Nothing found.</li>
+            )}
+            {items.map((item) => (
+              <li key={item.id}>
+                <button
+                  aria-pressed={item.id === selectedId}
+                  // A finger tap also sends mouse events on a phone; only a real mouse or pen counts as hover.
+                  onPointerEnter={(e) => e.pointerType !== "touch" && setHoveredId(item.id)}
+                  onPointerLeave={() => setHoveredId((current) => (current === item.id ? undefined : current))}
+                  onClick={() => select(item)}
+                  className={
+                    grid
+                      ? cn(
+                          "block h-full w-full space-y-2 rounded-lg border border-border bg-card p-2 text-left hover:bg-muted",
+                          item.id === selectedId && "outline outline-2 outline-primary",
+                        )
+                      : cn("block w-full border-b border-border px-4 py-3 text-left hover:bg-muted", item.id === selectedId && "bg-muted")
+                  }
+                >
+                  {grid ? (
+                    <>
+                      {itemThumb?.(item, hoveredId === item.id, "card")}
+                      <div className="min-w-0 space-y-1 px-1 pb-1">
+                        <span className="block truncate font-semibold">{itemTitle(item)}</span>
+                        <p className="line-clamp-1 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
+                        <div className="flex flex-wrap items-center gap-1">
+                          {item.needsReview && <Badge variant="warning">Needs review</Badge>}
+                          {itemBadges?.(item)}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      {itemThumb?.(item, hoveredId === item.id, "row")}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold">{itemTitle(item)}</span>
+                          {item.needsReview && <Badge variant="warning">Needs review</Badge>}
+                          {itemBadges?.(item)}
+                        </div>
+                        <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
+                      </div>
+                    </div>
+                  )}
+                </button>
+              </li>
+            ))}
+            {hasNextPage && (
+              <li ref={(node) => void (sentinelRef.current = node)} className="col-span-full flex justify-center p-3" aria-hidden={!isFetchingNextPage}>
+                {isFetchingNextPage && <Loader2 role="status" aria-label="Loading more" className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </li>
+            )}
+          </ul>
+        )}
 
         <div className="border-t border-border p-3 text-sm text-muted-foreground">
           <span>
@@ -375,8 +501,8 @@ export function EntryBrowser<T extends Item, E>({
         </div>
       </section>
 
-      {grid ? (
-        // The grid takes the whole width: the entry opens in a drawer on the right.
+      {drawer ? (
+        // The grid and the table take the whole width: the entry opens in a drawer on the right.
         <Sheet open={!!selected} onClose={() => setSelectedId(undefined)} title="Entry details">
           <section aria-label="Entry">{entryPane}</section>
         </Sheet>

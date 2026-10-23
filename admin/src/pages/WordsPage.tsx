@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/EntryEditor";
 import { MediaRow } from "@/components/MediaRow";
-import { EntryBrowser, type Chip } from "@/components/EntryBrowser";
+import { EntryBrowser, type Chip, type Column } from "@/components/EntryBrowser";
 import type { FieldRow } from "@/components/FieldTable";
 
 const LEVELS: ExampleLevel[] = ["easy", "medium", "harder"];
@@ -22,11 +22,12 @@ const chips: Chip[] = [
   { id: "backend", label: "From backend", field: "source", value: "backend" },
   cefrChip("A1-A2", ["A1", "A2"]),
   cefrChip("B1-B2", ["B1", "B2"]),
-  { id: "has-media", label: "Has media", field: "media", value: "with" },
-  { id: "no-media", label: "No media", field: "media", value: "without" },
+  // The media chips sit in one "Media" menu (TASK-99.2).
+  { id: "has-media", label: "Has media", field: "media", value: "with", group: "Media" },
+  { id: "no-media", label: "No media", field: "media", value: "without", group: "Media" },
   // Picture review (TASK-80), separate from "Needs review" (word text). Same field, so one at a time.
-  { id: "wrong-media", label: "Wrong media", field: "media", value: "wrong" },
-  { id: "media-to-review", label: "Media to review", field: "media", value: "to-review" },
+  { id: "wrong-media", label: "Wrong media", field: "media", value: "wrong", group: "Media" },
+  { id: "media-to-review", label: "Media to review", field: "media", value: "to-review", group: "Media" },
 ];
 
 // Why a word needs review: the lines from the backend, or a hint when the entry is fine now.
@@ -66,7 +67,7 @@ function MediaReviewBadges({ word }: { word: WordItem }) {
   return (
     <>
       {wrong > 0 && (
-        <Badge variant="warning" title={`${wrong} ${wrong === 1 ? "picture is" : "pictures are"} marked wrong`}>
+        <Badge variant="danger" title={`${wrong} ${wrong === 1 ? "picture is" : "pictures are"} marked wrong`}>
           Wrong media
         </Badge>
       )}
@@ -311,6 +312,38 @@ function WordForm({ draft, setDraft, word }: { draft: WordEntry; setDraft: (next
   );
 }
 
+// The table columns after the word (Isomorphic list page, TASK-99.2).
+const columns: Column<WordItem>[] = [
+  { header: "Source", cell: (word) => <Badge variant="outline">{word.source === "bundled" ? "Bundled" : "Backend"}</Badge> },
+  { header: "Level", cell: (word) => word.entry.senses[0]?.cefr ?? "-" },
+  {
+    header: "Review",
+    cell: (word) =>
+      word.needsReview ? (
+        <>
+          <Badge variant="warning" dot>
+            Needs review
+          </Badge>
+          <ReasonCount word={word} />
+        </>
+      ) : (
+        <Badge variant="success" dot>
+          Reviewed
+        </Badge>
+      ),
+  },
+  {
+    header: "Media",
+    cell: (word) =>
+      // A word without media can still count a picture to review (the counts come from the backend), so badges win.
+      word.media?.some(Boolean) || word.wrongMediaCount || word.mediaToReviewCount ? (
+        <MediaReviewBadges word={word} />
+      ) : (
+        <span className="text-muted-foreground">No media</span>
+      ),
+  },
+];
+
 export function WordsPage() {
   return (
     <EntryBrowser<WordItem, WordEntry>
@@ -319,6 +352,7 @@ export function WordsPage() {
       itemTitle={(word) => word.word}
       itemSubtitle={(word) => word.entry.senses[0]?.vietnamese ?? ""}
       itemThumb={(word, hovered, variant) => <Thumb word={word} hovered={hovered} variant={variant} />}
+      columns={columns}
       hasMedia={(word) => !!word.media?.some(Boolean)}
       itemBadges={(word) => (
         <>

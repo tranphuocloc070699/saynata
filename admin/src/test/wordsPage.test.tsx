@@ -70,10 +70,40 @@ describe("words page", () => {
 
   it("lists the words with a needs review badge", async () => {
     renderWords([run, house]);
-    const list = await screen.findByRole("list");
+    const list = await screen.findByRole("table", { name: "Rows" });
     expect(await within(list).findByText("run")).toBeInTheDocument();
     expect(within(list).getByText("house")).toBeInTheDocument();
     expect(within(list).getByText("Needs review")).toBeInTheDocument();
+  });
+
+  it("shows the words as a table with Source, Level, Review and Media columns (TASK-99.2)", async () => {
+    renderWords([run, house]);
+    const table = await screen.findByRole("table", { name: "Rows" });
+    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual(["Word", "Source", "Level", "Review", "Media"]);
+    const houseRow = (await within(table).findByText("house")).closest("tr")!;
+    expect(within(houseRow).getByText("Bundled")).toBeInTheDocument();
+    expect(within(houseRow).getByText("A1")).toBeInTheDocument();
+    expect(within(houseRow).getByText("Reviewed")).toBeInTheDocument();
+    expect(within(houseRow).getByText("No media")).toBeInTheDocument();
+  });
+
+  it("opens the word in a drawer when its row is clicked, and Close shuts it", async () => {
+    renderWords([run]);
+    const table = await screen.findByRole("table", { name: "Rows" });
+    await userEvent.click((await within(table).findByText("chạy")).closest("tr")!);
+    expect(screen.getByRole("dialog", { name: "Entry details" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Entry" })).getByRole("heading", { name: "run" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the media chips in a Media menu that names the chosen one", async () => {
+    renderWords([run, house]);
+    await screen.findByText("house");
+    expect(screen.queryByRole("button", { name: "Wrong media" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Media" }));
+    await userEvent.click(within(screen.getByRole("group", { name: "Media filters" })).getByRole("button", { name: "Wrong media" }));
+    expect(screen.getByRole("button", { name: "Media: Wrong media" })).toHaveAttribute("aria-expanded", "true");
   });
 
   it("asks the backend for needs_review=true when the chip is on", async () => {
@@ -138,6 +168,8 @@ describe("words page", () => {
   it("sends media=with or media=without, one at a time", async () => {
     const getList = renderWords([run, house]);
     await screen.findByText("house");
+    // The media chips sit in the Media menu (TASK-99.2).
+    await userEvent.click(screen.getByRole("button", { name: "Media" }));
 
     await userEvent.click(screen.getByRole("button", { name: "Has media" }));
     await vi.waitFor(() =>
@@ -158,6 +190,8 @@ describe("words page", () => {
   it("sends media=wrong and media=to-review from their own chips, one at a time with the other media chips (TASK-80)", async () => {
     const getList = renderWords([run, house]);
     await screen.findByText("house");
+    // The media chips sit in the Media menu (TASK-99.2).
+    await userEvent.click(screen.getByRole("button", { name: "Media" }));
 
     await userEvent.click(screen.getByRole("button", { name: "Wrong media" }));
     await vi.waitFor(() =>
@@ -181,7 +215,7 @@ describe("words page", () => {
     const wrongOne: WordItem = { ...run, needsReview: false, wrongMediaCount: 1, mediaToReviewCount: 2 };
     const plain: WordItem = { ...house, wrongMediaCount: 0, mediaToReviewCount: 0 };
     renderWords([wrongOne, plain]);
-    const list = await screen.findByRole("list");
+    const list = await screen.findByRole("table", { name: "Rows" });
     await within(list).findByText("house");
 
     expect(within(list).getAllByText("Wrong media")).toHaveLength(1);
@@ -195,7 +229,7 @@ describe("words page", () => {
     const one: WordItem = { ...run, id: 3, word: "apple", reviewReasons: ["sense 1: y [bar]"] };
     const none: WordItem = { ...run, id: 4, word: "working", reviewReasons: [] };
     renderWords([flagged, one, house, none]);
-    const list = await screen.findByRole("list");
+    const list = await screen.findByRole("table", { name: "Rows" });
 
     const two = await within(list).findByText("2 problems");
     expect(two).toHaveAttribute("title", "sense 1: the definition uses hard words [abstain]\nsense 2: x [foo]");
@@ -221,7 +255,8 @@ describe("words page", () => {
       </MemoryRouter>,
     );
     await userEvent.click(await screen.findByRole("button", { name: /run/ }));
-    const listRegion = screen.getByRole("region", { name: "List" });
+    // The word opens in a drawer (a modal), so the list behind it is hidden from the accessibility tree.
+    const listRegion = screen.getByRole("region", { name: "List", hidden: true });
     // The filter chip and the badge of the row both say "Needs review".
     expect(within(listRegion).getAllByText("Needs review")).toHaveLength(2);
 

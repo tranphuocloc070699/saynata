@@ -1,9 +1,11 @@
 ---
 id: TASK-99.2
 title: Admin Words page as a table with a right drawer
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-10-23 08:47'
+updated_date: '2026-10-23 08:58'
 labels:
   - admin
   - ui
@@ -32,3 +34,18 @@ Mockup option A (developer's choice 2026-10-23): Isomorphic product-list style. 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. EntryBrowser: optional columns prop -> table view; a row opens the entry in the existing Sheet drawer.
+2. Chip groups: chips with group sit in a menu (Media).
+3. WordsPage: Source, Level, Review, Media columns; media chips grouped.
+4. Update tests (table queries, drawer is modal: close before the next word), add table/drawer/menu tests; doc-14.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+npm test 104 passed, build ok. Branch admin/task-99.2 is on top of admin/task-99.1 (PR #150).
+<!-- SECTION:NOTES:END -->
