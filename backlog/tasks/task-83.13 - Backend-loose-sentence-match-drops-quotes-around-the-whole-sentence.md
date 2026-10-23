@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-23 07:34'
-updated_date: '2026-10-23 07:41'
+updated_date: '2026-10-23 07:42'
 labels:
   - backend
   - cache
@@ -45,3 +45,9 @@ In `CacheKeys.normalizeSentenceLoose`, after the straight-quote step and trimmin
 <!-- SECTION:PLAN:BEGIN -->
 1. CacheKeys.withoutWrappingQuotes in normalizeSentenceLoose. 2. Flyway Java V25 recompute. 3. Tests. 4. doc-4, doc-18.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/145. Test it: after deploy, POST https://api.loffy.me/api/translations?cachedOnly=true with {"text":"“Looks good.”","targetLang":"vi"} gives 200 (also \"Looks good.\" and \"Looks good\".); an uncached text still gives 404 not_cached. Automated: cd backend && ./mvnw -B test (504 pass).
+<!-- SECTION:NOTES:END -->
