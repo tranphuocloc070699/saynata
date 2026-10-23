@@ -6,7 +6,7 @@ import { EntryBrowser, type Chip, type Column } from "@/components/EntryBrowser"
 import type { FieldRow } from "@/components/FieldTable";
 
 const chips: Chip[] = [
-  { id: "needs-review", label: "Needs review", field: "needs_review", value: true },
+  { id: "needs-review", label: "Needs review", description: "Marked for a check.", field: "needs_review", value: true, group: "Status" },
 ];
 
 // Same order as the app: the sentence, the simple explanation, the words, the translation last.
@@ -78,19 +78,15 @@ function SentenceForm({
 
 // The table columns after the sentence (same pattern as the Words table, TASK-99.3).
 const columns: Column<SentenceItem>[] = [
-  { header: "Language", cell: (sentence) => <Badge variant="outline">{sentence.targetLang}</Badge> },
+  { header: "Language", cell: (sentence) => <span className="text-muted-foreground">{sentence.targetLang}</span> },
   {
-    header: "Review",
+    header: "Status",
     cell: (sentence) =>
       sentence.needsReview ? (
         <Badge variant="warning" dot>
           Needs review
         </Badge>
-      ) : (
-        <Badge variant="success" dot>
-          Reviewed
-        </Badge>
-      ),
+      ) : null,
   },
   { header: "Model", cell: (sentence) => <span className="text-muted-foreground">{sentence.model}</span> },
 ];

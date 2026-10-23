@@ -22,7 +22,8 @@ const makeWord = (id: number): WordItem => ({
 // A fake backend with TOTAL words that answers by page, like the real one (_start/_end).
 function renderWords() {
   const all = Array.from({ length: TOTAL }, (_, i) => makeWord(i + 1));
-  const getList = vi.fn().mockImplementation(async ({ pagination, filters }) => {
+  const getList = vi.fn().mockImplementation(async ({ pagination, filters, resource }) => {
+    if (resource !== "words") return { data: [], total: 0 }; // the Pending count
     const filter = (field: string) => filters?.find((f: { field: string }) => f.field === field)?.value;
     const rows = all.filter(
       (w) => (filter("needs_review") === undefined || w.needsReview) && (filter("source") === undefined || w.source === filter("source")),
@@ -105,31 +106,37 @@ describe("infinite scroll", () => {
     scrollToEnd();
     await screen.findByText("word100");
 
+    await userEvent.click(screen.getByRole("button", { name: /^Filter/ }));
     await userEvent.click(screen.getByRole("button", { name: "Needs review" }));
 
     await screen.findByText("50 of 60");
-    const last = getList.mock.calls.at(-1)![0];
+    const last = getList.mock.calls.filter((c) => c[0].pagination?.pageSize === 50).at(-1)![0];
     expect(last.pagination.currentPage).toBe(1);
     expect(last.filters).toEqual([{ field: "needs_review", operator: "eq", value: true }]);
     expect(screen.queryByText("word51")).not.toBeInTheDocument();
   });
 
-  it("From backend is a server filter: one request, the filtered total, and no extra pages", async () => {
+  it("Backend database is a server filter: one request, the filtered total, and no extra pages", async () => {
     const getList = renderWords();
     await screen.findByText("word50");
     scrollToEnd();
     await screen.findByText("word100"); // 2 pages are loaded
     const callsBefore = getList.mock.calls.length;
 
-    await userEvent.click(screen.getByRole("button", { name: "From backend" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    // Opening the menu asks for the counts (one row each); only the list requests matter below.
+    const listCalls = () => getList.mock.calls.filter((c) => c[0].pagination?.pageSize === 50);
+    const listCallsBefore = listCalls().length;
+    await userEvent.click(screen.getByRole("button", { name: "Backend database" }));
 
     await screen.findByText("40 of 40");
     expect(screen.getByText("word3")).toBeInTheDocument();
     expect(screen.queryByText("word1")).not.toBeInTheDocument();
     expect(screen.queryByText("Nothing found.")).not.toBeInTheDocument();
     // One request for page 1 with the source param. The 40 rows are all there is, so nothing more is asked.
-    expect(getList).toHaveBeenCalledTimes(callsBefore + 1);
-    const last = getList.mock.calls.at(-1)![0];
+    expect(listCalls()).toHaveLength(listCallsBefore + 1);
+    expect(getList.mock.calls.length).toBeGreaterThan(callsBefore);
+    const last = listCalls().at(-1)![0];
     expect(last.pagination.currentPage).toBe(1);
     expect(last.filters).toEqual([{ field: "source", operator: "eq", value: "backend" }]);
     expect(observers.filter((o) => !o.disconnected)).toHaveLength(0);
