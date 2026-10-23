@@ -1,11 +1,11 @@
 ---
 id: TASK-83.3
 title: 'Backend: loose sentence match (case and final punctuation)'
-status: In Progress
+status: Done
 assignee:
   - '@implementer'
-created_date: 2026-10-16 08:19
-updated_date: '2026-10-22T10:03:00Z'
+created_date: '2026-10-16 08:19'
+updated_date: '2026-10-23 07:23'
 labels: []
 dependencies: []
 parent_task_id: TASK-83
@@ -21,17 +21,17 @@ The sentence cache key is the exact text, so "how are you" misses a cached "How 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Saved sentence rows get a loose match key (new Flyway column + index, filled for old rows)
-- [ ] #2 POST /api/translations and /stream answer an exact hit first, then a loose hit, before calling Claude; the response says cached=true
-- [ ] #3 Tests cover exact wins over loose, loose hit, personal text never matched; doc-4 updated
+- [x] #1 Saved sentence rows get a loose match key (new Flyway column + index, filled for old rows)
+- [x] #2 POST /api/translations and /stream answer an exact hit first, then a loose hit, before calling Claude; the response says cached=true
+- [x] #3 Tests cover exact wins over loose, loose hit, personal text never matched; doc-4 updated
 - [ ] #4 Loose key also ignores curly vs straight quotes and apostrophes, any whitespace, and a final … or trailing comma; Flyway V24 recomputes match_key for saved rows
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
-- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
-- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+- [x] #1 Tests pass
+- [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -60,4 +60,12 @@ Prefill runner uses TranslationService.translate, so it gets the loose match for
 Tests: mvn -B test, 496 pass (./mvnw could not download Maven in the cloud box, the installed mvn was used).
 
 PR (follow-up, 2026-10-22): https://github.com/tranphuocloc070699/saynata/pull/138 into feature/local. Test it card in the PR.
+
+2026-10-23: merged into feature/local (PR #138, after a doc merge with TASK-83.11/83.12). Backend 500 tests pass. The developer tested it and said it works.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+The loose sentence match also ignores curly quotes, a final … and trailing commas (V24 recomputes old keys). Verified: backend tests (500 pass, incl. CacheKeysTest, CachedOnlyTest, SentenceMatchKeyMigrationTest) and the developer's manual test.
+<!-- SECTION:FINAL_SUMMARY:END -->
