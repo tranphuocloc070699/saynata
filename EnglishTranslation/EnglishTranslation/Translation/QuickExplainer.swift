@@ -80,6 +80,9 @@ struct QuickExplainer {
         }
         do {
             return .word(try await withTimeLimit { try await lookup.lookUp(word) })
+        } catch WordLookupError.notAnEnglishWord {
+            // A missing word-list entry may still be understandable as text.
+            return await explainSentence(word, lookup: lookup)
         } catch {
             return result(for: error, text: word, localWords: [])
         }
