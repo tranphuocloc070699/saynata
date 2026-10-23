@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-23 08:09'
-updated_date: '2026-10-23 08:27'
+updated_date: '2026-10-23 08:34'
 labels:
   - ios
   - ui
@@ -42,3 +42,9 @@ The developer finds Settings too plain (a default grouped List). They chose mock
 <!-- SECTION:PLAN:BEGIN -->
 1. Rewrite SettingsView as ScrollView of cards: profile (cat), Translation rows with hints, About. 2. AboutView page. 3. Titles Closed/Always open/Remember (hints added). 4. Tests, docs, screenshots.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/149 (base ui/task-96; retarget to feature/local after #148). Test it: gear > Settings signed out: cat profile card opens sign-in; Translation card Closed/Always open/Remember with checkmark; About card (About page, Source code opens GitHub). Reduce Motion or missing assets: cat is still. Tests: 442 pass (iPhone 16 Pro, iOS 18.5); SaynataMac builds.
+<!-- SECTION:NOTES:END -->
