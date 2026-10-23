@@ -58,4 +58,6 @@ Built in worktree branch web/task-102.1-homepage.
 - Samples under the box are cached answers only (give up, run, Hold on a second., Looks good.), so guests can try them.
 - The skill design-system search suggested indigo + Baloo/Comic Neue (a kids style); not used, the Sage and Teal tokens win.
 - Follow-ups in TASK-102: word page, sign-in, other pages, Caddy route and domain for deploy.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/157 (into feature/local)
 <!-- SECTION:NOTES:END -->
