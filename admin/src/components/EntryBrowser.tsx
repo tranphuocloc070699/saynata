@@ -1,6 +1,7 @@
 import { useApiUrl, useCustomMutation, useDelete, useInfiniteList, useInvalidate, useUpdate, type CrudFilter } from "@refinedev/core";
 import { LayoutGrid, List, Loader2, Search } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
@@ -74,14 +75,19 @@ export function EntryBrowser<T extends Item, E>({
   renderForm,
 }: Props<T, E>) {
   const [view, setView] = useState<ViewMode>(() => readView(resource));
-  const [search, setSearch] = useState("");
-  const [query, setQuery] = useState("");
+  // The top bar search opens /words?q=...: that text becomes this list's search.
+  const [params] = useSearchParams();
+  const urlQuery = params.get("q") ?? "";
+  const [search, setSearch] = useState(urlQuery);
+  const [query, setQuery] = useState(urlQuery.trim());
   const [activeChips, setActiveChips] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<T["id"]>();
   const [editing, setEditing] = useState(false);
   const [actionError, setActionError] = useState<string>();
   // Only one row is hovered at a time (the words list plays that row's clip).
   const [hoveredId, setHoveredId] = useState<T["id"]>();
+
+  useEffect(() => setSearch(urlQuery), [urlQuery]);
 
   // Wait a moment after typing before asking the backend.
   useEffect(() => {
