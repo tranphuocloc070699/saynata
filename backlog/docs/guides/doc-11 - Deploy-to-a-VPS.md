@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-23 02:44'
+updated_date: '2026-10-23 08:14'
 ---
 # Deploy to a VPS
 
@@ -648,6 +648,7 @@ The app can sign in four ways: the email code (sections 10 and 11), an emailed *
 2. **Create credentials, OAuth client ID, type iOS**. Bundle ID: `com.luke.EnglishTranslation`. Copy the client ID (`123-abc.apps.googleusercontent.com`). An iOS client has no secret.
 3. Server: `GOOGLE_CLIENT_IDS=<that client ID>` in `backend/.env`, then `./scripts/deploy.sh`.
 4. App: put the same ID in `EnglishTranslation/EnglishTranslation/Info.plist`, key `GoogleIOSClientID`, and build again. Nothing else: the app uses the system web sign-in sheet, no Google SDK.
+5. Logo on the Google sign-in page (optional): **OAuth consent screen, Branding, App logo**, upload [google-consent-logo-120.png](../../../docs/design/logo/google-consent-logo-120.png) (120 x 120 px, TASK-95). Google shows a logo only after it verifies the app's branding, so in "Testing" the page may still show no logo.
 
 **Apple (needs the paid Apple Developer account):**
 

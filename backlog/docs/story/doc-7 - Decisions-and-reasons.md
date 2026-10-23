@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-23 02:44'
+updated_date: '2026-10-23 08:14'
 ---
 # Decisions and reasons
 
@@ -56,6 +56,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-18 | A phrase ("give up") gets **the same word card as a word, no new parts (mockup A)**, and on **every** word card the **IPA moves onto the headword line** (it goes under it only when the line is too long) | Reason not recorded (the developer picked "A, move the IPA to the same line", then "Every word card") | B: a "Phrasal verb" chip and an "Explain as a sentence" row; A without IPA for phrases; IPA on the same line only for phrases | Claude (A), developer (IPA line) |
 | 10-18 | The AI picture editor in the admin is a **dialog (layout A)**: the prompt filled in, the current picture and the meaning, and icon-only buttons (undo, wand, cancel, check) (TASK-91) | Mockup approved. Reason: not recorded. | An inline panel under the Media row | Developer chose from the mockup |
 | 10-18 | The dialog has a **wand** button: Claude Sonnet 5.5 writes a new scene (about $0.02 a call), with its own **$1 a day cap** (on top of the users' daily budget) (TASK-91) | Reason: not recorded. | Leaving the wand out | Developer |
+| 10-23 | **New logo: two cat heads on a teal tile (TASK-95)**: a light cat with a serif Latin "S" and a sage cat with the Japanese "さ" (sa, how Saynata starts), no speech tail, only `Theme.Colors` (Accent tile, Background and ChipFill cats). A cozy, Studio Ghibli feel inspired by the CatMegaBundle pixel cats; no sprite from that paid pack is used. Letters are outlines from SIL OFL fonts (DM Serif Display, Noto Serif JP), made by `scripts/logo/build_logo.py` | "Right now the logo doesn't show that this is a translation app." The developer wanted a Studio Ghibli vibe, cat faces, "a beautiful S from Japanese or another language", and colours from the app palette. Mobbin: two bubbles or two scripts (Google Translate, Apple Translate) say "language". The tail was dropped because it "felt unnatural" | Today's serif S in a circle; a speech bubble with S; pixel, chibi and book cats; one cat-ear bubble with "Aa"; English A and Vietnamese Ă; cats with eyes; a curved or cat-shaped tail; a cream or chip tile; Korean ㅅ, Greek σ, Thai ส, Georgian ს | Developer (cat, Ghibli, two scripts, さ, no tail), Claude (drawings, teal tile, さ) |
 
 ## Stack
 

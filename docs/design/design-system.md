@@ -55,6 +55,23 @@ There are no mockups in Figma or Claude Design. Build screens straight in SwiftU
 10. **Never use color alone to mean something.** A wrong word in the speaking score is red *and*
     underlined or marked with an icon ([HIG: Color](https://developer.apple.com/design/human-interface-guidelines/color)).
 
+## Logo (TASK-95)
+
+![Logo](logo/saynata-logo-512.png)
+
+Two cat heads on a teal tile: a light cat with a serif Latin "S" and a sage cat with the Japanese "さ" (sa).
+Why: doc-7, Design, 10-23. Colours are `Theme.Colors` only: Accent tile, Background and ChipFill cats.
+
+- Master drawings: [docs/design/logo/](logo/) (`saynata-logo.svg` with the round tile, `saynata-icon-ios.svg` square,
+  `saynata-icon-mac.svg` with margin and shadow, `saynata-menubar.svg` one-colour template, `saynata-cats.svg` no tile).
+- Do not edit the PNGs or SVGs by hand. Change [build_logo.py](../../scripts/logo/build_logo.py) and run it: it draws
+  every file (iOS and Mac app icon, menu-bar image, extension icons and selection button, Google consent logo).
+- The letters are outlines from two SIL Open Font License fonts, DM Serif Display ("S") and Noto Serif JP Bold ("さ").
+  The fonts are not in the repo; the script's docstring says where to get them.
+- Smallest size: 16 px (extension toolbar). There the letters disappear and the two cat heads carry the logo. The menu
+  bar (18 pt) uses the cats without letters.
+- The cats are inspired by a paid pixel-art pack (CatMegaBundle). No file from that pack is in the repo.
+
 ## Example level colors (TASK-36)
 
 Small labels before an example sentence. The text uses the token color; the label background is the same
