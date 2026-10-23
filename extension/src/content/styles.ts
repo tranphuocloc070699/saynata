@@ -15,8 +15,9 @@ button { font: inherit; color: inherit; margin: 0; cursor: pointer; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .trigger { position: absolute; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; padding: 0;
-  background: var(--accent); color: #fff; font: 600 14px/1 var(--serif); display: flex; align-items: center;
+  background: var(--accent); display: flex; align-items: center;
   justify-content: center; box-shadow: 0 2px 8px rgba(31,42,38,.28); animation: pop .12s ease-out; }
+.trigger svg { width: 20px; height: 20px; display: block; }
 .trigger:hover { filter: brightness(1.1); }
 @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
