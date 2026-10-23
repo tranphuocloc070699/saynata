@@ -37,6 +37,31 @@ class CacheKeysTest {
     }
 
     @Test
+    void looseSentenceDropsOnePairOfQuotesAroundTheWholeText() {
+        String plain = CacheKeys.normalizeSentenceLoose("Looks good.");
+        assertThat(plain).isEqualTo("looks good");
+        assertThat(CacheKeys.normalizeSentenceLoose("\"Looks good.\"")).isEqualTo(plain);
+        assertThat(CacheKeys.normalizeSentenceLoose("\u201CLooks good.\u201D")).isEqualTo(plain);
+        assertThat(CacheKeys.normalizeSentenceLoose("'Looks good.'")).isEqualTo(plain);
+        assertThat(CacheKeys.normalizeSentenceLoose("\u2018Looks good.\u2019")).isEqualTo(plain);
+        assertThat(CacheKeys.normalizeSentenceLoose("\"Looks good\".")).isEqualTo(plain);
+        assertThat(CacheKeys.normalizeSentenceLoose("  \"Looks good\"  ")).isEqualTo(plain);
+        // Only one pair goes.
+        assertThat(CacheKeys.normalizeSentenceLoose("\"'Looks good'\"")).isEqualTo("'looks good'");
+    }
+
+    @Test
+    void looseSentenceKeepsInnerQuotesAndApostropheWords() {
+        assertThat(CacheKeys.normalizeSentenceLoose("She said \"hi\" to me")).isEqualTo("she said \"hi\" to me");
+        assertThat(CacheKeys.normalizeSentenceLoose("'Cause I said so.")).isEqualTo("'cause i said so");
+        assertThat(CacheKeys.normalizeSentenceLoose("\"Hi\" and \"bye\"")).isEqualTo("\"hi\" and \"bye\"");
+        assertThat(CacheKeys.normalizeSentenceLoose("'a' and 'b'")).isEqualTo("'a' and 'b'");
+        assertThat(CacheKeys.normalizeSentenceLoose("'Don't go.'")).isEqualTo("don't go");
+        assertThat(CacheKeys.normalizeSentenceLoose("\"")).isEqualTo("\"");
+        assertThat(CacheKeys.normalizeSentenceLoose("\"\"")).isEmpty();
+    }
+
+    @Test
     void matchKeyIsTheDocumentedSha256() {
         assertThat(CacheKeys.sentenceMatchKey("v6", "vi", "How are you?"))
                 .isEqualTo(CacheKeys.key("sentence-loose", "v6", "vi", "how are you"))

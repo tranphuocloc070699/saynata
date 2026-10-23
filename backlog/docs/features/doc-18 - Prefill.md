@@ -2,8 +2,8 @@
 id: doc-18
 title: Prefill
 type: other
-created_date: 2026-10-16 08:28
-updated_date: '2026-10-23 02:20'
+created_date: '2026-10-16 08:28'
+updated_date: '2026-10-23 07:41'
 ---
 # Prefill
 
@@ -123,7 +123,7 @@ Run: `cd backend && ./mvnw -B test`. No test calls the real API.
 - `lastRuns` lives in memory (the last 10 runs since the server started). Older spend is in `GET /api/admin/usage`, feature `prefill`.
 - The cap check is "spend so far + the dearest item so far". The first item of a run has no history, so a run can go over its cap by one call.
 - There is no admin screen yet (the admin web app is another task). Use curl.
-- The loose sentence match (TASK-83.3) is used when a phrase or sentence is answered, but not when it is queued: `prefill_item` is unique on the exact text, so "Looks good!" and "looks good" can both be queued. The second costs nothing (a loose cache hit, `done`), but it is a row in the queue and in `prefill report`.
+- The loose sentence match (TASK-83.3) is used when a phrase or sentence is answered, but not when it is queued: `prefill_item` is unique on the exact text, so "Looks good!", "looks good" and "\"Looks good.\"" (quotes around the whole text, ignored by the match since TASK-83.13) can all be queued. The second costs nothing (a loose cache hit, `done`), but it is a row in the queue and in `prefill report`.
 - Sentence words (TASK-83.8): only the words of sentences that were answered are counted; the work is dropped when 50 texts wait. A word queued before its base was cached is still answered (a cached item is `done` for free). The nightly job is the same Spring `@Scheduled`-style schedule above; there is no second scheduler.
 - A word that Claude returns with no senses is saved by `WordService` like any other word; prefill does not look at the quality of the answer.
 

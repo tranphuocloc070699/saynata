@@ -175,6 +175,17 @@ class CachedOnlyTest {
     }
 
     @Test
+    void aSentenceWithQuotesAroundTheWholeTextHitsTheCache() throws Exception {
+        saveSentence("Looks good.");
+
+        sentence("\\\"Looks good.\\\"").andExpect(status().isOk()).andExpect(jsonPath("$.cached").value(true));
+        sentence("\u201CLooks good.\u201D").andExpect(status().isOk()).andExpect(jsonPath("$.cached").value(true));
+        sentence("\\\"Looks good\\\".").andExpect(status().isOk()).andExpect(jsonPath("$.cached").value(true));
+
+        verifyNoInteractions(claude, gate);
+    }
+
+    @Test
     void aSentenceMissIs404NotCachedAndNothingIsSaved() throws Exception {
         sentence("A brand new sentence").andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("not_cached"));
