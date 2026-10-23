@@ -57,6 +57,31 @@ class SentenceMatchKeyMigrationTest {
                 String.class)).isEqualTo("I\u2019m fine\u2026");
     }
 
+    @Test
+    void v25GivesOldRowsTheKeyWithoutQuotesAroundTheWholeText() {
+        DataSource dataSource = new DriverManagerDataSource("jdbc:h2:mem:match_key_v25;DB_CLOSE_DELAY=-1", "sa", "");
+        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("24").load().migrate();
+
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        // The key V24 gave this row: the quotes were part of the loose text.
+        String stale = CacheKeys.key("sentence-loose", "v6", "vi", "\"looks good.\"");
+        jdbc.update("insert into sentence_translation (cache_key, source_text, translation, model, prompt_version,"
+                + " created_at, target_lang, match_key) values ('k1', '\u201CLooks good.\u201D', 'x', 'm', 'v6',"
+                + " current_timestamp, 'vi', ?)", stale);
+        jdbc.update("insert into sentence_translation (cache_key, source_text, translation, model, prompt_version,"
+                + " created_at, target_lang, match_key) values ('k2', 'She said \"hi\" to me', 'x', 'm', 'v6',"
+                + " current_timestamp, 'vi', ?)", CacheKeys.key("sentence-loose", "v6", "vi", "she said \"hi\" to me"));
+
+        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+
+        assertThat(matchKey(jdbc, "k1"))
+                .isEqualTo(CacheKeys.key("sentence-loose", "v6", "vi", "looks good"))
+                .isEqualTo(CacheKeys.sentenceMatchKey("v6", "vi", "Looks good."));
+        // A row with only inner quotes keeps its key.
+        assertThat(matchKey(jdbc, "k2"))
+                .isEqualTo(CacheKeys.key("sentence-loose", "v6", "vi", "she said \"hi\" to me"));
+    }
+
     private static void insert(JdbcTemplate jdbc, String cacheKey, String text, String lang, String version) {
         jdbc.update("insert into sentence_translation (cache_key, source_text, translation, model, prompt_version,"
                 + " created_at, target_lang) values (?, ?, 'x', 'm', ?, current_timestamp, ?)",

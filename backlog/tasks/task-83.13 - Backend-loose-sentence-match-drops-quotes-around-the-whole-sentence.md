@@ -1,9 +1,11 @@
 ---
 id: TASK-83.13
 title: 'Backend: loose sentence match drops quotes around the whole sentence'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-23 07:34'
+updated_date: '2026-10-23 07:41'
 labels:
   - backend
   - cache
@@ -37,3 +39,9 @@ In `CacheKeys.normalizeSentenceLoose`, after the straight-quote step and trimmin
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. CacheKeys.withoutWrappingQuotes in normalizeSentenceLoose. 2. Flyway Java V25 recompute. 3. Tests. 4. doc-4, doc-18.
+<!-- SECTION:PLAN:END -->
