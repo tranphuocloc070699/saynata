@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+/*
+ * Saynata tokens, the same "Sage and Teal" values as the iOS Color Sets
+ * (docs/design/color-schemes-2026-10-11.md, option A). Views use these tokens only, never a hex value.
+ */
+:root {
+  --bg: #f3f5f1;
+  --surface: #ffffff;
+  --meaning: #e8eee9;
+  --hairline: #d9e0da;
+  --chip: #dcebe4;
+  --ink: #1f2a26;
+  --ink-2: #4a5a53;
+  --muted: #5f6e67;
+  --accent: #2f6f62;
+  --on-accent: #ffffff;
+  --level-easy: #1f6b5f;
+  --level-medium: #8a5a00;
+  --level-harder: #b4432f;
+  --error: #b3402f;
+  --cat: #e9a86a;
+  --cat-line: #3a2e26;
+  --cat-blush: #f2b8a8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121715;
+    --surface: #1b221f;
+    --meaning: #232c28;
+    --hairline: #2e3833;
+    --chip: #24382f;
+    --ink: #e8eeea;
+    --ink-2: #b5c2bb;
+    --muted: #8a9992;
+    --accent: #6fc2ae;
+    --on-accent: #10201b;
+    --level-easy: #6fc2ae;
+    --level-medium: #e2b45c;
+    --level-harder: #e58a7a;
+    --error: #e58a7a;
+    --cat: #d99a5e;
+    --cat-line: #1a1410;
+    --cat-blush: #c98a7c;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-meaning: var(--meaning);
+  --color-hairline: var(--hairline);
+  --color-chip: var(--chip);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-level-easy: var(--level-easy);
+  --color-level-medium: var(--level-medium);
+  --color-level-harder: var(--level-harder);
+  --color-error: var(--error);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-dm-serif), Georgia, serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/*
+ * Elements with data-enter start hidden and GSAP fades them in on the first paint (lib/motion.ts).
+ * With reduced motion, or with no JavaScript (the <noscript> rule in layout.tsx), they are simply shown.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  [data-enter] {
+    opacity: 0;
+  }
+}
+
+/* A folded row opens by animating grid rows, not height, so nothing below jumps. */
+.fold-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms ease-out;
+}
+.fold-body[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+.fold-body > div {
+  overflow: hidden;
+}
+
+.stream-caret::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--accent);
+  animation: caret-blink 1s steps(1) infinite;
+}
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fold-body {
+    transition: none;
+  }
+  .stream-caret::after {
+    animation: none;
+  }
+}
