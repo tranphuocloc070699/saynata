@@ -47,9 +47,11 @@ function renderWords(words: WordItem[]) {
   return getList;
 }
 
+// The table row of a word (TASK-99.2). hidden: while a word is open in the drawer (a modal), the table is hidden
+// from the accessibility tree but still on the page.
 async function row(name: string) {
-  const list = await screen.findByRole("region", { name: "List" });
-  return (await within(list).findByText(name)).closest("button") as HTMLElement;
+  const list = await screen.findByRole("region", { name: "List", hidden: true });
+  return (await within(list).findByText(name)).closest("tr") as HTMLElement;
 }
 
 describe("word list rows (TASK-62)", () => {
@@ -99,14 +101,17 @@ describe("media row per word (TASK-64)", () => {
     await userEvent.click(within(entry).getByRole("button", { name: "Pick another image" }));
     expect(await within(entry).findByRole("region", { name: "Pick another image (sense 1)" })).toBeInTheDocument();
 
+    // The word is in a drawer: close it, then open the next word.
+    await userEvent.keyboard("{Escape}");
     await userEvent.click(await row("run"));
 
-    expect(within(entry).queryByRole("region", { name: /Pick another image/ })).not.toBeInTheDocument();
-    expect(within(entry).queryByRole("img", { name: "apple, sense 1" })).not.toBeInTheDocument();
-    const clip = within(entry).getByLabelText("run, sense 1");
+    const next = screen.getByRole("region", { name: "Entry" });
+    expect(within(next).queryByRole("region", { name: /Pick another image/ })).not.toBeInTheDocument();
+    expect(within(next).queryByRole("img", { name: "apple, sense 1" })).not.toBeInTheDocument();
+    const clip = within(next).getByLabelText("run, sense 1");
     expect(clip.tagName).toBe("VIDEO");
     expect(clip).toHaveAttribute("src", "https://api.loffy.me/media/run.mp4");
-    expect(within(entry).getByRole("link", { name: "By run.mp4" })).toBeInTheDocument();
+    expect(within(next).getByRole("link", { name: "By run.mp4" })).toBeInTheDocument();
   });
 });
 
