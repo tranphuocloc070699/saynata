@@ -3,7 +3,7 @@ id: doc-22
 title: History and Liked
 type: other
 created_date: '2026-10-19 13:12'
-updated_date: '2026-10-19 13:13'
+updated_date: '2026-10-23 08:15'
 ---
 # History and Liked
 
@@ -12,7 +12,7 @@ updated_date: '2026-10-19 13:13'
 
 ## What it does
 
-A clock button, left of the Settings gear, opens one sheet with two lists:
+A clock button, at the top right (the Settings hamburger is at the top left, TASK-97), opens one sheet with two lists:
 
 - **History**: every word, phrase and sentence that reached a final result (bundle, cache or backend). It lives on the device, so it works for guests. The newest 1000 are kept; a repeat moves to the top.
 - **Liked**: what the learner starred. It lives on the server per account (`/api/liked`), with a copy on the phone, so it works offline and follows the user to other devices.
