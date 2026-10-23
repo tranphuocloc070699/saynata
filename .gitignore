@@ -12,3 +12,6 @@ IceCubesApp/
 
 # Local device builds (scripts/install-on-phone.sh)
 build/
+
+# Paid cat pixel art (CatMegaBundle, no license to redistribute). Copied in by scripts/install-cat-assets.sh
+EnglishTranslation/PaidAssets/
