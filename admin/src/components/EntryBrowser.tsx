@@ -1,5 +1,5 @@
 import { useApiUrl, useCustomMutation, useDelete, useInfiniteList, useInvalidate, useUpdate, type CrudFilter } from "@refinedev/core";
-import { ChevronDown, LayoutGrid, List, Loader2, Search } from "lucide-react";
+import { LayoutGrid, List, Loader2, Search } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,8 @@ import { Sheet } from "@/components/ui/sheet";
 import { EntryActions } from "@/components/EntryActions";
 import { EntryEditor } from "@/components/EntryEditor";
 import { FieldTable, type FieldRow } from "@/components/FieldTable";
+import { FilterMenu } from "@/components/FilterMenu";
+import { PendingQueue } from "@/components/PendingQueue";
 import { httpClient } from "@/providers/dataProvider";
 import { cn } from "@/lib/utils";
 
@@ -28,8 +30,13 @@ export interface Chip {
   // Chips with the same field: "one" (default) = turning one on turns the others off.
   // "any" = they can be on together and their values are OR-ed into one list (A1-A2 and B1-B2).
   combine?: "one" | "any";
-  // Chips with a group sit in one menu (for example the four media chips in "Media"), to keep the bar short.
-  group?: string;
+  // The parent in the Filter menu, for example "Level" (TASK-101).
+  group: string;
+  // A short line under the choice, for example "On the phone, works offline".
+  description?: string;
+  // The Pending choice: shows the prefill queue rows instead of the list (TASK-101). It is never sent as a filter,
+  // and it is on alone: choosing it turns the other choices off, and another choice turns it off.
+  pending?: boolean;
 }
 
 // One column of the table view (TASK-99.2). The first column is always the item: thumbnail, title, subtitle.
@@ -109,7 +116,8 @@ export function EntryBrowser<T extends Item, E>({
     return () => clearTimeout(timer);
   }, [search]);
 
-  const chosen = chips.filter((chip) => activeChips.includes(chip.id));
+  const chosen = chips.filter((chip) => activeChips.includes(chip.id) && !chip.pending);
+  const pendingOn = chips.some((chip) => chip.pending && activeChips.includes(chip.id));
   const filters: CrudFilter[] = [];
   if (query) filters.push({ field: "q", operator: "contains", value: query });
   for (const field of new Set(chosen.map((chip) => chip.field))) {
@@ -213,9 +221,6 @@ export function EntryBrowser<T extends Item, E>({
     }
   }
 
-  // Which chip group menu is open ("Media"), if any.
-  const [openGroup, setOpenGroup] = useState<string>();
-
   function select(item: T) {
     setSelectedId(item.id);
     setEditing(false);
@@ -225,24 +230,16 @@ export function EntryBrowser<T extends Item, E>({
   function toggleChip(chip: Chip) {
     setActiveChips((current) => {
       if (current.includes(chip.id)) return current.filter((id) => id !== chip.id);
-      // A chip that cannot be combined replaces the other chips of the same field.
-      const keep =
-        chip.combine === "any" ? current : current.filter((id) => chips.find((c) => c.id === id)?.field !== chip.field);
+      if (chip.pending) return [chip.id];
+      // A chip that cannot be combined replaces the other chips of the same field; any chip turns Pending off.
+      const keep = current.filter((id) => {
+        const other = chips.find((c) => c.id === id);
+        return !other?.pending && (chip.combine === "any" || other?.field !== chip.field);
+      });
       return [...keep, chip.id];
     });
     listRef.current?.scrollTo?.({ top: 0 });
   }
-
-  const chipClass = (on: boolean) =>
-    cn(
-      "rounded-full border px-3 py-1 text-xs font-medium",
-      on ? "border-primary bg-accent text-accent-foreground" : "border-border bg-card text-muted-foreground hover:bg-muted",
-    );
-  const chipButton = (chip: Chip) => (
-    <button key={chip.id} type="button" aria-pressed={activeChips.includes(chip.id)} onClick={() => toggleChip(chip)} className={chipClass(activeChips.includes(chip.id))}>
-      {chip.label}
-    </button>
-  );
 
   const entryPane = (
     <>
@@ -279,8 +276,8 @@ export function EntryBrowser<T extends Item, E>({
   return (
     <div className={cn("grid h-full", drawer ? "grid-cols-1" : "grid-cols-[minmax(280px,380px)_1fr]")}>
       <section aria-label="List" className={cn("flex min-h-0 flex-col", !drawer && "border-r border-border")}>
-        <div className="space-y-3 border-b border-border p-4">
-          <div className="flex items-center gap-2">
+        <div className="border-b border-border p-4">
+          <div className="flex flex-wrap items-center gap-2">
             <div className={cn("relative flex-1", drawer && "max-w-sm")}>
               <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -290,6 +287,15 @@ export function EntryBrowser<T extends Item, E>({
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div role="group" aria-label="Filters">
+              <FilterMenu
+                resource={resource}
+                chips={chips}
+                active={activeChips}
+                onToggle={toggleChip}
+                pendingKind={resource === "words" ? "word" : "sentence"}
               />
             </div>
             {itemThumb && (
@@ -318,39 +324,11 @@ export function EntryBrowser<T extends Item, E>({
               </div>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filters">
-            {chips.filter((chip) => !chip.group).map(chipButton)}
-            {[...new Set(chips.flatMap((chip) => (chip.group ? [chip.group] : [])))].map((group) => {
-              const members = chips.filter((chip) => chip.group === group);
-              const on = members.find((chip) => activeChips.includes(chip.id));
-              return (
-                <div key={group} className="relative">
-                  <button
-                    type="button"
-                    aria-expanded={openGroup === group}
-                    aria-haspopup="true"
-                    onClick={() => setOpenGroup((current) => (current === group ? undefined : group))}
-                    className={cn(chipClass(!!on), "inline-flex items-center gap-1")}
-                  >
-                    {on ? `${group}: ${on.label}` : group}
-                    <ChevronDown className="h-3 w-3" aria-hidden />
-                  </button>
-                  {openGroup === group && (
-                    <div
-                      role="group"
-                      aria-label={`${group} filters`}
-                      className="absolute left-0 top-9 z-20 flex w-48 flex-col gap-1 rounded-xl border border-border bg-card p-2 shadow-lg"
-                    >
-                      {members.map((chip) => chipButton(chip))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </div>
 
-        {table ? (
+        {pendingOn ? (
+          <PendingQueue kind={resource === "words" ? "word" : "sentence"} query={query} />
+        ) : table ? (
           <div ref={(node) => void (listRef.current = node)} className="min-h-0 flex-1 overflow-y-auto">
             <table aria-label="Rows" className="w-full border-collapse text-sm">
               <thead className="sticky top-0 z-10 bg-muted">
@@ -465,8 +443,8 @@ export function EntryBrowser<T extends Item, E>({
                         <span className="block truncate font-semibold">{itemTitle(item)}</span>
                         <p className="line-clamp-1 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
                         <div className="flex flex-wrap items-center gap-1">
-                          {item.needsReview && <Badge variant="warning">Needs review</Badge>}
-                          {itemBadges?.(item)}
+                          {/* The page decides the badges (Words: only "Needs review · N"); without it, the plain flag. */}
+                          {itemBadges ? itemBadges(item) : item.needsReview && <Badge variant="warning">Needs review</Badge>}
                         </div>
                       </div>
                     </>
@@ -476,8 +454,8 @@ export function EntryBrowser<T extends Item, E>({
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-semibold">{itemTitle(item)}</span>
-                          {item.needsReview && <Badge variant="warning">Needs review</Badge>}
-                          {itemBadges?.(item)}
+                          {/* The page decides the badges (Words: only "Needs review · N"); without it, the plain flag. */}
+                          {itemBadges ? itemBadges(item) : item.needsReview && <Badge variant="warning">Needs review</Badge>}
                         </div>
                         <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{itemSubtitle(item)}</p>
                       </div>
@@ -494,11 +472,13 @@ export function EntryBrowser<T extends Item, E>({
           </ul>
         )}
 
+        {!pendingOn && (
         <div className="border-t border-border p-3 text-sm text-muted-foreground">
           <span>
             {loaded.length.toLocaleString("en-US")} of {total.toLocaleString("en-US")}
           </span>
         </div>
+        )}
       </section>
 
       {drawer ? (

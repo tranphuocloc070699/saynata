@@ -12,22 +12,40 @@ import type { FieldRow } from "@/components/FieldTable";
 
 const LEVELS: ExampleLevel[] = ["easy", "medium", "harder"];
 
-// Every chip is sent to the backend (a query parameter). Source and media: one at a time. Levels: OR-ed.
-// The level is the level of the first sense (the backend column, same as in the list).
-const cefrChip = (label: string, levels: string[]): Chip => ({ id: label, label, field: "cefr", value: levels, combine: "any" });
+// Every choice of the Filter menu is sent to the backend (a query parameter), except Pending (TASK-101).
+// Level: OR-ed (the level of the first sense, the backend column). Source: one at a time.
+const cefrChip = (label: string, levels: string[]): Chip => ({
+  id: label,
+  label,
+  field: "cefr",
+  value: levels,
+  combine: "any",
+  group: "Level",
+});
 
 const chips: Chip[] = [
-  { id: "needs-review", label: "Needs review", field: "needs_review", value: true },
-  { id: "bundled", label: "Bundled", field: "source", value: "bundled" },
-  { id: "backend", label: "From backend", field: "source", value: "backend" },
   cefrChip("A1-A2", ["A1", "A2"]),
   cefrChip("B1-B2", ["B1", "B2"]),
-  // The media chips sit in one "Media" menu (TASK-99.2).
-  { id: "has-media", label: "Has media", field: "media", value: "with", group: "Media" },
-  { id: "no-media", label: "No media", field: "media", value: "without", group: "Media" },
-  // Picture review (TASK-80), separate from "Needs review" (word text). Same field, so one at a time.
-  { id: "wrong-media", label: "Wrong media", field: "media", value: "wrong", group: "Media" },
-  { id: "media-to-review", label: "Media to review", field: "media", value: "to-review", group: "Media" },
+  cefrChip("C1-C2", ["C1", "C2"]),
+  { id: "bundled", label: "Bundled", description: "On the phone, inside the app. Works offline.", field: "source", value: "bundled", group: "Source" },
+  {
+    id: "backend",
+    label: "Backend database",
+    description: "Written by Claude on the server when someone looked it up.",
+    field: "source",
+    value: "backend",
+    group: "Source",
+  },
+  {
+    id: "pending",
+    label: "Pending",
+    description: "Met in a sentence, not in the database yet. The night job answers it.",
+    field: "",
+    value: "",
+    group: "Status",
+    pending: true,
+  },
+  { id: "needs-review", label: "Needs review", description: "The text check found a problem.", field: "needs_review", value: true, group: "Status" },
 ];
 
 // Why a word needs review: the lines from the backend, or a hint when the entry is fine now.
@@ -47,36 +65,16 @@ function ReviewReasons({ word }: { word: WordItem }) {
   );
 }
 
-// In the list row, next to the "Needs review" badge: how many problems, and the reasons in the tooltip.
-function ReasonCount({ word }: { word: WordItem }) {
+// The one status badge of a row (TASK-101): "Needs review · N" with N problems, the reasons in the tooltip.
+// A word that is fine shows nothing.
+function NeedsReviewBadge({ word }: { word: WordItem }) {
   if (!word.needsReview) return null;
   const reasons = word.reviewReasons ?? [];
-  const label = `${reasons.length} ${reasons.length === 1 ? "problem" : "problems"}`;
   const tooltip = reasons.length ? reasons.join("\n") : "No problems found now; press ✓ to mark it reviewed";
   return (
-    <Badge variant="outline" title={tooltip}>
-      {label}
+    <Badge variant="warning" dot title={tooltip}>
+      Needs review · {reasons.length}
     </Badge>
-  );
-}
-
-// In the list row, next to the other badges: pictures marked wrong (warning colour) and pictures nobody approved yet.
-function MediaReviewBadges({ word }: { word: WordItem }) {
-  const wrong = word.wrongMediaCount ?? 0;
-  const toReview = word.mediaToReviewCount ?? 0;
-  return (
-    <>
-      {wrong > 0 && (
-        <Badge variant="danger" title={`${wrong} ${wrong === 1 ? "picture is" : "pictures are"} marked wrong`}>
-          Wrong media
-        </Badge>
-      )}
-      {toReview > 0 && (
-        <Badge variant="outline" title="Pictures or clips nobody approved yet">
-          {toReview} to review
-        </Badge>
-      )}
-    </>
   );
 }
 
@@ -313,36 +311,11 @@ function WordForm({ draft, setDraft, word }: { draft: WordEntry; setDraft: (next
   );
 }
 
-// The table columns after the word (Isomorphic list page, TASK-99.2).
+// The table columns after the word (Isomorphic list page, TASK-99.2). Only problems get a badge (TASK-101).
 const columns: Column<WordItem>[] = [
-  { header: "Source", cell: (word) => <Badge variant="outline">{word.source === "bundled" ? "Bundled" : "Backend"}</Badge> },
   { header: "Level", cell: (word) => word.entry.senses[0]?.cefr ?? "-" },
-  {
-    header: "Review",
-    cell: (word) =>
-      word.needsReview ? (
-        <>
-          <Badge variant="warning" dot>
-            Needs review
-          </Badge>
-          <ReasonCount word={word} />
-        </>
-      ) : (
-        <Badge variant="success" dot>
-          Reviewed
-        </Badge>
-      ),
-  },
-  {
-    header: "Media",
-    cell: (word) =>
-      // A word without media can still count a picture to review (the counts come from the backend), so badges win.
-      word.media?.some(Boolean) || word.wrongMediaCount || word.mediaToReviewCount ? (
-        <MediaReviewBadges word={word} />
-      ) : (
-        <span className="text-muted-foreground">No media</span>
-      ),
-  },
+  { header: "Source", cell: (word) => <span className="text-muted-foreground">{word.source === "bundled" ? "Bundled" : "Backend"}</span> },
+  { header: "Status", cell: (word) => <NeedsReviewBadge word={word} /> },
 ];
 
 export function WordsPage() {
@@ -355,13 +328,7 @@ export function WordsPage() {
       itemThumb={(word, hovered, variant) => <Thumb word={word} hovered={hovered} variant={variant} />}
       columns={columns}
       hasMedia={(word) => !!word.media?.some(Boolean)}
-      itemBadges={(word) => (
-        <>
-          <Badge variant="outline">{word.source === "bundled" ? "Bundled" : "Backend"}</Badge>
-          <ReasonCount word={word} />
-          <MediaReviewBadges word={word} />
-        </>
-      )}
+      itemBadges={(word) => <NeedsReviewBadge word={word} />}
       detailRows={detailRows}
       editableEntry={(word) => word.entry}
       renderForm={(draft, setDraft, word) => <WordForm draft={draft} setDraft={setDraft} word={word} />}

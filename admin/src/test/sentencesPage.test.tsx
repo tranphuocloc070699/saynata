@@ -31,14 +31,15 @@ function renderSentences() {
 }
 
 describe("sentences page (TASK-99.3)", () => {
-  it("shows the sentences as a table with Language, Review and Model columns", async () => {
+  it("shows the sentences as a table with Language, Status and Model columns", async () => {
     renderSentences();
     const table = await screen.findByRole("table", { name: "Rows" });
-    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual(["Sentence", "Language", "Review", "Model"]);
+    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual(["Sentence", "Language", "Status", "Model"]);
     const first = (await within(table).findByText("Looks good.")).closest("tr")!;
     expect(within(first).getByText("It seems fine.")).toBeInTheDocument();
     expect(within(first).getByText("Needs review")).toBeInTheDocument();
-    expect(within((within(table).getByText("Give me a hand.")).closest("tr")!).getByText("Reviewed")).toBeInTheDocument();
+    // A sentence that is fine has no badge (TASK-101).
+    expect(within((within(table).getByText("Give me a hand.")).closest("tr")!).queryByText(/review/i)).not.toBeInTheDocument();
   });
 
   it("opens a sentence in the drawer with the simple explanation before the translation", async () => {
