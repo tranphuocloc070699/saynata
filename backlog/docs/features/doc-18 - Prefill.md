@@ -91,6 +91,8 @@ sequenceDiagram
 | `PREFILL_DELAY` | `app.prefill.delay` | `0s` | Optional pause after each new word. |
 | none | `app.prefill.max-attempts` | `3` | A failed item is tried again by later runs until it failed this many times, then stays `failed`. |
 
+**A sentence prompt bump** (TASK-89.3, prompt v9): the version is part of the cache key, so the answers the queue already saved are not read any more. Flyway [V26](../../../backend/src/main/resources/db/migration/V26__requeue_sentence_prefill_for_prompt_v9.sql) set every `done` sentence back to `pending` (attempts 0), so the next runs answer them again with the new prompt. Words are not touched. Do the same in a new Flyway file at the next sentence prompt bump.
+
 ## Errors
 
 | Cause | Where | HTTP | What the admin sees |

@@ -42,6 +42,10 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .block { margin: 4px 14px 12px; background: var(--meaning); border-radius: 10px; padding: 10px 12px; }
 .label { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .meaning { font: 15px/1.55 var(--serif); color: var(--text); margin-top: 2px; overflow-wrap: anywhere; }
+.meaning b { font-weight: 600; }
+.summary-line { margin: 0; }
+.summary-list { margin: 4px 0 0; padding-left: 18px; }
+.summary-list li { margin: 2px 0; }
 .caret { display: inline-block; width: 2px; height: 15px; background: var(--accent); vertical-align: -2px; margin-left: 2px;
   animation: blink 1s steps(2) infinite; }
 @keyframes blink { 50% { opacity: 0; } }

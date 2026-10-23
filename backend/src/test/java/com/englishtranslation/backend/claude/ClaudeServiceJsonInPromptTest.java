@@ -58,9 +58,13 @@ class ClaudeServiceJsonInPromptTest {
     }
 
     private ClaudeService service() {
+        return service(null);
+    }
+
+    private ClaudeService service(String temperature) {
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/api";
         ClaudeProperties properties = new ClaudeProperties("", "gpt-6-luna", "v1", "v1", url, "sk-test",
-                null, "");
+                null, "", temperature);
         return new ClaudeService(new ClaudeConfig().anthropicClient(properties), properties, usage);
     }
 
@@ -105,6 +109,27 @@ class ClaudeServiceJsonInPromptTest {
                 .contains("Answer with ONLY one JSON object")
                 .contains("isEnglish").contains("summary").contains("translation");
         verify(usage).record(Feature.SENTENCE, "gpt-6-luna", 100, 40);
+    }
+
+    @Test
+    void temperatureIsSentWithSentenceCallsOnlyWhenSet() {
+        replies.add(message(SENTENCE_JSON));
+        replies.add(message(SENTENCE_JSON));
+
+        service("0").explainSentence("I gave up after a week.", TargetLanguage.VI);
+        service().explainSentence("I gave up after a week.", TargetLanguage.VI);
+
+        assertThat(requests.get(0)).contains("\"temperature\":0.0");
+        assertThat(requests.get(1)).doesNotContain("temperature");
+    }
+
+    @Test
+    void theSummaryIsCleanedToTheMarkdownSubset() {
+        replies.add(message("{\"isEnglish\":true,\"summary\":\"## Main point\\n* one\\n* **two\\n* three\\n* four\","
+                + "\"translation\":\"x\"}"));
+
+        assertThat(service().explainSentence("A long text.", TargetLanguage.VI).meaning())
+                .isEqualTo("Main point\n- one\n- two\n- three");
     }
 
     @Test

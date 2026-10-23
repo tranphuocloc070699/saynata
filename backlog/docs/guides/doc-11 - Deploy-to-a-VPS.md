@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-23 08:14'
+updated_date: '2026-10-23 08:54'
 ---
 # Deploy to a VPS
 
@@ -55,6 +55,7 @@ nano .env
 | `CLAUDE_BASE_URL`, `CLAUDE_AUTH_TOKEN` | Optional. An Anthropic-compatible gateway instead of Anthropic: its URL without `/v1` (for example `https://steyg.one/api`) and its key, sent as `Authorization: Bearer`. With a gateway the backend puts the JSON Schema in the prompt and parses the answer from the text (STEYG ignores the strict JSON setting), so non-Claude models work too: on STEYG use `CLAUDE_MODEL=deepseek-v4.1-flash` (the fastest model there in the 2026-10-20 test: about 2.6 s to the first words of a sentence, against about 6 s for `gpt-6-luna`), `CLAUDE_SCENE_MODEL=claude-opus-5-5`, `CLAUDE_EFFORT=` (empty). Then also set `CLAUDE_MODEL` and `CLAUDE_SCENE_MODEL` to model IDs the gateway sells, `CLAUDE_EFFORT=` (empty) for models before the 5 family, and check there is a price for each model in `application.properties`. |
 | `CLAUDE_SCENE_MODEL` | Optional. The model that writes the AI picture scene (default `claude-sonnet-5-5`). |
 | `CLAUDE_EFFORT` | Optional. `low` by default; empty = not sent (older models refuse it). |
+| `CLAUDE_TEMPERATURE` | Optional (TASK-89.3). The temperature for sentence calls; empty = not sent (Claude Haiku 5.5 refuses it). On the server with `deepseek-v4.1-flash` through STEYG set `CLAUDE_TEMPERATURE=0`. |
 | `DB_PASSWORD` | A long random password for Postgres. Required. Make one with `openssl rand -base64 24`. |
 | `BACKEND_PORT` | Port on the server (default 8081). |
 | `BACKEND_BIND` | `0.0.0.0` (open) or `127.0.0.1` (only Caddy on the same server can reach it). |

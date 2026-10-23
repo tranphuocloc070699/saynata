@@ -9,10 +9,12 @@ import org.springframework.boot.context.properties.bind.ConstructorBinding;
  * The Claude settings. {@code baseUrl} and {@code authToken} point the SDK at an Anthropic-compatible gateway
  * instead of api.anthropic.com (empty = Anthropic itself with {@code apiKey}). {@code sceneModel} writes the AI
  * picture scene; {@code effort} is sent with the sentence and word calls, empty = not sent (older models refuse it).
+ * {@code temperature} is sent with the sentence calls only (TASK-89.3), empty = not sent: Claude Haiku 5.5 refuses
+ * it, deepseek through the gateway takes 0.
  */
 @ConfigurationProperties("app.claude")
 public record ClaudeProperties(String apiKey, String model, String sentencePromptVersion, String wordPromptVersion,
-        String baseUrl, String authToken, String sceneModel, String effort) {
+        String baseUrl, String authToken, String sceneModel, String effort, String temperature) {
 
     public static final String DEFAULT_SCENE_MODEL = "claude-sonnet-5-5";
 
@@ -25,7 +27,7 @@ public record ClaudeProperties(String apiKey, String model, String sentencePromp
 
     /** The old shape, for tests: Anthropic itself, the default scene model, low effort. */
     public ClaudeProperties(String apiKey, String model, String sentencePromptVersion, String wordPromptVersion) {
-        this(apiKey, model, sentencePromptVersion, wordPromptVersion, null, null, null, "low");
+        this(apiKey, model, sentencePromptVersion, wordPromptVersion, null, null, null, "low", null);
     }
 
     /**
@@ -47,5 +49,13 @@ public record ClaudeProperties(String apiKey, String model, String sentencePromp
             return Optional.empty();
         }
         return Optional.of(OutputConfig.Effort.of(effort.trim().toLowerCase()));
+    }
+
+    /** The temperature for sentence calls, or empty when {@code temperature} is blank. */
+    public Optional<Double> sentenceTemperature() {
+        if (temperature == null || temperature.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(Double.parseDouble(temperature.trim()));
     }
 }
