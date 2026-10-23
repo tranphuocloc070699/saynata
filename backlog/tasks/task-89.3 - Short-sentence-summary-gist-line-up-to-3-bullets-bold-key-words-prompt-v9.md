@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-23 08:38'
-updated_date: '2026-10-23 08:55'
+updated_date: '2026-10-23 08:57'
 labels:
   - backend
   - ios
@@ -54,4 +54,6 @@ The developer found the sentence summary too long: prompt v8 told the model to k
 Real deepseek-v4.1-flash test calls (4 + 2, about $0.01): long texts shrink to about half, short lines unchanged. temperature 0 is accepted by deepseek through STEYG, but two calls with 0 still gave slightly different summaries (thinking model), so stability comes from the cache.
 Flyway: V24 and V25 are Java migrations (src/main/java/db/migration), so the requeue is V26.
 The server needs CLAUDE_TEMPERATURE=0 in backend/.env (default empty = not sent, because Claude Haiku refuses it).
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/151 (into feature/local). Tests: backend 514, iOS 437, extension 124 pass.
 <!-- SECTION:NOTES:END -->
