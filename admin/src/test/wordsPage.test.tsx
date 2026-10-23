@@ -35,7 +35,7 @@ const run: WordItem = {
 
 const house: WordItem = { ...run, id: 2, word: "house", needsReview: false, source: "bundled" };
 
-function renderWords(words: WordItem[]) {
+function renderWords(words: WordItem[], path = "/words") {
   // A fake backend: it applies the filters it is sent, like the real list endpoint does.
   const getList = vi.fn().mockImplementation(async ({ filters }) => {
     const filter = (field: string) => filters?.find((f: { field: string }) => f.field === field)?.value;
@@ -52,7 +52,7 @@ function renderWords(words: WordItem[]) {
   const dataProvider = { getList, getApiUrl: () => "https://api.test/api/admin" } as unknown as DataProvider;
 
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <Refine dataProvider={dataProvider} options={{ disableTelemetry: true }}>
         <WordsPage />
       </Refine>
@@ -62,6 +62,12 @@ function renderWords(words: WordItem[]) {
 }
 
 describe("words page", () => {
+  it("starts with the search from the top bar (?q=)", async () => {
+    const getList = renderWords([run, house], "/words?q=run");
+    expect(await screen.findByRole("searchbox", { name: "Search" })).toHaveValue("run");
+    expect(getList.mock.calls[0][0].filters).toContainEqual({ field: "q", operator: "contains", value: "run" });
+  });
+
   it("lists the words with a needs review badge", async () => {
     renderWords([run, house]);
     const list = await screen.findByRole("list");

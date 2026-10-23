@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-23 08:14'
+updated_date: '2026-10-23 08:51'
 ---
 # Decisions and reasons
 
@@ -181,6 +181,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-22 | **The loose sentence match ignores a final `?` too** (TASK-83.3): "Is it OK" finds a saved "Is it OK?". The loose key also makes curly quotes and apostrophes straight and drops a final `…` or comma | Claude's call, the task asked it to decide. People often type a question without its `?` (on a phone, in a hurry), and the same words almost always mean the same question, so the saved answer fits. Keeping the `?` would make most prefilled questions miss for exactly the users the prefill is for. The rare cost: "You're coming." and "You're coming?" share one answer. The exact key is still tried first, so a saved "Is it OK" without `?` still wins for that text | The `?` matters (only `.`, `!`, `…`, `,` loose); a separate loose key per final mark | Claude, not yet reviewed by the developer |
 | 10-23 | **Re-check the blocked Codex entries with one more common word allowed** (`collection revalidate --common-zipf 3.5`): a definition or example may use one word outside NGSL + simple-extra when it is common (Zipf ≥ 3.5) | The developer wants as many words as possible on the server so lookups are instant. 8,925 written words were blocked only by "hard words" like "apples", "bees", "fox": rare words often cannot be explained with NGSL alone. Free (no LLM call). Only this re-check is looser; new Codex/Claude answers and the backend `SimpleWords` keep the strict rule | Keep the strict rule; allow every cached word (34k, not simple); Zipf ≥ 4.0 (1,808 words pass); two extra words (5,103) | Developer ("do it right now"), threshold picked by Claude |
 | 10-23 | **The prefill night job answers only what users typed** (`PREFILL_CRON_SOURCES`, default `sentence-words`); words, phrases and sentences the developer adds are run at once (`prefill run`, `prefill collect --now`, TASK-83.12) | "PREFILL_CRON (the night job) is for what users type; new words/phrases/sentences the developer adds must be in the server cache right away." | One cron for every source (the developer's rows would wait for the night); a second cron | Developer |
+| 10-23 | **The admin CMS takes the look of the Isomorphic template, not its code** (TASK-99): Isomorphic shell (white sidebar with a section label, top bar with search and an account menu, page title with a breadcrumb), Words as a table with a right drawer (mockup A), Saynata sage teal colours, Inter + Lexend Deca | The developer runs Isomorphic locally and wants the admin to look like it. Isomorphic is a paid ThemeForest template (Next.js 14, React 18, RizzUI) and Saynata is open source, so its files cannot go in the repo; our Vite + Refine + shadcn stack and its tests stay. Words A: more columns fit and it matches the template list; colours: the brand stays | Move the pages into the template's Next.js app (rewrites auth, data and every test, adds a server, licence problem); Words B split view; Isomorphic black and grey | Developer (Claude proposed copying the look) |
 
 ## Questions answered
 
