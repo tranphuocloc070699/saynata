@@ -28,6 +28,8 @@ enum Theme {
         static let textSecondary = Color("Theme/TextSecondary")
         /// Placeholders and counts. Still passes 4.5:1 on the background.
         static let textMuted = Color("Theme/TextMuted")
+        /// The soft blue-sage sky behind the pixel-art cat room (sign-in sheet, TASK-96).
+        static let roomSky = Color("Theme/RoomSky")
         /// Used in one small place per screen: send button, level chip text, focus.
         static let accent = Color("Theme/Accent")
         /// Correct answer in the speaking score.

@@ -7,6 +7,19 @@ import Foundation
 import Testing
 @testable import EnglishTranslation
 
+struct SettingsTextTests {
+    @Test func rowTitlesAndHintsAreShort() {
+        #expect(TranslationRowMode.allCases.map(\.title) == ["Closed", "Always open", "Remember"])
+        #expect(TranslationRowMode.allCases.allSatisfy { !$0.hint.isEmpty })
+    }
+
+    @Test func versionTextJoinsVersionAndBuild() {
+        #expect(AboutView.versionText(info: ["CFBundleShortVersionString": "1.2", "CFBundleVersion": "7"]) == "1.2 (7)")
+        #expect(AboutView.versionText(info: ["CFBundleShortVersionString": "1.2"]) == "1.2")
+        #expect(AboutView.versionText(info: nil) == "1.0")
+    }
+}
+
 struct TranslationRowPreferenceTests {
 
     /// A fresh, empty settings store for each test.

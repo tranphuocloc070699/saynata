@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -31,6 +32,18 @@ public interface PrefillItemRepository extends JpaRepository<PrefillItem, Long> 
     /** Rows of (source, status, count) for the admin overview. */
     @Query("select p.source, p.status, count(p) from PrefillItem p group by p.source, p.status")
     List<Object[]> countsBySourceAndStatus();
+
+    /**
+     * Admin list (TASK-100). Empty kind or status means any. likePattern is like "%lan%" ("%" alone matches every row).
+     */
+    @Query("""
+            select p from PrefillItem p
+            where (:kind = '' or p.kind = :kind)
+              and (:status = '' or p.status = :status)
+              and lower(p.text) like :likePattern escape '\\'
+            """)
+    Page<PrefillItem> search(@Param("kind") String kind, @Param("status") String status,
+            @Param("likePattern") String likePattern, Pageable page);
 
     Optional<PrefillItem> findByKindAndTextAndTargetLang(String kind, String text, String targetLang);
 }
