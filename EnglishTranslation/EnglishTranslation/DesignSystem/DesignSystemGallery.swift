@@ -17,6 +17,7 @@ struct DesignSystemGallery: View {
                 wordCardSample
                 sentenceCardsSample
                 codeBoxesSample
+                catSpritesSample
             }
             .padding(Theme.Spacing.large)
         }
@@ -35,6 +36,7 @@ struct DesignSystemGallery: View {
         ("textSecondary", Theme.Colors.textSecondary),
         ("textMuted", Theme.Colors.textMuted),
         ("accent", Theme.Colors.accent),
+        ("roomSky", Theme.Colors.roomSky),
         ("success", Theme.Colors.success),
         ("error", Theme.Colors.error),
     ]
@@ -121,6 +123,23 @@ struct DesignSystemGallery: View {
     private var codeBoxesSample: some View {
         TitledSection(title: "Code boxes") {
             CodeBoxes(code: $sampleCode, focusOnAppear: false)
+        }
+    }
+
+    // MARK: - Cat sprites
+
+    /// The animated cat pixel art (TASK-96). Without the paid pack in the bundle you see the fallback cat symbol.
+    private var catSpritesSample: some View {
+        TitledSection(title: "Cat sprites") {
+            HStack(spacing: Theme.Spacing.large) {
+                CatSpriteView(sheet: .sleep, size: CGSize(width: 64, height: 64), fps: 4)
+                CatSpriteView(sheet: .idle, size: CGSize(width: 64, height: 64), fps: 8)
+                CatSpriteView(sheet: .ball, size: CGSize(width: 48, height: 32), fps: 5,
+                              roll: CatSpriteRoll(distance: 80))
+            }
+            .padding(Theme.Spacing.large)
+            .frame(maxWidth: .infinity)
+            .background(Theme.Colors.roomSky, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         }
     }
 
