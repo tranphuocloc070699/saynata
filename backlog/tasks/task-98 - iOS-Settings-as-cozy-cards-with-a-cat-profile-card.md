@@ -1,10 +1,11 @@
 ---
 id: TASK-98
 title: 'iOS: Settings as cozy cards with a cat profile card'
-status: To Do
+status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-23 08:09'
+updated_date: '2026-10-23 08:27'
 labels:
   - ios
   - ui
@@ -35,3 +36,9 @@ The developer finds Settings too plain (a default grouped List). They chose mock
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Rewrite SettingsView as ScrollView of cards: profile (cat), Translation rows with hints, About. 2. AboutView page. 3. Titles Closed/Always open/Remember (hints added). 4. Tests, docs, screenshots.
+<!-- SECTION:PLAN:END -->
