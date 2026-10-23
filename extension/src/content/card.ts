@@ -4,6 +4,7 @@
  * and the target-language row last, closed unless the Show translation setting says otherwise.
  */
 import type { ApiErrorKind, Sense, TranslationResponse, WordResponse } from "../shared/api";
+import { parseSummary } from "../shared/summary";
 import { languageName, type LanguageCode } from "../shared/languages";
 import type { ExplainEvent } from "../shared/messages";
 import { wordQuery } from "../shared/textKind";
@@ -190,6 +191,37 @@ function header(state: CardState, actions: CardActions, canGoBack = false): HTML
   return h("div", { class: "head" }, title, h("div", { class: "actions" }, listen, copy, close));
 }
 
+/**
+ * The summary as DOM (TASK-89.3): plain lines as paragraphs, "- " lines as one list, **bold** as <b>.
+ * While it grows, the caret sits at the end of the last line.
+ */
+function summaryNodes(markdown: string, growing: boolean): HTMLElement[] {
+  const nodes: HTMLElement[] = [];
+  let list: HTMLElement | null = null;
+  let last: HTMLElement | null = null;
+  for (const line of parseSummary(markdown)) {
+    const inline = line.pieces.map((piece) => (piece.bold ? h("b", {}, piece.text) : piece.text));
+    if (line.bullet) {
+      if (!list) {
+        list = h("ul", { class: "summary-list" });
+        nodes.push(list);
+      }
+      last = h("li", {}, ...inline);
+      list.append(last);
+    } else {
+      list = null;
+      last = h("p", { class: "summary-line" }, ...inline);
+      nodes.push(last);
+    }
+  }
+  if (growing) {
+    const caret = h("span", { class: "caret" });
+    if (last) last.append(caret);
+    else nodes.push(caret);
+  }
+  return nodes;
+}
+
 function skeleton(lines: number): HTMLElement[] {
   return Array.from({ length: lines }, (_, index) =>
     h("div", { class: "skeleton", style: `width: ${index === lines - 1 ? 60 : 100}%` }),
@@ -202,7 +234,7 @@ function sentenceBody(state: CardState, actions: CardActions): HTMLElement[] {
   const meaning =
     state.phase === "loading"
       ? h("div", { "aria-busy": "true" }, ...skeleton(2))
-      : h("div", { class: "meaning", "aria-live": "polite" }, state.meaning, growing ? h("span", { class: "caret" }) : null);
+      : h("div", { class: "meaning", "aria-live": "polite" }, ...summaryNodes(state.meaning, growing));
   parts.push(h("div", { class: "block" }, h("div", { class: "label" }, "Meaning"), meaning));
 
   const words = state.sentence?.explanation.words ?? [];

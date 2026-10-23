@@ -54,7 +54,7 @@ struct SentenceCard: View {
                     listenButton(text: sentence, id: sentenceSpeechID, label: "Listen to the sentence")
                     // Only for a finished answer: the summary is what the Liked list shows.
                     if translation != nil {
-                        LikeButton(item: SavedItem(kind: .sentence, text: sentence, preview: summary))
+                        LikeButton(item: SavedItem(kind: .sentence, text: sentence, preview: SummaryMarkup(summary).plainText))
                     }
                 }
             }
@@ -100,7 +100,7 @@ struct SentenceCard: View {
                         .foregroundStyle(Theme.Colors.textMuted)
                 }
                 .padding(.top, Theme.Spacing.small)
-                listenButton(text: summary, id: summarySpeechID, label: "Listen to the simple version")
+                listenButton(text: SummaryMarkup(summary).plainText, id: summarySpeechID, label: "Listen to the simple version")
             }
         }
     }
@@ -133,6 +133,21 @@ struct SentenceCard: View {
         sentence: "The mist blurred the edges of the world, so the hikers turned back before noon.",
         summary: "The fog made everything hard to see, so the walkers went back before midday.",
         translation: "Sương mù làm mờ mọi thứ, nên những người đi bộ quay lại trước buổi trưa.",
+        language: .vietnamese,
+        loadWordEntry: { _ in .depend })
+        .padding()
+        .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
+}
+
+#Preview("Long text: gist and bullets") {
+    SentenceCard(
+        sentence: "But the dev account getting banned would impact your career correct? Then in my mind, setting up "
+            + "private distribution, speeding up rolling out updates and making things more efficient can only benefit you.",
+        summary: "Your **career** is at risk if the developer account is banned.\n"
+            + "- Use **private distribution** and faster updates to protect yourself.\n"
+            + "- If the company keeps hiding **bad actions**, leave.",
+        translation: "Nếu tài khoản bị cấm, sự nghiệp của bạn sẽ bị ảnh hưởng.",
         language: .vietnamese,
         loadWordEntry: { _ in .depend })
         .padding()

@@ -9,6 +9,7 @@ import SwiftUI
 /// - a tap on a word highlights it and opens the word sheet (bundled dictionary first, then the backend);
 /// - a selected part opens a popup under the selection that explains the part (iPhone and iPad).
 /// The original and the summary both use it, and so does the text inside the popup.
+/// A summary (`style: .summary`) is read as its small Markdown: bullets and bold, no markers (TASK-89.3).
 struct SentenceTextView: View {
     let text: String
     var style: SentenceTextStyle = .summary
@@ -27,9 +28,12 @@ struct SentenceTextView: View {
     @State private var clearSelectionCount = 0
 
     var body: some View {
+        let markup = style == .summary ? SummaryMarkup(text) : SummaryMarkup(plain: text)
         SelectableSentenceText(
-            text: text,
+            text: markup.text,
             style: style,
+            boldRanges: markup.boldRanges,
+            bulletRanges: markup.bulletRanges,
             highlightedRange: highlightedRange,
             allowsSelection: allowsPartPopup,
             clearSelectionCount: clearSelectionCount,

@@ -16,6 +16,28 @@ const sentenceDone = () =>
 
 const labels = (card: HTMLElement) => Array.from(card.querySelectorAll(".label, .fold-button")).map((e) => e.textContent);
 
+describe("summary in the sentence card (TASK-89.3)", () => {
+  it("shows the gist line, a list for bullets and bold words, never the markers", () => {
+    let state = initialState("a long text", "sentence", "vi", false);
+    state = applyEvent(state, { type: "meaning", meaning: "Your **career** is at risk.\n- Use <b>this</b>.\n- Leave." });
+    const meaning = renderCard(state, actions()).querySelector(".meaning")!;
+
+    expect(meaning.querySelector("p.summary-line")?.textContent).toBe("Your career is at risk.");
+    expect(Array.from(meaning.querySelectorAll("li")).map((li) => li.textContent)).toEqual(["Use <b>this</b>.", "Leave."]);
+    expect(Array.from(meaning.querySelectorAll("b")).map((b) => b.textContent)).toEqual(["career"]);
+    expect(meaning.textContent).not.toContain("**");
+  });
+
+  it("puts the caret at the end of the last line while the summary grows", () => {
+    let state = initialState("a long text", "sentence", "vi", false);
+    state = applyEvent(state, { type: "meaningDelta", text: "Gist.\n- One **ide" });
+    const meaning = renderCard(state, actions()).querySelector(".meaning")!;
+
+    expect(meaning.querySelector("li .caret")).not.toBeNull();
+    expect(meaning.querySelector("li b")?.textContent).toBe("ide");
+  });
+});
+
 describe("applyEvent", () => {
   it("grows the meaning from deltas, and the full meaning wins", () => {
     let state = initialState("a b", "sentence", "vi", false);

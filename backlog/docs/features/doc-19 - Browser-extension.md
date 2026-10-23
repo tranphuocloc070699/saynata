@@ -3,7 +3,7 @@ id: doc-19
 title: Browser extension
 type: specification
 created_date: '2026-10-16 09:35'
-updated_date: '2026-10-23 08:15'
+updated_date: '2026-10-23 08:54'
 ---
 # Browser extension
 
@@ -12,7 +12,7 @@ updated_date: '2026-10-23 08:15'
 
 ## What it does
 
-A Chromium Manifest V3 extension (Brave, Chrome, Edge, Arc) in `extension/`. The user selects English on any web page and gets the same answer as the app: one word goes to `GET /api/words/{word}`, more than one to `POST /api/translations/stream`, so the meaning grows word by word. It follows the product rule: simple English first, words next, the target language last and closed.
+A Chromium Manifest V3 extension (Brave, Chrome, Edge, Arc) in `extension/`. The user selects English on any web page and gets the same answer as the app: one word goes to `GET /api/words/{word}`, more than one to `POST /api/translations/stream`, so the meaning grows word by word. It follows the product rule: simple English first, words next, the target language last and closed. Since prompt v9 (TASK-89.3) a sentence meaning can be a gist line plus up to 3 `- ` bullets with `**bold**` key words; [summary.ts](../../../extension/src/shared/summary.ts) reads that small Markdown and `summaryNodes` in [card.ts](../../../extension/src/content/card.ts) builds `<p>`, `<ul><li>` and `<b>` nodes from it (never `innerHTML`), see doc-4 "Prompt v9".
 
 ## Big picture
 
