@@ -35,6 +35,8 @@
     uv run pipeline prefill collect --source words    # queue common words the backend night job will answer (no LLM)
     uv run pipeline prefill collect --source words --all-wordfreq --dry-run  # TASK-83.7: every word wordfreq has seen
     uv run pipeline prefill collect --source phrases  # queue phrasal verbs and idioms (no LLM)
+    uv run pipeline prefill collect --source sentences --dry-run  # TASK-83.11: everyday lines, count and night cost
+    uv run pipeline prefill collect --source sentences  # queue data/common_sentences.tsv (--file for another TSV)
     uv run pipeline prefill report       # queue counts by kind/status/source and the cost of the pending items
     uv run pipeline collection collect   # TASK-83.9: words, phrasal verbs, idioms, collocations into pipeline.db (no LLM)
     uv run pipeline collection report    # counts per kind, source and status, and the time to write the rest
@@ -368,6 +370,9 @@ def prefill_command(args) -> None:
         print("\n".join(prefill.report_lines(pg)))
         pg.close()
         return
+    if args.source == "sentences":
+        prefill_sentences(args, pg, queue_ready, dry_run)
+        return
 
     if args.source == "words":
         pipeline_db = sqlite3.connect(store.DB_PATH) if store.DB_PATH.is_file() else None
@@ -401,6 +406,36 @@ def prefill_command(args) -> None:
     else:
         added = prefill.insert_items(pg, new_items)
         print(f"Queued {added} new rows. Next: uv run pipeline prefill report")
+    if pg is not None:
+        pg.close()
+
+
+def prefill_sentences(args, pg, queue_ready: bool, dry_run: bool) -> None:
+    """TASK-83.11: the everyday lines in data/common_sentences.tsv into prefill_item (kind sentence, target vi)."""
+    from pipeline import prefill
+
+    path = Path(args.file) if args.file else prefill.SENTENCES_FILE
+    rows, problems = prefill.read_sentence_file(path)
+    print(f"{len(rows)} sentences in {path}")
+    if problems:
+        print(f"{len(problems)} lines left out:")
+        for problem in problems[:20]:
+            print(f"  {problem}")
+    items = prefill.sentence_items(rows)
+    queued = prefill.queued_sentence_keys(pg) if queue_ready else set()
+    new_items = [i for i in items if prefill.loose_key(i.text) not in queued]
+    already_queued = len(items) - len(new_items)
+    if args.limit:
+        new_items = new_items[: args.limit]
+    print(f"{already_queued} already queued, {len(new_items)} to add{f' (limit {args.limit})' if args.limit else ''}")
+    for item in new_items[:15]:
+        print(f"  {item.priority:>4}  {item.text}")
+    if dry_run:
+        print("\n".join(prefill.sentence_night_lines(len(new_items), prefill.model_price())))
+        print("Dry run: nothing was written.")
+    else:
+        added = prefill.insert_items(pg, new_items)
+        print(f"Queued {added} new rows (source {prefill.SOURCE_SENTENCES}). Next: uv run pipeline prefill report")
     if pg is not None:
         pg.close()
 
@@ -729,7 +764,8 @@ def main() -> None:
     prefill_parser = commands.add_parser("prefill", help="queue words and phrases for the backend night job (no LLM)")
     prefill_commands = prefill_parser.add_subparsers(dest="prefill_command", required=True)
     collect_parser = prefill_commands.add_parser("collect", help="add common words or phrases to prefill_item")
-    collect_parser.add_argument("--source", required=True, choices=["words", "phrases"])
+    collect_parser.add_argument("--source", required=True, choices=["words", "phrases", "sentences"])
+    collect_parser.add_argument("--file", help="sentences only: the TSV to queue (default data/common_sentences.tsv)")
     collect_parser.add_argument("--zipf", type=float, help="minimum wordfreq Zipf (default 3.5 words, 2.0 phrases)")
     collect_parser.add_argument("--all-wordfreq", action="store_true",
                                 help="words only: every word with wordfreq Zipf > 0 that the backend accepts (ignores --zipf)")
@@ -794,6 +830,8 @@ def main() -> None:
     if args.command == "prefill" and args.prefill_command == "collect" and args.all_wordfreq \
             and args.source != "words":
         parser.error("--all-wordfreq works with --source words only")
+    if args.command == "prefill" and args.prefill_command == "collect" and args.file and args.source != "sentences":
+        parser.error("--file works with --source sentences only")
     if args.command == "prefill" and args.prefill_command == "collect" and args.zipf is None:
         from pipeline import prefill
 

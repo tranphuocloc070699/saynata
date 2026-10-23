@@ -1,6 +1,7 @@
 .env
 .venv/
 __pycache__/
-data/
+data/*
+!data/common_sentences.tsv
 .env.*
 !.env.example
