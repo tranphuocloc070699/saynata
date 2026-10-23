@@ -21,7 +21,7 @@ struct TranslateView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                TranslateOptionsView(targetLanguage: $store.targetLanguage)
+                TranslateOptionsView()
                     .simultaneousGesture(hideKeyboardTap)
                 TranslateInputView(isFocused: $isInputFocused)
                 TranslateResultView(
@@ -39,6 +39,7 @@ struct TranslateView: View {
         }
         // Drag the result to hide the keyboard.
         .scrollDismissesKeyboard(.interactively)
+        .background(Theme.Colors.background.ignoresSafeArea())
         // A new search or a new result replaces what is on screen, so the old speech must stop (TASK-46).
         .onChange(of: store.state.resultKey) { speechPlayer.stop() }
         // "Explain copied text" opened the app: paste and explain, or an empty input with the keyboard.
