@@ -33,7 +33,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "character.book.closed", accessibilityDescription: "Saynata")
+        // The two-cat logo as a template image, so macOS tints it for light and dark menu bars (TASK-95).
+        let icon = NSImage(named: "MenuBarIcon")
+        icon?.isTemplate = true
+        icon?.accessibilityDescription = "Saynata"
+        item.button?.image = icon
         item.button?.target = self
         item.button?.action = #selector(iconClicked)
         statusItem = item
