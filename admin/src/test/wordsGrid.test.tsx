@@ -116,7 +116,7 @@ describe("words grid view (TASK-81)", () => {
     expect(screen.getByRole("list", { name: "Grid" })).toBeInTheDocument();
   });
 
-  it("shows a card per word: thumbnail, word, Vietnamese, and the same chips as the list row", async () => {
+  it("shows a card per word: thumbnail, word, Vietnamese, and only the problem badge (TASK-101)", async () => {
     localStorage.setItem(VIEW_KEY, "grid");
     renderWords([apple, run, idea]);
     const grid = await screen.findByRole("list", { name: "Grid" });
@@ -124,8 +124,7 @@ describe("words grid view (TASK-81)", () => {
 
     expect(within(card).getByRole("img", { name: "apple photo" })).toHaveAttribute("src", "https://api.loffy.me/media/apple.webp");
     expect(within(card).getByText("quả táo")).toBeInTheDocument();
-    expect(within(card).getByText("Bundled")).toBeInTheDocument();
-    expect(within(card).getByText("2 to review")).toBeInTheDocument();
+    expect(within(card).queryByText(/Bundled|to review/)).not.toBeInTheDocument();
 
     const clipCard = within(grid).getByText("run").closest("button") as HTMLElement;
     expect(within(clipCard).getByRole("img", { name: "run clip" })).toBeInTheDocument();
@@ -158,6 +157,7 @@ describe("words grid view (TASK-81)", () => {
     const { getList } = renderWords([apple]);
     await screen.findByText("apple");
 
+    await user.click(screen.getByRole("button", { name: /^Filter/ }));
     await user.click(screen.getByRole("button", { name: "Bundled" }));
 
     await waitFor(() =>

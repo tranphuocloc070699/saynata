@@ -2,8 +2,11 @@ package com.englishtranslation.backend.admin;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -171,5 +174,61 @@ class AdminPrefillTest {
                 .andExpect(jsonPath("$.todayUsd").value(0.0))
                 .andExpect(jsonPath("$.prefillTodayUsd").value(0.1))
                 .andExpect(jsonPath("$.days[0].byFeature.prefill.calls").value(1));
+    }
+
+    @Test
+    void itemsListsTheQueueWithFiltersAndATotal() throws Exception {
+        Cookie cookie = adminCookie();
+        queue.save(new PrefillItem("word", "lantern", "", "sentence-words", 300, Instant.now()));
+        queue.save(new PrefillItem("word", "pebble", "", "scowl-70", 0, Instant.now()));
+        PrefillItem done = new PrefillItem("word", "giraffe", "", "sentence-words", 300, Instant.now());
+        done.finish("done", null, Instant.now());
+        queue.save(done);
+        queue.save(new PrefillItem("sentence", "looks good.", "vi", "common-sentences", 0, Instant.now()));
+
+        mockMvc.perform(get("/api/admin/prefill/items?kind=word&status=pending&_start=0&_end=50").cookie(cookie))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "2"))
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].text").value("pebble")) // newest first
+                .andExpect(jsonPath("$[1].text").value("lantern"))
+                .andExpect(jsonPath("$[1].source").value("sentence-words"))
+                .andExpect(jsonPath("$[1].seenCount").value(1));
+
+        mockMvc.perform(get("/api/admin/prefill/items?kind=word&status=pending&q=LAN").cookie(cookie))
+                .andExpect(header().string("X-Total-Count", "1"))
+                .andExpect(jsonPath("$[0].text").value("lantern"));
+        // _end=1 is how the admin reads a count without the rows.
+        mockMvc.perform(get("/api/admin/prefill/items?status=pending&_start=0&_end=1").cookie(cookie))
+                .andExpect(header().string("X-Total-Count", "3"));
+    }
+
+    @Test
+    void itemsRefusesAnUnknownKindOrStatusAndNeedsAnAdmin() throws Exception {
+        mockMvc.perform(get("/api/admin/prefill/items")).andExpect(status().isUnauthorized());
+        Cookie cookie = adminCookie();
+        mockMvc.perform(get("/api/admin/prefill/items?kind=phrase").cookie(cookie)).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/admin/prefill/items?status=waiting").cookie(cookie)).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deleteTakesARowOutOfTheQueueAndKeepsItSkipped() throws Exception {
+        // Every admin write needs a JSON Content-Type (the backend refuses others, a CSRF guard); the web app sends it.
+        Cookie cookie = adminCookie();
+        PrefillItem lantern = queue.save(new PrefillItem("word", "lantern", "", "sentence-words", 300, Instant.now()));
+
+        mockMvc.perform(delete("/api/admin/prefill/items/" + lantern.getId()).cookie(cookie).contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("skipped"));
+
+        PrefillItem saved = queue.findById(lantern.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo("skipped");
+        assertThat(saved.getLastError()).isEqualTo("Removed by the admin");
+        mockMvc.perform(get("/api/admin/prefill/items?status=pending").cookie(cookie))
+                .andExpect(header().string("X-Total-Count", "0"));
+        mockMvc.perform(delete("/api/admin/prefill/items/999999").cookie(cookie)
+                .contentType(MediaType.APPLICATION_JSON)).andExpect(status().isNotFound());
+        mockMvc.perform(delete("/api/admin/prefill/items/" + lantern.getId())
+                .contentType(MediaType.APPLICATION_JSON)).andExpect(status().isUnauthorized());
     }
 }

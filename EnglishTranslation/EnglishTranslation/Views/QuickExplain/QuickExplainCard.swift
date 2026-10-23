@@ -159,10 +159,11 @@ private struct Meaning: View {
     let text: String
 
     var body: some View {
-        Text(text)
+        // A sentence summary may have bullets and bold (TASK-89.3); a word meaning is plain and stays the same.
+        Text(SummaryMarkup(text).attributedString)
             .font(.system(.body, design: .serif))
             .foregroundStyle(Colors.textPrimary)
-            .lineLimit(4)
+            .lineLimit(6)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Theme.Spacing.medium)
             .background(Colors.meaningBlock, in: RoundedRectangle(cornerRadius: Theme.Radius.block))

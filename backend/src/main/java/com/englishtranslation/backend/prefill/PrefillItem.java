@@ -138,6 +138,10 @@ public class PrefillItem {
         return lastError;
     }
 
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
     public Instant getUpdatedAt() {
         return updatedAt;
     }

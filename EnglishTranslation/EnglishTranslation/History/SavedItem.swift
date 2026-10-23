@@ -62,6 +62,6 @@ struct SavedItem: Equatable, Identifiable, Sendable, Codable {
 
     /// A sentence result: the sentence and its simple summary.
     init(result: SentenceResult, date: Date = .now) {
-        self.init(kind: .sentence, text: result.sentence, preview: result.explanation.meaning, date: date)
+        self.init(kind: .sentence, text: result.sentence, preview: SummaryMarkup(result.explanation.meaning).plainText, date: date)
     }
 }

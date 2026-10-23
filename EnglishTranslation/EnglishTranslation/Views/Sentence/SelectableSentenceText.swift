@@ -47,6 +47,9 @@ import UIKit
 struct SelectableSentenceText: UIViewRepresentable {
     let text: String
     let style: SentenceTextStyle
+    /// Bold key words and bullet lines of a summary (TASK-89.3), as ranges in `text`. Empty for plain text.
+    var boldRanges: [NSRange] = []
+    var bulletRanges: [NSRange] = []
     /// The word the user tapped, shown with the accent colour and a tinted background. Nil for none.
     var highlightedRange: NSRange?
     /// False in the popup: words can be tapped, but no new selection starts.
@@ -132,14 +135,35 @@ struct SelectableSentenceText: UIViewRepresentable {
         }
     }
 
-    /// The text with its dotted underlines and, for the tapped word, the highlight.
+    /// The text with its bold words and bullet lines, the dotted underlines and, for the tapped word, the highlight.
     fileprivate func attributedText(tokens: [SentenceToken]) -> NSAttributedString {
+        let font = uiFont()
         let result = NSMutableAttributedString(
             string: text,
             attributes: [
-                .font: uiFont(),
+                .font: font,
                 .foregroundColor: UIColor(Theme.Colors.textPrimary),
             ])
+        let length = result.length
+        if !boldRanges.isEmpty {
+            let descriptor = font.fontDescriptor.withSymbolicTraits(.traitBold) ?? font.fontDescriptor
+            let bold = UIFont(descriptor: descriptor, size: font.pointSize)
+            for range in boldRanges where NSMaxRange(range) <= length {
+                result.addAttribute(.font, value: bold, range: range)
+            }
+        }
+        if !bulletRanges.isEmpty {
+            // "•", a tab, then the line; a wrapped line starts under the text, not under the bullet.
+            let indent = ceil(font.pointSize * 1.1)
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.tabStops = [NSTextTab(textAlignment: .left, location: indent)]
+            paragraph.defaultTabInterval = indent
+            paragraph.headIndent = indent
+            paragraph.paragraphSpacingBefore = font.pointSize * 0.3
+            for range in bulletRanges where NSMaxRange(range) <= length {
+                result.addAttribute(.paragraphStyle, value: paragraph, range: range)
+            }
+        }
         let dotted = NSUnderlineStyle.single.rawValue | NSUnderlineStyle.patternDot.rawValue
         for token in tokens {
             if let highlightedRange, NSEqualRanges(highlightedRange, token.range) {
@@ -175,6 +199,7 @@ struct SelectableSentenceText: UIViewRepresentable {
         /// Everything that changes how the text looks.
         private struct Look: Equatable {
             let text: String
+            let boldRanges: [NSRange]
             let style: SentenceTextStyle
             let highlightedRange: NSRange?
             let dynamicTypeSize: DynamicTypeSize
@@ -195,7 +220,7 @@ struct SelectableSentenceText: UIViewRepresentable {
                 tokenizedText = parent.text
             }
             let look = Look(
-                text: parent.text, style: parent.style,
+                text: parent.text, boldRanges: parent.boldRanges, style: parent.style,
                 highlightedRange: parent.highlightedRange, dynamicTypeSize: parent.dynamicTypeSize)
             guard look != appliedLook else { return }
             appliedLook = look
@@ -302,6 +327,9 @@ private final class SentenceUITextView: UITextView {
 struct SelectableSentenceText: View {
     let text: String
     let style: SentenceTextStyle
+    var boldRanges: [NSRange] = []
+    /// Bullet lines start with "•" and a tab in `text`; the Mac shows them without a hanging indent.
+    var bulletRanges: [NSRange] = []
     var highlightedRange: NSRange?
     var allowsSelection = true
     var clearSelectionCount = 0
@@ -330,10 +358,14 @@ struct SelectableSentenceText: View {
     /// Each word is a link to `saynata-word://<offset>`, drawn with a dotted underline.
     private func attributedText(tokens: [SentenceToken]) -> AttributedString {
         let nsText = NSMutableAttributedString(string: text)
+        for range in boldRanges where NSMaxRange(range) <= nsText.length {
+            nsText.addAttribute(
+                .inlinePresentationIntent, value: InlinePresentationIntent.stronglyEmphasized.rawValue, range: range)
+        }
         for token in tokens {
             nsText.addAttribute(.link, value: URL(string: "saynata-word://\(token.range.location)") as Any, range: token.range)
         }
-        var attributed = AttributedString(nsText)
+        var attributed = (try? AttributedString(nsText, including: \.foundation)) ?? AttributedString(nsText)
         for run in attributed.runs where run.link != nil {
             guard let link = run.link, let offset = Int(link.host() ?? "") else { continue }
             let isHighlighted = highlightedRange.map { $0.location == offset } ?? false

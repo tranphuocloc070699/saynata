@@ -112,7 +112,7 @@ struct SentencePartPopup: View {
                 if speechPlayer.currentID == speechID {
                     speechPlayer.stop()
                 } else {
-                    speechPlayer.speak(summary, id: speechID)
+                    speechPlayer.speak(SummaryMarkup(summary).plainText, id: speechID)
                 }
             }
             IconButton(

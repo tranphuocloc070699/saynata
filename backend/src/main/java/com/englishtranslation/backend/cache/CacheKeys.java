@@ -23,7 +23,7 @@ public final class CacheKeys {
     /**
      * The loose form of a sentence, for the second lookup when the exact key misses (TASK-83.3): normalised, lowercase,
      * curly quotes and apostrophes made straight, every kind of space (also the no-break space) collapsed to one, and
-     * without . ? ! … , (and spaces) at the end. "How are you?" and "how are you" give the same text, and so do
+     * without . ? ! … , (and spaces) at the end, and without one pair of quotes around the whole text (TASK-83.13). "How are you?" and "how are you" give the same text, and so do
      * "I’m fine…" and "i'm fine". The "?" is ignored too: "Is it OK" is typed as the same question.
      * It can be empty (the input was only "?!"); then there is nothing to match.
      */
@@ -33,11 +33,47 @@ public final class CacheKeys {
                 .replaceAll("[\u201C\u201D\u201E\u201F\u2033]", "\"")
                 .replaceAll("[\\s\\p{Z}]+", " ")
                 .strip();
+        lower = withoutWrappingQuotes(lower);
         int end = lower.length();
         while (end > 0 && isLooseEnd(lower.charAt(end - 1))) {
             end--;
         }
         return lower.substring(0, end);
+    }
+
+    /**
+     * TASK-83.13: removes ONE pair of " or ' that wraps the whole text, also when the final . ? ! … sits outside the
+     * closing quote: "Looks good." and "Looks good". both give Looks good. A pair at both ends only, so 'cause I said so
+     * is kept. If the same quote appears inside the text ("a" and "b"), these are two quotes, not one wrapper, and
+     * nothing is removed. An apostrophe between two letters (don't) does not count as a quote.
+     */
+    private static String withoutWrappingQuotes(String text) {
+        if (text.length() < 2) {
+            return text;
+        }
+        char quote = text.charAt(0);
+        if (quote != '"' && quote != '\'') {
+            return text;
+        }
+        int end = text.length();
+        while (end > 1 && isLooseEnd(text.charAt(end - 1))) {
+            end--;
+        }
+        if (end < 2 || text.charAt(end - 1) != quote) {
+            return text;
+        }
+        String inner = text.substring(1, end - 1);
+        for (int i = 0; i < inner.length(); i++) {
+            if (inner.charAt(i) == quote && !isBetweenLetters(inner, i)) {
+                return text;
+            }
+        }
+        return inner;
+    }
+
+    private static boolean isBetweenLetters(String text, int i) {
+        return i > 0 && i < text.length() - 1
+                && Character.isLetter(text.charAt(i - 1)) && Character.isLetter(text.charAt(i + 1));
     }
 
     private static boolean isLooseEnd(char c) {

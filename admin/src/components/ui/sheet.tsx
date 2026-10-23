@@ -19,7 +19,7 @@ export function Sheet({ open, onClose, title, children }: Props) {
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
         <Dialog.Content
           aria-describedby={undefined}
-          className="fixed inset-y-0 right-0 z-40 flex w-full max-w-2xl flex-col border-l border-border bg-background shadow-xl focus:outline-none"
+          className="fixed inset-y-0 right-0 z-40 flex w-full max-w-3xl flex-col border-l border-border bg-card shadow-xl focus:outline-none"
         >
           <Dialog.Title className="sr-only">{title}</Dialog.Title>
           <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-14">{children}</div>

@@ -53,7 +53,7 @@ class ClaudeGatewayTest {
 
     private ClaudeProperties gateway(String sceneModel, String effort) {
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/api";
-        return new ClaudeProperties("", "claude-haiku-4-5", "v1", "v1", url, "sk-gateway", sceneModel, effort);
+        return new ClaudeProperties("", "claude-haiku-4-5", "v1", "v1", url, "sk-gateway", sceneModel, effort, null);
     }
 
     @Test

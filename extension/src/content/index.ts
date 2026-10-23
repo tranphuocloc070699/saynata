@@ -10,6 +10,7 @@ import { classify, cleanSelection } from "../shared/textKind";
 import { API_BASE } from "../shared/config";
 import { applyEvent, applyOpenedEvent, initialState, renderCard, type CardActions, type CardState } from "./card";
 import { MediaNodes } from "./media";
+import { LOGO_CATS } from "./logo";
 import { cardMaxHeight, cardTop, iconPosition, placeCard, type CardPlacement, type Rect, type Viewport } from "./placement";
 import { Speech } from "./speech";
 import { STYLES } from "./styles";
@@ -122,7 +123,7 @@ class SelectionPopover {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "trigger";
-    button.textContent = "S";
+    button.innerHTML = LOGO_CATS;
     button.setAttribute("aria-label", "Explain with Saynata");
     button.title = "Explain with Saynata";
     button.style.left = `${position.left}px`;

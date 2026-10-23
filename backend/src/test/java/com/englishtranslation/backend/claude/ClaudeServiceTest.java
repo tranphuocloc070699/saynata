@@ -38,15 +38,19 @@ class ClaudeServiceTest {
         String prompt = ClaudeService.SENTENCE_PROMPT;
 
         assertThat(prompt.indexOf("1. summary")).isPositive().isLessThan(prompt.indexOf("2. translation"));
-        assertThat(prompt).contains("main answer is the sentence in simple English", "small helper");
+        assertThat(prompt).contains("main answer is a short summary in simple English", "small helper");
     }
 
     @Test
-    void sentencePromptKeepsTheSummaryAboutAsLongAndDirect() {
+    void sentencePromptAsksForAShortSummaryWithAGistAndUpToThreeBullets() {
         assertThat(onOneLine(ClaudeService.SENTENCE_PROMPT))
-                .contains("about the same length as the original sentence")
-                .contains("Never describe the sentence")
-                .doesNotContain("at most 20 words");
+                .contains("summarize, do not rewrite")
+                .contains("at most half its words")
+                .contains("up to 3 bullet lines, each starting with \"- \"")
+                .contains("**bold** for 1-3 key words")
+                .contains("No list, no bold")
+                .contains("Never describe the text")
+                .doesNotContain("about the same length as the original sentence");
     }
 
     @Test

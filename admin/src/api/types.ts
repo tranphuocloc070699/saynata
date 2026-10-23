@@ -144,3 +144,19 @@ export interface AdminUser {
   displayName: string;
   roles: string[];
 }
+
+// One row of the prefill queue (TASK-100): a word or sentence the night job will answer. GET /prefill/items.
+export interface PrefillQueueItem {
+  id: number;
+  kind: "word" | "sentence";
+  text: string;
+  targetLang: string;
+  source: string; // sentence-words = a learner met it in a sentence
+  seenCount: number;
+  priority: number;
+  status: "pending" | "done" | "skipped" | "failed";
+  attempts: number;
+  lastError?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -5,29 +5,23 @@
 
 import SwiftUI
 
-/// The translation language picker, and the Settings button at the right.
+/// The top row (TASK-97): the menu button at the left (opens Settings) and the History button at the right.
+/// The language picker now lives in the composer card (`TranslateInputView`).
 struct TranslateOptionsView: View {
-    @Binding var targetLanguage: TargetLanguage
     @State private var isSettingsOpen = false
     @State private var isHistoryOpen = false
     @Environment(TranslationStore.self) private var store
 
     var body: some View {
         HStack {
-            Picker("Translate into", selection: $targetLanguage) {
-                ForEach(TargetLanguage.allCases) { language in
-                    Text(language.title).tag(language)
-                }
-            }
-            .pickerStyle(.menu)
+            IconButton(systemImage: "line.3.horizontal", label: "Settings") { isSettingsOpen = true }
             Spacer()
             if store.history != nil {
                 IconButton(systemImage: "clock", label: "History and Liked") { isHistoryOpen = true }
             }
-            IconButton(systemImage: "gearshape", label: "Settings") { isSettingsOpen = true }
         }
         .sheet(isPresented: $isSettingsOpen) {
-            SettingsView(targetLanguage: targetLanguage)
+            SettingsView(targetLanguage: store.targetLanguage)
         }
         // A tapped row shows that result again: the text goes in the input and the normal search runs,
         // so an answer we already have costs nothing (TASK-93.2).
@@ -43,7 +37,7 @@ struct TranslateOptionsView: View {
 }
 
 #Preview {
-    TranslateOptionsView(targetLanguage: .constant(.vietnamese))
+    TranslateOptionsView()
         .padding()
         .environment(TranslationStore())
 }
