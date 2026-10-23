@@ -332,6 +332,17 @@ describe("words page", () => {
     expect(json.senses[0].simpleDefinition).toBe("To move fast on your legs.");
   });
 
+  it("puts each sense in a form section and Cancel before Save at the bottom (TASK-99.4)", async () => {
+    renderWords([run]);
+    await userEvent.click(await screen.findByRole("button", { name: /run/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const sense = screen.getByRole("region", { name: "Sense 1" });
+    expect(within(sense).getByRole("heading", { name: "Sense 1" })).toBeInTheDocument();
+    expect(within(sense).getByLabelText("Vietnamese (sense 1)")).toHaveValue("chạy");
+    const buttons = screen.getAllByRole("button", { name: /Cancel editing|Save changes/ }).map((b) => b.getAttribute("aria-label"));
+    expect(buttons).toEqual(["Cancel editing", "Save changes"]);
+  });
+
   it("shows why the word needs review under Status, and at the top of the edit form", async () => {
     const flagged: WordItem = {
       ...run,

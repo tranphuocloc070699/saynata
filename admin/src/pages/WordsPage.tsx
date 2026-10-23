@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 import { Input, Textarea } from "@/components/ui/input";
-import { Field } from "@/components/EntryEditor";
+import { Field, FormSection } from "@/components/EntryEditor";
 import { MediaRow } from "@/components/MediaRow";
 import { EntryBrowser, type Chip, type Column } from "@/components/EntryBrowser";
 import type { FieldRow } from "@/components/FieldTable";
@@ -262,15 +262,16 @@ function WordForm({ draft, setDraft, word }: { draft: WordEntry; setDraft: (next
   return (
     <div className="space-y-6">
       {word.needsReview && (
-        <div className="space-y-2 rounded-md border border-border bg-card p-4">
-          <Badge variant="warning">Needs review</Badge>
+        <div className="space-y-2 rounded-lg bg-warning-soft p-4 text-warning">
+          <Badge variant="warning" dot>
+            Needs review
+          </Badge>
           <ReviewReasons word={word} />
         </div>
       )}
       <p className="text-xs text-muted-foreground">IPA is shown in the table but is not changed here (the backend saves only the entry).</p>
       {draft.senses.map((sense, i) => (
-        <fieldset key={i} className="space-y-3 rounded-md border border-border bg-card p-4">
-          <legend className="px-1 text-xs font-semibold uppercase">Sense {i + 1}</legend>
+        <FormSection key={i} title={`Sense ${i + 1}`} hint="Simple English first. Vietnamese is the last field.">
           <div className="grid grid-cols-2 gap-3">
             <Field label={`Part of speech (sense ${i + 1})`}>
               <Input value={sense.pos} onChange={(e) => changeSense(i, { pos: e.target.value })} />
@@ -306,7 +307,7 @@ function WordForm({ draft, setDraft, word }: { draft: WordEntry; setDraft: (next
           <Field label={`Vietnamese (sense ${i + 1})`}>
             <Textarea value={sense.vietnamese} onChange={(e) => changeSense(i, { vietnamese: e.target.value })} />
           </Field>
-        </fieldset>
+        </FormSection>
       ))}
     </div>
   );
