@@ -22,11 +22,17 @@ public final class CacheKeys {
 
     /**
      * The loose form of a sentence, for the second lookup when the exact key misses (TASK-83.3): normalised, lowercase,
-     * and without . ? ! (and spaces) at the end. "How are you?" and "how are you" give the same text.
+     * curly quotes and apostrophes made straight, every kind of space (also the no-break space) collapsed to one, and
+     * without . ? ! … , (and spaces) at the end. "How are you?" and "how are you" give the same text, and so do
+     * "I’m fine…" and "i'm fine". The "?" is ignored too: "Is it OK" is typed as the same question.
      * It can be empty (the input was only "?!"); then there is nothing to match.
      */
     public static String normalizeSentenceLoose(String text) {
-        String lower = normalizeSentence(text).toLowerCase(Locale.ROOT);
+        String lower = text.toLowerCase(Locale.ROOT)
+                .replaceAll("[\u2018\u2019\u201A\u201B\u02BC\u2032]", "'")
+                .replaceAll("[\u201C\u201D\u201E\u201F\u2033]", "\"")
+                .replaceAll("[\\s\\p{Z}]+", " ")
+                .strip();
         int end = lower.length();
         while (end > 0 && isLooseEnd(lower.charAt(end - 1))) {
             end--;
@@ -35,12 +41,13 @@ public final class CacheKeys {
     }
 
     private static boolean isLooseEnd(char c) {
-        return c == '.' || c == '?' || c == '!' || c == ' ';
+        return c == '.' || c == '?' || c == '!' || c == '\u2026' || c == ',' || c == ' ';
     }
 
     /**
      * The match_key of a saved sentence: key("sentence-loose", promptVersion, targetLang, looseText).
-     * Flyway V18 fills old rows with this same method, so the database and new code always agree.
+     * Flyway V18 filled old rows with this method, and V24 filled them again when the loose form grew (curly quotes,
+     * …, commas), so the database and new code always agree.
      */
     public static String sentenceMatchKey(String promptVersion, String targetLang, String text) {
         return key("sentence-loose", promptVersion, targetLang, normalizeSentenceLoose(text));

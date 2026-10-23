@@ -145,6 +145,48 @@ class TranslationServiceTest {
     }
 
     @Test
+    void looksGoodWithAnExclamationMarkFindsASavedLooksGood() {
+        saveRow("looks good", "vi", "trong on day");
+
+        TranslationResponse response = service.translate("Looks good!", TargetLanguage.VI);
+
+        assertThat(response.cached()).isTrue();
+        // The text shown keeps what the user typed; only the lookup is loose.
+        assertThat(response.text()).isEqualTo("Looks good!");
+        assertThat(response.explanation().translation()).isEqualTo("trong on day");
+        verifyNoInteractions(claude);
+    }
+
+    @Test
+    void curlyApostropheEllipsisAndCommaStillMatch() {
+        saveRow("I'm fine", "vi", "toi on");
+
+        assertThat(service.translate("I\u2019m fine\u2026", TargetLanguage.VI).cached()).isTrue();
+        assertThat(service.translate("i'm fine,", TargetLanguage.VI).cached()).isTrue();
+        verifyNoInteractions(claude);
+    }
+
+    @Test
+    void aQuestionWithoutItsQuestionMarkIsTheSameQuestion() {
+        // Decision 2026-10-22 (doc-7): the final "?" does not matter; "Is it OK" is typed as the same question.
+        saveRow("Is it OK?", "vi", "co on khong?");
+
+        TranslationResponse response = service.translate("Is it OK", TargetLanguage.VI);
+
+        assertThat(response.cached()).isTrue();
+        assertThat(response.text()).isEqualTo("Is it OK");
+        verifyNoInteractions(claude);
+    }
+
+    @Test
+    void wordsThatDifferAreNotMatched() {
+        saveRow("Looks good!", "vi", "x");
+        when(claude.explainSentence("Looks bad!", TargetLanguage.VI)).thenReturn(sample("y"));
+
+        assertThat(service.translate("Looks bad!", TargetLanguage.VI).cached()).isFalse();
+    }
+
+    @Test
     void exactTextWinsOverLooseText() {
         saveRow("US", "vi", "My");
         saveRow("us", "vi", "chung toi");
@@ -208,11 +250,17 @@ class TranslationServiceTest {
     @Test
     void streamingAlsoUsesTheLooseMatch() {
         saveRow("How are you?", "vi", "Ban khoe khong?");
+        saveRow("Looks \"good\"", "vi", "trong on");
 
         TranslationResponse response = service.translateStreaming("how are you", TargetLanguage.VI, meaning -> {
         });
+        TranslationResponse curly = service.translateStreaming("Looks \u201Cgood\u201D\u2026", TargetLanguage.VI,
+                meaning -> {
+                });
 
         assertThat(response.cached()).isTrue();
+        assertThat(curly.cached()).isTrue();
+        assertThat(curly.text()).isEqualTo("Looks \u201Cgood\u201D\u2026");
         verifyNoInteractions(claude);
     }
 

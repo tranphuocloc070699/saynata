@@ -7,7 +7,7 @@ updated_date: '2026-10-23 02:20'
 ---
 # Prefill
 
-> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue, and since TASK-83.11 also with about 2,500 everyday lines ("Looks good.", "I'll get back to you.", [Common everyday sentences](#common-everyday-sentences-task-8311)); cached-only lookups and suggestions (TASK-83.4 and later) come after. The free way, entries written by Codex on the developer's Mac and pushed to `word_lookup`, is [Local collection written by Codex](#local-collection-written-by-codex-task-839) at the end (TASK-83.9). TASK-83.12 splits the runs: the night job answers only what users typed, and what the developer queues is run at once, see [Run at once](#run-at-once-task-8312). Last traced from code: 2026-10-23.
+> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue, and since TASK-83.11 also with about 2,500 everyday lines ("Looks good.", "I'll get back to you.", [Common everyday sentences](#common-everyday-sentences-task-8311)); cached-only lookups and suggestions (TASK-83.4 and later) come after. The free way, entries written by Codex on the developer's Mac and pushed to `word_lookup`, is [Local collection written by Codex](#local-collection-written-by-codex-task-839) at the end (TASK-83.9). TASK-83.12 splits the runs: the night job answers only what users typed, and what the developer queues is run at once, see [Run at once](#run-at-once-task-8312). Last traced from code: 2026-10-23 (TASK-83.3: queued phrases and sentences use the loose sentence match).
 > Why: doc-7, decisions of 2026-10-16. Related: [Accounts and limits](doc-17%20-%20Accounts-and-limits.md) (the user budget), [Word lookup](doc-5%20-%20Word-lookup.md), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Media and images](doc-15%20-%20Media-and-images.md), the cron and env keys in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md).
 
 ## What it does
@@ -123,7 +123,7 @@ Run: `cd backend && ./mvnw -B test`. No test calls the real API.
 - `lastRuns` lives in memory (the last 10 runs since the server started). Older spend is in `GET /api/admin/usage`, feature `prefill`.
 - The cap check is "spend so far + the dearest item so far". The first item of a run has no history, so a run can go over its cap by one call.
 - There is no admin screen yet (the admin web app is another task). Use curl.
-- The loose sentence match (TASK-83.3) is not here: a phrase is cached under its exact normalized text.
+- The loose sentence match (TASK-83.3) is used when a phrase or sentence is answered, but not when it is queued: `prefill_item` is unique on the exact text, so "Looks good!" and "looks good" can both be queued. The second costs nothing (a loose cache hit, `done`), but it is a row in the queue and in `prefill report`.
 - Sentence words (TASK-83.8): only the words of sentences that were answered are counted; the work is dropped when 50 texts wait. A word queued before its base was cached is still answered (a cached item is `done` for free). The nightly job is the same Spring `@Scheduled`-style schedule above; there is no second scheduler.
 - A word that Claude returns with no senses is saved by `WordService` like any other word; prefill does not look at the quality of the answer.
 
