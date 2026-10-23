@@ -313,6 +313,7 @@
 				665068813075066F008C6524 /* Sources */,
 				665068823075066F008C6524 /* Frameworks */,
 				665068833075066F008C6524 /* Resources */,
+				7D0000000000000000000001 /* Copy cat assets */,
 				7A000000000000000000000C /* Embed Foundation Extensions */,
 				7B000000000000000000000C /* Embed ExtensionKit Extensions */,
 			);
@@ -431,6 +432,7 @@
 				7C0000000000000000000006 /* Sources */,
 				7C0000000000000000000007 /* Frameworks */,
 				7C0000000000000000000008 /* Resources */,
+				7D0000000000000000000002 /* Copy cat assets */,
 			);
 			buildRules = (
 			);
@@ -551,6 +553,47 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		7D0000000000000000000001 /* Copy cat assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy cat assets";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Copies the paid cat pictures (git-ignored, see scripts/install-cat-assets.sh) into the bundle when they exist. Never fails: without them the app shows a still fallback.\nSRC=\"${SRCROOT}/PaidAssets/Cats\"\nDEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nif [ -d \"$SRC\" ]; then\n  mkdir -p \"$DEST\"\n  for f in \"$SRC\"/*.png; do\n    [ -f \"$f\" ] && cp \"$f\" \"$DEST/\"\n  done\nfi\nexit 0\n";
+		};
+		7D0000000000000000000002 /* Copy cat assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy cat assets";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Copies the paid cat pictures (git-ignored, see scripts/install-cat-assets.sh) into the bundle when they exist. Never fails: without them the app shows a still fallback.\nSRC=\"${SRCROOT}/PaidAssets/Cats\"\nDEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nif [ -d \"$SRC\" ]; then\n  mkdir -p \"$DEST\"\n  for f in \"$SRC\"/*.png; do\n    [ -f \"$f\" ] && cp \"$f\" \"$DEST/\"\n  done\nfi\nexit 0\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		665068813075066F008C6524 /* Sources */ = {
@@ -745,6 +788,7 @@
 		665068A730750671008C6524 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EnglishTranslation.entitlements;
@@ -780,6 +824,7 @@
 		665068A830750671008C6524 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = EnglishTranslation.entitlements;
@@ -1027,6 +1072,7 @@
 		7C000000000000000000000A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = SaynataMac.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -1061,6 +1107,7 @@
 		7C000000000000000000000B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = SaynataMac.entitlements;
 				CODE_SIGN_STYLE = Automatic;

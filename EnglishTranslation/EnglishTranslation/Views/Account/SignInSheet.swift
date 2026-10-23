@@ -8,17 +8,28 @@ import AuthenticationServices
 #endif
 import SwiftUI
 
-/// The sign-in bottom sheet (TASK-70, option A of the 2026-10-15 mockup). It opens over the result when the backend
-/// answers `sign_in_required`, and from Settings > Account > Sign in.
-/// Step 1: an email and a round send button. Step 2: six boxes for the code. No button has a visible label (CLAUDE.md).
-/// TASK-92 adds, on iOS only, "Email me a link", Sign in with Apple and Sign in with Google under step 1
-/// (`OtherSignInOptions`). That part is a plain first version the developer will redesign, so it has no mockup;
-/// the Apple and Google buttons keep their words because both providers' brand rules ask for them.
+/// The sign-in bottom sheet (TASK-70, redone in TASK-96 with the cat room, mockup A of 2026-10-23).
+/// It opens over the result when the backend answers `sign_in_required`, and from Settings > Account > Sign in.
+/// iOS first screen: the cat room, "Welcome to Saynata", two equal pills (Apple, Google) and a "Use email instead"
+/// link. The link shows the email step: an email field and a round send button, then six boxes for the code
+/// (or a link was sent). The Mac has no Apple or Google button, so it goes straight to the email step.
+/// No icon button has a label. The Apple and Google pills keep their words because both providers' brand rules
+/// ask for them.
 struct SignInSheet: View {
     @State private var model: SignInModel
     @Environment(\.dismiss) private var dismiss
 
     @FocusState private var isEmailFocused: Bool
+    /// iOS starts with the provider buttons; "Use email instead" turns this on. The Mac has no providers.
+    @State private var showsEmailForm: Bool = SignInSheet.startsWithEmailForm
+
+    private static var startsWithEmailForm: Bool {
+        #if os(iOS)
+        false
+        #else
+        true
+        #endif
+    }
 
     /// - Parameter onSignedIn: runs after the code was right. The sheet then closes by itself.
     ///   For a result that was waiting, this runs the request again.
@@ -28,22 +39,16 @@ struct SignInSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-                switch model.step {
-                case .email:
-                    emailStep
-                    #if os(iOS)
-                    OtherSignInOptions(model: model)
-                    #endif
-                case .code: codeStep
-                case .linkSent: linkSentStep
-                }
-                messages
+            VStack(spacing: -Theme.Spacing.large) {
+                SignInCatRoom()
+                content
+                    .padding(.horizontal, Theme.Spacing.large)
+                    .padding(.top, Theme.Spacing.xLarge)
+                    .padding(.bottom, Theme.Spacing.large)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.Colors.background, in: UnevenRoundedRectangle(
+                        topLeadingRadius: Theme.Radius.card, topTrailingRadius: Theme.Radius.card))
             }
-            .padding(.horizontal, Theme.Spacing.large)
-            .padding(.top, Theme.Spacing.xLarge)
-            .padding(.bottom, Theme.Spacing.large)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollBounceBehavior(.basedOnSize)
         .background(Theme.Colors.background)
@@ -55,10 +60,15 @@ struct SignInSheet: View {
                 .padding(Theme.Spacing.medium)
         }
         #endif
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .animation(.default, value: model.step)
-        .task { isEmailFocused = true }
+        .animation(.default, value: showsEmailForm)
+        #if os(macOS)
+        .frame(width: 420, height: 600)
+        #endif
+        .task { isEmailFocused = showsEmailForm }
+        .onChange(of: showsEmailForm) { _, shows in isEmailFocused = shows }
         .onChange(of: model.didSignIn) { _, signedIn in
             if signedIn { dismiss() }
         }
@@ -69,17 +79,33 @@ struct SignInSheet: View {
         }
     }
 
-    // MARK: - Step 1
+    // MARK: - Content
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.large) {
+            switch model.step {
+            case .email:
+                Text("Welcome to Saynata")
+                    .font(.system(.title, design: .serif))
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                if showsEmailForm {
+                    emailStep
+                } else {
+                    #if os(iOS)
+                    ProviderButtons(model: model) { showsEmailForm = true }
+                    #endif
+                }
+            case .code: codeStep
+            case .linkSent: linkSentStep
+            }
+            messages
+        }
+    }
+
+    // MARK: - Step 1: email
 
     private var emailStep: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-            Text("Sign in to explain new sentences")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Theme.Colors.textPrimary)
-            Text("Saved words still work without an account.")
-                .font(.subheadline)
-                .foregroundStyle(Theme.Colors.textSecondary)
-
+        VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             HStack(spacing: Theme.Spacing.medium) {
                 TextField("Email", text: $model.email)
                     .textFieldStyle(.plain)
@@ -102,6 +128,16 @@ struct SignInSheet: View {
                 .disabled(!model.canSendCode)
                 .opacity(model.canSendCode ? 1 : 0.4)
             }
+            #if os(iOS)
+            HStack {
+                IconButton(systemImage: "chevron.left", label: "Other ways to sign in", style: .plain) {
+                    showsEmailForm = false
+                }
+                Spacer()
+                TextLinkButton(title: "Email me a link instead") { Task { await model.sendLink() } }
+                    .disabled(!model.canSendCode)
+            }
+            #endif
         }
     }
 
@@ -183,30 +219,27 @@ private struct TextLinkButton: View {
 }
 
 #if os(iOS)
-/// "Email me a link", Sign in with Apple, Sign in with Google (TASK-92). A plain first version, easy to replace.
-private struct OtherSignInOptions: View {
+/// Sign in with Apple, Sign in with Google and the "Use email instead" link (TASK-92, restyled in TASK-96).
+/// The two buttons are equal full-width pills: Apple black, Google white with a hairline border.
+/// Pure black and white are the one exception to "colors only from Theme": the providers' brand rules ask for them.
+private struct ProviderButtons: View {
     let model: SignInModel
+    let useEmail: () -> Void
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
-    @Environment(\.colorScheme) private var colorScheme
+
+    private let pillHeight = Theme.minTapTarget + Theme.Spacing.small
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-            TextLinkButton(title: "Email me a link instead") { Task { await model.sendLink() } }
-                .disabled(!model.canSendCode)
-
-            Text("or")
-                .font(.subheadline)
-                .foregroundStyle(Theme.Colors.textSecondary)
-                .frame(maxWidth: .infinity)
-
+        VStack(spacing: Theme.Spacing.medium) {
             SignInWithAppleButton(.signIn) { request in
                 request.requestedScopes = [.email]
                 request.nonce = model.prepareAppleRequest()
             } onCompletion: { result in
                 Task { await finishApple(result) }
             }
-            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-            .frame(height: Theme.minTapTarget + Theme.Spacing.small)
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: pillHeight)
+            .clipShape(Capsule())
             .disabled(model.isBusy)
 
             Button {
@@ -218,15 +251,22 @@ private struct OtherSignInOptions: View {
             } label: {
                 Text("Sign in with Google")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                    .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget + Theme.Spacing.small)
-                    .background(Theme.Colors.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.block))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: Theme.Radius.block).strokeBorder(Theme.Colors.hairline)
-                    }
+                    .foregroundStyle(Color.black)
+                    .frame(maxWidth: .infinity, minHeight: pillHeight)
+                    .background(Color.white, in: Capsule())
+                    .overlay { Capsule().strokeBorder(Theme.Colors.hairline) }
             }
             .buttonStyle(.plain)
             .disabled(model.isBusy)
+
+            Button(action: useEmail) {
+                Text("Use email instead")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.Colors.accent)
+                    .frame(maxWidth: .infinity, minHeight: Theme.minTapTarget)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
     }
 
