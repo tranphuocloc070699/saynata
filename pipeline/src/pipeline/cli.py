@@ -37,6 +37,8 @@
     uv run pipeline prefill collect --source phrases  # queue phrasal verbs and idioms (no LLM)
     uv run pipeline prefill collect --source sentences --dry-run  # TASK-83.11: everyday lines, count and night cost
     uv run pipeline prefill collect --source sentences  # queue data/common_sentences.tsv (--file for another TSV)
+    uv run pipeline prefill collect --source sentences --now   # TASK-83.12: queue, then answer them on the server at once
+    uv run pipeline prefill run --source common-sentences --max-usd 1.50   # answer rows that are already queued, now
     uv run pipeline prefill report       # queue counts by kind/status/source and the cost of the pending items
     uv run pipeline collection collect   # TASK-83.9: words, phrasal verbs, idioms, collocations into pipeline.db (no LLM)
     uv run pipeline collection report    # counts per kind, source and status, and the time to write the rest
@@ -351,10 +353,38 @@ def topic_words(args) -> None:
         print(f"Wrote {topics.export_tsv(db, path)} words to {path}")
 
 
+def prefill_default_cap() -> float:
+    from pipeline import prefill
+
+    return prefill.DEFAULT_RUN_USD
+
+
+def prefill_start_run(sources: list[str], max_usd: float, settings=None) -> None:
+    """TASK-83.12: start a run on the server for these queue sources and say how to watch it."""
+    from pipeline import prefill
+
+    try:
+        settings = settings or prefill.admin_settings()
+        answer = prefill.start_run(settings, sources, max_usd)
+    except prefill.RunError as error:
+        raise SystemExit(str(error)) from error
+    print("\n".join(prefill.started_lines(answer, settings)))
+
+
 def prefill_command(args) -> None:
     """Prefill queue (TASK-83.2): collect words or phrases into prefill_item, or report. See prefill.py."""
     from pipeline import prefill
 
+    if args.prefill_command == "run":
+        prefill_start_run(args.source, args.max_usd)
+        return
+    if args.prefill_command == "collect" and args.now and not args.dry_run:
+        # Check the login and the cap before anything is queued, so a missing key does not leave a half done job.
+        try:
+            settings = prefill.admin_settings()
+            prefill.check_run_cap(args.max_usd)
+        except prefill.RunError as error:
+            raise SystemExit(str(error)) from error
     dry_run = args.prefill_command == "collect" and args.dry_run
     # A dry run works without a database too (it then cannot say which items are already queued).
     url = (args.database_url or os.environ.get("DATABASE_URL", "")).strip() if dry_run \
@@ -408,6 +438,8 @@ def prefill_command(args) -> None:
         print(f"Queued {added} new rows. Next: uv run pipeline prefill report")
     if pg is not None:
         pg.close()
+    if args.now and not dry_run:
+        prefill_start_run([prefill.SOURCE_LABELS[args.source]], args.max_usd, settings)
 
 
 def prefill_sentences(args, pg, queue_ready: bool, dry_run: bool) -> None:
@@ -438,6 +470,8 @@ def prefill_sentences(args, pg, queue_ready: bool, dry_run: bool) -> None:
         print(f"Queued {added} new rows (source {prefill.SOURCE_SENTENCES}). Next: uv run pipeline prefill report")
     if pg is not None:
         pg.close()
+    if args.now and not dry_run:
+        prefill_start_run([prefill.SOURCE_SENTENCES], args.max_usd)
 
 
 def collection_command(args) -> None:
@@ -766,6 +800,18 @@ def main() -> None:
     collect_parser.add_argument("--limit", type=int, help="queue only the N most frequent new items")
     collect_parser.add_argument("--dry-run", action="store_true", help="print counts and a sample, write nothing")
     collect_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    collect_parser.add_argument("--now", action="store_true",
+                                help="after queueing, start a server run for these rows (admin login in pipeline/.env; "
+                                     "Claude spend on the server, capped by --max-usd)")
+    collect_parser.add_argument("--max-usd", type=float, default=prefill_default_cap(),
+                                help="with --now: the most the run may spend, in US dollars (default 0.50, at most 10)")
+    prefill_run_parser = prefill_commands.add_parser(
+        "run", help="start a server run for rows that are already queued (admin login in pipeline/.env)")
+    prefill_run_parser.add_argument("--source", required=True, action="append",
+                                    help="queue source label, for example common-sentences, scowl-70, oewn-2025 "
+                                         "(repeat for more)")
+    prefill_run_parser.add_argument("--max-usd", type=float, default=prefill_default_cap(),
+                                    help="the most the run may spend, in US dollars (default 0.50, at most 10)")
     prefill_report_parser = prefill_commands.add_parser("report", help="queue counts and the cost of the pending items")
     prefill_report_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     collection_parser = commands.add_parser("collection", help="local entries written by Codex (TASK-83.9)")

@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-20 03:13'
+updated_date: '2026-10-23 02:44'
 ---
 # Decisions and reasons
 
@@ -175,6 +175,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-19 | **History stays on the device** (SQLite in the App Group, the extensions add to it) | Reason: not recorded. Context: works for guests, no server cost, private | Also sync History to the account | Developer |
 | 10-19 | **Liked is saved on the server per account** (`/api/liked`), so liking needs sign-in | Reason: not recorded. Context: liked items follow the user to the Mac app and the browser extension | Liked only on the device (still behind sign-in) | Developer |
 | 10-20 | **The STEYG gateway uses `deepseek-v4.1-flash`** for sentences and words (price $0.30 / $1.20 per million tokens in `application.properties`) | "api call to steyg take a long time". A test: a 2-word call to `gpt-6-luna` took 1.8-9.3 s; 25 real sentences through the backend with deepseek: median 2.6 s to the first meaning words (gpt-6-luna about 6 s), 1 made-up fact in 25 answers, 2 small added details | Keep `gpt-6-luna` (best answers, 2-3x slower); `glm-5.3` (about 3.4 s, one clumsy answer in 5); Anthropic directly with Haiku | Developer |
+| 10-23 | **The prefill night job answers only what users typed** (`PREFILL_CRON_SOURCES`, default `sentence-words`); words, phrases and sentences the developer adds are run at once (`prefill run`, `prefill collect --now`, TASK-83.12) | "PREFILL_CRON (the night job) is for what users type; new words/phrases/sentences the developer adds must be in the server cache right away." | One cron for every source (the developer's rows would wait for the night); a second cron | Developer |
 
 ## Questions answered
 

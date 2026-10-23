@@ -14,6 +14,7 @@ Two sources, both safe to run again (a row that is already queued is skipped, se
   hand for this list, common replies first.
 """
 
+import os
 import re
 import sqlite3
 from collections import Counter
@@ -21,6 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import httpx
 import psycopg
 
 WORDS_DIR = Path(__file__).resolve().parents[3] / "backend/src/main/resources/words"
@@ -453,3 +455,92 @@ def report_lines(pg: psycopg.Connection) -> list[str]:
     lines.append(f"Pending: {pending['word']} words x ${COST_PER_WORD} + {pending['sentence']} sentences "
                  f"x ${COST_PER_SENTENCE} = about ${cost:.2f} with Claude Haiku 5.5")
     return lines
+
+
+# ---------- start a run on the server (TASK-83.12) ----------
+#
+# The backend night job only answers what users typed (PREFILL_CRON_SOURCES). Words, phrases and sentences that the
+# developer queues are answered at once: sign in to the admin API like the admin web app does (POST
+# /api/admin/auth/login, the login lives in an HttpOnly cookie), then POST /api/admin/prefill/run?source=<label>.
+# The run happens on the server in the background and spends Claude money there, capped by max_usd.
+
+DEFAULT_RUN_USD = 0.50
+MAX_RUN_USD = 10.0  # the same limit as the backend (AdminPrefillController.MAX_ALLOWED_USD)
+RUN_TIMEOUT_SECONDS = 30.0
+
+SOURCE_LABELS = {"words": SOURCE_WORDS, "phrases": SOURCE_PHRASES, "sentences": SOURCE_SENTENCES}
+
+
+class RunError(Exception):
+    """A run could not be started. The message says why and what to do, so the command can print it as it is."""
+
+
+@dataclass(frozen=True)
+class AdminSettings:
+    base_url: str
+    email: str
+    password: str
+
+
+def admin_settings(environ: dict[str, str] | None = None) -> AdminSettings:
+    """The server address and the admin login, from pipeline/.env (loaded into the environment by the CLI)."""
+    env = os.environ if environ is None else environ
+    values = {name: env.get(name, "").strip() for name in ("ADMIN_API_URL", "ADMIN_EMAIL", "ADMIN_PASSWORD")}
+    missing = [name for name, value in values.items() if not value]
+    if missing:
+        raise RunError(f"Missing {', '.join(missing)} in pipeline/.env. They are needed to start a run on the server "
+                       "(see pipeline/.env.example). Nothing was started.")
+    return AdminSettings(values["ADMIN_API_URL"].rstrip("/"), values["ADMIN_EMAIL"], values["ADMIN_PASSWORD"])
+
+
+def check_run_cap(max_usd: float) -> None:
+    if not 0 < max_usd <= MAX_RUN_USD:
+        raise RunError(f"--max-usd must be more than 0 and at most {MAX_RUN_USD:g} (got {max_usd:g}).")
+
+
+def start_run(settings: AdminSettings, sources: list[str], max_usd: float,
+              client: httpx.Client | None = None) -> dict:
+    """Signs in and starts a run for these queue sources. Returns the backend answer (started, maxUsd, sources).
+
+    `client` is for tests (an httpx.MockTransport); the default talks to the real server."""
+    check_run_cap(max_usd)
+    own_client = client is None
+    http = client or httpx.Client(timeout=RUN_TIMEOUT_SECONDS)
+    try:
+        login = _request(http, "POST", f"{settings.base_url}/api/admin/auth/login",
+                         json={"email": settings.email, "password": settings.password})
+        if login.status_code == 401:
+            raise RunError("The server refused ADMIN_EMAIL / ADMIN_PASSWORD (wrong login, or not an admin).")
+        if login.status_code == 429:
+            raise RunError("Too many login attempts. Wait 15 minutes and try again.")
+        _expect_ok(login, "sign in")
+        run = _request(http, "POST", f"{settings.base_url}/api/admin/prefill/run",
+                       params=[("maxUsd", f"{max_usd:g}")] + [("source", name) for name in sources], json={})
+        if run.status_code == 409:
+            raise RunError("A prefill run is already going on the server (prefill_running). "
+                           "Watch it with: uv run pipeline prefill report. Start this one when it has finished.")
+        if run.status_code == 400:
+            raise RunError(f"The server refused the run: {run.text}")
+        _expect_ok(run, "start the run")
+        return run.json()
+    finally:
+        if own_client:
+            http.close()
+
+
+def _request(http: httpx.Client, method: str, url: str, **kwargs) -> httpx.Response:
+    try:
+        return http.request(method, url, **kwargs)
+    except httpx.HTTPError as error:
+        raise RunError(f"Cannot reach the server at {url}: {error}") from error
+
+
+def _expect_ok(response: httpx.Response, action: str) -> None:
+    if response.status_code >= 400:
+        raise RunError(f"Could not {action}: the server answered {response.status_code}.")
+
+
+def started_lines(answer: dict, settings: AdminSettings) -> list[str]:
+    sources = ", ".join(answer.get("sources") or []) or "every source"
+    return [f"Run started on {settings.base_url}: source {sources}, cap ${answer.get('maxUsd')} (it runs on the server).",
+            "watch with: uv run pipeline prefill report"]
