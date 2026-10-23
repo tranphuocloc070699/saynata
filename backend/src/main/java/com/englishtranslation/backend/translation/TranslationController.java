@@ -5,6 +5,9 @@ import com.englishtranslation.backend.claude.ClaudeRefusedException;
 import com.englishtranslation.backend.claude.NotEnglishException;
 import com.englishtranslation.backend.common.ApiException;
 import com.englishtranslation.backend.limits.CallerContext;
+import com.englishtranslation.backend.limits.DailyLimitReachedException;
+import com.englishtranslation.backend.limits.RateLimitedException;
+import com.englishtranslation.backend.limits.SignInRequiredException;
 import com.englishtranslation.backend.prefill.SentenceWordQueue;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.Valid;
@@ -51,7 +54,13 @@ public class TranslationController {
     @PostMapping
     public TranslationResponse translate(@Valid @RequestBody TranslationRequest request,
             @RequestParam(defaultValue = "false") boolean cachedOnly) {
-        TranslationResponse response = service.translate(request.text(), request.targetLang(), cachedOnly);
+        TranslationResponse response;
+        try {
+            response = service.translate(request.text(), request.targetLang(), cachedOnly);
+        } catch (RuntimeException e) {
+            queueWordsIfRefused(request.text(), cachedOnly, e);
+            throw e;
+        }
         queueWords(request.text(), cachedOnly);
         return response;
     }
@@ -92,6 +101,7 @@ public class TranslationController {
             send(emitter, "done", response);
             queueWords(request.text(), cachedOnly);
         } catch (Exception e) {
+            queueWordsIfRefused(request.text(), cachedOnly, e);
             send(emitter, "error", describe(e));
         } finally {
             emitter.complete();
@@ -138,6 +148,17 @@ public class TranslationController {
     private void queueWords(String text, boolean cachedOnly) {
         if (!cachedOnly) {
             sentenceWords.offer(text);
+        }
+    }
+
+    /**
+     * A sentence the gate refused (a guest, a user over the limit, the day's budget spent) is not answered, but its
+     * unknown words are still worth answering at night (TASK-100), so the next learner finds them cached.
+     */
+    private void queueWordsIfRefused(String text, boolean cachedOnly, Exception e) {
+        if (e instanceof SignInRequiredException || e instanceof RateLimitedException
+                || e instanceof DailyLimitReachedException) {
+            queueWords(text, cachedOnly);
         }
     }
 }
