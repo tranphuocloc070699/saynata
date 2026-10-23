@@ -14,6 +14,8 @@ import org.springframework.scheduling.support.CronTrigger;
 
 /**
  * Starts a prefill run by itself on the {@code app.prefill.cron} schedule (UTC). An empty cron means off.
+ * The night run answers only the sources in {@code app.prefill.cron-sources} (default: the words users typed).
+ * What the developer adds is run at once by hand (TASK-83.12).
  * It has its own small scheduler, so it does not change how the rest of the app works.
  */
 @Configuration
@@ -37,6 +39,10 @@ public class PrefillScheduler {
             log.info("Prefill schedule is off (PREFILL_CRON is empty)");
             return;
         }
+        if (properties.cronSources().isEmpty()) {
+            log.error("PREFILL_CRON_SOURCES is empty. Prefill is off (an empty list would mean every source at night).");
+            return;
+        }
         if (!CronExpression.isValidExpression(cron)) {
             log.error("PREFILL_CRON '{}' is not a valid cron (six fields, for example '0 0 20 * * *'). Prefill is off.", cron);
             return;
@@ -46,13 +52,14 @@ public class PrefillScheduler {
         scheduler.setThreadNamePrefix("prefill-cron-");
         scheduler.initialize();
         scheduler.schedule(this::runScheduled, new CronTrigger(cron, ZoneOffset.UTC));
-        log.info("Prefill runs on the schedule '{}' (UTC), cap ${} per run", cron, properties.maxUsdPerRun());
+        log.info("Prefill runs on the schedule '{}' (UTC) for sources {}, cap ${} per run", cron,
+                properties.cronSources(), properties.maxUsdPerRun());
     }
 
     /** One scheduled run, on the scheduler thread. An error must never stop the schedule. */
     void runScheduled() {
         try {
-            runner.runNow("cron", null, null);
+            runner.runNow("cron", null, null, properties.cronSources());
         } catch (ApiException e) {
             log.info("Scheduled prefill skipped: {}", e.getMessage());
         } catch (RuntimeException e) {

@@ -26,7 +26,7 @@ public class AdminPrefillController {
     static final BigDecimal MAX_ALLOWED_USD = new BigDecimal("10");
 
     /** The answer of POST /run: the run has started on its own thread. */
-    public record Started(boolean started, BigDecimal maxUsd, Integer limit) {
+    public record Started(boolean started, BigDecimal maxUsd, Integer limit, List<String> sources) {
     }
 
     /** Counts of one source, by status (a status with no items is 0). */
@@ -55,19 +55,23 @@ public class AdminPrefillController {
     /**
      * Starts one run in the background. {@code maxUsd} is this run's cap (default app.prefill.max-usd-per-run,
      * at most 10), {@code limit} the most items to handle (default: until the queue is empty or the cap is reached).
+     * {@code source} (repeatable, TASK-83.12) limits the run to those queue sources; without it, every source.
      * 409 {@code prefill_running} if a run is already going.
      */
     @PostMapping("/run")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public Started run(@RequestParam(required = false) BigDecimal maxUsd, @RequestParam(required = false) Integer limit) {
+    public Started run(@RequestParam(required = false) BigDecimal maxUsd, @RequestParam(required = false) Integer limit,
+            @RequestParam(name = "source", required = false) List<String> source) {
         if (maxUsd != null && (maxUsd.signum() <= 0 || maxUsd.compareTo(MAX_ALLOWED_USD) > 0)) {
             throw new InvalidAdminRequestException("maxUsd must be more than 0 and at most " + MAX_ALLOWED_USD + ".");
         }
         if (limit != null && limit < 1) {
             throw new InvalidAdminRequestException("limit must be 1 or more.");
         }
-        runner.startInBackground("admin", maxUsd, limit);
-        return new Started(true, maxUsd == null ? properties.maxUsdPerRun() : maxUsd, limit);
+        List<String> sources = source == null ? List.of()
+                : source.stream().map(String::strip).filter(name -> !name.isEmpty()).distinct().toList();
+        runner.startInBackground("admin", maxUsd, limit, sources);
+        return new Started(true, maxUsd == null ? properties.maxUsdPerRun() : maxUsd, limit, sources);
     }
 
     @GetMapping

@@ -308,3 +308,117 @@ def test_sentences_already_queued_are_skipped_by_their_loose_key(queue):
     assert prefill.insert_items(queue, new) == 1
     assert queue.execute("SELECT source, priority FROM prefill_item WHERE text = 'Well done.'").fetchone() == (
         "common-sentences", 950)
+
+
+# ---------- start a run on the server (TASK-83.12): no real network, no Postgres ----------
+
+import argparse  # noqa: E402
+
+import httpx  # noqa: E402
+
+from pipeline import cli  # noqa: E402
+
+SETTINGS = prefill.AdminSettings("https://api.example.test", "admin@example.test", "secret")
+
+
+def fake_server(calls, login_status=200, run_status=202):
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if request.url.path == "/api/admin/auth/login":
+            return httpx.Response(login_status, headers={"set-cookie": "saynata_admin=abc; Path=/"})
+        return httpx.Response(run_status, json={"started": True, "maxUsd": 1.5, "limit": None,
+                                                "sources": request.url.params.get_list("source")})
+
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_start_run_signs_in_then_runs_the_given_sources():
+    calls = []
+    answer = prefill.start_run(SETTINGS, ["common-sentences", "oewn-2025"], 1.5, client=fake_server(calls))
+    assert [c.url.path for c in calls] == ["/api/admin/auth/login", "/api/admin/prefill/run"]
+    assert calls[1].url.params.get_list("source") == ["common-sentences", "oewn-2025"]
+    assert calls[1].url.params["maxUsd"] == "1.5"
+    assert answer["sources"] == ["common-sentences", "oewn-2025"]
+    assert any("watch with: uv run pipeline prefill report" in line for line in prefill.started_lines(answer, SETTINGS))
+
+
+def test_start_run_explains_wrong_login_and_a_run_already_going():
+    with pytest.raises(prefill.RunError, match="ADMIN_EMAIL"):
+        prefill.start_run(SETTINGS, ["x"], 0.5, client=fake_server([], login_status=401))
+    with pytest.raises(prefill.RunError, match="already going"):
+        prefill.start_run(SETTINGS, ["x"], 0.5, client=fake_server([], run_status=409))
+
+
+def test_start_run_refuses_an_unsafe_cap_before_any_request():
+    calls = []
+    for bad in (0, -1, 50):
+        with pytest.raises(prefill.RunError, match="--max-usd"):
+            prefill.start_run(SETTINGS, ["x"], bad, client=fake_server(calls))
+    assert calls == []
+
+
+def test_missing_credentials_give_a_clear_error():
+    with pytest.raises(prefill.RunError, match="ADMIN_PASSWORD") as error:
+        prefill.admin_settings({"ADMIN_API_URL": "https://api.example.test", "ADMIN_EMAIL": "a@b.c"})
+    assert "pipeline/.env" in str(error.value)
+    assert prefill.admin_settings({"ADMIN_API_URL": "https://x.test/", "ADMIN_EMAIL": "a", "ADMIN_PASSWORD": "b"}
+                                  ).base_url == "https://x.test"
+
+
+class FakePg:
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def started(monkeypatch):
+    """Fakes Postgres and the server: records every start_run call."""
+    runs = []
+    monkeypatch.setenv("ADMIN_API_URL", "https://api.example.test")
+    monkeypatch.setenv("ADMIN_EMAIL", "a@b.c")
+    monkeypatch.setenv("ADMIN_PASSWORD", "secret")
+    monkeypatch.setattr(cli.postgres, "database_url", lambda url: "postgresql://fake")
+    monkeypatch.setattr(cli.postgres, "connect", lambda url, read_only=False: FakePg())
+    monkeypatch.setattr(prefill, "queue_exists", lambda pg: True)
+    monkeypatch.setattr(prefill, "queued_sentence_keys", lambda pg: set())
+    monkeypatch.setattr(prefill, "insert_items", lambda pg, items: len(items))
+    monkeypatch.setattr(prefill, "start_run", lambda settings, sources, max_usd, client=None: (
+        runs.append((sources, max_usd)) or {"maxUsd": max_usd, "sources": sources}))
+    return runs
+
+
+def collect_args(**changes):
+    values = dict(prefill_command="collect", source="sentences", file=None, zipf=None, all_wordfreq=False, limit=None,
+                  dry_run=False, database_url=None, now=True, max_usd=0.5)
+    return argparse.Namespace(**{**values, **changes})
+
+
+def test_collect_now_runs_the_source_it_queued(started):
+    cli.prefill_command(collect_args(max_usd=0.7))
+    assert started == [(["common-sentences"], 0.7)]
+
+
+def test_collect_dry_run_never_starts_a_run(started):
+    cli.prefill_command(collect_args(dry_run=True))
+    assert started == []
+
+
+def test_collect_without_now_never_starts_a_run(started):
+    cli.prefill_command(collect_args(now=False))
+    assert started == []
+
+
+def test_collect_now_without_credentials_stops_before_queueing(started, monkeypatch):
+    monkeypatch.delenv("ADMIN_PASSWORD")
+    with pytest.raises(SystemExit, match="ADMIN_PASSWORD"):
+        cli.prefill_command(collect_args())
+    assert started == []
+
+
+def test_prefill_run_starts_the_given_sources(started):
+    cli.prefill_command(argparse.Namespace(prefill_command="run", source=["common-sentences"], max_usd=1.5))
+    assert started == [(["common-sentences"], 1.5)]
+
+
+def test_source_labels_match_what_collect_queues():
+    assert prefill.SOURCE_LABELS == {"words": "scowl-70", "phrases": "oewn-2025", "sentences": "common-sentences"}

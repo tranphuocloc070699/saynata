@@ -17,9 +17,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -97,9 +99,14 @@ public class PrefillRunner {
      * {@code maxUsd} or {@code limit} may be null (then: the configured cap, and no item limit).
      */
     public void startInBackground(String trigger, BigDecimal maxUsd, Integer limit) {
+        startInBackground(trigger, maxUsd, limit, Set.of());
+    }
+
+    /** Same, but only items of these queue sources ({@code sources} empty = every source, TASK-83.12). */
+    public void startInBackground(String trigger, BigDecimal maxUsd, Integer limit, Collection<String> sources) {
         claimOrThrow();
         try {
-            background.execute(() -> runClaimed(trigger, maxUsd, limit));
+            background.execute(() -> runClaimed(trigger, maxUsd, limit, sources));
         } catch (RuntimeException e) {
             running.set(false);
             throw e;
@@ -108,8 +115,13 @@ public class PrefillRunner {
 
     /** Runs on the calling thread and returns what happened. Throws 409 {@code prefill_running} when one is running. */
     public RunSummary runNow(String trigger, BigDecimal maxUsd, Integer limit) {
+        return runNow(trigger, maxUsd, limit, Set.of());
+    }
+
+    /** Same, but only items of these queue sources ({@code sources} empty = every source, TASK-83.12). */
+    public RunSummary runNow(String trigger, BigDecimal maxUsd, Integer limit, Collection<String> sources) {
         claimOrThrow();
-        return runClaimed(trigger, maxUsd, limit);
+        return runClaimed(trigger, maxUsd, limit, sources);
     }
 
     private void claimOrThrow() {
@@ -118,7 +130,7 @@ public class PrefillRunner {
         }
     }
 
-    private RunSummary runClaimed(String trigger, BigDecimal maxUsd, Integer limit) {
+    private RunSummary runClaimed(String trigger, BigDecimal maxUsd, Integer limit, Collection<String> sources) {
         try {
             BigDecimal cap = maxUsd == null ? properties.maxUsdPerRun() : maxUsd;
             Instant startedAt = clock.instant();
@@ -127,7 +139,7 @@ public class PrefillRunner {
             try {
                 PrefillContext.Run run = new PrefillContext.Run(startedAt, cap);
                 String[] result = new String[1];
-                PrefillContext.runAs(run, () -> result[0] = loop(run, limit, counts));
+                PrefillContext.runAs(run, () -> result[0] = loop(run, limit, sources, counts));
                 reason = result[0];
             } catch (RuntimeException e) {
                 log.error("Prefill run stopped by an unexpected error", e);
@@ -153,7 +165,9 @@ public class PrefillRunner {
     }
 
     /** Handles items until a stop rule applies. Returns why it stopped. Runs inside PrefillContext. */
-    private String loop(PrefillContext.Run run, Integer limit, Counts counts) {
+    private String loop(PrefillContext.Run run, Integer limit, Collection<String> sources, Counts counts) {
+        boolean allSources = sources.isEmpty();
+        Collection<String> sourceFilter = allSources ? List.of("-") : sources; // the query needs a non-empty list
         BigDecimal mostPerItem = BigDecimal.ZERO;
         int failuresInARow = 0;
         while (limit == null || counts.handled < limit) {
@@ -162,7 +176,7 @@ public class PrefillRunner {
             if (spent.compareTo(run.maxUsd()) >= 0 || spent.add(mostPerItem).compareTo(run.maxUsd()) > 0) {
                 return "cap";
             }
-            Optional<PrefillItem> next = items.next(properties.maxAttempts(), run.startedAt(), PageRequest.of(0, 1))
+            Optional<PrefillItem> next = items.next(properties.maxAttempts(), run.startedAt(), allSources, sourceFilter, PageRequest.of(0, 1))
                     .stream().findFirst();
             if (next.isEmpty()) {
                 return "queue-empty";
