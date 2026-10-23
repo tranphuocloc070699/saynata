@@ -2,23 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Palette "Sage and Teal" (docs/design/design-system.md). HSL values for shadcn tokens. */
+/* Sage and Teal brand colours (docs/design/design-system.md) on the Isomorphic layout (TASK-99):
+   a light grey page, white cards, thin grey lines, soft badge backgrounds. HSL values for shadcn tokens. */
 :root {
-  --background: 100 15% 95%; /* #F3F5F1 */
+  --background: 120 7% 97%; /* #F6F7F6 page */
   --card: 0 0% 100%; /* #FFFFFF */
-  --muted: 140 13% 92%; /* #E8EEE9 meaning block */
-  --border: 135 11% 86%; /* #D9E0DA hairline */
-  --chip: 155 28% 88%; /* #DCEBE4 */
+  --muted: 120 7% 95%; /* #F1F3F1 table head, hover */
+  --border: 120 5% 89%; /* #E2E5E2 hairline */
+  --chip: 155 28% 88%; /* #DCEBE4 selected row, active nav */
   --foreground: 155 15% 14%; /* #1F2A26 */
-  --muted-foreground: 150 8% 40%; /* #5F6E67 */
-  --secondary: 140 13% 92%;
+  --muted-foreground: 150 6% 50%; /* #78857F */
+  --secondary: 120 7% 95%;
   --primary: 168 40% 31%; /* #2F6F62 accent */
   --primary-foreground: 0 0% 100%;
   --destructive: 8 58% 44%; /* #B3402F */
+  --warning: 28 89% 36%; /* #AB570A */
+  --warning-soft: 40 100% 91%; /* #FFEFCF */
+  --success: 142 77% 29%; /* #11843C */
+  --success-soft: 141 60% 90%; /* #D6F5E0 */
+  --danger-soft: 356 63% 90%; /* #F7D4D6 */
 }
 
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Lexend Deca", Inter, sans-serif;
 }

@@ -35,9 +35,11 @@ const run: WordItem = {
 
 const house: WordItem = { ...run, id: 2, word: "house", needsReview: false, source: "bundled" };
 
-function renderWords(words: WordItem[]) {
+function renderWords(words: WordItem[], path = "/words") {
   // A fake backend: it applies the filters it is sent, like the real list endpoint does.
-  const getList = vi.fn().mockImplementation(async ({ filters }) => {
+  const getList = vi.fn().mockImplementation(async ({ filters, resource }) => {
+    // The Pending count asks the prefill queue: empty here.
+    if (resource !== "words") return { data: [], total: 0 };
     const filter = (field: string) => filters?.find((f: { field: string }) => f.field === field)?.value;
     const data = words.filter(
       (w) =>
@@ -52,7 +54,7 @@ function renderWords(words: WordItem[]) {
   const dataProvider = { getList, getApiUrl: () => "https://api.test/api/admin" } as unknown as DataProvider;
 
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <Refine dataProvider={dataProvider} options={{ disableTelemetry: true }}>
         <WordsPage />
       </Refine>
@@ -61,142 +63,154 @@ function renderWords(words: WordItem[]) {
   return getList;
 }
 
+// The list requests only (50 rows); the Filter menu's counts ask for one row.
+function listCalls(getList: ReturnType<typeof vi.fn>) {
+  return getList.mock.calls.map((c) => c[0]).filter((p) => p.pagination?.pageSize === 50);
+}
+
+// Opens the Filter menu if needed and clicks one choice (TASK-101).
+async function choose(label: string) {
+  if (!screen.queryByRole("group", { name: "Filter choices" })) {
+    await userEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+  }
+  await userEvent.click(within(screen.getByRole("group", { name: "Filter choices" })).getByRole("button", { name: label }));
+}
+
 describe("words page", () => {
-  it("lists the words with a needs review badge", async () => {
-    renderWords([run, house]);
-    const list = await screen.findByRole("list");
-    expect(await within(list).findByText("run")).toBeInTheDocument();
-    expect(within(list).getByText("house")).toBeInTheDocument();
-    expect(within(list).getByText("Needs review")).toBeInTheDocument();
+  it("starts with the search from the top bar (?q=)", async () => {
+    const getList = renderWords([run, house], "/words?q=run");
+    expect(await screen.findByRole("searchbox", { name: "Search" })).toHaveValue("run");
+    expect(getList.mock.calls[0][0].filters).toContainEqual({ field: "q", operator: "contains", value: "run" });
   });
 
-  it("asks the backend for needs_review=true when the chip is on", async () => {
+  it("lists the words with a Needs review · N badge", async () => {
+    renderWords([run, house]);
+    const list = await screen.findByRole("table", { name: "Rows" });
+    expect(await within(list).findByText("run")).toBeInTheDocument();
+    expect(within(list).getByText("house")).toBeInTheDocument();
+    expect(within(list).getByText("Needs review · 0")).toBeInTheDocument();
+  });
+
+  it("shows the words as a table with Level, Source and Status, and no badge for a word that is fine (TASK-101)", async () => {
+    renderWords([run, house]);
+    const table = await screen.findByRole("table", { name: "Rows" });
+    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual(["Word", "Level", "Source", "Status"]);
+    const houseRow = (await within(table).findByText("house")).closest("tr")!;
+    expect(within(houseRow).getByText("Bundled")).toBeInTheDocument();
+    expect(within(houseRow).getByText("A1")).toBeInTheDocument();
+    expect(within(houseRow).queryByText(/Reviewed|No media|review/)).not.toBeInTheDocument();
+  });
+
+  it("opens the word in a drawer when its row is clicked, and Close shuts it", async () => {
+    renderWords([run]);
+    const table = await screen.findByRole("table", { name: "Rows" });
+    await userEvent.click((await within(table).findByText("chạy")).closest("tr")!);
+    expect(screen.getByRole("dialog", { name: "Entry details" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Entry" })).getByRole("heading", { name: "run" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("groups the Filter choices under Level, Source and Status, each with its count", async () => {
+    const getList = renderWords([run, house]);
+    await screen.findByText("house");
+    await userEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    const menu = screen.getByRole("group", { name: "Filter choices" });
+    expect(within(menu).getByText("Level")).toBeInTheDocument();
+    expect(within(menu).getByText("Source")).toBeInTheDocument();
+    expect(within(menu).getByText("Status")).toBeInTheDocument();
+    expect(within(menu).getByText("On the phone, inside the app. Works offline.")).toBeInTheDocument();
+
+    // Each count is the list endpoint with one row asked and that choice alone.
+    const needsReview = within(menu).getByRole("button", { name: "Needs review" });
+    await vi.waitFor(() => expect(needsReview).toHaveTextContent(/1$/));
+    const countCall = getList.mock.calls.find(
+      (c) => c[0].pagination?.pageSize === 1 && c[0].filters?.[0]?.field === "needs_review",
+    );
+    expect(countCall![0].filters).toEqual([{ field: "needs_review", operator: "eq", value: true }]);
+    expect(within(menu).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual([
+      "A1-A2",
+      "B1-B2",
+      "C1-C2",
+      "Bundled",
+      "Backend database",
+      "Pending",
+      "Needs review",
+    ]);
+  });
+
+  it("asks the backend for needs_review=true when the choice is on, and the tag removes it", async () => {
     const getList = renderWords([run, house]);
     await screen.findByText("house");
 
-    await userEvent.click(screen.getByRole("button", { name: "Needs review" }));
+    await choose("Needs review");
 
     await vi.waitFor(() => expect(screen.queryByText("house")).not.toBeInTheDocument());
-    const lastCall = getList.mock.calls.at(-1)![0];
-    expect(lastCall.filters).toEqual([{ field: "needs_review", operator: "eq", value: true }]);
+    expect(listCalls(getList).at(-1)!.filters).toEqual([{ field: "needs_review", operator: "eq", value: true }]);
     expect(screen.getByText("run")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove filter Needs review" }));
+    expect(await screen.findByText("house")).toBeInTheDocument();
   });
 
-  it("sends the source chip to the backend and shows only what the backend returns", async () => {
+  it("sends the source choice to the backend and shows only what the backend returns", async () => {
     const getList = renderWords([run, house]);
     await screen.findByText("house");
     getList.mockClear();
 
-    await userEvent.click(screen.getByRole("button", { name: "Bundled" }));
+    await choose("Bundled");
 
     await vi.waitFor(() => expect(screen.queryByText("run")).not.toBeInTheDocument());
-    expect(screen.getByText("house")).toBeInTheDocument();
-    expect(getList).toHaveBeenCalledTimes(1);
-    expect(getList.mock.calls[0][0].filters).toEqual([{ field: "source", operator: "eq", value: "bundled" }]);
+    expect(screen.getAllByText("house").length).toBeGreaterThan(0);
+    expect(listCalls(getList)).toHaveLength(1);
+    expect(listCalls(getList)[0].filters).toEqual([{ field: "source", operator: "eq", value: "bundled" }]);
   });
 
-  it("Bundled and From backend work one at a time", async () => {
+  it("Bundled and Backend database work one at a time", async () => {
     const getList = renderWords([run, house]);
     await screen.findByText("house");
 
-    await userEvent.click(screen.getByRole("button", { name: "Bundled" }));
-    await userEvent.click(screen.getByRole("button", { name: "From backend" }));
+    await choose("Bundled");
+    await choose("Backend database");
 
     await vi.waitFor(() => expect(screen.queryByText("house")).not.toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Bundled" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "From backend" })).toHaveAttribute("aria-pressed", "true");
-    expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "source", operator: "eq", value: "backend" }]);
+    expect(screen.getByRole("button", { name: "Backend database" })).toHaveAttribute("aria-pressed", "true");
+    expect(listCalls(getList).at(-1)!.filters).toEqual([{ field: "source", operator: "eq", value: "backend" }]);
   });
 
-  it("OR-s the level chips into one cefr list and combines them with the source chip", async () => {
+  it("OR-s the level choices into one cefr list and combines them with the source", async () => {
     const getList = renderWords([run, house]);
     await screen.findByText("house");
 
-    await userEvent.click(screen.getByRole("button", { name: "A1-A2" }));
-    await userEvent.click(screen.getByRole("button", { name: "B1-B2" }));
-    await userEvent.click(screen.getByRole("button", { name: "Bundled" }));
+    await choose("A1-A2");
+    await choose("C1-C2");
+    await choose("Bundled");
 
     await vi.waitFor(() =>
-      expect(getList.mock.calls.at(-1)![0].filters).toEqual([
+      expect(listCalls(getList).at(-1)!.filters).toEqual([
+        { field: "cefr", operator: "in", value: ["A1", "A2", "C1", "C2"] },
         { field: "source", operator: "eq", value: "bundled" },
-        { field: "cefr", operator: "in", value: ["A1", "A2", "B1", "B2"] },
       ]),
     );
-    // Turning a level chip off leaves the other one.
-    await userEvent.click(screen.getByRole("button", { name: "A1-A2" }));
+    // Turning a level off leaves the other one.
+    await choose("A1-A2");
     await vi.waitFor(() =>
-      expect(getList.mock.calls.at(-1)![0].filters).toContainEqual({ field: "cefr", operator: "in", value: ["B1", "B2"] }),
+      expect(listCalls(getList).at(-1)!.filters).toContainEqual({ field: "cefr", operator: "in", value: ["C1", "C2"] }),
     );
   });
 
-  it("sends media=with or media=without, one at a time", async () => {
-    const getList = renderWords([run, house]);
-    await screen.findByText("house");
-
-    await userEvent.click(screen.getByRole("button", { name: "Has media" }));
-    await vi.waitFor(() =>
-      expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "media", operator: "eq", value: "with" }]),
-    );
-
-    await userEvent.click(screen.getByRole("button", { name: "No media" }));
-    await vi.waitFor(() =>
-      expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "media", operator: "eq", value: "without" }]),
-    );
-    expect(screen.getByRole("button", { name: "Has media" })).toHaveAttribute("aria-pressed", "false");
-
-    // Pressing the active chip again removes the filter.
-    await userEvent.click(screen.getByRole("button", { name: "No media" }));
-    await vi.waitFor(() => expect(getList.mock.calls.at(-1)![0].filters).toEqual([]));
-  });
-
-  it("sends media=wrong and media=to-review from their own chips, one at a time with the other media chips (TASK-80)", async () => {
-    const getList = renderWords([run, house]);
-    await screen.findByText("house");
-
-    await userEvent.click(screen.getByRole("button", { name: "Wrong media" }));
-    await vi.waitFor(() =>
-      expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "media", operator: "eq", value: "wrong" }]),
-    );
-
-    await userEvent.click(screen.getByRole("button", { name: "Media to review" }));
-    await vi.waitFor(() =>
-      expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "media", operator: "eq", value: "to-review" }]),
-    );
-    expect(screen.getByRole("button", { name: "Wrong media" })).toHaveAttribute("aria-pressed", "false");
-
-    await userEvent.click(screen.getByRole("button", { name: "Has media" }));
-    await vi.waitFor(() =>
-      expect(getList.mock.calls.at(-1)![0].filters).toEqual([{ field: "media", operator: "eq", value: "with" }]),
-    );
-    expect(screen.getByRole("button", { name: "Media to review" })).toHaveAttribute("aria-pressed", "false");
-  });
-
-  it("shows a Wrong media badge and an N to review badge in the row, and none for a word with nothing to review", async () => {
-    const wrongOne: WordItem = { ...run, needsReview: false, wrongMediaCount: 1, mediaToReviewCount: 2 };
-    const plain: WordItem = { ...house, wrongMediaCount: 0, mediaToReviewCount: 0 };
-    renderWords([wrongOne, plain]);
-    const list = await screen.findByRole("list");
-    await within(list).findByText("house");
-
-    expect(within(list).getAllByText("Wrong media")).toHaveLength(1);
-    expect(within(list).getByText("2 to review")).toBeInTheDocument();
-    // The word-text "Needs review" badge is not used for pictures.
-    expect(within(list).queryByText("Needs review")).not.toBeInTheDocument();
-  });
-
-  it("shows a reason count with the reasons as a tooltip next to the badge of a flagged word", async () => {
+  it("shows the reasons of a flagged word as the tooltip of its badge", async () => {
     const flagged: WordItem = { ...run, reviewReasons: ["sense 1: the definition uses hard words [abstain]", "sense 2: x [foo]"] };
-    const one: WordItem = { ...run, id: 3, word: "apple", reviewReasons: ["sense 1: y [bar]"] };
     const none: WordItem = { ...run, id: 4, word: "working", reviewReasons: [] };
-    renderWords([flagged, one, house, none]);
-    const list = await screen.findByRole("list");
+    renderWords([flagged, house, none]);
+    const list = await screen.findByRole("table", { name: "Rows" });
 
-    const two = await within(list).findByText("2 problems");
+    const two = await within(list).findByText("Needs review · 2");
     expect(two).toHaveAttribute("title", "sense 1: the definition uses hard words [abstain]\nsense 2: x [foo]");
-    expect(within(list).getByText("1 problem")).toBeInTheDocument();
-    expect(within(list).getByText("0 problems")).toHaveAttribute("title", "No problems found now; press ✓ to mark it reviewed");
-    // house is reviewed: no count.
-    expect(within(list).getAllByText(/problem/)).toHaveLength(3);
+    expect(within(list).getByText("Needs review · 0")).toHaveAttribute("title", "No problems found now; press ✓ to mark it reviewed");
+    // house is reviewed: no badge.
+    expect(within(list).getAllByText(/Needs review/)).toHaveLength(2);
   });
 
   it("mark reviewed posts to the backend, then the list is loaded again without the flag", async () => {
@@ -215,13 +229,13 @@ describe("words page", () => {
       </MemoryRouter>,
     );
     await userEvent.click(await screen.findByRole("button", { name: /run/ }));
-    const listRegion = screen.getByRole("region", { name: "List" });
-    // The filter chip and the badge of the row both say "Needs review".
-    expect(within(listRegion).getAllByText("Needs review")).toHaveLength(2);
+    // The word opens in a drawer (a modal), so the list behind it is hidden from the accessibility tree.
+    const listRegion = screen.getByRole("region", { name: "List", hidden: true });
+    expect(within(listRegion).getByText("Needs review · 0")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Mark reviewed" }));
 
-    await vi.waitFor(() => expect(within(listRegion).getAllByText("Needs review")).toHaveLength(1));
+    await vi.waitFor(() => expect(within(listRegion).queryByText(/Needs review/)).not.toBeInTheDocument());
     expect(custom).toHaveBeenCalledWith(expect.objectContaining({ url: "https://api.test/api/admin/words/1/reviewed", method: "post" }));
     expect(screen.queryByText(/problem/)).not.toBeInTheDocument();
   });
@@ -289,6 +303,17 @@ describe("words page", () => {
     await userEvent.click(screen.getByRole("tab", { name: "JSON" }));
     const json = JSON.parse((screen.getByLabelText("Entry JSON") as HTMLTextAreaElement).value);
     expect(json.senses[0].simpleDefinition).toBe("To move fast on your legs.");
+  });
+
+  it("puts each sense in a form section and Cancel before Save at the bottom (TASK-99.4)", async () => {
+    renderWords([run]);
+    await userEvent.click(await screen.findByRole("button", { name: /run/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const sense = screen.getByRole("region", { name: "Sense 1" });
+    expect(within(sense).getByRole("heading", { name: "Sense 1" })).toBeInTheDocument();
+    expect(within(sense).getByLabelText("Vietnamese (sense 1)")).toHaveValue("chạy");
+    const buttons = screen.getAllByRole("button", { name: /Cancel editing|Save changes/ }).map((b) => b.getAttribute("aria-label"));
+    expect(buttons).toEqual(["Cancel editing", "Save changes"]);
   });
 
   it("shows why the word needs review under Status, and at the top of the edit form", async () => {
