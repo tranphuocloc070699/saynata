@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-20 02:35'
+updated_date: '2026-10-22 09:33'
 ---
-> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-20 (warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
+> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-22 (unknown-word fallback: TASK-94; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -37,7 +37,7 @@ flowchart TD
     PG -- no --> CL[Claude describeWord] --> PGS[Save in Postgres] --> SAVE
     SAVE --> EMPTY{"Any senses?"}
     EMPTY -- yes --> SHOW
-    EMPTY -- no --> NOTWORD["Message: not an English word"]
+    EMPTY -- no --> FALLBACK["Try text explanation (doc-4); show an error only if that fails"]
 ```
 
 ## Backend: step by step (works today)
@@ -209,7 +209,11 @@ sequenceDiagram
         BC-->>WL: WordEntry (IPA from the reply, may be nil)
     end
     WL-->>ST: WordEntry, or a throw
-    ST-->>U: .loadedWord shows WordCardView, or .failed shows a short message
+    ST-->>U: .loadedWord shows WordCardView
+    opt WordLookupError.notAnEnglishWord (empty senses)
+        ST->>ST: explainSentence(original input)
+        ST-->>U: sentence result, or an error with spelling help
+    end
 ```
 
 | Step | File | What happens |
@@ -217,14 +221,15 @@ sequenceDiagram
 | Word or sentence | [CacheKeys.swift:77-95](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L77-L95) | `wordQuery` (TASK-44) is the one rule. One token gives the word without edge punctuation. `a`, `an` or `the` (any case) plus exactly one word gives that word: "an apple", "The  Apple!" and `“an apple”` all give the word apple, so the word card and the cache key are the same as for "apple". "the red apple" gives nil (a sentence). An article alone ("the") is one token and is looked up as a word. Only marks ("?!") give "" so the word path shows its error. The share extension's `TextRoute` (on `feature/f6-share-extension`) should call this function after the merge. |
 | One token | [CacheKeys.swift:56-62](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L56-L62) | `isSingleToken`: normalise like the backend, then no space left and not empty. "don't" and "well-known" are one token, "go home" is two. The no-break space does not split (same as Java). `wordQuery` and the sentence word cards use it. |
 | Phrase or sentence (TASK-83.10) | [CacheKeys.swift:97-114](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L97-L114) | `phraseQuery`, only when `wordQuery` gave nil: 2 to 6 words of letters, `'` and `-`, edge punctuation removed, the curly apostrophe made straight ("Give up!" → "Give up"). A comma, a digit or a 7th word gives nil (a sentence). |
-| Route | [TranslationStore.swift:68-83](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L68-L83) | `CacheKeys.wordQuery` decides: a word goes to `lookUpWord(word)` with the bare word (no article, no edge punctuation). Else a `phraseQuery` text asks `WordLooking.phraseEntry` ([WordLookup.swift:83](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L83) → [BackendClient.cachedEntry:283](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L283): the phone cache, then `GET /api/words/{phrase}?cachedOnly=true`); a hit shows the word card (`.loadedWord`), a 404 or any error gives nil. Anything else goes to `explainSentence` (doc-4). Quick explain does the same ([QuickExplainer.swift:67](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L67)). The input is trimmed first. The target-language picker does not matter for a word: entries are English plus Vietnamese. |
-| Word path | [TranslationStore.swift:68-77](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L68-L77) | `makeWordLookup().lookUp(...)`, then `.loadedWord(entry)` or `.failed(error.localizedDescription, spelling:)` (spelling help: see "iOS: did you mean" below). The lookup is built per request (like the translator), by [TranslatorFactory.swift:25-33](../../../EnglishTranslation/EnglishTranslation/Network/TranslatorFactory.swift#L25-L33). |
+| Route | [TranslationStore.swift:81-97](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L81-L97) | `CacheKeys.wordQuery` sends a word to `lookUpWord`. Otherwise a 2–6 word phrase tries the phone cache and `GET /api/words/{phrase}?cachedOnly=true` before the sentence path. A cached phrase shows a word card; a phrase miss takes the sentence path. Quick Explain makes the same choice ([QuickExplainer.swift:66-75](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L66-L75)). |
+| Word path | [TranslationStore.swift:125-139](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L125-L139) | `makeWordLookup().lookUp(...)` shows a word card on a hit. An empty-senses result raises `notAnEnglishWord` and now tries the text explanation with the original input. A sign-in requirement still opens the sign-in sheet; other word errors still show an error and spelling help. |
 | Punctuation | [CacheKeys.swift:64-75](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift#L64-L75) | `trimmingWordPunctuation`: word path only. Removes punctuation and symbols at the start and end ("Run!", "(run)", "“run”" give "Run"); inner `'` and `-` stay. `WordLookup` calls it first, so the bundle, the cache key and the backend all get the clean word. Nothing left ("?!") gives `notOneWord`. Sentences are not touched. |
 | Order | [WordLookup.swift:54-75](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L54-L75) | 1. bundle (`DictionaryStore.lookUp`, a broken file counts as a miss), 2. and 3. `backend.entry(forWord:)`. Protocols `WordLooking` and `WordFetching` ([WordLookup.swift:9-27](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L9-L27)) let tests use fakes. |
 | Cache and fetch | [BackendClient.swift:86-101](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L86-L101) | `entry(forWord:)`: key = `CacheKeys.wordKey` (same as the backend), local hit returns with no network. A miss calls `GET {baseURL}/api/words/{normalised word}` (the word is percent-encoded as one path part), then saves the **raw JSON** under the key. Errors are never saved. |
 | Decode | [BackendClient.swift:19-34](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L19-L34) | `WordResponse` reads `word`, `entry.senses` and the optional `ipa` into `WordEntry.ipa`. A reply without `ipa` (JSON saved on the phone before TASK-39) or with `null` decodes with no IPA, and the card shows no IPA line. Old `collocations` and `synonyms` in an older backend reply are ignored. |
 | Status check | [BackendClient.swift:104-112](../../../EnglishTranslation/EnglishTranslation/Network/BackendClient.swift#L104-L112) | Shared with sentences: not 200 gives `BackendError.badStatus(code, detail)`. |
-| Not a word | [WordLookup.swift:69-73](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L69-L73) | Empty `senses` gives `WordLookupError.notAnEnglishWord`. The empty answer is saved in the local cache too (the server keeps it as well). |
+| No word entry | [WordLookup.swift:102-122](../../../EnglishTranslation/EnglishTranslation/Dictionary/WordLookup.swift#L102-L122) | Empty `senses` raises `WordLookupError.notAnEnglishWord`. The empty word reply may be saved in the phone cache. It is not the final user result: the app tries the existing sentence explanation next. |
+| Text fallback (TASK-94) | [TranslationStore.swift:239-268](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L239-L268), [QuickExplainer.swift:77-101](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L77-L101) | A term such as `well-looked` can be understood even when the word list has no entry. The main app and Quick Explain send it through the normal sentence service, which checks its phone and server caches before a new AI call. If the service also rejects it, the user sees an error; the main app keeps spelling suggestions when available. |
 | Result | [TranslateResultView.swift:22-23](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateResultView.swift#L22-L23) | `.loadedWord(entry)` shows `WordCardView(entry:)`. |
 
 What the user sees when it goes wrong:
@@ -232,17 +237,17 @@ What the user sees when it goes wrong:
 | Cause | HTTP | Message |
 |---|---|---|
 | Only punctuation ("?!"), or digits, symbols inside, or more than 64 letters | none / 400 | "Type one English word, with letters only." |
-| Made-up word (`asdkj`) | 200, empty senses | "\"asdkj\" is not an English word. Check the spelling." |
+| Unknown single word (`well-looked`, `asdkj`) | 200 with empty senses, then sentence endpoint | Tries the text explanation. If that service cannot explain the input, shows its error; spelling suggestions remain available in the main app. |
 | Claude refused | 422 | "Claude declined to answer this text. (status 422)" (same text as sentences) |
 | Claude down | 502 | "The translation service is not available. Try again later. (status 502)" |
 | Offline, or backend not running (and not in the bundle or cache) | none | The system text, for example "The Internet connection appears to be offline." |
 | `BackendBaseURL` missing | none | "Missing BackendBaseURL. Check Secrets.xcconfig and the Info tab." (it stops even bundled words, because the lookup is built whole) |
 
-Tests: [WordLookupTests.swift](../../../EnglishTranslation/EnglishTranslationTests/WordLookupTests.swift) (bundle first, backend on a miss, empty senses, 400 message, other errors pass through), the word tests in [BackendClientTests.swift](../../../EnglishTranslation/EnglishTranslationTests/BackendClientTests.swift) (GET path and decode, save then serve with no network, errors not saved), the token rule in [CacheTests.swift](../../../EnglishTranslation/EnglishTranslationTests/CacheTests.swift), and the word or sentence choice in [TranslationStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStoreTests.swift).
+Tests: [WordLookupTests.swift](../../../EnglishTranslation/EnglishTranslationTests/WordLookupTests.swift) (bundle first, backend on a miss, empty senses, 400 message, other errors pass through), the word tests in [BackendClientTests.swift](../../../EnglishTranslation/EnglishTranslationTests/BackendClientTests.swift) (GET path and decode, save then serve with no network, errors not saved), the token rule in [CacheTests.swift](../../../EnglishTranslation/EnglishTranslationTests/CacheTests.swift), and the word or sentence choice plus unknown-word fallback in [TranslationStoreTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStoreTests.swift) and [QuickExplainerTests.swift](../../../EnglishTranslation/EnglishTranslationTests/QuickExplainerTests.swift).
 
 ## iOS: did you mean (TASK-37)
 
-When the word path fails, the result can show up to 3 suggestions under the error. Tapping one fills the input and looks it up. Works offline (Apple's spell checker and the bundle both run on the device). Last traced: 2026-10-15 (TASK-72: Apple's checker and a looser rule for long words).
+When the word path and its text fallback fail, the result can show up to 3 suggestions under the error. Tapping one fills the input and looks it up. Works offline (Apple's spell checker and the bundle both run on the device). Last traced: 2026-10-15 (TASK-72: Apple's checker and a looser rule for long words).
 
 ```mermaid
 flowchart TD

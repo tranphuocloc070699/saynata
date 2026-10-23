@@ -1,5 +1,7 @@
 package com.englishtranslation.backend.admin;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -17,8 +19,10 @@ import com.englishtranslation.backend.user.Role;
 import com.englishtranslation.backend.user.User;
 import com.englishtranslation.backend.user.UserRepository;
 import jakarta.servlet.http.Cookie;
+import com.englishtranslation.backend.word.WordEntry;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +37,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest(properties = {"app.claude.api-key=test-key", "app.prefill.delay=0s"})
 @AutoConfigureMockMvc
 class AdminPrefillTest {
+
+    static final WordEntry ENTRY = new WordEntry(List.of(new WordEntry.Sense(
+            "noun", "B1", "a thing", "một thứ", List.of(), List.of())));
 
     @Autowired
     MockMvc mockMvc;
@@ -106,6 +113,35 @@ class AdminPrefillTest {
                 .andExpect(jsonPath("$.maxUsd").value(0.02))
                 .andExpect(jsonPath("$.limit").value(5));
         waitUntilIdle();
+    }
+
+    @Test
+    void runWithSourceParamsAnswersOnlyThoseSourcesAndWithoutAnswersAll() throws Exception {
+        when(claude.describeWord(anyString())).thenReturn(ENTRY);
+        Cookie cookie = adminCookie();
+        queue.save(new PrefillItem("word", "lantern", "", "scowl-70", 0, Instant.now()));
+        queue.save(new PrefillItem("word", "pebble", "", "common-sentences", 0, Instant.now()));
+        queue.save(new PrefillItem("word", "hesitant", "", "oewn-2025", 0, Instant.now()));
+
+        mockMvc.perform(post("/api/admin/prefill/run").param("source", "scowl-70").param("source", "oewn-2025")
+                .cookie(cookie).contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.sources.length()").value(2))
+                .andExpect(jsonPath("$.sources[0]").value("scowl-70"));
+        waitUntilIdle();
+        org.assertj.core.api.Assertions.assertThat(statusOf("lantern")).isEqualTo("done");
+        org.assertj.core.api.Assertions.assertThat(statusOf("hesitant")).isEqualTo("done");
+        org.assertj.core.api.Assertions.assertThat(statusOf("pebble")).isEqualTo("pending");
+
+        mockMvc.perform(post("/api/admin/prefill/run").cookie(cookie).contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.sources.length()").value(0));
+        waitUntilIdle();
+        org.assertj.core.api.Assertions.assertThat(statusOf("pebble")).isEqualTo("done");
+    }
+
+    private String statusOf(String text) {
+        return queue.findAll().stream().filter(i -> i.getText().equals(text)).findFirst().orElseThrow().getStatus();
     }
 
     @Test

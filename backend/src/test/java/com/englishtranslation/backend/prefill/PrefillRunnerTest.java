@@ -60,6 +60,8 @@ class PrefillRunnerTest {
     @Autowired
     PrefillItemRepository queue;
     @Autowired
+    PrefillProperties cronProperties;
+    @Autowired
     WordService wordService;
     @Autowired
     WordLookupRepository words;
@@ -316,6 +318,47 @@ class PrefillRunnerTest {
         }
         assertThat(runner.isRunning()).isFalse();
         assertThat(item("lantern").getStatus()).isEqualTo("done");
+    }
+
+    private void queueWordFrom(String source, String text) {
+        queue.save(new PrefillItem("word", text, "", source, 0, Instant.now()));
+    }
+
+    @Test
+    void aRunWithSourcesAnswersOnlyThoseSources() {
+        claudeAnswersWords(1_000);
+        queueWordFrom("sentence-words", "lantern");
+        queueWordFrom("common-sentences", "pebble");
+
+        PrefillRunner.RunSummary summary = runner.runNow("test", null, null, List.of("common-sentences"));
+
+        assertThat(summary.done()).isEqualTo(1);
+        assertThat(item("pebble").getStatus()).isEqualTo("done");
+        assertThat(item("lantern").getStatus()).isEqualTo("pending");
+    }
+
+    @Test
+    void theScheduledRunSkipsSourcesThatAreNotInCronSources() {
+        claudeAnswersWords(1_000);
+        queueWordFrom("sentence-words", "lantern");
+        queueWordFrom("common-sentences", "pebble");
+        queueWordFrom("scowl-70", "hesitant");
+
+        new PrefillScheduler(cronProperties, runner).runScheduled();
+
+        assertThat(cronProperties.cronSources()).containsExactly("sentence-words");
+        assertThat(item("lantern").getStatus()).isEqualTo("done");
+        assertThat(item("pebble").getStatus()).isEqualTo("pending");
+        assertThat(item("hesitant").getStatus()).isEqualTo("pending");
+        assertThat(runner.lastRuns().get(0).trigger()).isEqualTo("cron");
+    }
+
+    @Test
+    void cronSourcesIsACommaListWithTheUsersWordsAsDefault() {
+        assertThat(new PrefillProperties("", null, null, null, 0).cronSources())
+                .containsExactly("sentence-words");
+        assertThat(new PrefillProperties("", List.of(" a ", "", "b"), null, null, 0).cronSources())
+                .containsExactly("a", "b");
     }
 
     @Test

@@ -130,6 +130,9 @@ final class TranslationStore {
             await showWord(try await wordLookup.lookUp(word))
         } catch BackendError.signInRequired {
             askForSignIn(text: word)
+        } catch WordLookupError.notAnEnglishWord {
+            // The word list is incomplete, especially for compounds. Let the text explainer try before giving up.
+            await explainSentence(afterMissingWord: (word, lookup))
         } catch {
             state = .failed(error.localizedDescription, spelling: spellingHelp(for: word, after: error, lookup: lookup))
         }
@@ -233,7 +236,7 @@ final class TranslationStore {
         }
     }
 
-    private func explainSentence() async {
+    private func explainSentence(afterMissingWord: (text: String, lookup: (any WordLooking)?)? = nil) async {
         // Copy these first. The user can change the picker or the text while we wait.
         let sentence = trimmedInput
         let language = targetLanguage
@@ -258,7 +261,10 @@ final class TranslationStore {
         } catch BackendError.signInRequired {
             askForSignIn(text: sentence)
         } catch {
-            state = .failed(error.localizedDescription)
+            let spelling = afterMissingWord.flatMap { missing in
+                spellingHelp(for: missing.text, after: WordLookupError.notAnEnglishWord(missing.text), lookup: missing.lookup)
+            }
+            state = .failed(error.localizedDescription, spelling: spelling)
         }
     }
 }

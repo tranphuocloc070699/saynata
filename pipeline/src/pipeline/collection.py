@@ -273,17 +273,26 @@ def _java_list(words: list[str]) -> str:
     return "[" + ", ".join(words) + "]"  # Java's Set.toString, so the lines read like the backend log
 
 
-def simple_word_problems(entry: Entry, headword: str, vocabulary: set[str]) -> list[str]:
-    """SimpleWords.problems, line for line: what makes the backend retry and then save needsReview."""
+def _one_more(hard: list[str], common: Callable[[str], bool] | None) -> int:
+    """With `common`, one more outside word is allowed when every outside word is common ("apples", "fox")."""
+    return 1 if common is not None and hard and all(common(word) for word in hard) else 0
+
+
+def simple_word_problems(entry: Entry, headword: str, vocabulary: set[str],
+                         common: Callable[[str], bool] | None = None) -> list[str]:
+    """SimpleWords.problems, line for line: what makes the backend retry and then save needsReview.
+
+    `common` (only `collection revalidate --common-zipf`) lets a definition or example use one more word outside the
+    simple list when that word is common: a rare word often cannot be explained with NGSL words alone."""
     problems = []
     for number, sense in enumerate(entry.senses, start=1):
         hard = hard_in_definition(sense.simpleDefinition, vocabulary)
-        if hard:
+        if len(hard) > _one_more(hard, common):
             problems.append(f"sense {number}: the definition uses hard words {_java_list(hard)}")
         for example in sense.examples:
             allowed = MAX_OUTSIDE_IN_EXAMPLE.get(example.level.lower())
             hard = hard_in_example(example.text, headword, vocabulary)
-            if allowed is not None and len(hard) > allowed:
+            if allowed is not None and len(hard) > allowed + _one_more(hard, common):
                 problems.append(f"sense {number}: the {example.level} example '{example.text}' uses hard words "
                                 f"{_java_list(hard)}")
     return problems
@@ -313,8 +322,9 @@ def shape_problems(entry: Entry) -> list[str]:
     return problems
 
 
-def entry_problems(entry: Entry, headword: str, vocabulary: set[str]) -> list[str]:
-    return shape_problems(entry) + simple_word_problems(entry, headword, vocabulary)
+def entry_problems(entry: Entry, headword: str, vocabulary: set[str],
+                   common: Callable[[str], bool] | None = None) -> list[str]:
+    return shape_problems(entry) + simple_word_problems(entry, headword, vocabulary, common)
 
 
 # ---------- collect ----------
@@ -727,15 +737,17 @@ def write_rows(connection: sqlite3.Connection, rows: list[sqlite3.Row], writer: 
     return summary
 
 
-def revalidate(connection: sqlite3.Connection, vocabulary: set[str] | None = None) -> Counter:
+def revalidate(connection: sqlite3.Connection, vocabulary: set[str] | None = None,
+               common: Callable[[str], bool] | None = None) -> Counter:
     """Checks the saved entries of retry and needs_review rows again (no LLM call), for example after the word
-    list was fixed. A row with no problems left becomes done; the others keep their status with the new problems."""
+    list was fixed. A row with no problems left becomes done; the others keep their status with the new problems.
+    `common`: see simple_word_problems (one more common outside word)."""
     vocabulary = vocabulary if vocabulary is not None else simple_vocabulary()
     changed: Counter = Counter()
     rows = connection.execute("SELECT id, text, status, entry FROM collection WHERE status IN ('retry', 'needs_review') "
                               "AND entry IS NOT NULL AND batch_id IS NULL").fetchall()
     for row_id, text, status, entry_json in rows:
-        problems = entry_problems(Entry.model_validate_json(entry_json), text, vocabulary)
+        problems = entry_problems(Entry.model_validate_json(entry_json), text, vocabulary, common)
         new_status = status if problems else "done"
         changed[f"{status} -> {new_status}"] += 1
         connection.execute("UPDATE collection SET status = ?, problems = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",

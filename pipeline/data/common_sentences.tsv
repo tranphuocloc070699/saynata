@@ -1,0 +1,2489 @@
+text	situation	kind
+Looks good.	agreeing	reply
+Looks good to me.	agreeing	reply
+Sounds good.	agreeing	reply
+Sounds good to me.	agreeing	reply
+Sounds great.	agreeing	reply
+Sounds like a plan.	agreeing	reply
+Sounds fun.	agreeing	reply
+Sounds perfect.	agreeing	reply
+That works.	agreeing	reply
+That works for me.	agreeing	reply
+Works for me.	agreeing	reply
+Fine by me.	agreeing	reply
+That's fine.	agreeing	reply
+That's fine with me.	agreeing	reply
+That's okay.	agreeing	reply
+That's all right.	agreeing	reply
+All right.	agreeing	reply
+Okay, sure.	agreeing	reply
+Sure thing.	agreeing	reply
+Sure, no problem.	agreeing	reply
+Of course.	agreeing	reply
+Exactly right.	agreeing	reply
+That's right.	agreeing	reply
+That's true.	agreeing	reply
+So true.	agreeing	reply
+Fair enough.	agreeing	reply
+Fair point.	agreeing	reply
+Good point.	agreeing	reply
+You're right.	agreeing	reply
+You're absolutely right.	agreeing	reply
+I agree.	agreeing	reply
+I totally agree.	agreeing	reply
+I couldn't agree more.	agreeing	reply
+I think so too.	agreeing	reply
+Me too.	agreeing	reply
+Me neither.	agreeing	reply
+Same here.	agreeing	reply
+It's a deal.	agreeing	reply
+You got it.	agreeing	reply
+Got it.	agreeing	reply
+Got it, thanks.	agreeing	reply
+I got it.	agreeing	reply
+Noted, thanks.	agreeing	reply
+Makes sense.	agreeing	reply
+That makes sense.	agreeing	reply
+That makes a lot of sense.	agreeing	reply
+Good idea.	agreeing	reply
+Great idea.	agreeing	reply
+That's a good idea.	agreeing	reply
+That's a great idea.	agreeing	reply
+Why not?	agreeing	reply
+Count me in.	agreeing	reply
+I'm in.	agreeing	reply
+I'm up for it.	agreeing	reply
+I'm down.	agreeing	reply
+Let's do it.	agreeing	reply
+Let's go.	agreeing	reply
+Go for it.	agreeing	reply
+Go ahead.	agreeing	reply
+Please go ahead.	agreeing	reply
+Feel free.	agreeing	reply
+By all means.	agreeing	reply
+Yes, please.	agreeing	reply
+Yes, of course.	agreeing	reply
+Yeah, sure.	agreeing	reply
+Yeah, I know.	agreeing	reply
+Yeah, I guess.	agreeing	reply
+I guess so.	agreeing	reply
+I suppose so.	agreeing	reply
+I hope so.	agreeing	reply
+I believe so.	agreeing	reply
+I think so.	agreeing	reply
+Most likely.	agreeing	reply
+Maybe later.	agreeing	reply
+We'll see.	agreeing	reply
+It depends.	agreeing	reply
+That depends.	agreeing	reply
+Either is fine.	agreeing	reply
+Either way works.	agreeing	reply
+Whatever works for you.	agreeing	reply
+Whatever you prefer.	agreeing	reply
+Up to you.	agreeing	reply
+It's up to you.	agreeing	reply
+Your call.	agreeing	reply
+I don't mind.	agreeing	reply
+I don't mind at all.	agreeing	reply
+No preference.	agreeing	reply
+Fine with me either way.	agreeing	reply
+Good to know.	agreeing	reply
+That's good to know.	agreeing	reply
+Nice to know.	agreeing	reply
+That's interesting.	agreeing	reply
+How interesting.	agreeing	reply
+Oh, I see.	agreeing	reply
+I see.	agreeing	reply
+I see what you mean.	agreeing	reply
+I know what you mean.	agreeing	reply
+I hear you.	agreeing	reply
+I understand.	agreeing	reply
+I get it.	agreeing	reply
+I get what you mean.	agreeing	reply
+Oh, right.	agreeing	reply
+Oh, really?	agreeing	reply
+Are you sure?	agreeing	reply
+Is that so?	agreeing	reply
+No way!	agreeing	reply
+You're kidding.	agreeing	reply
+You're joking, right?	agreeing	reply
+I had no idea.	agreeing	reply
+I didn't know that.	agreeing	reply
+That's news to me.	agreeing	reply
+Good for you.	agreeing	reply
+Good job.	agreeing	reply
+Great job.	agreeing	reply
+Nice job.	agreeing	reply
+Well done.	agreeing	reply
+Nice work.	agreeing	reply
+Great work.	agreeing	reply
+Excellent work.	agreeing	reply
+Keep it up.	agreeing	reply
+Keep up the good work.	agreeing	reply
+You did it!	agreeing	reply
+You nailed it.	agreeing	reply
+Way to go!	agreeing	reply
+Nice one.	agreeing	reply
+Not bad.	agreeing	reply
+Not bad at all.	agreeing	reply
+Pretty good.	agreeing	reply
+Very good.	agreeing	reply
+That's perfect.	agreeing	reply
+Perfect, thanks.	agreeing	reply
+That's awesome.	agreeing	reply
+Cool, thanks.	agreeing	reply
+Great, thanks.	agreeing	reply
+Great news!	agreeing	reply
+That's great news.	agreeing	reply
+That's wonderful.	agreeing	reply
+I'm glad to hear that.	agreeing	reply
+Glad to hear it.	agreeing	reply
+Happy to hear that.	agreeing	reply
+Congrats on the new job!	agreeing	reply
+Well deserved.	agreeing	reply
+You deserve it.	agreeing	reply
+I'm so happy for you.	agreeing	reply
+I'm proud of you.	agreeing	reply
+Thank you.	thanking	reply
+Thanks a lot.	thanking	reply
+Thanks so much.	thanking	reply
+Thank you so much.	thanking	reply
+Thank you very much.	thanking	reply
+Thanks a million.	thanking	reply
+Many thanks.	thanking	reply
+Thanks again.	thanking	reply
+Thanks anyway.	thanking	reply
+Thanks for asking.	thanking	reply
+Thanks for letting me know.	thanking	reply
+Thanks for the heads-up.	thanking	reply
+Thanks for your help.	thanking	reply
+Thanks for everything.	thanking	reply
+Thanks for coming.	thanking	reply
+Thanks for waiting.	thanking	reply
+Thanks for your patience.	thanking	reply
+Thanks for understanding.	thanking	reply
+Thanks for the reminder.	thanking	reply
+Thanks for sharing.	thanking	reply
+Thanks for the update.	thanking	reply
+Thanks for the tip.	thanking	reply
+Thanks for the advice.	thanking	reply
+Thanks for the invite.	thanking	reply
+Thanks for having me.	thanking	reply
+Thanks for the ride.	thanking	reply
+Thanks for the coffee.	thanking	reply
+Thanks for dinner.	thanking	reply
+Thanks for the gift.	thanking	reply
+Thanks for checking.	thanking	reply
+Thanks for checking in.	thanking	reply
+Thanks for the quick reply.	thanking	reply
+Thanks for getting back to me.	thanking	reply
+Thanks for your time.	thanking	reply
+Thanks for listening.	thanking	reply
+Thanks for the support.	thanking	reply
+Thanks for the feedback.	thanking	reply
+Thanks for being here.	thanking	reply
+Thanks, I appreciate it.	thanking	reply
+I appreciate it.	thanking	reply
+I really appreciate it.	thanking	reply
+I really appreciate your help.	thanking	reply
+That's very kind of you.	thanking	reply
+That's so kind of you.	thanking	reply
+That's so sweet.	thanking	reply
+How kind of you.	thanking	reply
+You're too kind.	thanking	reply
+You're the best.	thanking	reply
+You're a lifesaver.	thanking	reply
+I owe you one.	thanking	reply
+I owe you.	thanking	reply
+That means a lot.	thanking	reply
+That means a lot to me.	thanking	reply
+You're welcome.	thanking	reply
+You're very welcome.	thanking	reply
+No problem.	thanking	reply
+No worries.	thanking	reply
+No worries at all.	thanking	reply
+No problem at all.	thanking	reply
+Not a problem.	thanking	reply
+Don't mention it.	thanking	reply
+My pleasure.	thanking	reply
+It was my pleasure.	thanking	reply
+Any time.	thanking	reply
+Happy to help.	thanking	reply
+Glad I could help.	thanking	reply
+Glad to help.	thanking	reply
+It was nothing.	thanking	reply
+It's nothing.	thanking	reply
+Don't worry about it.	thanking	reply
+It's fine.	thanking	reply
+It's all good.	thanking	reply
+All good.	thanking	reply
+It's okay.	thanking	reply
+No big deal.	thanking	reply
+It's not a big deal.	thanking	reply
+Never mind.	thanking	reply
+Forget it.	thanking	reply
+Not at all.	thanking	reply
+I'm sorry.	saying sorry	reply
+I'm so sorry.	saying sorry	reply
+I'm really sorry.	saying sorry	reply
+Sorry about that.	saying sorry	reply
+Sorry for the delay.	saying sorry	reply
+Sorry for the late reply.	saying sorry	reply
+Sorry for the confusion.	saying sorry	reply
+Sorry for the trouble.	saying sorry	reply
+Sorry to bother you.	saying sorry	reply
+Sorry to keep you waiting.	saying sorry	reply
+Sorry I'm late.	saying sorry	reply
+Sorry I missed your call.	saying sorry	reply
+Sorry, I didn't catch that.	saying sorry	reply
+Sorry, I missed that.	saying sorry	reply
+Sorry, my mistake.	saying sorry	reply
+My bad.	saying sorry	reply
+My mistake.	saying sorry	reply
+That was my fault.	saying sorry	reply
+It's my fault.	saying sorry	reply
+I apologize.	saying sorry	reply
+I apologize for the inconvenience.	saying sorry	reply
+Please forgive me.	saying sorry	reply
+I didn't mean it.	saying sorry	reply
+I didn't mean to.	saying sorry	reply
+I didn't mean to upset you.	saying sorry	reply
+It won't happen again.	saying sorry	reply
+I'll do better next time.	saying sorry	reply
+Sorry, I forgot.	saying sorry	reply
+Sorry, I was busy.	saying sorry	reply
+Sorry, I can't make it.	saying sorry	reply
+Sorry to hear that.	saying sorry	reply
+I'm sorry to hear that.	saying sorry	reply
+That's too bad.	saying sorry	reply
+What a shame.	saying sorry	reply
+That's a shame.	saying sorry	reply
+Oh no.	saying sorry	reply
+Oh dear.	saying sorry	reply
+That's awful.	saying sorry	reply
+That sounds hard.	saying sorry	reply
+That must be hard.	saying sorry	reply
+I'm sorry for your loss.	saying sorry	reply
+Excuse me.	saying sorry	reply
+Excuse me, please.	saying sorry	reply
+Pardon me.	saying sorry	reply
+Sorry, what?	saying sorry	reply
+Sorry, can you say that again?	saying sorry	reply
+Come again?	saying sorry	reply
+No, thanks.	saying no	reply
+No, thank you.	saying no	reply
+I'm good, thanks.	saying no	reply
+I'm fine, thanks.	saying no	reply
+Not really.	saying no	reply
+Not exactly.	saying no	reply
+Not quite.	saying no	reply
+Not yet.	saying no	reply
+Not now.	saying no	reply
+Not today.	saying no	reply
+Not right now.	saying no	reply
+Not this time.	saying no	reply
+Maybe next time.	saying no	reply
+Some other time.	saying no	reply
+I'd rather not.	saying no	reply
+I don't think so.	saying no	reply
+I'm not sure.	saying no	reply
+I'm not so sure.	saying no	reply
+I doubt it.	saying no	reply
+I don't know.	saying no	reply
+I have no idea.	saying no	reply
+No idea.	saying no	reply
+Beats me.	saying no	reply
+Who knows?	saying no	reply
+I can't say.	saying no	reply
+Hard to say.	saying no	reply
+It's hard to say.	saying no	reply
+I'm afraid not.	saying no	reply
+I'm afraid I can't.	saying no	reply
+I can't, sorry.	saying no	reply
+I wish I could.	saying no	reply
+I'd love to, but I can't.	saying no	reply
+I'll pass.	saying no	reply
+I'll pass this time.	saying no	reply
+Not for me, thanks.	saying no	reply
+That's not what I meant.	saying no	reply
+That's not true.	saying no	reply
+I don't agree.	saying no	reply
+I'm not sure about that.	saying no	reply
+I see it differently.	saying no	reply
+Let me think about it.	saying no	reply
+Let me think.	saying no	reply
+Give me a second.	saying no	reply
+Give me a minute.	saying no	reply
+Hold on.	saying no	reply
+Hold on a second.	saying no	reply
+Wait a minute.	saying no	reply
+Just a moment.	saying no	reply
+One moment, please.	saying no	reply
+Just a sec.	saying no	reply
+Hang on.	saying no	reply
+Wait for me.	saying no	reply
+Not so fast.	saying no	reply
+Take your time.	saying no	reply
+No rush.	saying no	reply
+There's no rush.	saying no	reply
+No hurry.	saying no	reply
+Easy does it.	saying no	reply
+Calm down.	saying no	reply
+Take it easy.	saying no	reply
+Don't worry.	saying no	reply
+Don't panic.	saying no	reply
+Don't stress.	saying no	reply
+It'll be fine.	saying no	reply
+It'll be okay.	saying no	reply
+Everything will be fine.	saying no	reply
+You'll be fine.	saying no	reply
+You can do it.	saying no	reply
+I believe in you.	saying no	reply
+Good luck!	saying no	reply
+Good luck with that.	saying no	reply
+Best of luck.	saying no	reply
+Fingers crossed.	saying no	reply
+Break a leg!	saying no	reply
+You've got this.	saying no	reply
+Hang in there.	saying no	reply
+Don't give up.	saying no	reply
+Keep going.	saying no	reply
+Stay strong.	saying no	reply
+Stay safe.	saying no	reply
+Take care.	saying no	reply
+Take care of yourself.	saying no	reply
+Get well soon.	saying no	reply
+Feel better soon.	saying no	reply
+I hope you feel better.	saying no	reply
+Bless you.	saying no	reply
+Hi there.	saying hello	greeting
+Hello there.	saying hello	greeting
+Hey, how are you?	saying hello	greeting
+Hi, how are you?	saying hello	greeting
+How are you?	saying hello	greeting
+How are you doing?	saying hello	greeting
+How's it going?	saying hello	greeting
+How's everything?	saying hello	greeting
+How's life?	saying hello	greeting
+How have you been?	saying hello	greeting
+How's your day?	saying hello	greeting
+How's your day going?	saying hello	greeting
+How was your day?	saying hello	greeting
+How was your weekend?	saying hello	greeting
+How was your trip?	saying hello	greeting
+How was your holiday?	saying hello	greeting
+How was the weekend?	saying hello	greeting
+What's up?	saying hello	greeting
+What's new?	saying hello	greeting
+What have you been up to?	saying hello	greeting
+Long time no see.	saying hello	greeting
+It's been a while.	saying hello	greeting
+It's been ages.	saying hello	greeting
+Good to see you.	saying hello	greeting
+Nice to see you.	saying hello	greeting
+Great to see you.	saying hello	greeting
+Good to see you again.	saying hello	greeting
+Nice to see you again.	saying hello	greeting
+Nice to meet you.	saying hello	greeting
+Pleased to meet you.	saying hello	greeting
+It's nice to meet you.	saying hello	greeting
+Nice to meet you too.	saying hello	greeting
+Good morning.	saying hello	greeting
+Good afternoon.	saying hello	greeting
+Good evening.	saying hello	greeting
+Good morning, everyone.	saying hello	greeting
+Hi, everyone.	saying hello	greeting
+Hello, everyone.	saying hello	greeting
+Welcome back.	saying hello	greeting
+Welcome home.	saying hello	greeting
+Come on in.	saying hello	greeting
+Please come in.	saying hello	greeting
+Make yourself at home.	saying hello	greeting
+Have a seat.	saying hello	greeting
+Please have a seat.	saying hello	greeting
+I'm fine, thank you.	saying hello	greeting
+I'm good, thanks. And you?	saying hello	greeting
+Not bad, thanks.	saying hello	greeting
+Pretty good, thanks.	saying hello	greeting
+I'm doing well.	saying hello	greeting
+I'm doing great.	saying hello	greeting
+Can't complain.	saying hello	greeting
+Same as usual.	saying hello	greeting
+Same old, same old.	saying hello	greeting
+Busy as always.	saying hello	greeting
+Just busy with work.	saying hello	greeting
+Nothing much.	saying hello	greeting
+Not much, you?	saying hello	greeting
+All good here.	saying hello	greeting
+Everything's fine.	saying hello	greeting
+I've been better.	saying hello	greeting
+Could be better.	saying hello	greeting
+I'm a bit tired.	saying hello	greeting
+I'm hanging in there.	saying hello	greeting
+Hope you're well.	saying hello	greeting
+Hope you're doing well.	saying hello	greeting
+Hope all is well.	saying hello	greeting
+Hope you had a good weekend.	saying hello	greeting
+Hope you're having a good day.	saying hello	greeting
+Have a nice day.	saying hello	greeting
+Have a good day.	saying hello	greeting
+Have a great day.	saying hello	greeting
+Have a good one.	saying hello	greeting
+Have a nice weekend.	saying hello	greeting
+Have a good weekend.	saying hello	greeting
+Have a great weekend.	saying hello	greeting
+Enjoy your weekend.	saying hello	greeting
+Enjoy your day.	saying hello	greeting
+Enjoy your trip.	saying hello	greeting
+Enjoy your meal.	saying hello	greeting
+Enjoy the show.	saying hello	greeting
+Have fun.	saying hello	greeting
+Have a good time.	saying hello	greeting
+Have a safe trip.	saying hello	greeting
+Have a safe flight.	saying hello	greeting
+Safe travels.	saying hello	greeting
+Drive safely.	saying hello	greeting
+Get home safe.	saying hello	greeting
+Text me when you get home.	saying hello	greeting
+Good night.	saying hello	greeting
+Sleep well.	saying hello	greeting
+Sweet dreams.	saying hello	greeting
+Night night.	saying hello	greeting
+See you.	saying hello	greeting
+See you later.	saying hello	greeting
+See you soon.	saying hello	greeting
+See you tomorrow.	saying hello	greeting
+See you next week.	saying hello	greeting
+See you on Monday.	saying hello	greeting
+See you around.	saying hello	greeting
+See you then.	saying hello	greeting
+See you there.	saying hello	greeting
+Catch you later.	saying hello	greeting
+Talk to you later.	saying hello	greeting
+Talk soon.	saying hello	greeting
+Speak soon.	saying hello	greeting
+Bye for now.	saying hello	greeting
+Bye, take care.	saying hello	greeting
+Until next time.	saying hello	greeting
+I have to go.	saying hello	greeting
+I've got to go.	saying hello	greeting
+I need to go now.	saying hello	greeting
+I should get going.	saying hello	greeting
+I'd better go.	saying hello	greeting
+It's getting late.	saying hello	greeting
+It was nice talking to you.	saying hello	greeting
+It was great to see you.	saying hello	greeting
+Nice talking to you.	saying hello	greeting
+Nice chatting with you.	saying hello	greeting
+Let's keep in touch.	saying hello	greeting
+Keep in touch.	saying hello	greeting
+Stay in touch.	saying hello	greeting
+Say hi to your family.	saying hello	greeting
+Say hello to everyone for me.	saying hello	greeting
+Give my love to your mom.	saying hello	greeting
+Happy birthday!	saying hello	greeting
+Happy New Year!	saying hello	greeting
+Merry Christmas!	saying hello	greeting
+Happy holidays!	saying hello	greeting
+Happy Lunar New Year!	saying hello	greeting
+Happy anniversary!	saying hello	greeting
+Happy Friday!	saying hello	greeting
+Happy Monday!	saying hello	greeting
+Happy weekend!	saying hello	greeting
+Best wishes.	saying hello	greeting
+All the best.	saying hello	greeting
+Can you help me?	asking for help	polite
+Could you help me, please?	asking for help	polite
+Can you give me a hand?	asking for help	polite
+Could you do me a favor?	asking for help	polite
+Can I ask you a favor?	asking for help	polite
+Can I ask you something?	asking for help	polite
+Can I ask you a question?	asking for help	polite
+May I ask a question?	asking for help	polite
+Do you have a minute?	asking for help	polite
+Do you have a second?	asking for help	polite
+Got a minute?	asking for help	polite
+Are you free now?	asking for help	polite
+Are you busy?	asking for help	polite
+Is this a good time?	asking for help	polite
+Is now a good time to talk?	asking for help	polite
+Sorry to interrupt.	asking for help	polite
+Sorry to bother you, but can I ask something?	asking for help	polite
+Could you say that again?	asking for help	polite
+Could you repeat that, please?	asking for help	polite
+Can you say that again, please?	asking for help	polite
+Could you speak more slowly?	asking for help	polite
+Can you speak a little louder?	asking for help	polite
+Could you spell that, please?	asking for help	polite
+How do you spell that?	asking for help	polite
+How do you say this in English?	asking for help	polite
+What does this word mean?	asking for help	polite
+What does that mean?	asking for help	polite
+What do you mean?	asking for help	polite
+What do you mean by that?	asking for help	polite
+Can you explain that again?	asking for help	polite
+Could you explain it in simple words?	asking for help	polite
+Can you give me an example?	asking for help	polite
+I don't understand.	asking for help	polite
+I don't get it.	asking for help	polite
+I'm a bit confused.	asking for help	polite
+I'm lost.	asking for help	polite
+Could you show me how?	asking for help	polite
+Can you show me?	asking for help	polite
+Can you show me the way?	asking for help	polite
+Could you write it down for me?	asking for help	polite
+Can you send me the link?	asking for help	polite
+Can you send it to me?	asking for help	polite
+Could you check this for me?	asking for help	polite
+Can you take a look at this?	asking for help	polite
+Can you have a look?	asking for help	polite
+Would you mind checking this?	asking for help	polite
+Would you mind helping me?	asking for help	polite
+Would you mind waiting a moment?	asking for help	polite
+Do you mind if I sit here?	asking for help	polite
+Do you mind if I open the window?	asking for help	polite
+Is it okay if I sit here?	asking for help	polite
+Is this seat taken?	asking for help	polite
+Is anyone sitting here?	asking for help	polite
+Can I sit here?	asking for help	polite
+Can I join you?	asking for help	polite
+Can I borrow your pen?	asking for help	polite
+Could I borrow this for a minute?	asking for help	polite
+Can I use your phone?	asking for help	polite
+Can I use the bathroom?	asking for help	polite
+Where is the bathroom?	asking for help	polite
+Where's the restroom, please?	asking for help	polite
+Can I come in?	asking for help	polite
+May I come in?	asking for help	polite
+Can I have a look?	asking for help	polite
+Can I try?	asking for help	polite
+Can I help you?	asking for help	polite
+How can I help you?	asking for help	polite
+Is there anything I can do?	asking for help	polite
+Do you need any help?	asking for help	polite
+Do you need a hand?	asking for help	polite
+Let me help you.	asking for help	polite
+Let me help you with that.	asking for help	polite
+Let me know if you need anything.	asking for help	polite
+Let me know if you need help.	asking for help	polite
+Just let me know.	asking for help	polite
+Just ask if you need anything.	asking for help	polite
+I'm here if you need me.	asking for help	polite
+Here you are.	asking for help	polite
+Here you go.	asking for help	polite
+Here it is.	asking for help	polite
+After you.	asking for help	polite
+You first.	asking for help	polite
+Please wait here.	asking for help	polite
+Please follow me.	asking for help	polite
+This way, please.	asking for help	polite
+Please be quiet.	asking for help	polite
+Please don't touch.	asking for help	polite
+Please turn off your phone.	asking for help	polite
+Please hold the door.	asking for help	polite
+Could you hold the door?	asking for help	polite
+Could you close the door, please?	asking for help	polite
+Could you turn it down a bit?	asking for help	polite
+Could you turn up the volume?	asking for help	polite
+Can you turn off the light?	asking for help	polite
+Can you pass me the salt?	asking for help	polite
+Could you pass the water, please?	asking for help	polite
+Would you like some help?	asking for help	polite
+Would you like to come?	asking for help	polite
+Would you like something to drink?	asking for help	polite
+Would you like some tea?	asking for help	polite
+Would you like a coffee?	asking for help	polite
+Can I get you anything?	asking for help	polite
+Can I get you something to drink?	asking for help	polite
+Help yourself.	asking for help	polite
+Please help yourself.	asking for help	polite
+What time is it?	everyday questions	question
+Do you have the time?	everyday questions	question
+What day is it today?	everyday questions	question
+What's the date today?	everyday questions	question
+What are you doing?	everyday questions	question
+What are you up to?	everyday questions	question
+What are you doing this weekend?	everyday questions	question
+What are you doing tonight?	everyday questions	question
+What are your plans for today?	everyday questions	question
+Any plans for the weekend?	everyday questions	question
+Do you have any plans tonight?	everyday questions	question
+Are you free tomorrow?	everyday questions	question
+Are you free this weekend?	everyday questions	question
+When are you free?	everyday questions	question
+What time works for you?	everyday questions	question
+What time should we meet?	everyday questions	question
+Where should we meet?	everyday questions	question
+Where are you now?	everyday questions	question
+Where are you going?	everyday questions	question
+Where have you been?	everyday questions	question
+Where are you from?	everyday questions	question
+Where do you live?	everyday questions	question
+Where do you work?	everyday questions	question
+What do you do?	everyday questions	question
+What do you do for a living?	everyday questions	question
+What's your job?	everyday questions	question
+How old are you?	everyday questions	question
+What's your name?	everyday questions	question
+How do you pronounce your name?	everyday questions	question
+How long have you lived here?	everyday questions	question
+How long have you been here?	everyday questions	question
+How long does it take?	everyday questions	question
+How long will it take?	everyday questions	question
+How far is it?	everyday questions	question
+How much is it?	everyday questions	question
+How much does it cost?	everyday questions	question
+How many do you need?	everyday questions	question
+How often do you do that?	everyday questions	question
+How do you know?	everyday questions	question
+How do you feel?	everyday questions	question
+How do you feel about it?	everyday questions	question
+How did it go?	everyday questions	question
+How was it?	everyday questions	question
+How did you do that?	everyday questions	question
+How come?	everyday questions	question
+Why is that?	everyday questions	question
+Why do you ask?	everyday questions	question
+What happened?	everyday questions	question
+What's going on?	everyday questions	question
+What's wrong?	everyday questions	question
+What's the matter?	everyday questions	question
+Is everything okay?	everyday questions	question
+Are you okay?	everyday questions	question
+Are you all right?	everyday questions	question
+Are you sure about that?	everyday questions	question
+Are you serious?	everyday questions	question
+Are you ready?	everyday questions	question
+Is it ready?	everyday questions	question
+Are we there yet?	everyday questions	question
+Did you sleep well?	everyday questions	question
+Did you eat yet?	everyday questions	question
+Have you eaten?	everyday questions	question
+Have you had lunch?	everyday questions	question
+Have you had dinner yet?	everyday questions	question
+Did you have breakfast?	everyday questions	question
+What did you have for lunch?	everyday questions	question
+What do you want to eat?	everyday questions	question
+What do you want to do?	everyday questions	question
+What should we do?	everyday questions	question
+What should I do?	everyday questions	question
+What do you think?	everyday questions	question
+What do you think about it?	everyday questions	question
+What's your opinion?	everyday questions	question
+Do you think so?	everyday questions	question
+Do you agree?	everyday questions	question
+Does that make sense?	everyday questions	question
+Is that clear?	everyday questions	question
+Is that okay?	everyday questions	question
+Is that all right?	everyday questions	question
+Is that okay with you?	everyday questions	question
+Is that all?	everyday questions	question
+Anything else?	everyday questions	question
+Is there anything else?	everyday questions	question
+What else?	everyday questions	question
+Who is it?	everyday questions	question
+Who's calling?	everyday questions	question
+Who said that?	everyday questions	question
+Who's next?	everyday questions	question
+Whose turn is it?	everyday questions	question
+Whose is this?	everyday questions	question
+Which one?	everyday questions	question
+Which one do you like?	everyday questions	question
+Which one is better?	everyday questions	question
+Which way?	everyday questions	question
+What kind?	everyday questions	question
+What color?	everyday questions	question
+What size?	everyday questions	question
+What's this?	everyday questions	question
+What's that?	everyday questions	question
+What's it called?	everyday questions	question
+What's it for?	everyday questions	question
+What's the plan?	everyday questions	question
+What's the problem?	everyday questions	question
+What's the point?	everyday questions	question
+What's the difference?	everyday questions	question
+What's the weather like?	everyday questions	question
+What's the best way to get there?	everyday questions	question
+What's your favorite food?	everyday questions	question
+What's your favorite movie?	everyday questions	question
+What kind of music do you like?	everyday questions	question
+Do you like it?	everyday questions	question
+Do you like coffee?	everyday questions	question
+Do you want to come?	everyday questions	question
+Do you want some?	everyday questions	question
+Do you want to try?	everyday questions	question
+Do you need anything?	everyday questions	question
+Do you know what I mean?	everyday questions	question
+Do you know where it is?	everyday questions	question
+Do you know how to do this?	everyday questions	question
+Do you remember?	everyday questions	question
+Do you remember me?	everyday questions	question
+Have we met before?	everyday questions	question
+Have you been here before?	everyday questions	question
+Have you ever been to Vietnam?	everyday questions	question
+Have you seen my keys?	everyday questions	question
+Have you seen my phone?	everyday questions	question
+Have you heard the news?	everyday questions	question
+Did you hear that?	everyday questions	question
+Did you see that?	everyday questions	question
+Did you get my message?	everyday questions	question
+Did you get my email?	everyday questions	question
+Did you call me?	everyday questions	question
+Did I miss anything?	everyday questions	question
+Did I do something wrong?	everyday questions	question
+Can you hear me?	everyday questions	question
+Can you see it?	everyday questions	question
+Can you do it?	everyday questions	question
+Can you come?	everyday questions	question
+Can you make it?	everyday questions	question
+Can we talk?	everyday questions	question
+Can we talk later?	everyday questions	question
+Can we start?	everyday questions	question
+Can we go now?	everyday questions	question
+Shall we go?	everyday questions	question
+Shall we start?	everyday questions	question
+Shall we?	everyday questions	question
+Ready to go?	everyday questions	question
+Are you coming?	everyday questions	question
+Are you coming with us?	everyday questions	question
+Are you still there?	everyday questions	question
+Are you still coming?	everyday questions	question
+Are you on your way?	everyday questions	question
+Are you home?	everyday questions	question
+Are you awake?	everyday questions	question
+Are you hungry?	everyday questions	question
+Are you tired?	everyday questions	question
+Are you cold?	everyday questions	question
+Is it far?	everyday questions	question
+Is it open?	everyday questions	question
+Is it free?	everyday questions	question
+Is it safe?	everyday questions	question
+Is it true?	everyday questions	question
+Is it expensive?	everyday questions	question
+Is it raining?	everyday questions	question
+Is it hot outside?	everyday questions	question
+Is it your first time here?	everyday questions	question
+Is this yours?	everyday questions	question
+Is this the right way?	everyday questions	question
+Is this the right bus?	everyday questions	question
+Is there a problem?	everyday questions	question
+Is there a bank near here?	everyday questions	question
+Is there a pharmacy nearby?	everyday questions	question
+Is there Wi-Fi here?	everyday questions	question
+What's the Wi-Fi password?	everyday questions	question
+Can I charge my phone here?	everyday questions	question
+Where can I charge my phone?	everyday questions	question
+Where did you buy it?	everyday questions	question
+Where did you get that?	everyday questions	question
+Where did you put it?	everyday questions	question
+When did you arrive?	everyday questions	question
+When do you leave?	everyday questions	question
+When does it start?	everyday questions	question
+When does it end?	everyday questions	question
+When does it open?	everyday questions	question
+When does it close?	everyday questions	question
+When will you be back?	everyday questions	question
+When is your birthday?	everyday questions	question
+When is the deadline?	everyday questions	question
+How was the movie?	everyday questions	question
+How was the food?	everyday questions	question
+How was school?	everyday questions	question
+How was work?	everyday questions	question
+How was the meeting?	everyday questions	question
+How was your flight?	everyday questions	question
+How's the weather there?	everyday questions	question
+How's your family?	everyday questions	question
+How's your mom?	everyday questions	question
+How's the new job?	everyday questions	question
+How's work going?	everyday questions	question
+How are things at work?	everyday questions	question
+How are you feeling today?	everyday questions	question
+How's your English going?	everyday questions	question
+Can you speak English?	everyday questions	question
+Do you speak English?	everyday questions	question
+Do you speak Vietnamese?	everyday questions	question
+It's so nice today.	small talk	chat
+What a beautiful day.	small talk	chat
+It's freezing today.	small talk	chat
+It's really hot today.	small talk	chat
+It's been a long week.	small talk	chat
+It's been a long day.	small talk	chat
+I can't believe it's Friday already.	small talk	chat
+Time flies.	small talk	chat
+Time goes so fast.	small talk	chat
+Where did the time go?	small talk	chat
+I can't wait for the weekend.	small talk	chat
+Thank God it's Friday.	small talk	chat
+Mondays are always hard.	small talk	chat
+I'm so ready for the weekend.	small talk	chat
+I need a holiday.	small talk	chat
+I need a break.	small talk	chat
+I need some coffee.	small talk	chat
+I need more sleep.	small talk	chat
+I didn't sleep well last night.	small talk	chat
+I stayed up too late.	small talk	chat
+I overslept this morning.	small talk	chat
+I'm running late.	small talk	chat
+I'm on my way.	small talk	chat
+I'm almost there.	small talk	chat
+I'll be there in five minutes.	small talk	chat
+I'll be there soon.	small talk	chat
+I'm stuck in traffic.	small talk	chat
+The traffic is terrible today.	small talk	chat
+I just got home.	small talk	chat
+I just woke up.	small talk	chat
+I just got here.	small talk	chat
+I'm here.	small talk	chat
+I'm outside.	small talk	chat
+I'm at home.	small talk	chat
+I'm at work.	small talk	chat
+I'm in a meeting.	small talk	chat
+I'm driving right now.	small talk	chat
+I'm busy right now.	small talk	chat
+I'm free now.	small talk	chat
+I'm free after six.	small talk	chat
+I'll call you later.	small talk	chat
+I'll call you back.	small talk	chat
+I'll text you later.	small talk	chat
+I'll message you.	small talk	chat
+Text me.	small talk	chat
+Call me when you're free.	small talk	chat
+Call me if you need anything.	small talk	chat
+Let me check.	small talk	chat
+Let me see.	small talk	chat
+Let me ask.	small talk	chat
+Let me find out.	small talk	chat
+I'll check and let you know.	small talk	chat
+I'll let you know.	small talk	chat
+I'll let you know later.	small talk	chat
+I'll get back to you.	small talk	chat
+I'll get back to you soon.	small talk	chat
+I'll think about it.	small talk	chat
+I'll see what I can do.	small talk	chat
+I'll do my best.	small talk	chat
+I'll try.	small talk	chat
+I'll try my best.	small talk	chat
+I'll be right back.	small talk	chat
+Be right back.	small talk	chat
+Back in a minute.	small talk	chat
+I'm back.	small talk	chat
+I'll wait for you.	small talk	chat
+I'll wait here.	small talk	chat
+I'm waiting for you.	small talk	chat
+I'll meet you there.	small talk	chat
+I'll pick you up.	small talk	chat
+Can you pick me up?	small talk	chat
+I'll take you home.	small talk	chat
+I'll walk you to the door.	small talk	chat
+I'll come with you.	small talk	chat
+Come with me.	small talk	chat
+Wait for me here.	small talk	chat
+Let's meet at the cafe.	small talk	chat
+Let's grab a coffee.	small talk	chat
+Let's grab lunch sometime.	small talk	chat
+Let's have dinner together.	small talk	chat
+Let's hang out sometime.	small talk	chat
+Let's catch up soon.	small talk	chat
+We should catch up.	small talk	chat
+We should do this again.	small talk	chat
+We should hang out more.	small talk	chat
+That was fun.	small talk	chat
+That was so much fun.	small talk	chat
+I had a great time.	small talk	chat
+I had a lot of fun.	small talk	chat
+I really enjoyed it.	small talk	chat
+I enjoyed it a lot.	small talk	chat
+It was worth it.	small talk	chat
+It wasn't worth it.	small talk	chat
+It was okay.	small talk	chat
+It was so boring.	small talk	chat
+It was amazing.	small talk	chat
+It was better than I expected.	small talk	chat
+It was not what I expected.	small talk	chat
+I loved it.	small talk	chat
+I didn't like it much.	small talk	chat
+I'm not a fan.	small talk	chat
+It's not my thing.	small talk	chat
+It's not my cup of tea.	small talk	chat
+I'm into it.	small talk	chat
+I'm a big fan.	small talk	chat
+I've heard a lot about it.	small talk	chat
+I've heard good things about it.	small talk	chat
+I've never tried it.	small talk	chat
+I want to try it.	small talk	chat
+I've been there before.	small talk	chat
+I've never been there.	small talk	chat
+I'd love to go there.	small talk	chat
+I'd like that.	small talk	chat
+I'd love that.	small talk	chat
+I'd love to.	small talk	chat
+I'd be happy to.	small talk	chat
+I'm looking forward to it.	small talk	chat
+I'm really looking forward to seeing you.	small talk	chat
+Can't wait!	small talk	chat
+I can't wait to see you.	small talk	chat
+I miss you.	small talk	chat
+I missed you.	small talk	chat
+We miss you.	small talk	chat
+I'm thinking of you.	small talk	chat
+You look great.	small talk	chat
+You look nice today.	small talk	chat
+You look tired.	small talk	chat
+You look happy.	small talk	chat
+I like your shirt.	small talk	chat
+I love your bag.	small talk	chat
+Nice shoes.	small talk	chat
+That color suits you.	small talk	chat
+Did you get a haircut?	small talk	chat
+Your English is very good.	small talk	chat
+Your house is lovely.	small talk	chat
+You're so funny.	small talk	chat
+You're very kind.	small talk	chat
+You're so smart.	small talk	chat
+That's very nice of you.	small talk	chat
+That's funny.	small talk	chat
+That's so funny.	small talk	chat
+That's hilarious.	small talk	chat
+I'm just kidding.	small talk	chat
+Just kidding.	small talk	chat
+I was joking.	small talk	chat
+Don't take it seriously.	small talk	chat
+I'm serious.	small talk	chat
+I mean it.	small talk	chat
+I promise.	small talk	chat
+Trust me.	small talk	chat
+Believe me.	small talk	chat
+To be honest, I don't know.	small talk	chat
+To be honest, I'm tired.	small talk	chat
+Honestly, it's fine.	small talk	chat
+Actually, I changed my mind.	small talk	chat
+I changed my mind.	small talk	chat
+I forgot.	small talk	chat
+I almost forgot.	small talk	chat
+I totally forgot.	small talk	chat
+I can't remember.	small talk	chat
+It's on the tip of my tongue.	small talk	chat
+I remember now.	small talk	chat
+Now I remember.	small talk	chat
+It slipped my mind.	small talk	chat
+That reminds me.	small talk	chat
+By the way.	small talk	chat
+Anyway, how are you?	small talk	chat
+Anyway, let's move on.	small talk	chat
+Where was I?	small talk	chat
+What was I saying?	small talk	chat
+Long story short.	small talk	chat
+It's a long story.	small talk	chat
+Guess what?	small talk	chat
+You know what?	small talk	chat
+Listen to this.	small talk	chat
+Look at this.	small talk	chat
+Check this out.	small talk	chat
+Watch out!	small talk	chat
+Be careful.	small talk	chat
+Hurry up.	small talk	chat
+Come on!	small talk	chat
+Come here.	small talk	chat
+Come back.	small talk	chat
+Sit down, please.	small talk	chat
+Stand up, please.	small talk	chat
+Let me go first.	small talk	chat
+It's your turn.	small talk	chat
+It's my turn.	small talk	chat
+Who wants to go first?	small talk	chat
+I'll go first.	small talk	chat
+Let's take turns.	small talk	chat
+Let's take a break.	small talk	chat
+Let's take a photo.	small talk	chat
+Can you take a photo of us?	small talk	chat
+Say cheese!	small talk	chat
+Let's get started.	small talk	chat
+Let's start.	small talk	chat
+Let's begin.	small talk	chat
+Let's continue.	small talk	chat
+Let's call it a day.	small talk	chat
+Let's go home.	small talk	chat
+Let's stay in tonight.	small talk	chat
+Let's go out tonight.	small talk	chat
+Let's watch a movie.	small talk	chat
+Let's play a game.	small talk	chat
+Let's go for a walk.	small talk	chat
+Let's eat out.	small talk	chat
+Let's order in.	small talk	chat
+Let's split the bill.	small talk	chat
+It's on me.	small talk	chat
+My treat.	small talk	chat
+I'll pay.	small talk	chat
+I'll get this one.	small talk	chat
+You paid last time.	small talk	chat
+Keep the change.	small talk	chat
+I'm happy.	feelings	feeling
+I'm so happy.	feelings	feeling
+I'm so excited.	feelings	feeling
+I'm really excited about it.	feelings	feeling
+I'm tired.	feelings	feeling
+I'm so tired.	feelings	feeling
+I'm exhausted.	feelings	feeling
+I'm sleepy.	feelings	feeling
+I'm bored.	feelings	feeling
+I'm hungry.	feelings	feeling
+I'm starving.	feelings	feeling
+I'm thirsty.	feelings	feeling
+I'm full.	feelings	feeling
+I'm cold.	feelings	feeling
+I'm hot.	feelings	feeling
+I'm sick.	feelings	feeling
+I'm not feeling well.	feelings	feeling
+I don't feel well.	feelings	feeling
+I feel better now.	feelings	feeling
+I feel much better.	feelings	feeling
+I feel great.	feelings	feeling
+I feel terrible.	feelings	feeling
+I feel bad about it.	feelings	feeling
+I feel sorry for him.	feelings	feeling
+I feel sorry for her.	feelings	feeling
+I'm nervous.	feelings	feeling
+I'm a bit nervous.	feelings	feeling
+I'm so nervous about the exam.	feelings	feeling
+I'm worried.	feelings	feeling
+I'm worried about you.	feelings	feeling
+I'm scared.	feelings	feeling
+I'm afraid.	feelings	feeling
+I'm angry.	feelings	feeling
+I'm upset.	feelings	feeling
+I'm sad.	feelings	feeling
+I'm a little sad.	feelings	feeling
+I'm lonely.	feelings	feeling
+I'm stressed.	feelings	feeling
+I'm stressed out.	feelings	feeling
+I'm under a lot of pressure.	feelings	feeling
+I'm confused.	feelings	feeling
+I'm surprised.	feelings	feeling
+I'm shocked.	feelings	feeling
+I'm disappointed.	feelings	feeling
+I'm so disappointed.	feelings	feeling
+I'm frustrated.	feelings	feeling
+I'm annoyed.	feelings	feeling
+I'm embarrassed.	feelings	feeling
+That's embarrassing.	feelings	feeling
+How embarrassing.	feelings	feeling
+I'm relieved.	feelings	feeling
+What a relief.	feelings	feeling
+That's a relief.	feelings	feeling
+Thank goodness.	feelings	feeling
+I'm proud of myself.	feelings	feeling
+I'm grateful.	feelings	feeling
+I'm thankful for you.	feelings	feeling
+I'm lucky.	feelings	feeling
+I'm so lucky.	feelings	feeling
+Lucky you!	feelings	feeling
+I'm in a good mood.	feelings	feeling
+I'm in a bad mood.	feelings	feeling
+I'm not in the mood.	feelings	feeling
+I'm not in the mood for that.	feelings	feeling
+I'm ready.	feelings	feeling
+I'm not ready yet.	feelings	feeling
+I'm done.	feelings	feeling
+I'm finished.	feelings	feeling
+I'm almost done.	feelings	feeling
+I'm busy.	feelings	feeling
+I'm so busy these days.	feelings	feeling
+I'm fine.	feelings	feeling
+I'm okay.	feelings	feeling
+I'm all right.	feelings	feeling
+I'm doing okay.	feelings	feeling
+I'm getting better.	feelings	feeling
+I'm used to it.	feelings	feeling
+I'm not used to it yet.	feelings	feeling
+I'm getting used to it.	feelings	feeling
+I'm sure.	feelings	feeling
+I'm positive.	feelings	feeling
+I'm not sure yet.	feelings	feeling
+I'm curious.	feelings	feeling
+I'm interested.	feelings	feeling
+I'm not interested.	feelings	feeling
+I'm sorry, I'm not interested.	feelings	feeling
+I'm impressed.	feelings	feeling
+I'm speechless.	feelings	feeling
+I'm so sorry for you.	feelings	feeling
+I'm here for you.	feelings	feeling
+I don't care.	feelings	feeling
+I don't care what people think.	feelings	feeling
+I can't stand it.	feelings	feeling
+I can't take it anymore.	feelings	feeling
+I've had enough.	feelings	feeling
+I hate waiting.	feelings	feeling
+I hate Mondays.	feelings	feeling
+I love it.	feelings	feeling
+I love it here.	feelings	feeling
+I love this song.	feelings	feeling
+I love this place.	feelings	feeling
+I like it.	feelings	feeling
+I like it a lot.	feelings	feeling
+I really like it.	feelings	feeling
+I like that idea.	feelings	feeling
+It makes me happy.	feelings	feeling
+It makes me sad.	feelings	feeling
+It makes me nervous.	feelings	feeling
+It drives me crazy.	feelings	feeling
+It scares me.	feelings	feeling
+It hurts.	feelings	feeling
+It hurts a lot.	feelings	feeling
+My head hurts.	feelings	feeling
+My back hurts.	feelings	feeling
+My feet are killing me.	feelings	feeling
+I'm feeling down today.	feelings	feeling
+I'm feeling a bit low.	feelings	feeling
+I'm on top of the world.	feelings	feeling
+I'm over the moon.	feelings	feeling
+I'm so jealous.	feelings	feeling
+Don't be sad.	feelings	feeling
+Don't be angry.	feelings	feeling
+Don't be scared.	feelings	feeling
+Don't be shy.	feelings	feeling
+Don't be silly.	feelings	feeling
+Don't be late.	feelings	feeling
+Don't cry.	feelings	feeling
+Cheer up!	feelings	feeling
+Keep smiling.	feelings	feeling
+It's not your fault.	feelings	feeling
+It's okay to be sad.	feelings	feeling
+It's okay to make mistakes.	feelings	feeling
+Everyone makes mistakes.	feelings	feeling
+It happens.	feelings	feeling
+These things happen.	feelings	feeling
+It's not the end of the world.	feelings	feeling
+Look on the bright side.	feelings	feeling
+Things will get better.	feelings	feeling
+Tomorrow is another day.	feelings	feeling
+I know how you feel.	feelings	feeling
+I've been there.	feelings	feeling
+I understand how you feel.	feelings	feeling
+That must be frustrating.	feelings	feeling
+That sounds stressful.	feelings	feeling
+That sounds amazing.	feelings	feeling
+That sounds scary.	feelings	feeling
+That's so exciting!	feelings	feeling
+How exciting!	feelings	feeling
+How sad.	feelings	feeling
+How nice.	feelings	feeling
+How lovely.	feelings	feeling
+How cute!	feelings	feeling
+So cute!	feelings	feeling
+That's so cute.	feelings	feeling
+That's beautiful.	feelings	feeling
+That's crazy.	feelings	feeling
+That's weird.	feelings	feeling
+That's strange.	feelings	feeling
+That's unbelievable.	feelings	feeling
+That's not fair.	feelings	feeling
+That's ridiculous.	feelings	feeling
+That's impossible.	feelings	feeling
+That's amazing.	feelings	feeling
+Wow, that's great.	feelings	feeling
+Oh my God.	feelings	feeling
+Oh my goodness.	feelings	feeling
+Oh, wow.	feelings	feeling
+What a surprise!	feelings	feeling
+What a day!	feelings	feeling
+What a mess.	feelings	feeling
+What a pity.	feelings	feeling
+Are you free on Saturday?	making plans	plans
+Do you want to hang out?	making plans	plans
+Do you want to grab a coffee?	making plans	plans
+Do you want to have lunch together?	making plans	plans
+Do you want to come over?	making plans	plans
+Do you want to join us?	making plans	plans
+Would you like to join us for dinner?	making plans	plans
+How about tomorrow?	making plans	plans
+How about this weekend?	making plans	plans
+How about next week?	making plans	plans
+How about Friday night?	making plans	plans
+How about seven o'clock?	making plans	plans
+How about we meet at noon?	making plans	plans
+What about you?	making plans	plans
+What about tomorrow?	making plans	plans
+Is tomorrow okay?	making plans	plans
+Is Sunday okay for you?	making plans	plans
+Does Monday work for you?	making plans	plans
+Does that work for you?	making plans	plans
+Does three o'clock work?	making plans	plans
+Tomorrow works for me.	making plans	plans
+Friday is better for me.	making plans	plans
+The weekend is better for me.	making plans	plans
+I'm free in the afternoon.	making plans	plans
+I'm busy until five.	making plans	plans
+I have plans tonight.	making plans	plans
+I already have plans.	making plans	plans
+I have something on that day.	making plans	plans
+Can we do it another day?	making plans	plans
+Can we change the time?	making plans	plans
+Can we move it to Friday?	making plans	plans
+Can we make it a bit later?	making plans	plans
+Can we make it earlier?	making plans	plans
+Let's reschedule.	making plans	plans
+Something came up.	making plans	plans
+I can't make it today.	making plans	plans
+I can't come tonight.	making plans	plans
+I might be a little late.	making plans	plans
+I'll be ten minutes late.	making plans	plans
+Start without me.	making plans	plans
+Don't wait for me.	making plans	plans
+Save me a seat.	making plans	plans
+I'll be there.	making plans	plans
+I'll be there on time.	making plans	plans
+See you at eight.	making plans	plans
+See you at the station.	making plans	plans
+Let's meet in front of the cinema.	making plans	plans
+Let's meet halfway.	making plans	plans
+Where do you want to go?	making plans	plans
+What do you feel like doing?	making plans	plans
+What do you feel like eating?	making plans	plans
+I feel like pizza.	making plans	plans
+I don't feel like going out.	making plans	plans
+I'd rather stay home.	making plans	plans
+I'd rather go tomorrow.	making plans	plans
+Let's play it by ear.	making plans	plans
+Let's see how it goes.	making plans	plans
+Let's decide later.	making plans	plans
+Let's keep it simple.	making plans	plans
+Who else is coming?	making plans	plans
+Can I bring a friend?	making plans	plans
+Should I bring anything?	making plans	plans
+What should I wear?	making plans	plans
+Is it a formal event?	making plans	plans
+I'm going to the gym.	making plans	plans
+I'm going shopping.	making plans	plans
+I'm going to bed.	making plans	plans
+I'm going out for a bit.	making plans	plans
+I'm staying home today.	making plans	plans
+I'm going to visit my parents.	making plans	plans
+We're going on a trip.	making plans	plans
+We're going to the beach.	making plans	plans
+I'm planning a trip.	making plans	plans
+I'm thinking about going abroad.	making plans	plans
+I'm going to take a day off.	making plans	plans
+I'm going to try.	making plans	plans
+I'm going to start tomorrow.	making plans	plans
+I'm going to sleep early tonight.	making plans	plans
+I'll do it tomorrow.	making plans	plans
+I'll do it later.	making plans	plans
+I'll do it now.	making plans	plans
+I'll finish it tonight.	making plans	plans
+I'll be busy next week.	making plans	plans
+I'll be away next week.	making plans	plans
+I'll be back on Monday.	making plans	plans
+I'm on holiday next week.	making plans	plans
+I'm working from home today.	work chat	work
+I'm in the office today.	work chat	work
+I'm on my lunch break.	work chat	work
+I'm taking a short break.	work chat	work
+I'm almost finished.	work chat	work
+I'm working on it.	work chat	work
+I'm on it.	work chat	work
+I'll take care of it.	work chat	work
+I'll handle it.	work chat	work
+Leave it to me.	work chat	work
+I'll look into it.	work chat	work
+I'll check with my manager.	work chat	work
+I'll ask the team.	work chat	work
+I'll follow up.	work chat	work
+I'll keep you posted.	work chat	work
+I'll keep you updated.	work chat	work
+Keep me posted.	work chat	work
+Keep me in the loop.	work chat	work
+Let's stay on the same page.	work chat	work
+Are we on the same page?	work chat	work
+Let's get on the same page.	work chat	work
+Let's discuss this later.	work chat	work
+Let's talk about it in the meeting.	work chat	work
+Let's take this offline.	work chat	work
+Let's set up a call.	work chat	work
+Let's have a quick call.	work chat	work
+Can we have a quick chat?	work chat	work
+Do you have time for a quick call?	work chat	work
+Can we meet tomorrow morning?	work chat	work
+The meeting has been moved.	work chat	work
+The meeting is cancelled.	work chat	work
+The meeting starts at ten.	work chat	work
+The meeting is running late.	work chat	work
+I'm running a bit late for the meeting.	work chat	work
+I'll join the call in a minute.	work chat	work
+Can you hear me okay?	work chat	work
+You're on mute.	work chat	work
+I think you're on mute.	work chat	work
+Sorry, I was on mute.	work chat	work
+Can you see my screen?	work chat	work
+Let me share my screen.	work chat	work
+Your screen is frozen.	work chat	work
+The connection is bad.	work chat	work
+You're breaking up.	work chat	work
+I lost you for a second.	work chat	work
+Can everyone hear me?	work chat	work
+Let's wait a few more minutes.	work chat	work
+Who's taking notes?	work chat	work
+Any questions?	work chat	work
+Does anyone have any questions?	work chat	work
+Any other comments?	work chat	work
+Let's wrap it up.	work chat	work
+Let's wrap up for today.	work chat	work
+That's all for today.	work chat	work
+Thanks, everyone.	work chat	work
+Thanks for joining.	work chat	work
+Good meeting, everyone.	work chat	work
+What's the next step?	work chat	work
+What are the next steps?	work chat	work
+Who's responsible for this?	work chat	work
+Who's working on this?	work chat	work
+What's the status?	work chat	work
+What's the update on this?	work chat	work
+Any updates?	work chat	work
+Any news on this?	work chat	work
+Where are we with this?	work chat	work
+How's it going with the project?	work chat	work
+Is it done yet?	work chat	work
+When can you finish it?	work chat	work
+When do you need it?	work chat	work
+When is it due?	work chat	work
+What's the deadline?	work chat	work
+The deadline is Friday.	work chat	work
+The deadline is tomorrow.	work chat	work
+We're behind schedule.	work chat	work
+We're on schedule.	work chat	work
+We're ahead of schedule.	work chat	work
+We're running out of time.	work chat	work
+We need more time.	work chat	work
+Can we push the deadline?	work chat	work
+Can I get an extension?	work chat	work
+I need a few more days.	work chat	work
+I need it by Friday.	work chat	work
+I need it as soon as possible.	work chat	work
+It's urgent.	work chat	work
+It's not urgent.	work chat	work
+It can wait.	work chat	work
+No rush on this.	work chat	work
+It's a top priority.	work chat	work
+Let's focus on this first.	work chat	work
+Let's prioritize.	work chat	work
+That's out of scope.	work chat	work
+Let's keep it short.	work chat	work
+Good catch.	work chat	work
+Nice catch.	work chat	work
+Good question.	work chat	work
+That's a good question.	work chat	work
+Let me get back to you on that.	work chat	work
+I'll find out and let you know.	work chat	work
+I'm not sure, let me check.	work chat	work
+I don't have that information right now.	work chat	work
+I'll send it over.	work chat	work
+I'll send it today.	work chat	work
+I'll send you the details.	work chat	work
+I sent it this morning.	work chat	work
+I just sent it.	work chat	work
+Did you get it?	work chat	work
+I haven't received it yet.	work chat	work
+Can you resend it?	work chat	work
+Could you send it again?	work chat	work
+Can you share the file?	work chat	work
+Can you share the document?	work chat	work
+I'll share the slides after the meeting.	work chat	work
+I shared it with you.	work chat	work
+Please check your inbox.	work chat	work
+Please review this.	work chat	work
+Can you review my work?	work chat	work
+Could you give me some feedback?	work chat	work
+Any feedback is welcome.	work chat	work
+I'd appreciate your feedback.	work chat	work
+Looks good, just a few small changes.	work chat	work
+I left some comments.	work chat	work
+I made a few changes.	work chat	work
+I fixed it.	work chat	work
+It's fixed now.	work chat	work
+It works now.	work chat	work
+It's not working.	work chat	work
+Something is wrong.	work chat	work
+There's a problem with the system.	work chat	work
+The system is down.	work chat	work
+I'm having some trouble with this.	work chat	work
+I'm stuck on this.	work chat	work
+I could use some help.	work chat	work
+Can someone help me with this?	work chat	work
+I'm happy to help.	work chat	work
+Let me know how I can help.	work chat	work
+I'll help you out.	work chat	work
+Thanks for covering for me.	work chat	work
+I owe you a coffee.	work chat	work
+Who's in charge?	work chat	work
+Who should I talk to?	work chat	work
+Who can I ask about this?	work chat	work
+I report to the manager.	work chat	work
+I'm new here.	work chat	work
+It's my first day.	work chat	work
+I just started last week.	work chat	work
+Welcome to the team.	work chat	work
+Welcome aboard.	work chat	work
+Nice to have you on the team.	work chat	work
+Great teamwork.	work chat	work
+Thanks for your hard work.	work chat	work
+You did a great job on this.	work chat	work
+I'm proud of the team.	work chat	work
+We did it.	work chat	work
+Let's celebrate.	work chat	work
+I'm leaving early today.	work chat	work
+I have a doctor's appointment.	work chat	work
+I'm taking the afternoon off.	work chat	work
+I'll be out of the office tomorrow.	work chat	work
+I'm off today.	work chat	work
+I'm on leave next week.	work chat	work
+I'll be back next Monday.	work chat	work
+I'm calling in sick today.	work chat	work
+I'm working late tonight.	work chat	work
+I have a lot on my plate.	work chat	work
+I'm swamped.	work chat	work
+I'm up to my neck in work.	work chat	work
+I have too much work.	work chat	work
+I can't take on more work right now.	work chat	work
+Can we split the work?	work chat	work
+I'll do this part.	work chat	work
+Can you take care of that part?	work chat	work
+Let's divide the tasks.	work chat	work
+That sounds like a good plan.	work chat	work
+Let's go with that.	work chat	work
+Let's go with option A.	work chat	work
+I need to think it over.	work chat	work
+Let me sleep on it.	work chat	work
+Let's try it and see.	work chat	work
+Let's give it a try.	work chat	work
+It's worth a try.	work chat	work
+Let's not rush.	work chat	work
+Let's double-check.	work chat	work
+Can you double-check this?	work chat	work
+I'll double-check.	work chat	work
+Are you sure this is right?	work chat	work
+I think there's a mistake here.	work chat	work
+I think this is wrong.	work chat	work
+Sorry, that was a mistake.	work chat	work
+I'll fix it right away.	work chat	work
+Thanks for pointing that out.	work chat	work
+I'm sorry for the mix-up.	work chat	work
+Let's learn from this.	work chat	work
+Let's move forward.	work chat	work
+Moving on.	work chat	work
+Next question.	work chat	work
+Next slide, please.	work chat	work
+Back to you.	work chat	work
+Over to you.	work chat	work
+Do you have anything to add?	work chat	work
+I have nothing to add.	work chat	work
+I'd like to add something.	work chat	work
+Can I say something?	work chat	work
+Let me finish, please.	work chat	work
+Sorry, go ahead.	work chat	work
+You go first.	work chat	work
+I have a question.	work chat	work
+Quick question.	work chat	work
+Just a quick question.	work chat	work
+I have a suggestion.	work chat	work
+What if we try this?	work chat	work
+How about trying this?	work chat	work
+I'd suggest waiting.	work chat	work
+I'd recommend this one.	work chat	work
+In my opinion, it's too expensive.	work chat	work
+I think we should wait.	work chat	work
+I think it's a good idea.	work chat	work
+I'm not sure it's a good idea.	work chat	work
+I see your point.	work chat	work
+I see your point, but I disagree.	work chat	work
+That's a fair point.	work chat	work
+I hadn't thought of that.	work chat	work
+Let's agree to disagree.	work chat	work
+Let's find a middle ground.	work chat	work
+Let's meet in the middle.	work chat	work
+It's a win-win.	work chat	work
+It's a no-brainer.	work chat	work
+Let's keep in mind the budget.	work chat	work
+We need to cut costs.	work chat	work
+It's within budget.	work chat	work
+It's over budget.	work chat	work
+I hope this email finds you well.	work email	email
+I hope you're having a good week.	work email	email
+I'm writing to ask about the order.	work email	email
+I'm writing to follow up on our meeting.	work email	email
+I'm writing to confirm the details.	work email	email
+Just following up on my last email.	work email	email
+Just checking in on this.	work email	email
+Just a quick reminder.	work email	email
+Just a friendly reminder.	work email	email
+Just wanted to check in.	work email	email
+Just wanted to let you know.	work email	email
+Just wanted to say thank you.	work email	email
+Please find the file attached.	work email	email
+Please see the attached file.	work email	email
+I've attached the report.	work email	email
+I've attached the document for your review.	work email	email
+Please let me know if you have any questions.	work email	email
+Let me know if you have any questions.	work email	email
+Feel free to contact me.	work email	email
+Feel free to reach out.	work email	email
+Please don't hesitate to contact me.	work email	email
+Please let me know what you think.	work email	email
+Please confirm when you receive this.	work email	email
+Please reply by Friday.	work email	email
+Please get back to me by tomorrow.	work email	email
+I look forward to hearing from you.	work email	email
+Looking forward to your reply.	work email	email
+Looking forward to working with you.	work email	email
+Looking forward to meeting you.	work email	email
+Thank you for your email.	work email	email
+Thank you for your quick response.	work email	email
+Thank you for reaching out.	work email	email
+Thanks in advance.	work email	email
+Thank you in advance for your help.	work email	email
+Sorry for the late response.	work email	email
+Apologies for the delay.	work email	email
+Apologies for any confusion.	work email	email
+I'm sorry for any inconvenience.	work email	email
+I'll get back to you as soon as possible.	work email	email
+I'll reply in more detail tomorrow.	work email	email
+I'm out of the office until Monday.	work email	email
+I'll reply when I'm back.	work email	email
+I'm copying my colleague on this.	work email	email
+I've added my manager to this email.	work email	email
+Please see my comments below.	work email	email
+As discussed in the meeting.	work email	email
+As we discussed yesterday.	work email	email
+As mentioned before.	work email	email
+As requested, here is the file.	work email	email
+Could you please confirm the time?	work email	email
+Could you please send me the details?	work email	email
+Could you please update me on this?	work email	email
+Could you let me know by Friday?	work email	email
+Would it be possible to meet next week?	work email	email
+Would Tuesday work for you?	work email	email
+I'm available on Thursday afternoon.	work email	email
+Please let me know your availability.	work email	email
+What time suits you best?	work email	email
+I've sent you a calendar invite.	work email	email
+I'd like to schedule a meeting.	work email	email
+Can we set up a time to talk?	work email	email
+I'd like to confirm our meeting tomorrow.	work email	email
+I'm afraid I need to cancel.	work email	email
+I need to reschedule our meeting.	work email	email
+Thank you for your understanding.	work email	email
+Thank you for your patience.	work email	email
+Best regards.	work email	email
+Kind regards.	work email	email
+Warm regards.	work email	email
+Have a nice day ahead.	work email	email
+How much is this?	shopping	shop
+How much are these?	shopping	shop
+How much does this cost?	shopping	shop
+Is this on sale?	shopping	shop
+Is there a discount?	shopping	shop
+Do you have a discount?	shopping	shop
+Can you give me a discount?	shopping	shop
+That's too expensive.	shopping	shop
+That's a bit expensive.	shopping	shop
+That's cheap.	shopping	shop
+That's a good price.	shopping	shop
+That's a great deal.	shopping	shop
+It's a bargain.	shopping	shop
+I'm just looking.	shopping	shop
+I'm just looking, thanks.	shopping	shop
+I'm just browsing.	shopping	shop
+Can I try this on?	shopping	shop
+Where is the fitting room?	shopping	shop
+Do you have this in a smaller size?	shopping	shop
+Do you have this in a bigger size?	shopping	shop
+Do you have it in another color?	shopping	shop
+Do you have it in black?	shopping	shop
+Does it come in blue?	shopping	shop
+It's too big.	shopping	shop
+It's too small.	shopping	shop
+It's too tight.	shopping	shop
+It fits well.	shopping	shop
+It doesn't fit.	shopping	shop
+It looks good on you.	shopping	shop
+How does it look?	shopping	shop
+Does this look okay?	shopping	shop
+I'll take it.	shopping	shop
+I'll take this one.	shopping	shop
+I'll take two.	shopping	shop
+I'll come back later.	shopping	shop
+I need a bag.	shopping	shop
+Can I have a bag, please?	shopping	shop
+I don't need a bag.	shopping	shop
+Can I pay by card?	shopping	shop
+Do you take cards?	shopping	shop
+Can I pay with cash?	shopping	shop
+Cash or card?	shopping	shop
+Can I pay with my phone?	shopping	shop
+Do you accept credit cards?	shopping	shop
+Where do I pay?	shopping	shop
+Where is the checkout?	shopping	shop
+Can I have the receipt?	shopping	shop
+Can I get a receipt, please?	shopping	shop
+Here's your receipt.	shopping	shop
+Here's your change.	shopping	shop
+Can I return this?	shopping	shop
+Can I exchange this?	shopping	shop
+I'd like to return this.	shopping	shop
+I'd like a refund.	shopping	shop
+It's broken.	shopping	shop
+It doesn't work.	shopping	shop
+I bought this yesterday.	shopping	shop
+Do you have this in stock?	shopping	shop
+It's out of stock.	shopping	shop
+When will you have more?	shopping	shop
+Can you order it for me?	shopping	shop
+Can you wrap it as a gift?	shopping	shop
+Is there a warranty?	shopping	shop
+How long is the warranty?	shopping	shop
+Do you deliver?	shopping	shop
+Can you deliver it to my house?	shopping	shop
+How long does delivery take?	shopping	shop
+Is delivery free?	shopping	shop
+Where can I find the milk?	shopping	shop
+Where can I find shampoo?	shopping	shop
+Which aisle is it in?	shopping	shop
+It's in aisle three.	shopping	shop
+Do you sell phone chargers?	shopping	shop
+Do you have any batteries?	shopping	shop
+I'm looking for a gift.	shopping	shop
+I'm looking for a jacket.	shopping	shop
+Can you recommend something?	shopping	shop
+Which one do you recommend?	shopping	shop
+What's the difference between these two?	shopping	shop
+Which one is cheaper?	shopping	shop
+Is this the last one?	shopping	shop
+Can I see that one, please?	shopping	shop
+Can you show me that one?	shopping	shop
+Is it new?	shopping	shop
+Is it made here?	shopping	shop
+What is it made of?	shopping	shop
+Is it waterproof?	shopping	shop
+Buy one, get one free.	shopping	shop
+Everything is half price.	shopping	shop
+The store opens at nine.	shopping	shop
+What time do you close?	shopping	shop
+Are you open on Sunday?	shopping	shop
+Is there a market near here?	shopping	shop
+A table for two, please.	eating and drinking	food
+A table for four, please.	eating and drinking	food
+Do you have a table for two?	eating and drinking	food
+I have a reservation.	eating and drinking	food
+I'd like to book a table.	eating and drinking	food
+Can we sit outside?	eating and drinking	food
+Can we sit by the window?	eating and drinking	food
+Can I see the menu, please?	eating and drinking	food
+Could we have the menu, please?	eating and drinking	food
+Do you have an English menu?	eating and drinking	food
+What do you recommend?	eating and drinking	food
+What's good here?	eating and drinking	food
+What's popular here?	eating and drinking	food
+What's today's special?	eating and drinking	food
+What's in this dish?	eating and drinking	food
+Is it spicy?	eating and drinking	food
+Is it very spicy?	eating and drinking	food
+Not too spicy, please.	eating and drinking	food
+No ice, please.	eating and drinking	food
+Less sugar, please.	eating and drinking	food
+No sugar, please.	eating and drinking	food
+Can I have some water?	eating and drinking	food
+Can I get a glass of water?	eating and drinking	food
+Can we have some more water?	eating and drinking	food
+I'm ready to order.	eating and drinking	food
+We're ready to order.	eating and drinking	food
+We need a few more minutes.	eating and drinking	food
+I'll have the chicken.	eating and drinking	food
+I'll have the same.	eating and drinking	food
+Same for me, please.	eating and drinking	food
+I'd like a coffee, please.	eating and drinking	food
+I'd like an iced coffee, please.	eating and drinking	food
+Can I get a latte to go?	eating and drinking	food
+For here or to go?	eating and drinking	food
+To go, please.	eating and drinking	food
+For here, please.	eating and drinking	food
+Can I take this away?	eating and drinking	food
+Can I get this to go?	eating and drinking	food
+Can I have a box for this?	eating and drinking	food
+Small, medium, or large?	eating and drinking	food
+A large one, please.	eating and drinking	food
+Anything to drink?	eating and drinking	food
+Just water, thanks.	eating and drinking	food
+I'm vegetarian.	eating and drinking	food
+I don't eat meat.	eating and drinking	food
+I'm allergic to peanuts.	eating and drinking	food
+Does this have nuts in it?	eating and drinking	food
+Is this gluten-free?	eating and drinking	food
+Excuse me, this isn't what I ordered.	eating and drinking	food
+I think there's a mistake.	eating and drinking	food
+This is cold.	eating and drinking	food
+Could you heat this up?	eating and drinking	food
+It's delicious.	eating and drinking	food
+This is really good.	eating and drinking	food
+This is so tasty.	eating and drinking	food
+It's a bit salty.	eating and drinking	food
+It's too sweet.	eating and drinking	food
+I'm so full.	eating and drinking	food
+I can't eat any more.	eating and drinking	food
+That was a great meal.	eating and drinking	food
+Can we have the bill, please?	eating and drinking	food
+Could I have the check, please?	eating and drinking	food
+Can we pay separately?	eating and drinking	food
+Is service included?	eating and drinking	food
+Do I need to tip?	eating and drinking	food
+Let's get something to eat.	eating and drinking	food
+Let's grab a bite.	eating and drinking	food
+I'm in the mood for noodles.	eating and drinking	food
+Do you want to share?	eating and drinking	food
+Do you want some of mine?	eating and drinking	food
+Try this.	eating and drinking	food
+You should try this.	eating and drinking	food
+Have you tried this before?	eating and drinking	food
+Can I have a bite?	eating and drinking	food
+Can I taste it?	eating and drinking	food
+Breakfast is ready.	eating and drinking	food
+Dinner is ready.	eating and drinking	food
+Lunch is on me.	eating and drinking	food
+Let's eat.	eating and drinking	food
+Dig in.	eating and drinking	food
+Bon appetit!	eating and drinking	food
+Cheers to that!	eating and drinking	food
+What would you like to drink?	eating and drinking	food
+I'll have a tea, please.	eating and drinking	food
+Hot or iced?	eating and drinking	food
+Can I have it with milk?	eating and drinking	food
+Can I have extra cheese?	eating and drinking	food
+Can I have it without onions?	eating and drinking	food
+Hold the onions, please.	eating and drinking	food
+Do you deliver here?	eating and drinking	food
+How long is the wait?	eating and drinking	food
+Is there a wait?	eating and drinking	food
+Is this seat free?	eating and drinking	food
+Can I order online?	eating and drinking	food
+Excuse me, where is the station?	getting around	travel
+How do I get to the airport?	getting around	travel
+How do I get to the city center?	getting around	travel
+How far is it from here?	getting around	travel
+Is it within walking distance?	getting around	travel
+Can I walk there?	getting around	travel
+Is it far from here?	getting around	travel
+It's about ten minutes on foot.	getting around	travel
+Go straight ahead.	getting around	travel
+Turn left at the corner.	getting around	travel
+Turn right at the lights.	getting around	travel
+It's on your left.	getting around	travel
+It's on your right.	getting around	travel
+It's next to the bank.	getting around	travel
+It's across the street.	getting around	travel
+It's around the corner.	getting around	travel
+It's just over there.	getting around	travel
+You can't miss it.	getting around	travel
+I'm a bit lost.	getting around	travel
+I think we're lost.	getting around	travel
+Can you show me on the map?	getting around	travel
+Where are we now?	getting around	travel
+Which bus goes to the beach?	getting around	travel
+Which train goes downtown?	getting around	travel
+Does this bus go to the airport?	getting around	travel
+Is this the right platform?	getting around	travel
+When is the next train?	getting around	travel
+What time is the last bus?	getting around	travel
+How often does the bus come?	getting around	travel
+Where do I get off?	getting around	travel
+Please tell me when to get off.	getting around	travel
+Where can I buy a ticket?	getting around	travel
+One ticket, please.	getting around	travel
+A return ticket, please.	getting around	travel
+A one-way ticket, please.	getting around	travel
+How much is a ticket?	getting around	travel
+Where is the taxi stand?	getting around	travel
+Can you call a taxi for me?	getting around	travel
+Please take me to this address.	getting around	travel
+Please take me to the airport.	getting around	travel
+How much to the city center?	getting around	travel
+Can you stop here, please?	getting around	travel
+Please stop here.	getting around	travel
+You can drop me off here.	getting around	travel
+Keep the change, please.	getting around	travel
+Can you turn on the air conditioning?	getting around	travel
+Can you open the window?	getting around	travel
+Can you drive a little slower?	getting around	travel
+We're almost there.	getting around	travel
+Where is the check-in counter?	getting around	travel
+I'd like a window seat.	getting around	travel
+I'd like an aisle seat.	getting around	travel
+Can I take this on the plane?	getting around	travel
+How many bags can I bring?	getting around	travel
+My bag is missing.	getting around	travel
+I lost my luggage.	getting around	travel
+My flight is delayed.	getting around	travel
+My flight was cancelled.	getting around	travel
+I missed my flight.	getting around	travel
+I missed the bus.	getting around	travel
+What time is boarding?	getting around	travel
+Which gate is it?	getting around	travel
+Where is gate ten?	getting around	travel
+Where is the baggage claim?	getting around	travel
+Where is passport control?	getting around	travel
+I'm here on holiday.	getting around	travel
+I'm here for work.	getting around	travel
+I'm staying for a week.	getting around	travel
+This is my first time here.	getting around	travel
+I have a reservation under my name.	getting around	travel
+I'd like to check in.	getting around	travel
+I'd like to check out.	getting around	travel
+What time is check-out?	getting around	travel
+What time is breakfast?	getting around	travel
+Is breakfast included?	getting around	travel
+Can I leave my bags here?	getting around	travel
+Can I get a late check-out?	getting around	travel
+Can I have another towel?	getting around	travel
+The air conditioning isn't working.	getting around	travel
+There's no hot water.	getting around	travel
+The room is too noisy.	getting around	travel
+Can I change rooms?	getting around	travel
+Can you recommend a good restaurant?	getting around	travel
+What's there to see around here?	getting around	travel
+What should I see here?	getting around	travel
+Is it safe to walk at night?	getting around	travel
+Do you have a city map?	getting around	travel
+Where can I exchange money?	getting around	travel
+Is there an ATM nearby?	getting around	travel
+Can you take a picture of me?	getting around	travel
+Could you take our picture?	getting around	travel
+What's the best time to visit?	getting around	travel
+Is it worth visiting?	getting around	travel
+How long is the flight?	getting around	travel
+How long is the drive?	getting around	travel
+Let's take a taxi.	getting around	travel
+Let's take the bus.	getting around	travel
+Let's walk.	getting around	travel
+Let's take the subway.	getting around	travel
+We should leave early.	getting around	travel
+Don't forget your passport.	getting around	travel
+Did you pack everything?	getting around	travel
+Have a good flight.	getting around	travel
+Welcome to Vietnam.	getting around	travel
+Enjoy your stay.	getting around	travel
+I'm home!	at home	home
+I'm going to take a shower.	at home	home
+I'm cooking dinner.	at home	home
+What's for dinner?	at home	home
+Dinner's almost ready.	at home	home
+Can you set the table?	at home	home
+Can you do the dishes?	at home	home
+I'll do the dishes.	at home	home
+Whose turn is it to cook?	at home	home
+Can you take out the trash?	at home	home
+Can you feed the cat?	at home	home
+Can you walk the dog?	at home	home
+Did you lock the door?	at home	home
+Did you turn off the stove?	at home	home
+Don't forget to turn off the lights.	at home	home
+Turn off the TV, please.	at home	home
+Can you turn on the fan?	at home	home
+It's too hot in here.	at home	home
+It's too cold in here.	at home	home
+Can you close the window?	at home	home
+Leave the door open.	at home	home
+Shut the door, please.	at home	home
+The Wi-Fi isn't working.	at home	home
+The internet is so slow.	at home	home
+Where's the remote?	at home	home
+Have you seen the remote?	at home	home
+Where did I put my keys?	at home	home
+I can't find my phone.	at home	home
+Can you call my phone?	at home	home
+I'm going to bed now.	at home	home
+I'm going to sleep.	at home	home
+Time for bed.	at home	home
+Time to get up.	at home	home
+Wake up!	at home	home
+Get up, it's late.	at home	home
+I'm still sleepy.	at home	home
+Five more minutes.	at home	home
+I need to do laundry.	at home	home
+I need to clean my room.	at home	home
+Clean your room, please.	at home	home
+This room is a mess.	at home	home
+Can you help me clean up?	at home	home
+Let's tidy up.	at home	home
+Put it back, please.	at home	home
+Put it on the table.	at home	home
+It's on the shelf.	at home	home
+It's in the drawer.	at home	home
+It's in the fridge.	at home	home
+We're out of milk.	at home	home
+We need to buy some eggs.	at home	home
+Can you buy some bread on the way home?	at home	home
+I'll go to the supermarket.	at home	home
+Do we need anything?	at home	home
+Is there anything to eat?	at home	home
+I'm going to make some coffee.	at home	home
+Do you want some tea?	at home	home
+The water is boiling.	at home	home
+Be quiet, the baby is sleeping.	at home	home
+Keep it down, please.	at home	home
+Who left the lights on?	at home	home
+Who's at the door?	at home	home
+Someone's at the door.	at home	home
+Can you get the door?	at home	home
+I'll get it.	at home	home
+The package arrived.	at home	home
+My package hasn't arrived yet.	at home	home
+Can you water the plants?	at home	home
+It's your turn to clean.	at home	home
+I'll be home late tonight.	at home	home
+What time will you be home?	at home	home
+Don't wait up for me.	at home	home
+I don't feel well today.	health and doctor	health
+I have a headache.	health and doctor	health
+I have a stomachache.	health and doctor	health
+I have a sore throat.	health and doctor	health
+I have a cold.	health and doctor	health
+I have a fever.	health and doctor	health
+I have a cough.	health and doctor	health
+I think I'm getting sick.	health and doctor	health
+I think I caught a cold.	health and doctor	health
+I feel dizzy.	health and doctor	health
+I feel sick.	health and doctor	health
+I can't sleep at night.	health and doctor	health
+I'm allergic to this.	health and doctor	health
+I need to see a doctor.	health and doctor	health
+I'd like to make an appointment.	health and doctor	health
+Can I see the doctor today?	health and doctor	health
+I have an appointment at ten.	health and doctor	health
+Where does it hurt?	health and doctor	health
+It hurts here.	health and doctor	health
+How long have you felt like this?	health and doctor	health
+Since yesterday.	health and doctor	health
+For about three days.	health and doctor	health
+Do you have any medicine for a cold?	health and doctor	health
+How often should I take this?	health and doctor	health
+Take two pills a day.	health and doctor	health
+Take it after meals.	health and doctor	health
+Do I need a prescription?	health and doctor	health
+Is there a pharmacy near here?	health and doctor	health
+You should get some rest.	health and doctor	health
+You should drink more water.	health and doctor	health
+Get some sleep.	health and doctor	health
+I hurt my leg.	health and doctor	health
+I hurt my back.	health and doctor	health
+I cut my finger.	health and doctor	health
+Are you hurt?	health and doctor	health
+Call an ambulance!	health and doctor	health
+Please call a doctor.	health and doctor	health
+I need help.	health and doctor	health
+It's an emergency.	health and doctor	health
+I'm feeling much better now.	health and doctor	health
+I'm on medication.	health and doctor	health
+I need to rest today.	health and doctor	health
+I'm trying to eat healthy.	health and doctor	health
+I'm trying to lose weight.	health and doctor	health
+I go to the gym three times a week.	health and doctor	health
+I should exercise more.	health and doctor	health
+I'm on a diet.	health and doctor	health
+I need to drink more water.	health and doctor	health
+I try to walk every day.	health and doctor	health
+I need to sleep earlier.	health and doctor	health
+I have a class at nine.	study and class	school
+I have an exam tomorrow.	study and class	school
+I have a lot of homework.	study and class	school
+I need to study tonight.	study and class	school
+I'm studying for the test.	study and class	school
+I passed the exam!	study and class	school
+I failed the test.	study and class	school
+I did well on the test.	study and class	school
+How did the exam go?	study and class	school
+When is the exam?	study and class	school
+What's the homework?	study and class	school
+Did you do the homework?	study and class	school
+I forgot my homework.	study and class	school
+Can I borrow your notes?	study and class	school
+Can you explain this to me?	study and class	school
+I don't understand this question.	study and class	school
+Can you help me with my homework?	study and class	school
+Can I ask a question?	study and class	school
+Could you say that again, please?	study and class	school
+Could you write it on the board?	study and class	school
+What page are we on?	study and class	school
+Which page?	study and class	school
+Open your books to page ten.	study and class	school
+Please turn to page twenty.	study and class	school
+Work in pairs.	study and class	school
+Work in groups.	study and class	school
+Let's work together.	study and class	school
+Let's practise speaking.	study and class	school
+How do you say this word?	study and class	school
+Can you check my pronunciation?	study and class	school
+Is my pronunciation correct?	study and class	school
+What's the past tense of this verb?	study and class	school
+Is this sentence correct?	study and class	school
+Can you correct my English?	study and class	school
+I'm learning English.	study and class	school
+I'm trying to improve my English.	study and class	school
+I want to practise my speaking.	study and class	school
+My English isn't very good.	study and class	school
+I'm still learning.	study and class	school
+Sorry, my English is not good.	study and class	school
+I understand English, but I can't speak well.	study and class	school
+I can read English, but speaking is hard.	study and class	school
+I'm taking an English course.	study and class	school
+I'm preparing for the IELTS test.	study and class	school
+I need a higher score.	study and class	school
+Practice makes perfect.	study and class	school
+I learn new words every day.	study and class	school
+I watch movies in English.	study and class	school
+I listen to podcasts in English.	study and class	school
+What does this sentence mean?	study and class	school
+Can you use it in a sentence?	study and class	school
+Is there an easier word for this?	study and class	school
+What's the opposite of this word?	study and class	school
+Can I say it like this?	study and class	school
+Does it sound natural?	study and class	school
+Is that the right word?	study and class	school
+What's the difference between these words?	study and class	school
+I always forget this word.	study and class	school
+The class is cancelled today.	study and class	school
+The teacher is absent today.	study and class	school
+I'm late for class.	study and class	school
+Can I leave early today?	study and class	school
+May I go to the bathroom?	study and class	school
+Time's up.	study and class	school
+Pens down.	study and class	school
+Hand in your papers, please.	study and class	school
+Good luck on your exam.	study and class	school
+My phone is dead.	phones and computers	tech
+My battery is low.	phones and computers	tech
+My phone is almost out of battery.	phones and computers	tech
+Can I charge my phone?	phones and computers	tech
+Do you have a charger?	phones and computers	tech
+My phone is broken.	phones and computers	tech
+The screen is cracked.	phones and computers	tech
+My computer is frozen.	phones and computers	tech
+My laptop won't turn on.	phones and computers	tech
+Have you tried restarting it?	phones and computers	tech
+Try turning it off and on again.	phones and computers	tech
+Try restarting it.	phones and computers	tech
+It's loading.	phones and computers	tech
+It's taking forever to load.	phones and computers	tech
+The app keeps crashing.	phones and computers	tech
+The app isn't working.	phones and computers	tech
+I need to update the app.	phones and computers	tech
+I forgot my password.	phones and computers	tech
+I can't log in.	phones and computers	tech
+I got locked out of my account.	phones and computers	tech
+Can you reset my password?	phones and computers	tech
+What's your username?	phones and computers	tech
+Did you save it?	phones and computers	tech
+I forgot to save it.	phones and computers	tech
+I lost my file.	phones and computers	tech
+Can you send me the file?	phones and computers	tech
+I'll send you a screenshot.	phones and computers	tech
+Take a screenshot.	phones and computers	tech
+Can you send me a photo?	phones and computers	tech
+I'll send you the photos later.	phones and computers	tech
+Can you add me on social media?	phones and computers	tech
+Can you follow me back?	phones and computers	tech
+I'll add you to the group chat.	phones and computers	tech
+Check the group chat.	phones and computers	tech
+Did you see my message?	phones and computers	tech
+I didn't see your message.	phones and computers	tech
+I just saw your message.	phones and computers	tech
+Sorry, I just saw this.	phones and computers	tech
+I left you a message.	phones and computers	tech
+My internet is down.	phones and computers	tech
+The signal is weak here.	phones and computers	tech
+I have no signal.	phones and computers	tech
+I'm out of data.	phones and computers	tech
+Can you share your hotspot?	phones and computers	tech
+How do I connect to the Wi-Fi?	phones and computers	tech
+It's connected now.	phones and computers	tech
+Can you turn on Bluetooth?	phones and computers	tech
+Can you hear me now?	phones and computers	tech
+The sound isn't working.	phones and computers	tech
+Can you turn the sound on?	phones and computers	tech
+Turn off your camera.	phones and computers	tech
+Can you turn on your camera?	phones and computers	tech
+Download the app first.	phones and computers	tech
+It's free to download.	phones and computers	tech
+Is there an app for that?	phones and computers	tech
+Just search it online.	phones and computers	tech
+Let me look it up.	phones and computers	tech
+I'll google it.	phones and computers	tech
+I saw it online.	phones and computers	tech
+I read it on the news.	phones and computers	tech
+Can you print this for me?	phones and computers	tech
+The printer isn't working.	phones and computers	tech
+Hello, who's speaking?	phone calls	phone
+Who am I speaking to?	phone calls	phone
+Can I speak to the manager?	phone calls	phone
+Is this a good time to call?	phone calls	phone
+I'm calling about my order.	phone calls	phone
+I'm calling to make an appointment.	phone calls	phone
+I'm returning your call.	phone calls	phone
+Sorry, I missed your call.	phone calls	phone
+Could you call me back later?	phone calls	phone
+Can I call you back?	phone calls	phone
+I'll call you back in ten minutes.	phone calls	phone
+Please hold.	phone calls	phone
+Can you hold on a moment?	phone calls	phone
+I'll put you through.	phone calls	phone
+The line is busy.	phone calls	phone
+Sorry, you have the wrong number.	phone calls	phone
+I think I have the wrong number.	phone calls	phone
+Can I leave a message?	phone calls	phone
+Can you take a message?	phone calls	phone
+I'll tell him you called.	phone calls	phone
+I'll tell her you called.	phone calls	phone
+Can you speak up, please?	phone calls	phone
+I can't hear you well.	phone calls	phone
+The line is bad.	phone calls	phone
+Sorry, you're breaking up.	phone calls	phone
+Let me call you from another phone.	phone calls	phone
+Thanks for calling.	phone calls	phone
+Talk to you soon.	phone calls	phone
+I have to hang up now.	phone calls	phone
+Can I put you on speaker?	phone calls	phone
+Why didn't you answer your phone?	phone calls	phone
+I was in the shower.	phone calls	phone
+My phone was on silent.	phone calls	phone
+I didn't hear it ring.	phone calls	phone
+Call me anytime.	phone calls	phone
+It's sunny today.	weather	weather
+It's raining.	weather	weather
+It's raining really hard.	weather	weather
+It's pouring.	weather	weather
+It's cloudy today.	weather	weather
+It's windy today.	weather	weather
+It's very humid.	weather	weather
+It's so hot outside.	weather	weather
+It's so cold outside.	weather	weather
+It's a bit chilly.	weather	weather
+It's getting colder.	weather	weather
+It's getting warmer.	weather	weather
+It looks like rain.	weather	weather
+It might rain later.	weather	weather
+Take an umbrella.	weather	weather
+Don't forget your umbrella.	weather	weather
+I got caught in the rain.	weather	weather
+I'm soaking wet.	weather	weather
+The weather is nice today.	weather	weather
+The weather is terrible.	weather	weather
+What's the weather like today?	weather	weather
+What's the forecast for tomorrow?	weather	weather
+Is it going to rain?	weather	weather
+It's supposed to rain tomorrow.	weather	weather
+It's perfect weather for a walk.	weather	weather
+I love this weather.	weather	weather
+I hate this weather.	weather	weather
+It's too hot to go out.	weather	weather
+The rainy season has started.	weather	weather
+There's a storm coming.	weather	weather
+Stay inside today.	weather	weather
+Wear a jacket, it's cold.	weather	weather
+It's a nice day for the beach.	weather	weather
+I'm saving money.	money and bank	money
+I'm trying to save money.	money and bank	money
+I'm broke.	money and bank	money
+I'm short on money this month.	money and bank	money
+Can you lend me some money?	money and bank	money
+I'll pay you back tomorrow.	money and bank	money
+I'll pay you back next week.	money and bank	money
+I owe you some money.	money and bank	money
+You don't owe me anything.	money and bank	money
+Let's split it.	money and bank	money
+Let's go halves.	money and bank	money
+How much do I owe you?	money and bank	money
+It's on me today.	money and bank	money
+It's too expensive for me.	money and bank	money
+I can't afford it.	money and bank	money
+It's worth the money.	money and bank	money
+It's a waste of money.	money and bank	money
+I'd like to open a bank account.	money and bank	money
+I'd like to withdraw some money.	money and bank	money
+I'd like to transfer money.	money and bank	money
+Can I change money here?	money and bank	money
+What's the exchange rate?	money and bank	money
+Is there a fee?	money and bank	money
+The card isn't working.	money and bank	money
+My card was declined.	money and bank	money
+Can you try another card?	money and bank	money
+Where is the nearest ATM?	money and bank	money
+I left my wallet at home.	money and bank	money
+I lost my wallet.	money and bank	money
+I'll send you the money now.	money and bank	money
+I've sent you the money.	money and bank	money
+Did you get the money?	money and bank	money
+Prices are going up.	money and bank	money
+Everything is so expensive now.	money and bank	money
+Are you there?	texting	chat
+You there?	texting	chat
+Are you up?	texting	chat
+Are you around?	texting	chat
+What are you doing now?	texting	chat
+Can you talk now?	texting	chat
+Call me when you can.	texting	chat
+Text me when you're free.	texting	chat
+I'll text you when I'm done.	texting	chat
+Just landed.	texting	chat
+Just got off work.	texting	chat
+Just finished work.	texting	chat
+Leaving now.	texting	chat
+On my way home.	texting	chat
+Running a bit late, sorry.	texting	chat
+Be there in ten.	texting	chat
+Almost home.	texting	chat
+Here now.	texting	chat
+I'm downstairs.	texting	chat
+I'm at the door.	texting	chat
+Can you open the door?	texting	chat
+Where are you guys?	texting	chat
+We're at the usual place.	texting	chat
+Got your message.	texting	chat
+Just saw this, sorry.	texting	chat
+Sorry, I fell asleep.	texting	chat
+Sorry, I was in the shower.	texting	chat
+Sorry, I was driving.	texting	chat
+Sorry, my phone died.	texting	chat
+Sorry for not replying.	texting	chat
+Sorry for the slow reply.	texting	chat
+No need to reply.	texting	chat
+Reply when you can.	texting	chat
+Let me know when you arrive.	texting	chat
+Let me know when you're ready.	texting	chat
+Let me know when you're home.	texting	chat
+Let me know what you decide.	texting	chat
+Let me know if anything changes.	texting	chat
+Let me know if you can make it.	texting	chat
+Let me know how it goes.	texting	chat
+Tell me how it goes.	texting	chat
+Keep me updated.	texting	chat
+What do you think of this?	texting	chat
+Any ideas?	texting	chat
+Did it go well?	texting	chat
+How did it go today?	texting	chat
+Hope it went well.	texting	chat
+Hope you got home safe.	texting	chat
+Hope you're feeling better.	texting	chat
+Hope you had fun.	texting	chat
+Hope you have a great time.	texting	chat
+Hope to see you soon.	texting	chat
+Hope everything is okay.	texting	chat
+Have you arrived yet?	texting	chat
+Did you get home okay?	texting	chat
+Did you eat already?	texting	chat
+Don't forget to eat.	texting	chat
+Don't forget to drink water.	texting	chat
+Don't stay up too late.	texting	chat
+Go to sleep.	texting	chat
+Get some rest.	texting	chat
+Talk tomorrow.	texting	chat
+Talk to you tomorrow.	texting	chat
+Night, talk tomorrow.	texting	chat
+Love you.	texting	chat
+Love you too.	texting	chat
+Miss you too.	texting	chat
+Same to you.	texting	chat
+You too.	texting	chat
+And you?	texting	chat
+How about you?	texting	chat
+What about yours?	texting	chat
+Lol, that's funny.	texting	chat
+Haha, so true.	texting	chat
+That made my day.	texting	chat
+You made my day.	texting	chat
+I'm laughing so hard.	texting	chat
+I can't stop laughing.	texting	chat
+I saw this and thought of you.	texting	chat
+This reminds me of you.	texting	chat
+Check your messages.	texting	chat
+Did you see the photo?	texting	chat
+Send me the photos.	texting	chat
+Love the photo.	texting	chat
+Great photo!	texting	chat
+Where was this taken?	texting	chat
+Looks like fun.	texting	chat
+Looks delicious.	texting	chat
+Looks amazing.	texting	chat
+Wish I was there.	texting	chat
+Wish you were here.	texting	chat
+Save some for me.	texting	chat
+Bring me back something.	texting	chat
+How's your family doing?	family and friends	chat
+How are your parents?	family and friends	chat
+How are the kids?	family and friends	chat
+Do you have any brothers or sisters?	family and friends	chat
+I have one older brother.	family and friends	chat
+I have two younger sisters.	family and friends	chat
+I'm an only child.	family and friends	chat
+Are you married?	family and friends	chat
+Do you have kids?	family and friends	chat
+I live with my parents.	family and friends	chat
+I live alone.	family and friends	chat
+I live with my roommate.	family and friends	chat
+My family is very close.	family and friends	chat
+We have dinner together every Sunday.	family and friends	chat
+I'm visiting my family this weekend.	family and friends	chat
+I'm going back to my hometown.	family and friends	chat
+My parents are coming to visit.	family and friends	chat
+My mom is a great cook.	family and friends	chat
+My dad works in a bank.	family and friends	chat
+I take care of my grandmother.	family and friends	chat
+We grew up together.	family and friends	chat
+We've been friends for years.	family and friends	chat
+We met at university.	family and friends	chat
+We met at work.	family and friends	chat
+He's my best friend.	family and friends	chat
+She's my best friend.	family and friends	chat
+He's a good friend of mine.	family and friends	chat
+She's an old friend of mine.	family and friends	chat
+This is my friend.	family and friends	chat
+Let me introduce you to my friend.	family and friends	chat
+I'd like you to meet my colleague.	family and friends	chat
+Have you two met?	family and friends	chat
+We've met before.	family and friends	chat
+I don't think we've met.	family and friends	chat
+You two should meet.	family and friends	chat
+Everyone is welcome.	family and friends	chat
+The more, the merrier.	family and friends	chat
+Bring your friends.	family and friends	chat
+It's a family tradition.	family and friends	chat
+It runs in the family.	family and friends	chat
+Family comes first.	family and friends	chat
+Friends are like family.	family and friends	chat
+I'm so happy you came.	family and friends	chat
+Thanks for coming over.	family and friends	chat
+Come again soon.	family and friends	chat
+You're always welcome here.	family and friends	chat
+Let me walk you out.	family and friends	chat
+Drive home safely.	family and friends	chat
+Give me a hug.	family and friends	chat
+I've got your back.	family and friends	chat
+I'm always here for you.	family and friends	chat
+You can always talk to me.	family and friends	chat
+You can count on me.	family and friends	chat
+I won't tell anyone.	family and friends	chat
+It's between us.	family and friends	chat
+Your secret is safe with me.	family and friends	chat
+Can you keep a secret?	family and friends	chat
+I trust you.	family and friends	chat
+I'm on your side.	family and friends	chat
+I think it's great.	opinions	chat
+I think it's a bit too long.	opinions	chat
+I think you're right.	opinions	chat
+I think so, too.	opinions	chat
+I don't think it's a good idea.	opinions	chat
+In my opinion, it's fine.	opinions	chat
+If you ask me, it's too much.	opinions	chat
+Personally, I prefer tea.	opinions	chat
+I prefer the first one.	opinions	chat
+I'd prefer to stay here.	opinions	chat
+I'd rather walk.	opinions	chat
+I like this one better.	opinions	chat
+This one is better.	opinions	chat
+That one is nicer.	opinions	chat
+Both are good.	opinions	chat
+Neither of them is good.	opinions	chat
+It's not bad.	opinions	chat
+It's okay, I guess.	opinions	chat
+It's not as good as I thought.	opinions	chat
+It's better than nothing.	opinions	chat
+It could be worse.	opinions	chat
+It's the best I've ever had.	opinions	chat
+It's the worst.	opinions	chat
+I'm not a big fan of it.	opinions	chat
+I'm not really into sports.	opinions	chat
+I'm really into music.	opinions	chat
+I'm crazy about coffee.	opinions	chat
+I can't live without coffee.	opinions	chat
+It's my favorite.	opinions	chat
+It's one of my favorites.	opinions	chat
+That's my favorite song.	opinions	chat
+I could watch it again.	opinions	chat
+I've seen it twice.	opinions	chat
+I didn't get the ending.	opinions	chat
+The ending was so sad.	opinions	chat
+The ending was great.	opinions	chat
+It was too long.	opinions	chat
+It was too short.	opinions	chat
+It's a must-see.	opinions	chat
+You have to see it.	opinions	chat
+You should read it.	opinions	chat
+You should go there.	opinions	chat
+You won't regret it.	opinions	chat
+I highly recommend it.	opinions	chat
+I don't recommend it.	opinions	chat
+Don't waste your time.	opinions	chat
+It's overrated.	opinions	chat
+It's underrated.	opinions	chat
+It's worth seeing.	opinions	chat
+It's worth reading.	opinions	chat
+It's worth the wait.	opinions	chat
+It's not worth the trouble.	opinions	chat
+It's a good choice.	opinions	chat
+Good choice.	opinions	chat
+Nice choice.	opinions	chat
+I'm on the fence.	opinions	chat
+I can't decide.	opinions	chat
+I'm torn.	opinions	chat
+It's a tough choice.	opinions	chat
+Let's flip a coin.	opinions	chat
+It's hard to choose.	opinions	chat
+Either one is fine with me.	opinions	chat
+I usually get up at seven.	daily life	chat
+I usually go to bed at eleven.	daily life	chat
+I take the bus to work.	daily life	chat
+I ride my motorbike to work.	daily life	chat
+I walk to school.	daily life	chat
+It takes me thirty minutes to get to work.	daily life	chat
+I usually have coffee in the morning.	daily life	chat
+I skipped breakfast today.	daily life	chat
+I had a big lunch.	daily life	chat
+I'm going to have an early night.	daily life	chat
+I'm not a morning person.	daily life	chat
+I'm a night owl.	daily life	chat
+I'm an early bird.	daily life	chat
+I like to read before bed.	daily life	chat
+I go running in the morning.	daily life	chat
+I watch TV in the evening.	daily life	chat
+I usually cook at home.	daily life	chat
+I don't cook very often.	daily life	chat
+I eat out a lot.	daily life	chat
+I spend too much time on my phone.	daily life	chat
+I need to cut down on coffee.	daily life	chat
+I'm trying to read more.	daily life	chat
+I'm learning to cook.	daily life	chat
+I'm learning to swim.	daily life	chat
+I'm learning to play the guitar.	daily life	chat
+I play football on weekends.	daily life	chat
+I like to stay home on weekends.	daily life	chat
+I like going for walks.	daily life	chat
+I like listening to music.	daily life	chat
+I like watching movies at home.	daily life	chat
+My hobby is taking photos.	daily life	chat
+In my free time, I read.	daily life	chat
+I don't have much free time.	daily life	chat
+I have a busy week ahead.	daily life	chat
+I had a busy day.	daily life	chat
+Today was a good day.	daily life	chat
+Today was a long day.	daily life	chat
+Today was so stressful.	daily life	chat
+Nothing special happened today.	daily life	chat
+It was a normal day.	daily life	chat
+I got a lot done today.	daily life	chat
+I didn't do much today.	daily life	chat
+I wasted the whole day.	daily life	chat
+I need to get organized.	daily life	chat
+I need to make a list.	daily life	chat
+Let me write it down.	daily life	chat
+I'll put it on my calendar.	daily life	chat
+I'll set a reminder.	daily life	chat
+Remind me later.	daily life	chat
+Can you remind me tomorrow?	daily life	chat
+Don't let me forget.	daily life	chat
+I'll keep that in mind.	daily life	chat
+I'll remember that.	daily life	chat
+Good to remember.	daily life	chat

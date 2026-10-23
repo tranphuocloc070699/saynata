@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-20 03:13'
+updated_date: '2026-10-23 02:44'
 ---
 # Deploy to a VPS
 
@@ -81,6 +81,7 @@ nano .env
 | `REQUIRE_SIGN_IN` | Optional. `true` (default): a guest cannot cause a new Claude call (401). **Set `REQUIRE_SIGN_IN=false` until the app with sign-in is released**, because the current app sends no token. Rate limits and the daily budget cap still apply to guests' Claude calls while it is false (a guest IP may cause 30 new calls per hour, `LIMIT_CLAUDE_GUEST_IP_MAX`). Remove the line, or set `true`, when the new app is out. |
 | `CLAUDE_DAILY_BUDGET_USD` | Optional. The most Claude may cost per day in US dollars (UTC day). Default `1.00`. At the cap, new explanations stop until midnight UTC; cached words still work. Prices are in `application.properties` (`app.claude.pricing.*`). |
 | `PREFILL_CRON` | Optional. When the prefill job runs by itself (TASK-83.1, feature page "Prefill"): a six-field Spring cron (`second minute hour day month weekday`) in **UTC**. Empty (default) = it never runs by itself. A night run in Vietnam: `PREFILL_CRON=0 0 20 * * *` (20:00 UTC = 03:00). You can always start a run by hand with `POST /api/admin/prefill/run`. |
+| `PREFILL_CRON_SOURCES` | Optional (TASK-83.12). The queue sources the scheduled run answers, a comma list. Default `sentence-words` (the words users typed). Words, phrases and sentences the developer queues (`scowl-70`, `oewn-2025`, `common-sentences`) stay `pending` at night and are run at once with `uv run pipeline prefill run --source <label>` or `prefill collect ... --now` (needs `ADMIN_API_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` in `pipeline/.env`). Set it on the VPS `.env` and restart the backend. An empty value switches the night job off. |
 | `PREFILL_MAX_USD_PER_RUN` | Optional. The most **one** prefill run may spend on Claude, in US dollars. Default `0.50`. Separate from `CLAUDE_DAILY_BUDGET_USD`: prefill calls are saved as feature `PREFILL` and do not use the users' day budget. |
 | `PREFILL_DELAY` | Optional. Pause after each new word, default `0s`. Prefilled words get no picture, so no pause is needed. |
 | `LIMIT_*` | Optional. Rate limits, for example `LIMIT_CLAUDE_USER_HOUR_MAX` (default 60). The full list is in `backend/.env.example`. |

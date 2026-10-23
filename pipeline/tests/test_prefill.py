@@ -210,3 +210,215 @@ def test_report_counts_and_prices_the_pending_items(queue):
 
 def test_report_of_an_empty_queue_says_what_to_run(queue):
     assert "prefill collect" in prefill.report_lines(queue)[0]
+
+
+# ---------- common sentences (TASK-83.11) ----------
+
+HEADER = "text\tsituation\tkind\n"
+
+
+def sentence_file(tmp_path, *lines):
+    path = tmp_path / "sentences.tsv"
+    path.write_text(HEADER + "".join(f"{line}\n" for line in lines), encoding="utf-8")
+    return path
+
+
+def test_sentence_rows_are_read_with_spaces_cleaned_and_kind_lowercased(tmp_path):
+    path = sentence_file(tmp_path, "Looks  good. \tagreeing\tReply", "", "# a comment", "I'll get back to you.\temail\twork")
+    rows, problems = prefill.read_sentence_file(path)
+    assert [(r.text, r.situation, r.kind) for r in rows] == [
+        ("Looks good.", "agreeing", "reply"), ("I'll get back to you.", "email", "work")]
+    assert problems == []
+
+
+def test_duplicates_after_case_and_final_punctuation_keep_the_first(tmp_path):
+    path = sentence_file(tmp_path, "No worries.\tthanks\treply", "no worries!\tthanks\treply", "No worries?!\tx\tchat")
+    rows, problems = prefill.read_sentence_file(path)
+    assert [r.text for r in rows] == ["No worries."]
+    assert len(problems) == 2 and "the same as line 2" in problems[0]
+
+
+def test_short_long_rude_personal_and_broken_lines_are_left_out(tmp_path):
+    path = sentence_file(tmp_path, "Thanks.\tx\treply", " ".join(["word"] * 16) + "\tx\tchat",
+                         "What a crap day.\tx\tchat", "Call me on 090 123 4567.\tx\tphone",
+                         "Write to me at someone@example.com.\tx\temail", "Only two columns\tx",
+                         "No kind here.\tx\t ", "Well done.\tpraise\treply")
+    rows, problems = prefill.read_sentence_file(path)
+    assert [r.text for r in rows] == ["Well done."]
+    assert len(problems) == 7
+
+
+def test_a_file_without_the_header_is_refused(tmp_path):
+    path = tmp_path / "bad.tsv"
+    path.write_text("Looks good.\tx\treply\n", encoding="utf-8")
+    with pytest.raises(ValueError):
+        prefill.read_sentence_file(path)
+
+
+def test_looks_personal_mirrors_the_backend_detector():
+    assert prefill.looks_personal("Visit www.example.com today")
+    assert prefill.looks_personal("My number is +84 90 123 45 67")
+    assert prefill.looks_personal("Order 1234567 is late")
+    assert not prefill.looks_personal("See you at 7 on May 12.")
+
+
+def test_replies_come_first_and_shorter_lines_win_inside_a_kind(tmp_path):
+    path = sentence_file(tmp_path, "Can we move the meeting to Friday?\tx\twork", "Sounds good to me.\tx\treply",
+                         "Looks good.\tx\treply", "Is it far?\tx\ttravel", "A new kind of line.\tx\tsomething")
+    items = prefill.sentence_items(prefill.read_sentence_file(path)[0])
+    assert [i.text for i in items] == ["Looks good.", "Sounds good to me.", "Can we move the meeting to Friday?",
+                                       "Is it far?", "A new kind of line."]
+    assert all(i.kind == "sentence" and i.target_lang == "vi" and i.source == "common-sentences" for i in items)
+
+
+def test_the_bundled_list_is_clean_and_big_enough():
+    rows, problems = prefill.read_sentence_file()
+    assert problems == []
+    assert 2000 <= len(rows) <= 3000
+    assert len({prefill.loose_key(r.text) for r in rows}) == len(rows)
+
+
+def test_night_model_prices_are_read_from_application_properties():
+    price = prefill.model_price()
+    assert price[0] > 0 and price[1] > price[0]
+    lines = prefill.sentence_night_lines(1000, (0.30, 1.20))
+    assert "$0.54" in lines[0] and "deepseek-v4.1-flash" in lines[0]
+    assert "925 sentences a night" in lines[1]
+
+
+def test_dry_run_counts_and_prices_without_a_database(tmp_path, monkeypatch, capsys):
+    from pipeline import cli
+
+    path = sentence_file(tmp_path, "Looks good.\tx\treply", "looks good\tx\treply", "Well done.\tx\treply")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setattr("sys.argv", ["pipeline", "prefill", "collect", "--source", "sentences", "--file", str(path),
+                                     "--dry-run"])
+    cli.main()
+    out = capsys.readouterr().out
+    assert "2 sentences in" in out and "1 lines left out" in out and "2 to add" in out
+    assert "Estimated cost" in out and "Dry run: nothing was written." in out
+
+
+def test_sentences_already_queued_are_skipped_by_their_loose_key(queue):
+    prefill.insert_items(queue, [Item("sentence", "looks good", "vi", "oewn-2025", 1)])
+    assert prefill.queued_sentence_keys(queue) == {"looks good"}
+    items = [Item("sentence", "Looks good.", "vi", "common-sentences", 950),
+             Item("sentence", "Well done.", "vi", "common-sentences", 950)]
+    new = [i for i in items if prefill.loose_key(i.text) not in prefill.queued_sentence_keys(queue)]
+    assert prefill.insert_items(queue, new) == 1
+    assert queue.execute("SELECT source, priority FROM prefill_item WHERE text = 'Well done.'").fetchone() == (
+        "common-sentences", 950)
+
+
+# ---------- start a run on the server (TASK-83.12): no real network, no Postgres ----------
+
+import argparse  # noqa: E402
+
+import httpx  # noqa: E402
+
+from pipeline import cli  # noqa: E402
+
+SETTINGS = prefill.AdminSettings("https://api.example.test", "admin@example.test", "secret")
+
+
+def fake_server(calls, login_status=200, run_status=202):
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if request.url.path == "/api/admin/auth/login":
+            return httpx.Response(login_status, headers={"set-cookie": "saynata_admin=abc; Path=/"})
+        return httpx.Response(run_status, json={"started": True, "maxUsd": 1.5, "limit": None,
+                                                "sources": request.url.params.get_list("source")})
+
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_start_run_signs_in_then_runs_the_given_sources():
+    calls = []
+    answer = prefill.start_run(SETTINGS, ["common-sentences", "oewn-2025"], 1.5, client=fake_server(calls))
+    assert [c.url.path for c in calls] == ["/api/admin/auth/login", "/api/admin/prefill/run"]
+    assert calls[1].url.params.get_list("source") == ["common-sentences", "oewn-2025"]
+    assert calls[1].url.params["maxUsd"] == "1.5"
+    assert answer["sources"] == ["common-sentences", "oewn-2025"]
+    assert any("watch with: uv run pipeline prefill report" in line for line in prefill.started_lines(answer, SETTINGS))
+
+
+def test_start_run_explains_wrong_login_and_a_run_already_going():
+    with pytest.raises(prefill.RunError, match="ADMIN_EMAIL"):
+        prefill.start_run(SETTINGS, ["x"], 0.5, client=fake_server([], login_status=401))
+    with pytest.raises(prefill.RunError, match="already going"):
+        prefill.start_run(SETTINGS, ["x"], 0.5, client=fake_server([], run_status=409))
+
+
+def test_start_run_refuses_an_unsafe_cap_before_any_request():
+    calls = []
+    for bad in (0, -1, 50):
+        with pytest.raises(prefill.RunError, match="--max-usd"):
+            prefill.start_run(SETTINGS, ["x"], bad, client=fake_server(calls))
+    assert calls == []
+
+
+def test_missing_credentials_give_a_clear_error():
+    with pytest.raises(prefill.RunError, match="ADMIN_PASSWORD") as error:
+        prefill.admin_settings({"ADMIN_API_URL": "https://api.example.test", "ADMIN_EMAIL": "a@b.c"})
+    assert "pipeline/.env" in str(error.value)
+    assert prefill.admin_settings({"ADMIN_API_URL": "https://x.test/", "ADMIN_EMAIL": "a", "ADMIN_PASSWORD": "b"}
+                                  ).base_url == "https://x.test"
+
+
+class FakePg:
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def started(monkeypatch):
+    """Fakes Postgres and the server: records every start_run call."""
+    runs = []
+    monkeypatch.setenv("ADMIN_API_URL", "https://api.example.test")
+    monkeypatch.setenv("ADMIN_EMAIL", "a@b.c")
+    monkeypatch.setenv("ADMIN_PASSWORD", "secret")
+    monkeypatch.setattr(cli.postgres, "database_url", lambda url: "postgresql://fake")
+    monkeypatch.setattr(cli.postgres, "connect", lambda url, read_only=False: FakePg())
+    monkeypatch.setattr(prefill, "queue_exists", lambda pg: True)
+    monkeypatch.setattr(prefill, "queued_sentence_keys", lambda pg: set())
+    monkeypatch.setattr(prefill, "insert_items", lambda pg, items: len(items))
+    monkeypatch.setattr(prefill, "start_run", lambda settings, sources, max_usd, client=None: (
+        runs.append((sources, max_usd)) or {"maxUsd": max_usd, "sources": sources}))
+    return runs
+
+
+def collect_args(**changes):
+    values = dict(prefill_command="collect", source="sentences", file=None, zipf=None, all_wordfreq=False, limit=None,
+                  dry_run=False, database_url=None, now=True, max_usd=0.5)
+    return argparse.Namespace(**{**values, **changes})
+
+
+def test_collect_now_runs_the_source_it_queued(started):
+    cli.prefill_command(collect_args(max_usd=0.7))
+    assert started == [(["common-sentences"], 0.7)]
+
+
+def test_collect_dry_run_never_starts_a_run(started):
+    cli.prefill_command(collect_args(dry_run=True))
+    assert started == []
+
+
+def test_collect_without_now_never_starts_a_run(started):
+    cli.prefill_command(collect_args(now=False))
+    assert started == []
+
+
+def test_collect_now_without_credentials_stops_before_queueing(started, monkeypatch):
+    monkeypatch.delenv("ADMIN_PASSWORD")
+    with pytest.raises(SystemExit, match="ADMIN_PASSWORD"):
+        cli.prefill_command(collect_args())
+    assert started == []
+
+
+def test_prefill_run_starts_the_given_sources(started):
+    cli.prefill_command(argparse.Namespace(prefill_command="run", source=["common-sentences"], max_usd=1.5))
+    assert started == [(["common-sentences"], 1.5)]
+
+
+def test_source_labels_match_what_collect_queues():
+    assert prefill.SOURCE_LABELS == {"words": "scowl-70", "phrases": "oewn-2025", "sentences": "common-sentences"}

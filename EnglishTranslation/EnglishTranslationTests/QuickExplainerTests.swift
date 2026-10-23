@@ -132,13 +132,25 @@ struct QuickExplainerTests {
         #expect(QuickExplainer.looksLikeEnglish(copied))
     }
 
-    @Test func aWordTheServerDoesNotKnowShowsItsMessage() async {
+    @Test func aWordTheServerDoesNotKnowTriesTheSentenceExplanation() async {
         let calls = Calls()
         let result = await makeExplainer(
-            word: .failure(WordLookupError.notAnEnglishWord("blorft")), calls: calls
+            word: .failure(WordLookupError.notAnEnglishWord("well-looked")), calls: calls
+        ).explain("well-looked")
+        #expect(result == .sentence("well-looked", sampleExplanation))
+        #expect(calls.words == ["well-looked"])
+        #expect(calls.sentences == ["well-looked"])
+    }
+
+    @Test func aWordTheSentenceServiceAlsoRejectsShowsAProblem() async {
+        let calls = Calls()
+        let result = await makeExplainer(
+            word: .failure(WordLookupError.notAnEnglishWord("blorft")),
+            sentence: .failure(BackendError.badStatus(422, detail: "Not English")),
+            calls: calls
         ).explain("blorft")
-        #expect(result == .problem(
-            title: "Can't explain this", message: WordLookupError.notAnEnglishWord("blorft").localizedDescription))
+        #expect(result == .problem(title: "Can't explain this", message: "Not English"))
+        #expect(calls.sentences == ["blorft"])
     }
 
     // MARK: - Signed out, slow, failed
