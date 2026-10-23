@@ -354,7 +354,9 @@ struct TranslationStoreTests {
     @Test func spellingHelpUsesTheWordWithoutTheArticle() async {
         let fake = FakeWordLookup(.failure(WordLookupError.notAnEnglishWord("aple")))
         fake.suggestionWords = ["apple"]
-        let store = TranslationStore(makeWordLookup: { fake })
+        let store = TranslationStore(
+            makeTranslator: { FakeTranslator(result: .failure(BackendError.badStatus(422, detail: "Not English"))) },
+            makeWordLookup: { fake })
         store.inputText = "an Aple!"
         await store.translate()
         #expect(fake.suggestionsAskedFor == "aple")
@@ -376,22 +378,42 @@ struct TranslationStoreTests {
         }
     }
 
-    @Test func wordLookupErrorShowsFailedMessage() async {
-        let store = TranslationStore(makeWordLookup: { FakeWordLookup(.failure(WordLookupError.notAnEnglishWord("asdkj"))) })
+    @Test func unknownWordFallsBackToTheSentenceExplanation() async {
+        let lookup = FakeWordLookup(.failure(WordLookupError.notAnEnglishWord("well-looked")))
+        let store = TranslationStore(
+            makeTranslator: { FakeTranslator(result: .success(sample("được chăm sóc tốt"))) },
+            makeWordLookup: { lookup })
+        store.inputText = "well-looked"
+        await store.translate()
+
+        guard case let .loaded(result) = store.state else {
+            Issue.record("Expected .loaded, got \(store.state)")
+            return
+        }
+        #expect(lookup.lastWord == "well-looked")
+        #expect(result.sentence == "well-looked")
+        #expect(result.explanation.translation == "được chăm sóc tốt")
+    }
+
+    @Test func unknownWordStillShowsAnErrorWhenTheSentenceServiceRejectsIt() async {
+        let store = TranslationStore(
+            makeTranslator: { FakeTranslator(result: .failure(BackendError.badStatus(422, detail: "Not English"))) },
+            makeWordLookup: { FakeWordLookup(.failure(WordLookupError.notAnEnglishWord("asdkj"))) })
         store.inputText = "asdkj"
         await store.translate()
 
-        guard case let .failed(message, _) = store.state else {
+        guard case .failed = store.state else {
             Issue.record("Expected .failed, got \(store.state)")
             return
         }
-        #expect(message == "\"asdkj\" is not an English word. Check the spelling.")
     }
 
     @Test func notAnEnglishWordCarriesSuggestions() async {
         let fake = FakeWordLookup(.failure(WordLookupError.notAnEnglishWord("runj")))
         fake.suggestionWords = ["run", "rung"]
-        let store = TranslationStore(makeWordLookup: { fake })
+        let store = TranslationStore(
+            makeTranslator: { FakeTranslator(result: .failure(BackendError.badStatus(422, detail: "Not English"))) },
+            makeWordLookup: { fake })
         store.inputText = " Runj! "
         await store.translate()
 
@@ -399,7 +421,7 @@ struct TranslationStoreTests {
             Issue.record("Expected .failed, got \(store.state)")
             return
         }
-        #expect(message == "\"runj\" is not an English word. Check the spelling.")  // the old message stays
+        #expect(message == "Not English (status 422)")
         #expect(spelling == SpellingHelp(typedWord: "runj", suggestions: ["run", "rung"]))
         #expect(fake.suggestionsAskedFor == "runj")
     }
