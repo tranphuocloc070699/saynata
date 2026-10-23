@@ -2,7 +2,7 @@ import type { SentenceExplanation, SentenceItem, SentenceWord } from "@/api/type
 import { Badge } from "@/components/ui/badge";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/EntryEditor";
-import { EntryBrowser, type Chip } from "@/components/EntryBrowser";
+import { EntryBrowser, type Chip, type Column } from "@/components/EntryBrowser";
 import type { FieldRow } from "@/components/FieldTable";
 
 const chips: Chip[] = [
@@ -70,6 +70,25 @@ function SentenceForm({
   );
 }
 
+// The table columns after the sentence (same pattern as the Words table, TASK-99.3).
+const columns: Column<SentenceItem>[] = [
+  { header: "Language", cell: (sentence) => <Badge variant="outline">{sentence.targetLang}</Badge> },
+  {
+    header: "Review",
+    cell: (sentence) =>
+      sentence.needsReview ? (
+        <Badge variant="warning" dot>
+          Needs review
+        </Badge>
+      ) : (
+        <Badge variant="success" dot>
+          Reviewed
+        </Badge>
+      ),
+  },
+  { header: "Model", cell: (sentence) => <span className="text-muted-foreground">{sentence.model}</span> },
+];
+
 export function SentencesPage() {
   return (
     <EntryBrowser<SentenceItem, SentenceExplanation>
@@ -77,6 +96,7 @@ export function SentencesPage() {
       chips={chips}
       itemTitle={(sentence) => sentence.sourceText}
       itemSubtitle={(sentence) => sentence.explanation.meaning}
+      columns={columns}
       detailRows={detailRows}
       editableEntry={(sentence) => sentence.explanation}
       renderForm={(draft, setDraft) => <SentenceForm draft={draft} setDraft={setDraft} />}
