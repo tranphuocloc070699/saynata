@@ -19,9 +19,18 @@ enum TranslationRowMode: String, CaseIterable, Identifiable {
     /// The text in the Settings list.
     var title: String {
         switch self {
-        case .collapsed: "Collapsed"
+        case .collapsed: "Closed"
         case .alwaysOpen: "Always open"
-        case .rememberLast: "Remember last choice"
+        case .rememberLast: "Remember"
+        }
+    }
+
+    /// The short line under the title in the Settings list.
+    var hint: String {
+        switch self {
+        case .collapsed: "Tap to open each time"
+        case .alwaysOpen: "Shown under every result"
+        case .rememberLast: "Stays how you left it"
         }
     }
 }
