@@ -10,6 +10,8 @@ Two sources, both safe to run again (a row that is already queued is skipped, se
   `dictionary_word` and `dictionary_form`) minus the kept topic words (TASK-61, they will be bundled).
   Forms are reduced to lemmas with lemminflect, and wordfreq keeps the common ones.
 - phrases: multiword lemmas from Open English WordNet 2025 (phrasal verbs, idioms), ranked by wordfreq.
+- sentences (TASK-83.11): the everyday lines in `data/common_sentences.tsv` ("Looks good.", "No worries."), written by
+  hand for this list, common replies first.
 """
 
 import re
@@ -22,6 +24,8 @@ from pathlib import Path
 import psycopg
 
 WORDS_DIR = Path(__file__).resolve().parents[3] / "backend/src/main/resources/words"
+APP_PROPERTIES = Path(__file__).resolve().parents[3] / "backend/src/main/resources/application.properties"
+SENTENCES_FILE = Path(__file__).resolve().parents[2] / "data/common_sentences.tsv"
 
 # What the backend job paid per answer on 2026-10-16 (production claude_usage, Claude Haiku 5.5).
 COST_PER_WORD = 0.0007
@@ -29,6 +33,7 @@ COST_PER_SENTENCE = 0.0002
 
 SOURCE_WORDS = "scowl-70"
 SOURCE_PHRASES = "oewn-2025"
+SOURCE_SENTENCES = "common-sentences"
 PHRASE_LANG = "vi"  # phrases are cached as sentences for the Vietnamese target language
 
 # Default minimum wordfreq Zipf. Measured on 2026-10-16: 3.5 gives about 6.3 thousand word lemmas; 4.0 gives
@@ -225,6 +230,144 @@ def wordnet_lemmas(wordnet) -> dict[str, set[str]]:
     return found
 
 
+# ---------- common sentences (TASK-83.11) ----------
+
+# The model the night job uses on the server (CLAUDE_MODEL, doc-7 10-20), priced in application.properties.
+NIGHT_MODEL = "deepseek-v4.1-flash"
+# Tokens of one short sentence call, an estimate: the sentence prompt and, through a gateway, its JSON Schema (about
+# 1,000 tokens in) and a short answer (summary, translation, about 200 out). Haiku 5.5 at these numbers costs $0.0002,
+# what production measured per sentence on 2026-10-16 (COST_PER_SENTENCE).
+SENTENCE_INPUT_TOKENS = 1000
+SENTENCE_OUTPUT_TOKENS = 200
+
+SENTENCE_MIN_WORDS = 2
+SENTENCE_MAX_WORDS = 15
+
+# Priority base per kind of line: common replies first. The pipeline's words are 300-700 (Zipf x 100) and the
+# backend's sentence words 300-800, so these short everyday lines go before most of the queue. A shorter line gets
+# a little more (up to +52), so "Looks good." comes before a long work line of the same kind.
+KIND_PRIORITY = {"reply": 900, "greeting": 890, "polite": 880, "question": 860, "chat": 850, "feeling": 840,
+                 "plans": 820, "work": 810, "email": 800, "shop": 790, "food": 790, "travel": 780, "home": 770,
+                 "health": 770, "school": 760, "tech": 760, "phone": 750, "weather": 750, "money": 740}
+OTHER_KIND_PRIORITY = 700
+SENTENCE_HEADER = ["text", "situation", "kind"]
+
+# A copy of the backend PersonalTextDetector (email, link, long number, phone number): such a line is skipped by
+# the night job anyway, so it is never queued.
+EMAIL = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")
+LINK = re.compile(r"https?://|www\.|\b[a-z0-9-]+\.(com|vn|net|org|io|edu|gov|co|app|dev|info)\b", re.IGNORECASE)
+LONG_NUMBER = re.compile(r"\d{6,}")
+DIGIT_GROUP = re.compile(r"\+?\(?\d[\d\s.\-()]*\d")
+PHONE_MIN_DIGITS = 7
+
+
+@dataclass(frozen=True)
+class SentenceRow:
+    text: str
+    situation: str
+    kind: str
+    line: int
+
+
+def normalize_sentence(text: str) -> str:
+    """CacheKeys.normalizeSentence: trimmed, one space between words. Case and punctuation stay."""
+    return " ".join(text.split())
+
+
+def loose_key(text: str) -> str:
+    """CacheKeys.normalizeSentenceLoose (TASK-83.3): lowercase, without . ? ! and spaces at the end.
+    "Looks good." and "looks good" are the same cached answer, so they are the same row here too."""
+    return normalize_sentence(text).lower().rstrip(".?! ")
+
+
+def looks_personal(text: str) -> bool:
+    if EMAIL.search(text) or LINK.search(text) or LONG_NUMBER.search(text):
+        return True
+    return any(sum(c.isdigit() for c in group) >= PHONE_MIN_DIGITS for group in DIGIT_GROUP.findall(text))
+
+
+def sentence_words(text: str) -> list[str]:
+    """The words of a line, lowercase, without the punctuation around them ("I'll", "e-mail" stay one word)."""
+    return [word for word in (w.strip(".,!?;:\"()").lower() for w in text.split()) if word]
+
+
+def read_sentence_file(path: Path = SENTENCES_FILE) -> tuple[list[SentenceRow], list[str]]:
+    """The rows of the TSV (header text, situation, kind) and the problems of the lines that were left out:
+    wrong columns, under 2 or over 15 words, a rude word, personal text, or a duplicate after `loose_key`
+    (the first one is kept). Blank lines and lines that start with # are skipped."""
+    rows: list[SentenceRow] = []
+    problems: list[str] = []
+    seen: dict[str, int] = {}
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if not lines or lines[0].split("\t") != SENTENCE_HEADER:
+        raise ValueError(f"{path}: the first line must be the header text, situation, kind (tab separated)")
+    for number, line in enumerate(lines[1:], start=2):
+        if not line.strip() or line.startswith("#"):
+            continue
+        columns = line.split("\t")
+        if len(columns) != 3:
+            problems.append(f"line {number}: {len(columns)} columns, want 3: {line!r}")
+            continue
+        text, situation, kind = normalize_sentence(columns[0]), columns[1].strip(), columns[2].strip().lower()
+        words = sentence_words(text)
+        key = loose_key(text)
+        if not SENTENCE_MIN_WORDS <= len(words) <= SENTENCE_MAX_WORDS:
+            problems.append(f"line {number}: {len(words)} words, want {SENTENCE_MIN_WORDS}-{SENTENCE_MAX_WORDS}: {text}")
+        elif any(word in BLOCKED for word in words):
+            problems.append(f"line {number}: a rude word: {text}")
+        elif looks_personal(text):
+            problems.append(f"line {number}: looks personal (the backend would skip it): {text}")
+        elif not kind:
+            problems.append(f"line {number}: no kind: {text}")
+        elif key in seen:
+            problems.append(f"line {number}: the same as line {seen[key]}: {text}")
+        else:
+            seen[key] = number
+            rows.append(SentenceRow(text, situation, kind, number))
+    return rows, problems
+
+
+def sentence_priority(row: SentenceRow) -> int:
+    base = KIND_PRIORITY.get(row.kind, OTHER_KIND_PRIORITY)
+    return base + (SENTENCE_MAX_WORDS - len(sentence_words(row.text))) * 4
+
+
+def sentence_items(rows: list[SentenceRow]) -> list[Item]:
+    """Queued as Vietnamese sentences, highest priority first, then in file order."""
+    items = [(Item("sentence", row.text, PHRASE_LANG, SOURCE_SENTENCES, sentence_priority(row)), row.line)
+             for row in rows]
+    return [item for item, _ in sorted(items, key=lambda pair: (-pair[0].priority, pair[1]))]
+
+
+def model_price(model: str = NIGHT_MODEL, properties: Path = APP_PROPERTIES) -> tuple[float, float]:
+    """(input, output) US dollars per million tokens from the backend's app.claude.pricing lines."""
+    text = properties.read_text(encoding="utf-8")
+    prices = []
+    for side in ("input", "output"):
+        pattern = rf"^app\.claude\.pricing\.\[?{re.escape(model)}\]?\.{side}-per-mtok=([0-9.]+)\s*$"
+        found = re.search(pattern, text, re.MULTILINE)
+        if found is None:
+            raise ValueError(f"No {side} price for {model} in {properties}")
+        prices.append(float(found.group(1)))
+    return prices[0], prices[1]
+
+
+def sentence_cost(count: int, price: tuple[float, float]) -> float:
+    per_call = (SENTENCE_INPUT_TOKENS * price[0] + SENTENCE_OUTPUT_TOKENS * price[1]) / 1_000_000
+    return count * per_call
+
+
+def sentence_night_lines(count: int, price: tuple[float, float], model: str = NIGHT_MODEL) -> list[str]:
+    per_call = sentence_cost(1, price)
+    per_night = max(1, int(NIGHT_CAP_USD / per_call))
+    nights = count / per_night
+    return [f"Estimated cost: about ${sentence_cost(count, price):,.2f} at {model} prices (${price[0]} in, "
+            f"${price[1]} out per million tokens; about {SENTENCE_INPUT_TOKENS} in and {SENTENCE_OUTPUT_TOKENS} out "
+            f"a sentence, so ${per_call:.5f} each). No call is made now.",
+            f"Night job at the ${NIGHT_CAP_USD:.2f} cap: about {per_night} sentences a night, so about "
+            f"{max(nights, 1):.0f} night{'s' if nights > 1.5 else ''} for all of them."]
+
+
 # ---------- the queue ----------
 
 
@@ -239,6 +382,13 @@ def queued_keys(pg: psycopg.Connection) -> set[tuple[str, str, str]]:
     with pg.cursor() as cursor:
         cursor.execute("SELECT kind, text, target_lang FROM prefill_item")
         return {(kind, text, lang) for kind, text, lang in cursor.fetchall()}
+
+
+def queued_sentence_keys(pg: psycopg.Connection, target_lang: str = PHRASE_LANG) -> set[str]:
+    """The loose keys of the queued sentences and phrases, so "Give up." is not queued next to "give up"."""
+    with pg.cursor() as cursor:
+        cursor.execute("SELECT text FROM prefill_item WHERE kind = 'sentence' AND target_lang = %s", (target_lang,))
+        return {loose_key(row[0]) for row in cursor.fetchall()}
 
 
 def insert_items(pg: psycopg.Connection, items: list[Item]) -> int:

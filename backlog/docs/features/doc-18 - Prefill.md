@@ -2,12 +2,12 @@
 id: doc-18
 title: Prefill
 type: other
-created_date: '2026-10-16 08:28'
-updated_date: '2026-10-18 02:04'
+created_date: 2026-10-16 08:28
+updated_date: '2026-10-23T02:00:00Z'
 ---
 # Prefill
 
-> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue; cached-only lookups and suggestions (TASK-83.4 and later) come after. The free way, entries written by Codex on the developer's Mac and pushed to `word_lookup`, is [Local collection written by Codex](#local-collection-written-by-codex-task-839) at the end (TASK-83.9). Last traced from code: 2026-10-18.
+> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue, and since TASK-83.11 also with about 2,500 everyday lines ("Looks good.", "I'll get back to you.", [Common everyday sentences](#common-everyday-sentences-task-8311)); cached-only lookups and suggestions (TASK-83.4 and later) come after. The free way, entries written by Codex on the developer's Mac and pushed to `word_lookup`, is [Local collection written by Codex](#local-collection-written-by-codex-task-839) at the end (TASK-83.9). Last traced from code: 2026-10-23.
 > Why: doc-7, decisions of 2026-10-16. Related: [Accounts and limits](doc-17%20-%20Accounts-and-limits.md) (the user budget), [Word lookup](doc-5%20-%20Word-lookup.md), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Media and images](doc-15%20-%20Media-and-images.md), the cron and env keys in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md).
 
 ## What it does
@@ -20,7 +20,7 @@ The job has **its own money cap per run** (default $0.50) and its calls do **not
 
 ```mermaid
 flowchart LR
-    PIPE[pipeline: prefill collect] -->|insert rows| Q[(prefill_item)]
+    PIPE["pipeline: prefill collect (words, phrases, sentences)"] -->|insert rows| Q[(prefill_item)]
     ADM[admin] -->|insert rows| Q
     SW["SentenceWordQueue: words of translated sentences"] -->|insert or count again| Q
     TC["POST /api/translations and /stream, after the answer"] -->|offer text, async| SW
@@ -125,6 +125,25 @@ Run: `cd backend && ./mvnw -B test`. No test calls the real API.
 - Sentence words (TASK-83.8): only the words of sentences that were answered are counted; the work is dropped when 50 texts wait. A word queued before its base was cached is still answered (a cached item is `done` for free). The nightly job is the same Spring `@Scheduled`-style schedule above; there is no second scheduler.
 - A word that Claude returns with no senses is saved by `WordService` like any other word; prefill does not look at the quality of the answer.
 
+## Common everyday sentences (TASK-83.11)
+
+Words are well covered (about 34 thousand cached), but the short lines a learner meets every day were not: each one cost a slow first Claude call, and a guest got nothing. [common_sentences.tsv](../../../pipeline/data/common_sentences.tsv) is a list of **2,488 everyday English lines**, written by hand for Saynata (no paid call; not copied from Tatoeba, a textbook or any other list): replies ("Sounds good to me."), greetings, polite requests, common questions, small talk and texting, feelings, plans, work chat and email lines, shops, food, travel, home, health, school, phones and computers, weather and money. Columns `text`, `situation` (a short note such as "agreeing"), `kind` (`reply`, `greeting`, `polite`, `question`, `chat`, `feeling`, `plans`, `work`, `email`, `shop`, `food`, `travel`, `home`, `health`, `school`, `tech`, `phone`, `weather`, `money`). 2 to 15 words, normal casing and punctuation, no names or personal data, no rude lines.
+
+`uv run pipeline prefill collect --source sentences [--file other.tsv] [--dry-run] [--limit N]` queues them:
+
+| Part | Code | What it does |
+|---|---|---|
+| Read and check | [read_sentence_file:294](../../../pipeline/src/pipeline/prefill.py#L294) | Header `text, situation, kind` (tab separated) or it stops. Blank lines and `#` lines are skipped. A line is left out (and printed) with the wrong number of columns, under 2 or over 15 words, a rude word (`BLOCKED`), personal text, no kind, or the same loose key as an earlier line. |
+| Loose key | [loose_key:277](../../../pipeline/src/pipeline/prefill.py#L277) | The copy of `CacheKeys.normalizeSentenceLoose` (TASK-83.3): lowercase, no `. ? !` at the end. "No worries." and "no worries!" are one row, since they are one cached answer. |
+| Personal text | [looks_personal:283](../../../pipeline/src/pipeline/prefill.py#L283) | A copy of the backend `PersonalTextDetector` (email, link, 6+ digits, phone number of 7+ digits); the night job would skip such a line, so it is never queued. |
+| Priority | [sentence_priority:330](../../../pipeline/src/pipeline/prefill.py#L330), [KIND_PRIORITY](../../../pipeline/src/pipeline/prefill.py#L249) | Common replies first: `reply` 900, `greeting` 890, `polite` 880, `question` 860 ... `money` 740, other kinds 700, plus `4 x (15 - words)`, so "Looks good." (952) comes before a long work line. Words are 300-800, so these lines come before most of the queue. |
+| Queue rows | [sentence_items:335](../../../pipeline/src/pipeline/prefill.py#L335), [prefill_sentences:413](../../../pipeline/src/pipeline/cli.py#L413) | `kind = 'sentence'`, `target_lang = 'vi'`, `source = 'common-sentences'`. A line whose loose key is already queued as a `vi` sentence ([queued_sentence_keys:387](../../../pipeline/src/pipeline/prefill.py#L387), "give up" from the phrases too) is skipped; the insert is `ON CONFLICT DO NOTHING` as before. |
+| Dry run cost | [model_price:342](../../../pipeline/src/pipeline/prefill.py#L342), [sentence_night_lines:360](../../../pipeline/src/pipeline/prefill.py#L360) | Prices of `deepseek-v4.1-flash` (the server model, doc-7 10-20) read from `app.claude.pricing.[deepseek-v4.1-flash].*` in `application.properties`; an estimate of 1,000 tokens in and 200 out per sentence. |
+
+Measured on 2026-10-23 (dry run, no database): **2,488 lines, about $1.34** at $0.30 / $1.20 per million tokens ($0.00054 a line), about 925 a night at the $0.50 cap, so **about 3 nights**. The token numbers are an estimate; `prefill report` after a run shows the real spend.
+
+Items of 2-6 words are also looked up as phrases by the app (`CacheKeys.phraseQuery`, TASK-83.10) before the sentence path; they are queued as sentences all the same. To add lines: append to the TSV (or pass `--file`) and run the command again; only new lines are queued.
+
 ## Local collection written by Codex (TASK-83.9)
 
 > Status: **code built, trial not run yet** (2026-10-17). Nothing has been pushed to the server.
@@ -154,7 +173,7 @@ flowchart LR
 | Step | File:line | What happens |
 |---|---|---|
 | Table | [collection.py SCHEMA:52](../../../pipeline/src/pipeline/collection.py#L52) | `collection(kind, text UNIQUE, source, zipf, priority, status pending/done/needs_review/skipped/failed, attempts, model, prompt_version, entry, problems, claude_entry, claude_model, pushed_at)`. `text` is normalised like `CacheKeys.normalizeWord`. The first source that brings a text keeps it. |
-| Collect words | [_collect:428](../../../pipeline/src/pipeline/cli.py#L428), [word_items:404](../../../pipeline/src/pipeline/collection.py#L404), [pipeline_word_items:426](../../../pipeline/src/pipeline/collection.py#L426) | The prefill word collector (SCOWL-70 lemmas, wordfreq Zipf >= 3.5, `--all-wordfreq` for every word), minus everything bundled or already in the `words` table. Plus the kept topic words that are still pending and the NGSL words left `needs_review`. A word the backend would call "not a word" (not on SCOWL-70 or NGSL) starts as `skipped`: the backend answers such a word with "no senses" before it looks in the cache. A word WordNet knows only as a capitalised noun is `skipped` as a name ([name_only_words:390](../../../pipeline/src/pipeline/collection.py#L390)). |
+| Collect words | [_collect:465](../../../pipeline/src/pipeline/cli.py#L465), [word_items:404](../../../pipeline/src/pipeline/collection.py#L404), [pipeline_word_items:426](../../../pipeline/src/pipeline/collection.py#L426) | The prefill word collector (SCOWL-70 lemmas, wordfreq Zipf >= 3.5, `--all-wordfreq` for every word), minus everything bundled or already in the `words` table. Plus the kept topic words that are still pending and the NGSL words left `needs_review`. A word the backend would call "not a word" (not on SCOWL-70 or NGSL) starts as `skipped`: the backend answers such a word with "no senses" before it looks in the cache. A word WordNet knows only as a capitalised noun is `skipped` as a name ([name_only_words:390](../../../pipeline/src/pipeline/collection.py#L390)). |
 | Collect phrases | [wordnet_items:367](../../../pipeline/src/pipeline/collection.py#L367), [phrase_kind:352](../../../pipeline/src/pipeline/collection.py#L352) | The prefill phrase collector (WordNet 2025, 2-4 words, verbs, adjectives and adverbs only), `--phrase-zipf` 3.0. A verb whose words after the first are all particles ("give up", "put up with") is a `phrasal_verb`; every other phrase is an `idiom` ("in time", "break the ice"). Rude phrases and numbers are left out. |
 | Collect collocations | [bundled_usage_items:412](../../../pipeline/src/pipeline/collection.py#L412), [typed_phrase:379](../../../pipeline/src/pipeline/collection.py#L379) | The `collocation` and `idiom` usage items of the 2,750 bundled entries (TASK-24), but only the ones a learner could type: no placeholder (`someone`, `+ noun`, `/`), 2-6 words. Each was written for a sense of a common word, so learners meet them. |
 | Prompt | [backend_word_prompt:103](../../../pipeline/src/pipeline/collection.py#L103), [build_prompt:148](../../../pipeline/src/pipeline/collection.py#L148) | `WORD_PROMPT` is read from `ClaudeService.java` at run time (the Java text block rules: common indent removed, `\"` read), so Codex and Claude always get the same instructions. A batch with a phrase also gets `PHRASE_NOTE` (pos "phrasal verb", "idiom" or "phrase"; every example uses the whole phrase). |
@@ -198,7 +217,7 @@ The developer chose this for the big run (2026-10-18): Codex is free but needs a
 | Step | File:line | What happens |
 |---|---|---|
 | Request | [request_for:69](../../../pipeline/src/pipeline/collection_batch.py#L69) | Exactly `ClaudeService.describeWord`: model `claude-haiku-5-5`, `max_tokens` 8000, system = `WORD_PROMPT` (plus `PHRASE_NOTE` for a phrase) marked for prompt caching, user = `<word>text</word>`, effort low, the `WordEntry` JSON schema. `custom_id` = `c<row id>-a<attempt>`. |
-| Submit | [_batch:533](../../../pipeline/src/pipeline/cli.py#L533) | Retry rows first, then pending and failed rows, in batches of 5,000 (each request carries the 10 KB prompt; a batch may be at most 256 MB). Each row gets `batch_id`, so neither writer sends it twice. `--max-cost` (default $5) refuses a bigger estimate; `--dry-run` prints the count, the cost and one request. |
+| Submit | [_batch:570](../../../pipeline/src/pipeline/cli.py#L570) | Retry rows first, then pending and failed rows, in batches of 5,000 (each request carries the 10 KB prompt; a batch may be at most 256 MB). Each row gets `batch_id`, so neither writer sends it twice. `--max-cost` (default $5) refuses a bigger estimate; `--dry-run` prints the count, the cost and one request. |
 | Collect | [collect:164](../../../pipeline/src/pipeline/collection_batch.py#L164), [apply_result:134](../../../pipeline/src/pipeline/collection_batch.py#L134) | For every ended batch: the same checks as Codex. First answer with problems: `retry` (the entry is kept); the next `submit` sends the backend's retry message (`<word>…</word>`, a new line, "Your last answer used words that are too hard… Problems: …"). Second answer: `done` or `needs_review`. Errored or expired: `failed`, sent again (up to 3 tries). The real cost (input, cache writes 1.25x, cache reads 0.1x, output, all at half price) is saved per batch in `collection_batch`. |
 
 Commands (in `pipeline/`): `uv run pipeline collection batch submit --max-cost 15` (all 49,476 rows, about $12.40), `uv run pipeline collection batch collect --wait` (checks every 2 minutes until every batch ended), `uv run pipeline collection batch submit` again for the retries, then `uv run pipeline collection batch status`.
