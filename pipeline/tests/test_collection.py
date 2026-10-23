@@ -99,6 +99,20 @@ def test_simple_word_problems_use_the_backend_limits_and_wording():
     assert problems == ["sense 1: the definition uses hard words [abstain]"]
 
 
+def test_one_more_common_word_is_allowed_only_when_asked():
+    common = {"apples", "fox"}.__contains__
+    one = entry(sense(definition="to stop trying apples"))
+    two = entry(sense(definition="to stop trying apples fox"))
+    rare = entry(sense(definition="to stop trying abstain"))
+    assert c.simple_word_problems(one, "give up", VOCAB) != []  # the default stays the backend rule
+    assert c.simple_word_problems(one, "give up", VOCAB, common) == []
+    assert c.simple_word_problems(two, "give up", VOCAB, common) != []  # only ONE more word
+    assert c.simple_word_problems(rare, "give up", VOCAB, common) != []  # and only a common one
+    easy = [{"level": "easy", "text": "I give up apples."}, {"level": "medium", "text": "She gave up after three exams."},
+            {"level": "harder", "text": "If you give up now, you may never discover anything."}]
+    assert c.simple_word_problems(entry(sense(examples=easy)), "give up", VOCAB, common) == []
+
+
 def test_shape_problems():
     assert c.shape_problems(entry()) == []
     two = sense(examples=[{"level": "easy", "text": "I give up."}, {"level": "harder", "text": "I gave up."}])
