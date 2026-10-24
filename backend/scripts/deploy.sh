@@ -16,6 +16,10 @@ compose="docker compose -f docker-compose.prod.yml"
 # (2026-10-17, "session healthcheck failed fatally"), so every Docker step has a time limit.
 build_timeout="${DEPLOY_BUILD_TIMEOUT:-360}"   # seconds per build try
 
+# shellcheck source=SCRIPTDIR/disk.sh
+. scripts/disk.sh
+check_free_space
+
 # timeout sends its signal to the whole process group, so docker compose and its buildx bake child stop together.
 # --kill-after sends SIGKILL if they ignore SIGTERM.
 build() {
@@ -41,6 +45,7 @@ if ! timeout --kill-after=30 360 $compose up -d --wait --wait-timeout 300 postgr
 fi
 
 $compose ps
-# Old images from earlier builds fill the disk on a small VPS.
-docker image prune -f >/dev/null
+# Build cache and old images from earlier builds filled the 16 GB disk on 2026-10-24 (doc-11, Troubleshooting).
+prune_docker
+df -h /
 echo "Deployed $(git rev-parse --short HEAD)."

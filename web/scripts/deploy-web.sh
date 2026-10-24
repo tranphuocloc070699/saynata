@@ -15,6 +15,10 @@ fi
 cd "$web_dir/../backend"
 compose="docker compose -f docker-compose.prod.yml"
 
+# shellcheck source=SCRIPTDIR/../../backend/scripts/disk.sh
+. scripts/disk.sh
+check_free_space
+
 # This build only copies files, so it takes seconds. The limit stops a stuck BuildKit session (see deploy.sh).
 timeout --kill-after=30 180 $compose build web
 
@@ -26,5 +30,6 @@ if ! timeout --kill-after=30 180 $compose up -d --no-deps --wait --wait-timeout 
 fi
 
 $compose ps web
-docker image prune -f >/dev/null
+prune_docker
+df -h /
 echo "Web app deployed."

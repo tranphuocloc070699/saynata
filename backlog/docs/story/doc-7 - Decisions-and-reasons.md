@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-24 11:01'
+updated_date: '2026-10-24 11:27'
 ---
 # Decisions and reasons
 
@@ -197,6 +197,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-24 | **Daily backup: pg_dump + MEDIA_DIR with restic to Cloudflare R2, the last 3 dumps on the VPS, a monthly copy on the Mac** (TASK-107) | There was no backup; 3-2-1 rule; R2 has 10 GB free and no download fees | Backblaze B2; a second server; no off-server copy | Claude, chosen by developer |
 | 10-24 | **New words from books: an admin Sources page uploads a .txt or .md file, the backend finds the new words with no LLM call, the admin picks which go to the prefill queue** (TASK-108); the book text is never stored | "how about if you design a place that admin open and upload .txt or .md file, then you check that file" | Only RSS news feeds; process books in the pipeline on the Mac | Developer |
 | 10-24 | **"Better way to say it": the sentence call also returns a fixed version of the text** (prompt v11, TASK-110): fields `better` and `betterWhy` in the same call ("" when the text is natural, so no extra call); shown as a folded row, closed, between the summary and the language row, changed words in bold, one line why, Listen and Copy icons. Only for real mistakes (grammar, wrong word, a phrase a native speaker would not say); never for book, news or website text, never over 40 words; the backend drops a fix that changes nothing or rewrites too much (`BetterCheck`), and the apps show it only for text the user typed (not Share, copied text, the Mac Services item, the browser extension). Built on TASK-106.6 (prompt v10, English part cached once), so the fix is cached once for all languages; v11 resets the sentence cache once more | The developer writes English to practise and wants a corrected, more natural version of their own sentences ("I already do it" -> "I've already done it"). "The better version UI is too highlight" (no tinted block, a collapsed row like the others). "I don't want to correct a sentence that they paste from book, news" | A separate on-demand call (a second wait and a second charge); a tinted block always open; shipping it alone as v10 before TASK-106.6 | Developer |
+| 10-24 | **Every deploy prunes Docker build cache down to 1 GB and old dangling images after a healthy start, and stops before building when under 2 GB is free** (`backend/scripts/disk.sh`, used by `deploy.sh` and `deploy-web.sh`); journald capped at 100 MB and an optional weekly prune timer on the server (doc-11 section 18). Volumes are never pruned | Production went down on 2026-10-24: the 16 GB disk was full of build cache from every deploy (5.9 GB) and journald logs, the backend could not start (502) and release #177 failed. After the hand clean-up one deploy brought the disk back to 82%. Keeping 1 GB of cache keeps builds fast; stopping early keeps the old backend running instead of breaking it halfway | `docker builder prune -af` every deploy (every build downloads Maven again); prune only by hand; build images in GitHub Actions and pull them (a registry login on the server, a bigger change); a bigger disk only (the cache grows again) | Orchestrator, built by Claude |
 
 ## Questions answered
 
