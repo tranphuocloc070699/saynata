@@ -1,9 +1,11 @@
 ---
 id: TASK-106.2
 title: 'Backend: POST /api/translate-lines with the line_translation cache'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-24 09:51'
+updated_date: '2026-10-24 10:02'
 labels: []
 dependencies: []
 parent_task_id: TASK-106
@@ -31,3 +33,9 @@ The endpoint, table, prompt and limits in the parent contract. Every LLM call go
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. V27 line_translation. 2. ClaudeService.translateLines + LINE_PROMPT + Feature.LINE. 3. lines/ package: controller, service. 4. Tests. 5. Docs.
+<!-- SECTION:PLAN:END -->

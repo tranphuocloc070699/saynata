@@ -3,11 +3,11 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-23 10:04'
+updated_date: '2026-10-24 10:02'
 ---
 # Accounts and limits
 
-> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Sign in with Google, Apple and an emailed link: TASK-92, see "Other ways to sign in". The short version of the whole flow: "Workflow at a glance". Last traced from code: 2026-10-23 (sign-in sheet, TASK-96).
+> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Sign in with Google, Apple and an emailed link: TASK-92, see "Other ways to sign in". The short version of the whole flow: "Workflow at a glance". Last traced from code: 2026-10-24 (language lines use the gate: TASK-106.2; before that 2026-10-23: sign-in sheet, TASK-96).
 > Why: doc-7 rows of 2026-10-15. Related: [Admin API](doc-13%20-%20Admin-API.md) (the admin has its own cookie login), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Word lookup](doc-5%20-%20Word-lookup.md), the Resend and SES setup in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md) (sections 10 and 11).
 
 ## What it does
@@ -330,6 +330,10 @@ A signed-in user can star words and sentences; the list follows the account to t
 | Table | `V23__create_liked_item.sql` | `liked_item(user_id, kind, text_key, text, preview, created_at)`, unique on `(user_id, kind, text_key)`, `user_id` has `ON DELETE CASCADE`, so deleting the account (`DELETE /api/me`) deletes the liked rows. |
 
 JSON: `GET` answers `{"items":[{"kind","text","preview","createdAt"}]}` newest first. `PUT` takes `{"kind","text","preview"}` and answers the saved item. Error codes (all 400 unless noted): `invalid_kind`, `invalid_text`, `invalid_preview`, `liked_limit_reached`; 401 `sign_in_required`.
+
+## Language lines and the gate (TASK-106.2)
+
+`POST /api/translate-lines` ([doc-5](doc-5%20-%20Word-lookup.md), "Language lines") is a third place that calls `ClaudeGate.beforeNewCall()` ([LineTranslationService.askClaude:98](../../../backend/src/main/java/com/englishtranslation/backend/lines/LineTranslationService.java#L98)), once per request, only when at least one text is not in `line_translation`. Its usage is saved as `Feature.LINE` and counts toward the users' $1 daily budget (only `PREFILL` is left out). A guest gets 401 `sign_in_required` for a miss (unless `REQUIRE_SIGN_IN=false`), 429 `rate_limited`, 503 `daily_limit_reached`. A request with `?cachedOnly=true` never reaches the gate, and a request whose texts are all saved needs no sign-in.
 
 ## Browser extension (TASK-86.3)
 
