@@ -1,9 +1,11 @@
 ---
 id: TASK-106.5
 title: 'Pipeline: fill every language line locally with the Codex CLI'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-24 09:52'
+updated_date: '2026-10-24 10:14'
 labels: []
 dependencies:
   - TASK-106.2
@@ -32,3 +34,9 @@ The developer wants all words and sentences translated into all supported langua
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. lines.py: normalize/hash like LineTranslationService, collect from Postgres (read-only), write with Codex (50 per call, one language per call, checks, resumable), push to line_translation, report. 2. CLI lines collect/write/push/report. 3. pytest with fake Codex, Postgres tests for collect and push, hashes checked against Java. 4. Try codex on 3 tiny batches. 5. doc-6, doc-18, CLAUDE.md.
+<!-- SECTION:PLAN:END -->
