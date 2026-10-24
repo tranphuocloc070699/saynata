@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-24 09:51'
-updated_date: '2026-10-24 09:53'
+updated_date: '2026-10-24 10:00'
 labels: []
 dependencies: []
 parent_task_id: TASK-106
@@ -37,3 +37,9 @@ The developer keeps only English (no translation row), Vietnamese, Japanese, Kor
 <!-- SECTION:PLAN:BEGIN -->
 1. Remove Thai from the 4 language lists. 2. Fallback th -> vi on each client. 3. Tests. 4. Docs.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/167. Test it: open the language picker on iOS, web and extension: no Thai. POST /api/translations with targetLang th gives 400. Web: set localStorage saynata.targetLang to th, reload: shows Vietnamese. Automated: backend ./mvnw -B test, iOS xcodebuild test (CLAUDE.md command), web npm test, extension npm test.
+<!-- SECTION:NOTES:END -->
