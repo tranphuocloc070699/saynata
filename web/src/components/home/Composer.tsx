@@ -59,7 +59,7 @@ export function Composer({ value, onChange, onSubmit, targetLang, onLanguage, mo
           autoComplete="off"
           autoCapitalize="off"
           spellCheck={false}
-          className="field-sizing-content max-h-60 min-h-[3.25rem] w-full resize-none bg-transparent focus-visible:outline-none font-serif text-[1.2rem] leading-snug outline-none placeholder:text-muted/80"
+          className="field-sizing-content max-h-60 min-h-[3.25rem] w-full resize-none bg-transparent font-serif text-[1.2rem] leading-snug outline-none placeholder:text-muted/80"
         />
         <div className="flex items-center gap-1">
           <label className="relative inline-flex min-h-11 cursor-pointer items-center">
@@ -70,7 +70,7 @@ export function Composer({ value, onChange, onSubmit, targetLang, onLanguage, mo
             <select
               value={targetLang}
               onChange={(event) => onLanguage(event.target.value as LanguageCode)}
-              className="h-8 cursor-pointer appearance-none rounded-full bg-chip pr-3 pl-8 text-[0.8rem] font-medium text-accent outline-none"
+              className="h-8 cursor-pointer appearance-none rounded-full bg-chip pr-3 pl-8 text-[0.8rem] font-medium text-accent"
             >
               {LANGUAGES.map((language) => (
                 <option key={language.code} value={language.code}>

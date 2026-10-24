@@ -122,3 +122,14 @@ function SenseMedia({ url }: { url: string }) {
     <img src={url} alt="" className={frame} loading="lazy" decoding="async" />
   );
 }
+
+/** The word card while it loads. */
+export function WordSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 rounded-[20px] border border-hairline bg-surface p-5" aria-label="Looking it up">
+      <span className="h-7 w-28 animate-pulse rounded-lg bg-meaning motion-reduce:animate-none" />
+      <span className="h-16 animate-pulse rounded-2xl bg-meaning motion-reduce:animate-none" />
+      <span className="h-16 animate-pulse rounded-2xl bg-meaning motion-reduce:animate-none" />
+    </div>
+  );
+}
