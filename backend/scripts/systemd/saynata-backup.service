@@ -1,0 +1,16 @@
+# Nightly backup of Postgres and media (TASK-107, doc-11 section 17).
+# Replace __USER__ and __BACKEND_DIR__ first (the guide has a sed command), then copy to /etc/systemd/system/.
+[Unit]
+Description=Saynata backup (Postgres dump + media to Cloudflare R2)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# A user that may run docker (in the "docker" group) and read backend/.env and the media folder.
+User=__USER__
+ExecStart=__BACKEND_DIR__/scripts/backup.sh
+# A backup that hangs must not block the next night.
+TimeoutStartSec=3h
+Nice=10
+IOSchedulingClass=idle

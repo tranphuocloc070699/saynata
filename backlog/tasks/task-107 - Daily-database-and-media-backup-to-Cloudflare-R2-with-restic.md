@@ -1,9 +1,11 @@
 ---
 id: TASK-107
 title: Daily database and media backup to Cloudflare R2 with restic
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-24 09:52'
+updated_date: '2026-10-24 09:58'
 labels: []
 dependencies: []
 priority: high
@@ -30,3 +32,17 @@ There is no backup today. The server Postgres holds the source of truth for the 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. backup.sh (pg_dump via docker compose exec, keep 3, restic to R2, retention, health pings). 2. restore.sh into scratch postgres:17 container with row counts. 3. systemd service+timer, cron line in doc. 4. backup-copy-to-mac.sh (restic copy). 5. .env.example keys, doc-11 section 16. 6. shellcheck.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Scripts and docs written; shellcheck passes. R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY are used instead of AWS_* in .env because AWS_ACCESS_KEY_ID is already the SES key and compose passes it to the backend; backup.sh maps them for restic.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/166. Test it: on the VPS follow doc-11 section 16 (R2 bucket + token, restic init, run backup.sh, run restore.sh and read the row counts, install the timer). Failure case: wrong R2_SECRET_ACCESS_KEY makes backup.sh stop with 'Cannot open the restic repository' and ping /fail. Automated: shellcheck on the three scripts.
+<!-- SECTION:NOTES:END -->

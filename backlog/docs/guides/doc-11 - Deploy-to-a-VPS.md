@@ -800,6 +800,175 @@ www.loffy.me, www.saynata.com {
 Quick check on the server (use a signed-in user's token):
 `curl -s -X POST https://api.saynata.com/api/translate-lines -H 'Content-Type: application/json' -H "Authorization: Bearer $TOKEN" -d '{"targetLang":"vi","texts":["a place that keeps your money safe"]}'`
 
+## 17. Backups to Cloudflare R2 (TASK-107)
+
+Before this, nothing was backed up. The server Postgres holds the dictionary, every cached answer, the users and the liked
+items, and the media folder holds the pictures and clips. If the VPS is lost, all of it is lost. This section sets up the
+3-2-1 rule: the live data, the last 3 dumps on the VPS, a copy on Cloudflare R2, and a monthly copy on your Mac.
+
+```mermaid
+flowchart LR
+    PG[(postgres container)] -->|pg_dump -Fc| DUMP[/var/backups/saynata/db: last 3 dumps/]
+    DUMP -->|restic backup| R2[(Cloudflare R2 bucket)]
+    MEDIA[/var/lib/saynata/media/] -->|restic backup| R2
+    R2 -->|restic copy, once a month| MAC[Your Mac]
+    R2 -->|restore.sh| SCRATCH[scratch Postgres container]
+    TIMER[systemd timer, 21:30 UTC] --> PG
+```
+
+Files: [backend/scripts/backup.sh](../../../backend/scripts/backup.sh) (nightly),
+[backend/scripts/restore.sh](../../../backend/scripts/restore.sh) (restore test),
+[backend/scripts/backup-copy-to-mac.sh](../../../backend/scripts/backup-copy-to-mac.sh) (monthly, on the Mac),
+[systemd service](../../../backend/scripts/systemd/saynata-backup.service) and [timer](../../../backend/scripts/systemd/saynata-backup.timer).
+The deploy workflow does not run any of this.
+
+What the nightly run does:
+1. `pg_dump -Fc` of the Postgres container into `/var/backups/saynata/db`. The 3 newest dumps stay; older ones are deleted.
+2. `restic backup` of the newest dump and the media folder to R2. restic encrypts the data, and sends only what changed,
+   so the media folder is not uploaded again every night.
+3. `restic forget --prune`: keeps 7 daily, 4 weekly and 6 monthly snapshots.
+4. If `HEALTHCHECK_URL` is set, it pings `/start`, then the plain URL on success or `/fail` on failure.
+   On Sundays it also runs `restic check`.
+
+### Setup (you do these steps; the repo cannot reach R2 or the server)
+
+**1. Make the R2 bucket.**
+1. Sign in at [dash.cloudflare.com](https://dash.cloudflare.com) and open **Storage & databases, then R2 object storage**.
+   (R2 needs a payment method on file, but the first 10 GB a month are free and downloads cost nothing.)
+2. Click **Create bucket**. Name it `saynata-backup`. Location: **Automatic**. Storage class: **Standard**. Click **Create bucket**.
+3. Do not make the bucket public. Leave "Public access" off.
+
+**2. Make an API token for the bucket.**
+1. On the R2 overview page, click **Manage API tokens**, then **Create API token**.
+2. Permissions: **Object Read & Write**. Under **Specify bucket(s)**, choose `saynata-backup` only.
+3. Click **Create API token**. The next page shows the **Access Key ID**, the **Secret Access Key** and the jurisdiction URL.
+   The secret is shown only once. Copy both now, and put them in your password manager.
+4. Note your **Account ID** (on the R2 overview page, right side). The S3 address is
+   `https://<account id>.r2.cloudflarestorage.com`.
+
+**3. Install restic on the VPS.**
+
+```bash
+sudo apt-get update && sudo apt-get install -y restic curl
+restic version
+```
+
+If `restic version` shows a very old release (apt can be behind), run `sudo restic self-update`.
+
+**4. Fill `backend/.env` on the VPS.** The new keys are in `.env.example`:
+
+```bash
+cd ~/saynata/backend
+nano .env
+#   RESTIC_REPOSITORY=s3:https://<account id>.r2.cloudflarestorage.com/saynata-backup
+#   RESTIC_PASSWORD=<a long random password: openssl rand -base64 32>
+#   R2_ACCESS_KEY_ID=<Access Key ID from step 2>
+#   R2_SECRET_ACCESS_KEY=<Secret Access Key from step 2>
+#   HEALTHCHECK_URL=<optional, see "Health check" below>
+```
+
+Save `RESTIC_PASSWORD` in your password manager now. **If you lose it, the backup cannot be read.**
+The R2 key has its own names (`R2_*`) because `AWS_ACCESS_KEY_ID` in the same file is already the SES key (section 11);
+`backup.sh` maps them to the names restic expects, for its own run only.
+
+**5. Create the restic repository (once).**
+
+```bash
+cd ~/saynata/backend
+export RESTIC_REPOSITORY='s3:https://<account id>.r2.cloudflarestorage.com/saynata-backup'
+export RESTIC_PASSWORD='<the RESTIC_PASSWORD from .env>'
+export AWS_ACCESS_KEY_ID='<R2 Access Key ID>' AWS_SECRET_ACCESS_KEY='<R2 Secret Access Key>' AWS_DEFAULT_REGION=auto
+restic init
+# created restic repository ... at s3:https://....r2.cloudflarestorage.com/saynata-backup
+```
+
+**6. Run one backup by hand.** Check that the backend user can use Docker and write `/var/backups/saynata`:
+
+```bash
+sudo mkdir -p /var/backups/saynata && sudo chown "$USER": /var/backups/saynata
+~/saynata/backend/scripts/backup.sh
+# [...] Dumping Postgres ... restic backup ... snapshot abc123 saved ... Backup finished.
+```
+
+**7. Install the nightly timer.** The service runs as your user (it must be in the `docker` group). Replace the two
+names with sed while you copy:
+
+```bash
+cd ~/saynata/backend/scripts/systemd
+sed -e "s|__USER__|$USER|" -e "s|__BACKEND_DIR__|$HOME/saynata/backend|" saynata-backup.service \
+  | sudo tee /etc/systemd/system/saynata-backup.service >/dev/null
+sudo cp saynata-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now saynata-backup.timer
+systemctl list-timers saynata-backup.timer      # shows the next run (21:30 UTC, 04:30 in Vietnam)
+```
+
+To test the service the same way the timer starts it: `sudo systemctl start saynata-backup.service`, then
+`journalctl -u saynata-backup.service -e`.
+
+**Cron instead of systemd** (if you prefer it): `crontab -e` and add one line (UTC if the server clock is UTC):
+
+```cron
+30 21 * * * $HOME/saynata/backend/scripts/backup.sh >> $HOME/saynata-backup.log 2>&1
+```
+
+**Health check (optional).** Make a free check at [healthchecks.io](https://healthchecks.io): period 1 day, grace time 2 hours,
+and send the alerts to your email. Put its ping URL (`https://hc-ping.com/<uuid>`) in `HEALTHCHECK_URL`. You get an email
+when a run fails (`/fail`) and also when no run happens at all (the check is late).
+
+### Restore test (once a month)
+
+A backup you never restored is only a hope. This command takes the newest snapshot from R2, loads the dump into a
+**temporary Postgres container** (not the live database), prints the number of rows in each table, and removes the container:
+
+```bash
+~/saynata/backend/scripts/restore.sh            # newest snapshot
+~/saynata/backend/scripts/restore.sh 1a2b3c4d   # a chosen snapshot (IDs: restic snapshots, after the exports in step 5)
+```
+
+Expected: the table list (`dictionary_word`, `word_lookup`, `users`, `liked_item`, ...) with row counts close to the live
+database, and "Media files in the snapshot: N". Compare one table with the live one, for example
+`docker compose -f docker-compose.prod.yml exec postgres psql -U app -d english_translation -c "select count(*) from dictionary_word"`.
+The scratch container has no published port and the live database is never written.
+
+### Restore for real (the VPS is lost)
+
+1. New VPS: install Docker and restic, clone the repo, fill `backend/.env` (with the same `RESTIC_*` and `R2_*` values).
+2. Start only Postgres: `docker compose -f docker-compose.prod.yml up -d postgres`.
+3. Get the files: `restic restore latest --tag saynata --target /tmp/restore` (media and dump).
+4. Media: `sudo cp -a /tmp/restore/var/lib/saynata/media/. /var/lib/saynata/media/ && sudo chown -R 10001:10001 /var/lib/saynata/media`.
+5. Database: `docker compose -f docker-compose.prod.yml exec -T postgres pg_restore -U app -d english_translation --clean --if-exists --no-owner < /tmp/restore/var/backups/saynata/latest/saynata.dump`.
+6. Start the backend: `docker compose -f docker-compose.prod.yml up -d backend`.
+
+### Monthly copy to your Mac
+
+R2 and the VPS are both in the cloud. Once a month, copy the repository to your Mac, so a lost Cloudflare account is not a
+lost backup. On the Mac (the header of the script lists the same variables):
+
+```bash
+brew install restic
+export RESTIC_FROM_REPOSITORY='s3:https://<account id>.r2.cloudflarestorage.com/saynata-backup'
+export RESTIC_FROM_PASSWORD='<RESTIC_PASSWORD from the server>'
+export AWS_ACCESS_KEY_ID='<R2 Access Key ID>' AWS_SECRET_ACCESS_KEY='<R2 Secret Access Key>'
+export RESTIC_PASSWORD='<a password for the Mac copy>'
+backend/scripts/backup-copy-to-mac.sh          # copies into ~/Backups/saynata-restic
+```
+
+Only new data is downloaded each month. To see what you have: `restic -r ~/Backups/saynata-restic snapshots`. To get the
+newest dump out: `restic -r ~/Backups/saynata-restic restore latest --target ~/Desktop/saynata-restore`.
+Put a monthly reminder in your calendar; the script is safe to run again.
+
+### If something goes wrong
+
+| Problem | Fix |
+|---|---|
+| `Cannot open the restic repository` | You skipped step 5 (`restic init`), or a key or the password is wrong. Check `R2_*`, `RESTIC_REPOSITORY` and the bucket name. |
+| `Fatal: wrong password` | `RESTIC_PASSWORD` differs from the one used at `restic init`. Use the saved one. |
+| `permission denied` on `docker` | The service user is not in the docker group: `sudo usermod -aG docker $USER`, then log in again. |
+| `Media folder not found` | `MEDIA_HOST_DIR` in `.env` (default `/var/lib/saynata/media`) does not exist on the host. |
+| The timer never runs | `systemctl list-timers saynata-backup.timer` and `sudo systemctl enable --now saynata-backup.timer`. |
+| R2 shows more than 10 GB | Free tier ends at 10 GB a month. Check `restic stats`, and `restic forget --prune` has run (nightly job does). |
+
 ## Troubleshooting
 
 | Problem | Fix |
