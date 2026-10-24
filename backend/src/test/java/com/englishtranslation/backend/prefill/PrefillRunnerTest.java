@@ -227,7 +227,7 @@ class PrefillRunnerTest {
 
         assertThat(summary.skipped()).isEqualTo(1);
         assertThat(item("Looks good!").getStatus()).isEqualTo("skipped");
-        verify(claude, never()).explainSentence(anyString(), any());
+        verify(claude, never()).explainSentence(anyString());
     }
 
     @Test
