@@ -3,7 +3,7 @@ id: doc-21
 title: Explain copied text
 type: specification
 created_date: '2026-10-17 06:39'
-updated_date: '2026-10-24 10:13'
+updated_date: '2026-10-24 10:56'
 ---
 # Explain copied text and Quick explain (Back Tap and Action Button)
 
@@ -74,6 +74,7 @@ flowchart TD
 
 | Step | File | What happens |
 |---|---|---|
+| 0 | [QuickExplainIntent.swift:37](../../../EnglishTranslation/EnglishTranslation/Intents/QuickExplainIntent.swift#L37) | `perform()` builds the `QuickExplainer` with the saved target language (TASK-109). |
 | 1 | [QuickExplainIntent.swift:22](../../../EnglishTranslation/EnglishTranslation/Intents/QuickExplainIntent.swift#L22) | A required `text` parameter with the dialog "What do you want to explain?": iOS asks for it before `perform()`. `openAppWhenRun = false`. |
 | 2 | [QuickExplainer.swift:49](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L49) | Cleans the text (`CopiedText`), then empty, too long or not English (`looksLikeEnglish`) give a short message and no call. |
 | 3 | [QuickExplainer.swift:67](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L67) | One word (or "an apple") goes to the word lookup; a cached phrase ("give up", TASK-83.10) shows its word card; more goes to the sentence API (non-streaming). The token is the shared App Group Keychain one (`AccountStore`, doc-17). |
@@ -126,5 +127,5 @@ Run: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -
 - iOS asks "Allow Paste" every time until the user sets Paste from Other Apps to Allow.
 - The app opens on the text; going back to the app you were in is the system "◀ App" link at the top left.
 - Quick explain: on iOS 26 a card has a fixed height, so long meanings are cut at 2-3 lines.
-- Quick explain: the card always uses the light colors and Vietnamese (the language picked in the app is not saved yet); for a word, the backend line is used when it arrives within 3 seconds (TASK-106.3); without it only Vietnamese has a line (the dictionary text).
+- Quick explain: the card always uses the light colors; its language is the one saved by the app picker (`TargetLanguagePreference.shared`, App Group defaults, TASK-109; Vietnamese if none is saved); for a word, the backend line is used when it arrives within 3 seconds (TASK-106.3); without it only Vietnamese has a line (the dictionary text).
 - Quick explain over a full-screen YouTube video is not yet checked on the phone.

@@ -1,9 +1,11 @@
 ---
 id: TASK-109
 title: 'iOS and Mac: remember the picked target language'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-24 10:01'
+updated_date: '2026-10-24 10:56'
 labels: []
 dependencies: []
 priority: medium
@@ -29,3 +31,9 @@ The iPhone and Mac apps keep the picked language only in memory, so it goes back
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+TargetLanguagePreference (App Group UserDefaults) saves the code; TranslationStore loads it in init and saves in didSet; QuickExplainIntent uses it; tests with in-memory defaults; update doc-4, doc-21.
+<!-- SECTION:PLAN:END -->
