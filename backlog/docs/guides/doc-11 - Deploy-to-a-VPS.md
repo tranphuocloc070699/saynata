@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-24 10:02'
+updated_date: '2026-10-24 11:01'
 ---
 # Deploy to a VPS
 
@@ -736,6 +736,21 @@ www.saynata.com {
 3. **Deploy.** Merge to `main` (or **Run workflow** on the Deploy workflow). The `deploy-web` job builds, copies, restarts
    and checks the site.
 4. **Check.** Open `https://saynata.com`, explain "give up", then a sentence.
+
+**The Mochi cat sprites (paid pack, never in git).** The homepage loads `/cats/<file>.png`; without the files it shows its
+own pixel cat. Copy them from the Mac with `scripts/upload-web-cats.sh [path-to-CatMegaBundle]` (ssh host `vps_sieutoc`,
+folder `/var/lib/saynata/web-cats`), then add this `handle_path` block inside the `saynata.com` block above, before
+`handle /api/*`, and reload Caddy. The files never change under the same name, so the cache can be one year:
+
+```caddyfile
+    handle_path /cats/* {
+        root * /var/lib/saynata/web-cats
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
+    }
+```
+
+Check: `curl -I https://saynata.com/cats/Dance.png` shows `200` and the `Cache-Control` line.
 
 By hand on the server (after a build is copied to `web/dist`): `web/scripts/deploy-web.sh`. Logs: `cd backend && docker compose -f docker-compose.prod.yml logs web`.
 Never run `next build` on the VPS.

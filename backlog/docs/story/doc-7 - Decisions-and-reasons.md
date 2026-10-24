@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-24 10:36'
+updated_date: '2026-10-24 11:01'
 ---
 # Decisions and reasons
 
@@ -61,6 +61,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-18 | The dialog has a **wand** button: Claude Sonnet 5.5 writes a new scene (about $0.02 a call), with its own **$1 a day cap** (on top of the users' daily budget) (TASK-91) | Reason: not recorded. | Leaving the wand out | Developer |
 | 10-23 | **New logo: two cat heads on a teal tile (TASK-95)**: a light cat with a serif Latin "S" and a sage cat with the Japanese "さ" (sa, how Saynata starts), no speech tail, only `Theme.Colors` (Accent tile, Background and ChipFill cats). A cozy, Studio Ghibli feel inspired by the CatMegaBundle pixel cats; no sprite from that paid pack is used. Letters are outlines from SIL OFL fonts (DM Serif Display, Noto Serif JP), made by `scripts/logo/build_logo.py` | "Right now the logo doesn't show that this is a translation app." The developer wanted a Studio Ghibli vibe, cat faces, "a beautiful S from Japanese or another language", and colours from the app palette. Mobbin: two bubbles or two scripts (Google Translate, Apple Translate) say "language". The tail was dropped because it "felt unnatural" | Today's serif S in a circle; a speech bubble with S; pixel, chibi and book cats; one cat-ear bubble with "Aa"; English A and Vietnamese Ă; cats with eyes; a curved or cat-shaped tail; a cream or chip tile; Korean ㅅ, Greek σ, Thai ส, Georgian ს | Developer (cat, Ghibli, two scripts, さ, no tail), Claude (drawings, teal tile, さ) |
 | 10-23 | **Web homepage = direction B**: one reading column, the composer card with a pixel cat on its edge, the result below (TASK-102.1) | The developer asked to build the homepage with GSAP after the brainstorm (artifact P4yQXKHykS8zMhFkFKtHyA), so the recommended direction was taken: it matches the new iOS home (TASK-97), looks like a teacher, not a translator, and the result is the same screen as the future word page. The web cat is our own pixel drawing, because the paid sprite pack would be served to everyone on a public site. | A: two panes like DeepL | Claude, accepted |
+| 10-24 | **The web cat is a Mochi sprite, one per visit, served from the server, never from git** (Dance, Sleeping, Excited, Sick 1 or Box; Box picks one of three) | The developer asked for the purchased Mochi cats on the web, like iOS. The pack has no right to redistribute and the repo is public, and the web build runs in GitHub Actions without a copy, so `scripts/upload-web-cats.sh` puts the 7 PNGs in `/var/lib/saynata/web-cats` and Caddy serves `/cats/`. Without them the site shows its own pixel cat. CSS `steps()` for the loop, so no timer re-renders the page. | PNGs in `web/public` (they would be in git and in every build); keep only the own pixel cat | Developer |
 
 ## Stack
 

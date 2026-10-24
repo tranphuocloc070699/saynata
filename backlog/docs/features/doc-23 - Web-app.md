@@ -3,7 +3,7 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-24 10:09'
+updated_date: '2026-10-24 11:01'
 ---
 # Web app
 
@@ -15,7 +15,7 @@ updated_date: '2026-10-24 10:09'
 A website for learners in `web/` (Next.js 16 App Router, Tailwind 4, GSAP). The homepage is the tool itself: type an
 English word or sentence, read the simple English explanation, and open your language at the bottom only if you need it.
 The text goes into the address (`/?q=give+up`), so a result can be shared, reloaded and reached with Back.
-A pixel cat sleeps on the composer card, wakes up while you type and hops while Saynata works.
+A Mochi cat (the paid sprite pack, served from the server, never from git) sits on the composer card; each visit picks one of Dance, Sleeping, Excited, Sick 1 or Box. Without the sprites, our own pixel cat sleeps there instead, wakes up while you type and hops while Saynata works.
 
 ## Big picture
 
@@ -65,6 +65,7 @@ sequenceDiagram
 | Word sheet | [WordSheet.tsx](../../../web/src/components/home/WordSheet.tsx) | A word tapped in a sentence (or in its Words list) opens the same `WordCard` in a native `<dialog>` with `showModal()`: a bottom sheet on a phone, a centered card from 640 px. It looks the word up with the same `fetchResult` call as a search. Esc, a click on the backdrop and the Close button (aria-label "Close") close it; focus goes back to where it was. Like the iOS `SentenceWordSheet` |
 | Language | [targetLanguage.ts](../../../web/src/lib/targetLanguage.ts) | `localStorage` through `useSyncExternalStore`; a change runs the search again |
 | Speech | [speech.ts](../../../web/src/lib/speech.ts) | Web Speech API, en-US, rate 0.92 |
+| Cat | [MochiCat.tsx](../../../web/src/components/MochiCat.tsx), [mochi.ts:48](../../../web/src/lib/mochi.ts#L48) | One sheet per page visit: Dance (4 frames, 6 fps), Sleep (4, 3), Excited (12, 8), Sick 1 `catsick1` (5, 4) or Box, which picks Box1 (4, 6), Box2 (12, 6) or Box3 (4, 6); the five have equal chance ([pickCat](../../../web/src/lib/mochi.ts#L36)). The pick lives in module memory, so typing, focus, re-renders and tab hide/show keep it; only a reload picks again. Frames are 32 px, shown at 3x (96 px) with `image-rendering: pixelated`; every frame ends on its bottom row, so one box on the card edge fits every sheet, IV stand included. `pointer-events: none`, `aria-hidden`. The sheet is loaded from `/cats/<file>.png`; if it fails, the own `PixelCat` is shown |
 
 ### Motion (GSAP)
 
@@ -73,10 +74,12 @@ All motion runs through [withMotion](../../../web/src/lib/motion.ts#L15) (`gsap.
 
 | Moment | Where | What moves |
 |---|---|---|
-| Page enters, once | [Home.tsx:89](../../../web/src/components/home/Home.tsx#L89) | `[data-enter]` (intro, composer) rise and fade in, the cat drops onto the card with `bounce.out`, the send button pops in. CSS hides `[data-enter]` only when motion is allowed, and a `<noscript>` rule in `layout.tsx` shows it without JavaScript |
-| A result arrives | [Home.tsx:104](../../../web/src/components/home/Home.tsx#L104) | Each new `[data-reveal]` part rises 12 px, 0.42 s, 0.06 s apart. Parts already shown are marked `data-shown`, so the stream finishing does not replay the card |
-| Suggestions change | [Home.tsx:120](../../../web/src/components/home/Home.tsx#L120) | Chips fan out, 0.25 s, 0.03 s apart |
-| The cat | [PixelCat.tsx:68](../../../web/src/components/PixelCat.tsx#L68) | Asleep: slow breathing and three z letters; awake: faster breathing, open eyes; busy: small hops |
+| Page enters, once | [Home.tsx:89](../../../web/src/components/home/Home.tsx#L89) | `[data-enter]` (intro, composer) rise and fade in, the send button pops in. CSS hides `[data-enter]` only when motion is allowed, and a `<noscript>` rule in `layout.tsx` shows it without JavaScript |
+| A result arrives | [Home.tsx:103](../../../web/src/components/home/Home.tsx#L103) | Each new `[data-reveal]` part rises 12 px, 0.42 s, 0.06 s apart. Parts already shown are marked `data-shown`, so the stream finishing does not replay the card |
+| Suggestions change | [Home.tsx:119](../../../web/src/components/home/Home.tsx#L119) | Chips fan out, 0.25 s, 0.03 s apart |
+| The cat appears | [MochiCat.tsx:53](../../../web/src/components/MochiCat.tsx#L53) | Drops onto the card with `bounce.out` once its picture is ready (GSAP) |
+| The Mochi loop | [globals.css:111](../../../web/src/app/globals.css#L111) | CSS `steps(frames)` on `background-position`, no JavaScript timer. Paused while the tab is hidden (`data-tab-hidden` on `<html>`), frame 1 only with reduced motion |
+| The fallback cat | [PixelCat.tsx:68](../../../web/src/components/PixelCat.tsx#L68) | Asleep: slow breathing and three z letters; awake: faster breathing, open eyes; busy: small hops |
 | The word sheet opens | [WordSheet.tsx](../../../web/src/components/home/WordSheet.tsx) | The panel rises 28 px and fades in, 0.32 s |
 
 Folded rows open with a CSS grid-rows transition, not GSAP and not `height`, and a closed row is `inert`.
@@ -121,10 +124,12 @@ In production Caddy sends `/api/*` to the backend, so the rewrite in `next.confi
 | `web/test/api.test.ts` | The client (from the extension) and `suggest()` |
 | `web/test/sse.test.ts` | The stream parser |
 | `web/test/textKind.test.ts` | Word or sentence |
+| `web/test/mochi.test.ts` | The five choices have equal shares, Box picks one of three, the visit keeps its cat, a missing file means fallback, `steps()` and frame 1 with reduced motion in `globals.css` |
 | `web/test/explain.test.ts` | `startState`, word result, meaning growing piece by piece, sign-in message, nothing after a cancel |
 
 ## Change checklist
 
+- The Mochi PNGs never go in git or in `web/public` (no right to redistribute, the repo is public). `scripts/upload-web-cats.sh` copies them to the server; the file names in it and in `CAT_SHEETS` (`lib/mochi.ts`) must match.
 - `lib/api.ts`, `lib/sse.ts`, `lib/textKind.ts`, `lib/languages.ts`, `lib/lines.ts` are copies of `extension/src/shared/`. A fix in one belongs in the other.
 - Colors are tokens in `globals.css`, the same values as the iOS Color Sets. Change the Color Set first (design-system.md).
 - A new element that should enter with the page gets `data-enter`; a new part of a result gets `data-reveal`.
@@ -135,4 +140,4 @@ In production Caddy sends `/api/*` to the backend, so the rewrite in `next.confi
 - No sign-in yet, so a guest's miss ends with a message, not a sign-in sheet. No Like star.
 - The `/sign-in` link in the language row's guest hint goes to a page that does not exist yet (TASK-102). Until the web has sign-in, a guest sees a line only when the backend already has it (TASK-106.5 fills them all).
 - The `deploy-web` check fails until the developer adds the DNS record and the Caddy block once (doc-11 section 14); the repo does not manage the Caddyfile.
-- The cat is our own pixel drawing, not the paid sprite pack the iOS app uses.
+- The Mochi sprites are only on the server (`/var/lib/saynata/web-cats`, uploaded by hand). Local dev shows the fallback cat unless you copy them into `web/public/cats/` (git-ignored).
