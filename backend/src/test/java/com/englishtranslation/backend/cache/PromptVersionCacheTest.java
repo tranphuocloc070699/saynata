@@ -48,7 +48,7 @@ class PromptVersionCacheTest {
     void setUp() {
         sentences.deleteAll();
         words.deleteAll();
-        when(claude.explainSentence("hello", TargetLanguage.VI)).thenReturn(explanation);
+        when(claude.explainSentence("hello")).thenReturn(explanation);
         when(claude.describeWord("hello")).thenReturn(entry);
     }
 
@@ -58,7 +58,8 @@ class PromptVersionCacheTest {
 
     private TranslationService sentenceService(ClaudeProperties properties) {
         return new TranslationService(sentences, claude, properties, jsonMapper, new com.englishtranslation.backend.translation.PersonalTextDetector(),
-                org.mockito.Mockito.mock(com.englishtranslation.backend.limits.ClaudeGate.class));
+                org.mockito.Mockito.mock(com.englishtranslation.backend.limits.ClaudeGate.class),
+                org.mockito.Mockito.mock(com.englishtranslation.backend.lines.LineTranslationService.class));
     }
 
     private WordService wordService(ClaudeProperties properties) {
@@ -87,7 +88,7 @@ class PromptVersionCacheTest {
         boolean sentenceStillCached = sentenceService(versions("s1", "w2")).translate("hello", TargetLanguage.VI).cached();
 
         assertThat(sentenceStillCached).isTrue();
-        verify(claude, times(1)).explainSentence("hello", TargetLanguage.VI);
+        verify(claude, times(1)).explainSentence("hello");
     }
 
     @Test

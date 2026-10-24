@@ -11,6 +11,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -23,6 +26,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class LineTranslationService {
+
+    private static final Logger log = LoggerFactory.getLogger(LineTranslationService.class);
 
     static final int MAX_TEXTS = 20;
     static final int MAX_TEXT = 500;
@@ -43,6 +48,14 @@ public class LineTranslationService {
     }
 
     public TranslateLinesResponse translate(TranslateLinesRequest request, boolean cachedOnly) {
+        return translate(request, cachedOnly, false);
+    }
+
+    /**
+     * {@code alreadyGated}: this request already passed {@link ClaudeGate#beforeNewCall} for its sentence, so the line
+     * call only checks the money budget and does not use up a second allowance of the user's limit.
+     */
+    private TranslateLinesResponse translate(TranslateLinesRequest request, boolean cachedOnly, boolean alreadyGated) {
         TargetLanguage lang = request.targetLang();
         if (lang == null || lang == TargetLanguage.EN) {
             throw bad("invalid_target_lang", "Choose a target language other than English.");
@@ -80,7 +93,7 @@ public class LineTranslationService {
 
         Map<String, String> fresh = new HashMap<>();
         if (!cachedOnly && !misses.isEmpty()) {
-            fresh = askClaude(lang, misses);
+            fresh = askClaude(lang, misses, alreadyGated);
         }
 
         List<TranslateLinesResponse.Line> answer = new ArrayList<>();
@@ -94,9 +107,50 @@ public class LineTranslationService {
         return new TranslateLinesResponse(lang, answer);
     }
 
+    /**
+     * The language line of ONE sentence for the sentence answer (TASK-106.6), or empty when there is none.
+     * The text is already normalized. Empty also when the text is too long for a line (over {@value #MAX_TEXT}),
+     * when {@code cachedOnly} is set and the line is not saved, and when the call is refused or fails: the English
+     * part is already paid and good, so a missing helper line must never cost the learner the whole answer.
+     * With {@code store} false (personal text: email, phone, link) the line is neither read from nor saved to the
+     * shared table; it is made fresh and thrown away.
+     * {@code alreadyGated}: the sentence call of this same request already passed the gate, so only the budget is checked.
+     */
+    public Optional<String> lineFor(TargetLanguage lang, String normalizedText, boolean cachedOnly, boolean store,
+            boolean alreadyGated) {
+        if (lang == null || lang == TargetLanguage.EN || normalizedText.isEmpty() || normalizedText.length() > MAX_TEXT) {
+            return Optional.empty();
+        }
+        try {
+            if (store) {
+                TranslateLinesResponse.Line line = translate(
+                        new TranslateLinesRequest(lang, List.of(normalizedText)), cachedOnly, alreadyGated).lines().get(0);
+                return Optional.ofNullable(line.translation());
+            }
+            if (cachedOnly) {
+                return Optional.empty();
+            }
+            checkGate(alreadyGated);
+            String line = claude.translateLines(lang, List.of(normalizedText)).get(0).strip();
+            return line.isEmpty() ? Optional.empty() : Optional.of(line);
+        } catch (RuntimeException e) {
+            // A guest, the rate limit and the daily budget end here too (ApiException): the app shows its fallback.
+            log.info("No language line for a sentence ({}): {}", lang.code(), e.toString());
+            return Optional.empty();
+        }
+    }
+
+    private void checkGate(boolean alreadyGated) {
+        if (alreadyGated) {
+            gate.checkBudget();
+        } else {
+            gate.beforeNewCall();
+        }
+    }
+
     /** One call for every miss, then each line is saved. Returns hash -> translation. */
-    private Map<String, String> askClaude(TargetLanguage lang, Map<String, String> misses) {
-        gate.beforeNewCall();
+    private Map<String, String> askClaude(TargetLanguage lang, Map<String, String> misses, boolean alreadyGated) {
+        checkGate(alreadyGated);
         List<String> missTexts = List.copyOf(misses.values());
         List<String> translated = claude.translateLines(lang, missTexts);
         if (translated.size() != missTexts.size()) {

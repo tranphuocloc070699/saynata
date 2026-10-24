@@ -58,7 +58,7 @@ class TranslationControllerTest {
     @Test
     void textOf500CharactersIsAccepted() throws Exception {
         String text = "a".repeat(500);
-        when(claude.explainSentence(text, TargetLanguage.VI))
+        when(claude.explainSentence(text))
                 .thenReturn(new Explanation("A long text.", List.of(), "Một văn bản dài."));
 
         mockMvc.perform(post("/api/translations")
@@ -94,8 +94,10 @@ class TranslationControllerTest {
 
     @Test
     void languageCodeIsReadAndReturned() throws Exception {
-        when(claude.explainSentence("hello", TargetLanguage.JA))
-                .thenReturn(new Explanation("A greeting.", List.of(), "こんにちは"));
+        when(claude.explainSentence("hello"))
+                .thenReturn(new Explanation("A greeting.", List.of(), ""));
+        when(claude.translateLines(com.englishtranslation.backend.translation.TargetLanguage.JA, List.of("hello")))
+                .thenReturn(List.of("こんにちは"));
 
         mockMvc.perform(post("/api/translations")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -109,7 +111,7 @@ class TranslationControllerTest {
 
     @Test
     void textThatIsNotEnglishGivesA422WithAClearMessage() throws Exception {
-        when(claude.explainSentence("asdkj qwe zzxq", TargetLanguage.VI)).thenThrow(new NotEnglishException());
+        when(claude.explainSentence("asdkj qwe zzxq")).thenThrow(new NotEnglishException());
 
         mockMvc.perform(post("/api/translations")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -124,5 +126,27 @@ class TranslationControllerTest {
         // Spaces are allowed now: a phrase is answered from the cache only (PhraseLookupTest).
         mockMvc.perform(get("/api/words/two, words"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void noLanguageLineIsAnEmptyStringNeverNull() throws Exception {
+        // Old apps decode translation as a String, so a JSON null would break them (TASK-106.6).
+        when(claude.explainSentence("hello")).thenReturn(new Explanation("A greeting.", List.of(), ""));
+        when(claude.translateLines(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList()))
+                .thenThrow(new IllegalStateException("line call failed"));
+
+        mockMvc.perform(post("/api/translations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"hello\", \"targetLang\": \"ko\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.explanation.meaning").value("A greeting."))
+                .andExpect(jsonPath("$.explanation.translation").value(""));
+        // Now the English part is cached; cachedOnly never calls Claude and still answers "".
+        mockMvc.perform(post("/api/translations").param("cachedOnly", "true")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"hello\", \"targetLang\": \"ja\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cached").value(true))
+                .andExpect(jsonPath("$.explanation.translation").value(""));
     }
 }
