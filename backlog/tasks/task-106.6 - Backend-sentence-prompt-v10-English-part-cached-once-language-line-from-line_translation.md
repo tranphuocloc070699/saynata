@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-24 09:52'
-updated_date: '2026-10-24 10:03'
+updated_date: '2026-10-24 10:22'
 labels: []
 dependencies:
   - TASK-106.2
@@ -35,3 +35,9 @@ Today the sentence cache key has the language, so the same English explanation i
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR #173 into feature/local (includes #168 until merged). Backend tests: 549 pass. Test it: run backend (Flyway V29); POST /api/translations for Hello there with vi then ja; the second makes only a LINE call (claude_usage). cachedOnly with ko gives meaning and translation null. A guest asking fr for the cached text gets 200 and translation null. Automated: cd backend and run mvnw -B test.
+<!-- SECTION:NOTES:END -->
