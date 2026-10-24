@@ -39,7 +39,8 @@ public class SuggestService {
 
     /**
      * Words first (an exact match first, then bundled words by NGSL rank, then cached words, shorter first),
-     * then phrases, shorter first. {@code lang} limits phrases to those cached for that language; null = any.
+     * then phrases, shorter first. {@code lang} is kept so old apps still work; since prompt v10 a cached sentence has no language (TASK-106.6),
+     * so it does not limit the phrases any more.
      */
     public SuggestResponse suggest(String rawPrefix, String lang) {
         String prefix = normalize(rawPrefix);
@@ -57,10 +58,10 @@ public class SuggestService {
             words = new LinkedHashSet<>(withExactFirst);
         }
 
-        // Several languages can save the same text: keep one phrase per lower-case text, and none that is a word.
+        // Keep one phrase per lower-case text, and none that is a word.
         Set<String> seen = new HashSet<>(words);
         List<String> phrases = new ArrayList<>();
-        for (String phrase : cachedPhrases(like, lang)) {
+        for (String phrase : cachedPhrases(like)) {
             if (seen.add(phrase.toLowerCase(Locale.ROOT))) {
                 phrases.add(phrase);
             }
@@ -98,16 +99,14 @@ public class SuggestService {
                 .query(String.class).list());
     }
 
-    /** Shorter first. The same text in two languages is one suggestion, so more rows than needed are read. */
-    private List<String> cachedPhrases(String like, String lang) {
+    /** Shorter first. Two spellings of one text are one suggestion, so more rows than needed are read. */
+    private List<String> cachedPhrases(String like) {
         return shortestFirst(jdbc.sql("""
                 SELECT source_text FROM sentence_translation
                 WHERE LOWER(source_text) LIKE :like ESCAPE '\\' AND prompt_version = :version
-                  AND (CAST(:lang AS VARCHAR(8)) IS NULL OR target_lang = :lang)
                 LIMIT :limit""")
                 .param("like", like)
                 .param("version", properties.sentencePromptVersion())
-                .param("lang", lang)
                 .param("limit", ROWS_PER_SOURCE)
                 .query(String.class).list());
     }

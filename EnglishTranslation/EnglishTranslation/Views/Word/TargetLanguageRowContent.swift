@@ -6,17 +6,23 @@
 import SwiftUI
 import Translation
 
-/// The inside of the last folded row on a meaning card (TASK-40).
-/// Vietnamese shows the dictionary text. Other languages translate the simple English
-/// explanation on the device with Apple's Translation framework.
-/// This view only exists while the row is open, so nothing is translated before the user asks.
+/// The inside of the last folded row on a meaning card (TASK-40, TASK-106.3).
+/// The line comes from the backend (`POST /api/translate-lines`), asked once for every sense of the card.
+/// When the backend has no line or the call fails: Vietnamese shows the dictionary text, and other languages
+/// translate the simple English explanation on the device with Apple's Translation framework.
+/// This view only exists while the row is open, so nothing is asked before the user opens it.
 struct TargetLanguageRowContent: View {
     let sense: Sense
     let language: TargetLanguage
+    /// The simple explanation of every sense of the card. One request asks for all of them.
+    var cardTexts: [String] = []
+    var lines: LanguageLines = .shared
 
     private enum Phase: Equatable {
         case translating
         case done(String)
+        /// Translated by Apple on this device.
+        case doneOnDevice(String)
         case failed(String)
     }
 
@@ -26,22 +32,20 @@ struct TargetLanguageRowContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            if let text = sense.dictionaryText(for: language) {
+            switch phase {
+            case .translating:
+                ProgressView().controlSize(.small)
+            case let .done(text):
                 bodyText(text)
-            } else {
-                switch phase {
-                case .translating:
-                    ProgressView().controlSize(.small)
-                case let .done(text):
-                    bodyText(text)
-                    Text("Translated on this iPhone")
-                        .font(.caption)
-                        .foregroundStyle(Theme.Colors.textMuted)
-                case let .failed(message):
-                    Text(message)
-                        .font(.footnote)
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                }
+            case let .doneOnDevice(text):
+                bodyText(text)
+                Text("Translated on this iPhone")
+                    .font(.caption)
+                    .foregroundStyle(Theme.Colors.textMuted)
+            case let .failed(message):
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -58,15 +62,28 @@ struct TargetLanguageRowContent: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Uses the cache if it can. Otherwise checks the language pair, then starts the translation.
+    /// The backend line first. If it is missing: the dictionary text (Vietnamese), else Apple Translation.
     private func prepare() async {
-        guard sense.dictionaryText(for: language) == nil else { return }
         let english = sense.simpleDefinition
-        if let cached = TranslationCache.shared.translation(of: english, in: language) {
-            phase = .done(cached)
+        if let line = lines.line(for: english, in: language) {
+            phase = .done(line)
             return
         }
         phase = .translating
+        await lines.load(cardTexts.isEmpty ? [english] : cardTexts, in: language)
+        if let line = lines.line(for: english, in: language) {
+            phase = .done(line)
+            return
+        }
+        if let text = sense.dictionaryText(for: language) {
+            phase = .done(text)
+            return
+        }
+        await prepareOnDevice(english)
+    }
+
+    /// Uses the Apple Translation cache if it can. Otherwise checks the language pair, then starts the translation.
+    private func prepareOnDevice(_ english: String) async {
         let source = Locale.Language(identifier: "en")
         let target = Locale.Language(identifier: language.appleIdentifier)
         let status = await LanguageAvailability().status(from: source, to: target)
@@ -82,8 +99,7 @@ struct TargetLanguageRowContent: View {
         let chosen = language
         do {
             let response = try await session.translate(english)
-            TranslationCache.shared.save(response.targetText, of: english, in: chosen)
-            phase = .done(response.targetText)
+            phase = .doneOnDevice(response.targetText)
         } catch {
             phase = .failed("Could not translate. The \(chosen.title) language pack may be missing.")
         }

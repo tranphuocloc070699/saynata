@@ -4,10 +4,21 @@
  * (number, simple explanation, level chip, picture), with Examples, How to use it and the target language
  * as closed rows, the target language last (product rule: explain first, translate last).
  */
-import type { Sense, WordResponse } from "@/lib/api";
+import { SaynataApi, type Sense, type WordResponse } from "@/lib/api";
+import {
+  hasLanguageRow,
+  LineCache,
+  lineErrorMessage,
+  lineTexts,
+  loadLines,
+  rowContent,
+  type LineState,
+  type RowContent,
+} from "@/lib/lines";
 import { isAllowedMedia, isClip } from "@/lib/media";
 import { languageName, type LanguageCode } from "@/lib/languages";
 import { useSpeech } from "@/lib/speech";
+import { useState } from "react";
 import { FoldedRow } from "../FoldedRow";
 import { IconButton } from "../IconButton";
 import { Speaker, Stop } from "../icons";
@@ -18,8 +29,36 @@ const LEVEL_COLOR: Record<string, string> = {
   harder: "text-level-harder bg-level-harder/15",
 };
 
+const api = new SaynataApi("");
+/** Lines kept for the whole visit: opening the row again, or the same explanation on another card, costs nothing. */
+const lineCache = new LineCache();
+
+/**
+ * The language row of the whole card: one request with every sense explanation, started the first time a
+ * row opens. The state belongs to one (word, language) pair; a card for another pair starts again.
+ */
+function useLanguageLines(word: WordResponse, targetLang: LanguageCode) {
+  const definitions = word.entry.senses.map((sense) => sense.simpleDefinition);
+  const id = `${targetLang}\u0000${definitions.join("\u0000")}`;
+  const [saved, setSaved] = useState<{ id: string; state: LineState }>({ id, state: { status: "idle" } });
+  const state: LineState = saved.id === id ? saved.state : { status: "idle" };
+
+  function load() {
+    if (!hasLanguageRow(targetLang) || state.status === "loading" || state.status === "done") return;
+    setSaved({ id, state: { status: "loading" } });
+    loadLines(api, lineCache, targetLang, lineTexts(definitions))
+      .then((result) => setSaved({ id, state: { status: "done", ...result } }))
+      .catch((error: unknown) => setSaved({ id, state: { status: "error", message: lineErrorMessage(error) } }));
+  }
+
+  const dictionary = word.entry.senses.map((sense) => sense.vietnamese ?? "");
+  const content: RowContent = rowContent(targetLang, definitions, dictionary, state);
+  return { load, content };
+}
+
 export function WordCard({ word, targetLang }: { word: WordResponse; targetLang: LanguageCode }) {
   const speech = useSpeech();
+  const lines = useLanguageLines(word, targetLang);
   return (
     <article className="flex flex-col gap-3 rounded-[20px] border border-hairline bg-surface p-4 sm:p-5">
       <header data-reveal className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -34,7 +73,16 @@ export function WordCard({ word, targetLang }: { word: WordResponse; targetLang:
         />
       </header>
       {word.entry.senses.map((sense, index) => (
-        <SenseCard key={index} number={index + 1} sense={sense} targetLang={targetLang} speak={speech.toggle} />
+        <SenseCard
+          key={index}
+          number={index + 1}
+          sense={sense}
+          targetLang={targetLang}
+          speak={speech.toggle}
+          row={lines.content}
+          line={lines.content.kind === "lines" ? lines.content.lines[index] : null}
+          loadLine={lines.load}
+        />
       ))}
     </article>
   );
@@ -45,11 +93,17 @@ function SenseCard({
   sense,
   targetLang,
   speak,
+  row,
+  line,
+  loadLine,
 }: {
   number: number;
   sense: Sense;
   targetLang: LanguageCode;
   speak: (text: string) => void;
+  row: RowContent;
+  line: string | null;
+  loadLine: () => void;
 }) {
   const media = sense.imageUrl && isAllowedMedia(sense.imageUrl) ? sense.imageUrl : null;
   return (
@@ -103,14 +157,44 @@ function SenseCard({
           </ul>
         </FoldedRow>
       )}
-      {/* The dictionary has Vietnamese only; other languages come with the on-device translation later. */}
-      {targetLang === "vi" && sense.vietnamese && (
-        <FoldedRow title={languageName(targetLang)}>
-          <p className="font-serif">{sense.vietnamese}</p>
+      {hasLanguageRow(targetLang) && (row.kind !== "lines" || line) && (
+        <FoldedRow title={languageName(targetLang)} onToggle={(open) => open && loadLine()}>
+          <LanguageLine row={row} line={line} />
         </FoldedRow>
       )}
     </section>
   );
+}
+
+/** The body of the language row: the line, a small loading bar, a sign-in hint for a guest, or a short error. */
+function LanguageLine({ row, line }: { row: RowContent; line: string | null }) {
+  switch (row.kind) {
+    case "lines":
+      return <p className="font-serif">{line}</p>;
+    case "loading":
+      return (
+        <span
+          role="status"
+          aria-label="Loading"
+          className="block h-4 w-2/3 animate-pulse rounded-md bg-meaning motion-reduce:animate-none"
+        />
+      );
+    case "signIn":
+      return (
+        <p className="text-sm text-ink-2">
+          <a href="/sign-in" className="font-semibold text-accent underline underline-offset-2">
+            Sign in
+          </a>{" "}
+          to see this line in your language.
+        </p>
+      );
+    case "error":
+      return (
+        <p role="alert" className="text-sm text-ink-2">
+          {row.message}
+        </p>
+      );
+  }
 }
 
 function SenseMedia({ url }: { url: string }) {

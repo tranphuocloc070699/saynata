@@ -14,6 +14,9 @@ import SwiftUI
 struct QuickExplainCard: View {
     let result: QuickExplainResult
     var language: TargetLanguage = .vietnamese
+    /// The backend line for a word's first meaning in `language` (TASK-106.3). Nil: Vietnamese falls back to the
+    /// dictionary text; other languages show no line (Apple Translation cannot run inside a Shortcuts card).
+    var wordLine: String?
 
     /// Bundled words shown while the full answer is not here (signed out or slow).
     static let maxLocalWords = 2
@@ -50,9 +53,8 @@ struct QuickExplainCard: View {
                         .foregroundStyle(Colors.textPrimary)
                         .lineLimit(3)
                 }
-                // Only Vietnamese is in the dictionary; other languages are translated on the device in the app.
-                if language == .vietnamese {
-                    targetLanguageLine(language.title, text: sense.vietnamese)
+                if language.hasTargetLanguageRow {
+                    targetLanguageLine(language.title, text: wordLine ?? sense.dictionaryText(for: language) ?? "")
                 }
             }
 

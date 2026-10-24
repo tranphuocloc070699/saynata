@@ -3,11 +3,11 @@ id: doc-21
 title: Explain copied text
 type: specification
 created_date: '2026-10-17 06:39'
-updated_date: '2026-10-18 02:04'
+updated_date: '2026-10-24 10:56'
 ---
 # Explain copied text and Quick explain (Back Tap and Action Button)
 
-> Status: **built** (TASK-87; Quick explain TASK-90, tested on the iPhone 16 Pro iOS 18.5 simulator, not yet on the phone). Tested on the iPhone 17e (iOS 26.3) simulator from the Shortcuts app. The developer's iPhone 13 (iOS 26.5) runs the shortcut from Back Tap. Last traced from code: 2026-10-17 (evening).
+> Status: **built** (TASK-87; Quick explain TASK-90, tested on the iPhone 16 Pro iOS 18.5 simulator, not yet on the phone). Tested on the iPhone 17e (iOS 26.3) simulator from the Shortcuts app. The developer's iPhone 13 (iOS 26.5) runs the shortcut from Back Tap. Last traced from code: 2026-10-24 (word line from `POST /api/translate-lines`: TASK-106.3; before that 2026-10-17).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Builds on [Word lookup](doc-5%20-%20Word-lookup.md) and [Sentence translation](doc-4%20-%20Sentence-translation.md).
 
 ## What it does
@@ -74,11 +74,12 @@ flowchart TD
 
 | Step | File | What happens |
 |---|---|---|
+| 0 | [QuickExplainIntent.swift:37](../../../EnglishTranslation/EnglishTranslation/Intents/QuickExplainIntent.swift#L37) | `perform()` builds the `QuickExplainer` with the saved target language (TASK-109). |
 | 1 | [QuickExplainIntent.swift:22](../../../EnglishTranslation/EnglishTranslation/Intents/QuickExplainIntent.swift#L22) | A required `text` parameter with the dialog "What do you want to explain?": iOS asks for it before `perform()`. `openAppWhenRun = false`. |
 | 2 | [QuickExplainer.swift:49](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L49) | Cleans the text (`CopiedText`), then empty, too long or not English (`looksLikeEnglish`) give a short message and no call. |
 | 3 | [QuickExplainer.swift:67](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L67) | One word (or "an apple") goes to the word lookup; a cached phrase ("give up", TASK-83.10) shows its word card; more goes to the sentence API (non-streaming). The token is the shared App Group Keychain one (`AccountStore`, doc-17). |
 | 4 | [QuickExplainer.swift:122](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L122) | An 8 s limit: a card cannot show an answer that is still coming, so after that it says "Still working". |
-| 5 | [QuickExplainCard.swift:42](../../../EnglishTranslation/EnglishTranslation/Views/QuickExplain/QuickExplainCard.swift#L42) | Layout 2B: a word shows its title, IPA and **first** meaning; a sentence shows the sentence (2 lines) and the meaning box; the target-language line is last, small and open (an iOS 18 card cannot fold a row). |
+| 5 | [QuickExplainCard.swift:42](../../../EnglishTranslation/EnglishTranslation/Views/QuickExplain/QuickExplainCard.swift#L42) | Layout 2B: a word shows its title, IPA and **first** meaning; a sentence shows the sentence (2 lines) and the meaning box; the target-language line is last, small and open (an iOS 18 card cannot fold a row). For a word it is the backend line for the picked language (`wordLine`, TASK-106.3): [QuickExplainer.languageLine](../../../EnglishTranslation/EnglishTranslation/Translation/QuickExplainer.swift#L84) asks `POST /api/translate-lines` for the first meaning (signed in: normal call, guest: `cachedOnly=true`), waits at most 3 seconds, and the card falls back to the dictionary text for Vietnamese; other languages show no line (Apple Translation cannot run inside a card). A sentence keeps `explanation.translation`. |
 | 6 | [QuickExplainCard.swift:220](../../../EnglishTranslation/EnglishTranslation/Views/QuickExplain/QuickExplainCard.swift#L220) | The only control is an icon link that opens the full result in Saynata (a `Link`; buttons do not run in a card). |
 | 7 | [Theme+Snippet.swift:14](../../../EnglishTranslation/EnglishTranslation/DesignSystem/Theme+Snippet.swift#L14) | The card's colors as numbers: Shortcuts cannot read the asset catalog, so `Color("Theme/...")` drew invisible text. `ThemeSnippetColorsTests` keeps them equal to the catalog. |
 | 8 | [SaynataShortcuts.swift:22](../../../EnglishTranslation/EnglishTranslation/Intents/SaynataShortcuts.swift#L22) | The App Shortcut "Quick explain with Saynata". |
@@ -126,5 +127,5 @@ Run: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -
 - iOS asks "Allow Paste" every time until the user sets Paste from Other Apps to Allow.
 - The app opens on the text; going back to the app you were in is the system "◀ App" link at the top left.
 - Quick explain: on iOS 26 a card has a fixed height, so long meanings are cut at 2-3 lines.
-- Quick explain: the card always uses the light colors and Vietnamese (the language picked in the app is not saved yet); for a word, other languages show no line.
+- Quick explain: the card always uses the light colors; its language is the one saved by the app picker (`TargetLanguagePreference.shared`, App Group defaults, TASK-109; Vietnamese if none is saved); for a word, the backend line is used when it arrives within 3 seconds (TASK-106.3); without it only Vietnamese has a line (the dictionary text).
 - Quick explain over a full-screen YouTube video is not yet checked on the phone.

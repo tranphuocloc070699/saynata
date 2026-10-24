@@ -5,6 +5,7 @@ import com.englishtranslation.backend.cache.NotCachedException;
 import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.limits.ClaudeGate;
+import com.englishtranslation.backend.lines.LineTranslationService;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -16,6 +17,11 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Cache first: read the DB, and only call Claude on a miss.
+ *
+ * A sentence answer has two parts (TASK-106.6). The English part (prompt v10) is cached once for all languages: its
+ * key has no language. The language line {@code explanation.translation} comes from {@code line_translation}
+ * through {@link LineTranslationService}: saved line, else one small line call, else "" (never null: old apps decode a String; a guest, a cachedOnly
+ * request, a refused or failed call). For English there is no line call; the translation is the text itself.
  *
  * There is no @Transactional here on purpose: the Claude call can take seconds, and a
  * transaction would hold a DB connection open the whole time.
@@ -32,10 +38,13 @@ public class TranslationService {
     private final JsonMapper jsonMapper;
     private final PersonalTextDetector personalTextDetector;
     private final ClaudeGate gate;
+    private final LineTranslationService lines;
 
     public TranslationService(SentenceTranslationRepository repository, ClaudeService claude, ClaudeProperties properties,
-            JsonMapper jsonMapper, PersonalTextDetector personalTextDetector, ClaudeGate gate) {
+            JsonMapper jsonMapper, PersonalTextDetector personalTextDetector, ClaudeGate gate,
+            LineTranslationService lines) {
         this.gate = gate;
+        this.lines = lines;
         this.repository = repository;
         this.claude = claude;
         this.properties = properties;
@@ -49,7 +58,7 @@ public class TranslationService {
 
     /** With {@code cachedOnly} (TASK-83.4) a miss throws {@link NotCachedException} and Claude is never asked. */
     public TranslationResponse translate(String text, TargetLanguage targetLang, boolean cachedOnly) {
-        return translate(text, targetLang, cachedOnly, normalized -> claude.explainSentence(normalized, targetLang));
+        return translate(text, targetLang, cachedOnly, normalized -> claude.explainSentence(normalized));
     }
 
     /** Same as the four-argument version, for callers that do not want the word-by-word text. */
@@ -74,7 +83,7 @@ public class TranslationService {
             Consumer<String> onMeaningDelta, Consumer<String> onMeaning) {
         return translate(text, targetLang, cachedOnly, normalized -> {
             MeaningStream meaningStream = new MeaningStream(onMeaningDelta, onMeaning);
-            return claude.explainSentenceStreaming(normalized, targetLang, meaningStream::feed);
+            return claude.explainSentenceStreaming(normalized, meaningStream::feed);
         });
     }
 
@@ -94,46 +103,65 @@ public class TranslationService {
         String normalized = CacheKeys.normalizeSentence(text);
 
         // Personal text (email, phone, link, long number) is explained, but never saved to
-        // or read from the shared cache.
+        // or read from the shared cache. Its language line is not saved either.
         if (personalTextDetector.looksPersonal(normalized)) {
             Explanation explanation = askClaude.apply(normalized);
-            return new TranslationResponse(normalized, targetLang, explanation, false);
+            return new TranslationResponse(normalized, targetLang,
+                    withLanguageLine(explanation, targetLang, normalized, cachedOnly, false, true), false);
         }
 
-        String cacheKey = CacheKeys.key("sentence", properties.sentencePromptVersion(), targetLang.code(), normalized);
+        String version = properties.sentencePromptVersion();
+        String cacheKey = CacheKeys.sentenceKey(version, normalized);
 
         Optional<SentenceTranslation> saved = repository.findByCacheKey(cacheKey);
         if (saved.isPresent()) {
-            return new TranslationResponse(normalized, targetLang, readExplanation(saved.get()), true);
+            return answer(normalized, targetLang, readExplanation(saved.get()), true, cachedOnly);
         }
 
         // Exact text missed. Try the loose key: "how are you" finds a saved "How are you?".
         // The exact key was tried first, so "US" and "us" stay apart when both are saved.
         if (!CacheKeys.normalizeSentenceLoose(normalized).isEmpty()) {
-            String matchKey = CacheKeys.sentenceMatchKey(properties.sentencePromptVersion(), targetLang.code(), normalized);
+            String matchKey = CacheKeys.sentenceMatchKey(version, normalized);
             Optional<SentenceTranslation> similar = repository.findFirstByMatchKeyOrderByCreatedAtAscIdAsc(matchKey);
             if (similar.isPresent()) {
                 // The text in the answer is what the user typed; the explanation is the saved one.
-                return new TranslationResponse(normalized, targetLang, readExplanation(similar.get()), true);
+                return answer(normalized, targetLang, readExplanation(similar.get()), true, cachedOnly);
             }
         }
 
         Explanation explanation = askClaude.apply(normalized);
         try {
+            // The row has no language: "en" is the language of the explanation, and the translation column stays empty.
             repository.saveAndFlush(new SentenceTranslation(
-                    cacheKey, normalized, targetLang.code(), explanation.meaning(),
-                    jsonMapper.writeValueAsString(explanation.words()), explanation.translation(),
-                    properties.model(), properties.sentencePromptVersion()));
-            return new TranslationResponse(normalized, targetLang, explanation, false);
+                    cacheKey, normalized, "en", explanation.meaning(),
+                    jsonMapper.writeValueAsString(explanation.words()), "",
+                    properties.model(), version));
+            return answer(normalized, targetLang, explanation, false, cachedOnly);
         } catch (DataIntegrityViolationException e) {
             // Another request saved the same key while we waited for Claude. Keep the first answer.
             SentenceTranslation first = repository.findByCacheKey(cacheKey).orElseThrow(() -> e);
-            return new TranslationResponse(normalized, targetLang, readExplanation(first), true);
+            return answer(normalized, targetLang, readExplanation(first), true, cachedOnly);
         }
+    }
+
+    /** The English part is ready (cached or new): add the language line. */
+    private TranslationResponse answer(String normalized, TargetLanguage targetLang, Explanation english, boolean cached,
+            boolean cachedOnly) {
+        // A new English part means this request already passed the gate; the line call then skips the user limit.
+        return new TranslationResponse(normalized, targetLang,
+                withLanguageLine(english, targetLang, normalized, cachedOnly, true, !cached), cached);
+    }
+
+    private Explanation withLanguageLine(Explanation english, TargetLanguage targetLang, String normalized,
+            boolean cachedOnly, boolean store, boolean alreadyGated) {
+        String line = targetLang == TargetLanguage.EN
+                ? normalized
+                : lines.lineFor(targetLang, normalized, cachedOnly, store, alreadyGated).orElse("");
+        return new Explanation(english.meaning(), english.words(), line);
     }
 
     private Explanation readExplanation(SentenceTranslation row) {
         List<Explanation.Word> words = jsonMapper.readValue(row.getWordsJson(), WORD_LIST);
-        return new Explanation(row.getMeaning(), words, row.getTranslation());
+        return new Explanation(row.getMeaning(), words, "");
     }
 }
