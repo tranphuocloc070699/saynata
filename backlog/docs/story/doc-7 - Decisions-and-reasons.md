@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-24 09:53'
+updated_date: '2026-10-24 10:21'
 ---
 # Decisions and reasons
 
@@ -221,4 +221,5 @@ go here as questions.
 - 10-18: Why add Google, Apple and an emailed link now (TASK-92), and is the new domain "saynanta.com" or "saynata.com"? Reason and spelling not recorded.
 - 10-18: Why the STEYG gateway over a new Anthropic key? Reason not recorded.
 - 10-22: Is ignoring the final `?` in the loose sentence match OK (TASK-83.3, Claude's call)? Developer's view not recorded.
+- 10-24: Is it OK that the language line of a new sentence only checks the daily money budget and not the user's hourly limit again, and that a refused or failed line call still returns the English part with `translation` null (TASK-106.6, implementer's call)? Developer's view not recorded.
 - 10-24: Why copy the web build to the VPS (like the admin) instead of pushing an image to GHCR, and is the web app on the root domain loffy.me for good? Reason not recorded (TASK-102.2).

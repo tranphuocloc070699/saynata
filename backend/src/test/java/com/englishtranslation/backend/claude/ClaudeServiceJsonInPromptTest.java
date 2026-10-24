@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 class ClaudeServiceJsonInPromptTest {
 
     private static final String SENTENCE_JSON =
-            "{\"isEnglish\":true,\"summary\":\"I stopped trying after a week.\",\"translation\":\"Tôi bỏ cuộc.\"}";
+            "{\"isEnglish\":true,\"summary\":\"I stopped trying after a week.\"}";
 
     private HttpServer server;
     /** Replies in order: a plain JSON body, or a list of stream events when it starts with "event:". */
@@ -102,12 +102,12 @@ class ClaudeServiceJsonInPromptTest {
     void theSchemaIsInThePromptAndNoStrictJsonSettingIsSent() {
         replies.add(message(SENTENCE_JSON));
 
-        Explanation explanation = service().explainSentence("I gave up after a week.", TargetLanguage.VI);
+        Explanation explanation = service().explainSentence("I gave up after a week.");
 
         assertThat(explanation.meaning()).isEqualTo("I stopped trying after a week.");
         assertThat(requests.get(0)).doesNotContain("output_config")
                 .contains("Answer with ONLY one JSON object")
-                .contains("isEnglish").contains("summary").contains("translation");
+                .contains("isEnglish").contains("summary").doesNotContain("\"translation\"");
         verify(usage).record(Feature.SENTENCE, "gpt-6-luna", 100, 40);
     }
 
@@ -129,8 +129,8 @@ class ClaudeServiceJsonInPromptTest {
         replies.add(message(SENTENCE_JSON));
         replies.add(message(SENTENCE_JSON));
 
-        service("0").explainSentence("I gave up after a week.", TargetLanguage.VI);
-        service().explainSentence("I gave up after a week.", TargetLanguage.VI);
+        service("0").explainSentence("I gave up after a week.");
+        service().explainSentence("I gave up after a week.");
 
         assertThat(requests.get(0)).contains("\"temperature\":0.0");
         assertThat(requests.get(1)).doesNotContain("temperature");
@@ -141,7 +141,7 @@ class ClaudeServiceJsonInPromptTest {
         replies.add(message("{\"isEnglish\":true,\"summary\":\"## Main point\\n* one\\n* **two\\n* three\\n* four\","
                 + "\"translation\":\"x\"}"));
 
-        assertThat(service().explainSentence("A long text.", TargetLanguage.VI).meaning())
+        assertThat(service().explainSentence("A long text.").meaning())
                 .isEqualTo("Main point\n- one\n- two\n- three");
     }
 
@@ -149,8 +149,8 @@ class ClaudeServiceJsonInPromptTest {
     void aCodeFenceAroundTheJsonIsFine() {
         replies.add(message("```json\n" + SENTENCE_JSON + "\n```"));
 
-        assertThat(service().explainSentence("Hi there.", TargetLanguage.VI).translation())
-                .isEqualTo("Tôi bỏ cuộc.");
+        assertThat(service().explainSentence("Hi there.").meaning())
+                .isEqualTo("I stopped trying after a week.");
     }
 
     @Test
@@ -158,7 +158,7 @@ class ClaudeServiceJsonInPromptTest {
         replies.add(message("**Give up** means to stop trying."));
         replies.add(message(SENTENCE_JSON));
 
-        Explanation explanation = service().explainSentence("I gave up.", TargetLanguage.VI);
+        Explanation explanation = service().explainSentence("I gave up.");
 
         assertThat(explanation.meaning()).isEqualTo("I stopped trying after a week.");
         assertThat(requests).hasSize(2);
@@ -170,7 +170,7 @@ class ClaudeServiceJsonInPromptTest {
         replies.add(message("{\"isEnglish\":true}"));
         replies.add(message("no json"));
 
-        assertThatThrownBy(() -> service().explainSentence("I gave up.", TargetLanguage.VI))
+        assertThatThrownBy(() -> service().explainSentence("I gave up."))
                 .isInstanceOf(ClaudeService.InvalidJsonAnswerException.class);
     }
 
@@ -178,7 +178,7 @@ class ClaudeServiceJsonInPromptTest {
     void notEnglishStillBecomesNotEnglishException() {
         replies.add(message("{\"isEnglish\":false,\"summary\":\"\",\"translation\":\"\"}"));
 
-        assertThatThrownBy(() -> service().explainSentence("asdkj qwe", TargetLanguage.VI))
+        assertThatThrownBy(() -> service().explainSentence("asdkj qwe"))
                 .isInstanceOf(NotEnglishException.class);
     }
 
@@ -196,14 +196,13 @@ class ClaudeServiceJsonInPromptTest {
 
     @Test
     void theStreamPassesEveryPieceOnAndParsesTheWholeText() {
-        replies.add(stream("{\"isEnglish\":true,\"summary\":\"I stopped ", "trying after a week.\",",
-                "\"translation\":\"Tôi bỏ cuộc.\"}"));
+        replies.add(stream("{\"isEnglish\":true,\"summary\":\"I stopped ", "trying after a week.\"}"));
         List<String> pieces = new ArrayList<>();
 
-        Explanation explanation = service().explainSentenceStreaming("I gave up.", TargetLanguage.VI,
+        Explanation explanation = service().explainSentenceStreaming("I gave up.",
                 pieces::add);
 
-        assertThat(pieces).hasSize(3);
+        assertThat(pieces).hasSize(2);
         assertThat(String.join("", pieces)).isEqualTo(SENTENCE_JSON);
         assertThat(explanation.meaning()).isEqualTo("I stopped trying after a week.");
         assertThat(requests.get(0)).doesNotContain("output_config").contains("\"stream\":true");

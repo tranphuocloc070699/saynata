@@ -58,7 +58,7 @@ class TranslationControllerTest {
     @Test
     void textOf500CharactersIsAccepted() throws Exception {
         String text = "a".repeat(500);
-        when(claude.explainSentence(text, TargetLanguage.VI))
+        when(claude.explainSentence(text))
                 .thenReturn(new Explanation("A long text.", List.of(), "Một văn bản dài."));
 
         mockMvc.perform(post("/api/translations")
@@ -94,8 +94,10 @@ class TranslationControllerTest {
 
     @Test
     void languageCodeIsReadAndReturned() throws Exception {
-        when(claude.explainSentence("hello", TargetLanguage.JA))
-                .thenReturn(new Explanation("A greeting.", List.of(), "こんにちは"));
+        when(claude.explainSentence("hello"))
+                .thenReturn(new Explanation("A greeting.", List.of(), ""));
+        when(claude.translateLines(com.englishtranslation.backend.translation.TargetLanguage.JA, List.of("hello")))
+                .thenReturn(List.of("こんにちは"));
 
         mockMvc.perform(post("/api/translations")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -109,7 +111,7 @@ class TranslationControllerTest {
 
     @Test
     void textThatIsNotEnglishGivesA422WithAClearMessage() throws Exception {
-        when(claude.explainSentence("asdkj qwe zzxq", TargetLanguage.VI)).thenThrow(new NotEnglishException());
+        when(claude.explainSentence("asdkj qwe zzxq")).thenThrow(new NotEnglishException());
 
         mockMvc.perform(post("/api/translations")
                         .contentType(MediaType.APPLICATION_JSON)

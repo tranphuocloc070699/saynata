@@ -3,9 +3,11 @@ id: TASK-106.6
 title: >-
   Backend: sentence prompt v10, English part cached once, language line from
   line_translation
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-24 09:52'
+updated_date: '2026-10-24 10:03'
 labels: []
 dependencies:
   - TASK-106.2

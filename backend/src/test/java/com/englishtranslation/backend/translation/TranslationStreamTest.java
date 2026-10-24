@@ -50,7 +50,7 @@ class TranslationStreamTest {
     private static final Explanation EXPLANATION = new Explanation(
             "He did not want to leave.",
             List.of(new Explanation.Word("reluctant", "adjective", "not wanting to do something")),
-            "Anh ấy không muốn đi.");
+            "");
 
     /** Claude's JSON answer, cut into pieces the way a stream would. */
     private static final List<String> PIECES = List.of(
@@ -59,8 +59,11 @@ class TranslationStreamTest {
 
     /** Makes the fake Claude stream PIECES and return `result`. */
     private void claudeStreams(String text, Explanation result) {
-        when(claude.explainSentenceStreaming(eq(text), eq(TargetLanguage.VI), any())).thenAnswer(call -> {
-            Consumer<String> onText = call.getArgument(2);
+        // The language line comes from a second, small call (TASK-106.6).
+        when(claude.translateLines(any(), org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(List.of("Anh ấy không muốn đi."));
+        when(claude.explainSentenceStreaming(eq(text), any())).thenAnswer(call -> {
+            Consumer<String> onText = call.getArgument(1);
             PIECES.forEach(onText);
             return result;
         });
@@ -153,7 +156,7 @@ class TranslationStreamTest {
     @Test
     void aCacheHitSendsOnlyDoneAndNeverCallsClaude() throws Exception {
         // Fill the cache through the normal (non-streaming) path first.
-        when(claude.explainSentence("I love you", TargetLanguage.VI)).thenReturn(EXPLANATION);
+        when(claude.explainSentence("I love you")).thenReturn(EXPLANATION);
         mockMvc.perform(post("/api/translations")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"text\": \"I love you\", \"targetLang\": \"vi\"}")).andExpect(status().isOk());
@@ -161,7 +164,7 @@ class TranslationStreamTest {
         String body = streamBody("I love you");
 
         assertThat(eventNames(body)).containsExactly("done");
-        verify(claude, never()).explainSentenceStreaming(any(), any(), any());
+        verify(claude, never()).explainSentenceStreaming(any(), any());
     }
 
     @Test
@@ -180,8 +183,8 @@ class TranslationStreamTest {
     @Test
     void textThatIsNotEnglishGivesAnErrorEventAndIsNotCached() throws Exception {
         // A not-English answer has an empty meaning, so no meaning event is sent.
-        when(claude.explainSentenceStreaming(eq("asdkj qwe zzxq"), eq(TargetLanguage.VI), any())).thenAnswer(call -> {
-            Consumer<String> onText = call.getArgument(2);
+        when(claude.explainSentenceStreaming(eq("asdkj qwe zzxq"), any())).thenAnswer(call -> {
+            Consumer<String> onText = call.getArgument(1);
             onText.accept("{\"isEnglish\":false,\"meaning\":\"\",\"words\":[],\"translation\":\"\"}");
             throw new NotEnglishException();
         });
@@ -196,8 +199,8 @@ class TranslationStreamTest {
 
     @Test
     void aFailureAfterTheMeaningGivesAnErrorEvent() throws Exception {
-        when(claude.explainSentenceStreaming(eq("Hello there"), eq(TargetLanguage.VI), any())).thenAnswer(call -> {
-            Consumer<String> onText = call.getArgument(2);
+        when(claude.explainSentenceStreaming(eq("Hello there"), any())).thenAnswer(call -> {
+            Consumer<String> onText = call.getArgument(1);
             PIECES.forEach(onText);
             throw new IllegalStateException("connection lost");
         });
@@ -211,7 +214,7 @@ class TranslationStreamTest {
 
     @Test
     void theErrorEventDoesNotShowInternalDetails() throws Exception {
-        when(claude.explainSentenceStreaming(eq("Hello there"), eq(TargetLanguage.VI), any()))
+        when(claude.explainSentenceStreaming(eq("Hello there"), any()))
                 .thenThrow(new IllegalStateException("secret internal detail"));
 
         String body = streamBody("Hello there");
