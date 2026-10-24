@@ -28,5 +28,7 @@ done
 
 # The folder belongs to the SSH user, so rsync needs no sudo; Caddy only reads it.
 ssh "$host" "sudo mkdir -p '$remote_dir' && sudo chown \"\$(id -un)\" '$remote_dir' && chmod 755 '$remote_dir'"
-(cd "$sprites" && rsync -av --chmod=F644 "${files[@]}" "$host:$remote_dir/")
+# macOS rsync (openrsync) has no --chmod, so the mode is set on the server afterwards.
+(cd "$sprites" && rsync -av "${files[@]}" "$host:$remote_dir/")
+ssh "$host" "chmod 644 '$remote_dir'/*.png"
 echo "Done. Check: curl -I https://saynata.com/cats/Dance.png"
