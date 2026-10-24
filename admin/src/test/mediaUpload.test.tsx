@@ -18,7 +18,7 @@ const word: WordItem = {
   promptVersion: "v3",
   createdAt: "2026-10-14T10:00:00Z",
   entry: { senses: [] },
-  media: [{ url: "https://api.loffy.me/media/run_1_ab.webp", kind: "photo", photographer: "Jane Photo", pageUrl: "https://pixabay.com/photos/x-1/" }],
+  media: [{ url: "https://api.saynata.com/media/run_1_ab.webp", kind: "photo", photographer: "Jane Photo", pageUrl: "https://pixabay.com/photos/x-1/" }],
   mediaStatus: [null],
 };
 
@@ -152,7 +152,7 @@ describe("upload from my computer", () => {
       ...word,
       media: [
         {
-          url: "https://api.loffy.me/media/run_1_cd.webp",
+          url: "https://api.saynata.com/media/run_1_cd.webp",
           kind: "photo",
           photographer: null,
           pageUrl: null,
@@ -167,7 +167,7 @@ describe("upload from my computer", () => {
     await userEvent.click(screen.getByRole("button", { name: "View run, sense 1 full size" }));
 
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByRole("img", { name: "run · sense 1" })).toHaveAttribute("src", "https://api.loffy.me/media/run_1_cd.webp");
+    expect(within(dialog).getByRole("img", { name: "run · sense 1" })).toHaveAttribute("src", "https://api.saynata.com/media/run_1_cd.webp");
     expect(dialog).toHaveTextContent("run · sense 1 · Uploaded by the admin");
     expect(within(dialog).queryByRole("link")).not.toBeInTheDocument();
   });
@@ -177,7 +177,7 @@ describe("upload from my computer", () => {
       ...word,
       media: [
         {
-          url: "https://api.loffy.me/media/run_1_ai_1a2b3c4d.webp",
+          url: "https://api.saynata.com/media/run_1_ai_1a2b3c4d.webp",
           kind: "photo",
           photographer: null,
           pageUrl: null,

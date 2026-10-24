@@ -10,7 +10,7 @@ import { WordsPage } from "@/pages/WordsPage";
 const API = "https://api.test/api/admin";
 
 function media(kind: "photo" | "clip", name: string): SenseMedia {
-  return { url: `https://api.loffy.me/media/${name}`, kind, photographer: `By ${name}`, pageUrl: `https://pixabay.com/x/${name}/` };
+  return { url: `https://api.saynata.com/media/${name}`, kind, photographer: `By ${name}`, pageUrl: `https://pixabay.com/x/${name}/` };
 }
 
 function word(id: number, text: string, vietnamese: string, first: SenseMedia | null): WordItem {
@@ -60,7 +60,7 @@ describe("word list rows (TASK-62)", () => {
     const apple = await row("apple");
 
     const thumb = within(apple).getByRole("img", { name: "apple photo" });
-    expect(thumb).toHaveAttribute("src", "https://api.loffy.me/media/apple.webp");
+    expect(thumb).toHaveAttribute("src", "https://api.saynata.com/media/apple.webp");
     expect(thumb).toHaveAttribute("loading", "lazy");
     expect(within(apple).getByText("quả táo")).toBeInTheDocument();
     expect(within(apple).getByText("Bundled")).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe("media row per word (TASK-64)", () => {
 
     await userEvent.click(await row("apple"));
     const entry = screen.getByRole("region", { name: "Entry" });
-    expect(within(entry).getByRole("img", { name: "apple, sense 1" })).toHaveAttribute("src", "https://api.loffy.me/media/apple.webp");
+    expect(within(entry).getByRole("img", { name: "apple, sense 1" })).toHaveAttribute("src", "https://api.saynata.com/media/apple.webp");
 
     await userEvent.click(within(entry).getByRole("button", { name: "Pick another image" }));
     expect(await within(entry).findByRole("region", { name: "Pick another image (sense 1)" })).toBeInTheDocument();
@@ -110,7 +110,7 @@ describe("media row per word (TASK-64)", () => {
     expect(within(next).queryByRole("img", { name: "apple, sense 1" })).not.toBeInTheDocument();
     const clip = within(next).getByLabelText("run, sense 1");
     expect(clip.tagName).toBe("VIDEO");
-    expect(clip).toHaveAttribute("src", "https://api.loffy.me/media/run.mp4");
+    expect(clip).toHaveAttribute("src", "https://api.saynata.com/media/run.mp4");
     expect(within(next).getByRole("link", { name: "By run.mp4" })).toBeInTheDocument();
   });
 });
@@ -133,7 +133,7 @@ describe("hover to play a clip in the list (TASK-77)", () => {
     await userEvent.hover(run);
 
     const video = run.querySelector("video") as HTMLVideoElement;
-    expect(video).toHaveAttribute("src", "https://api.loffy.me/media/run.mp4");
+    expect(video).toHaveAttribute("src", "https://api.saynata.com/media/run.mp4");
     expect(video.muted).toBe(true);
     expect(video.loop).toBe(true);
     expect(play).toHaveBeenCalledTimes(1);

@@ -557,7 +557,7 @@ def test_the_report_puts_failed_senses_first_and_shows_scene_and_guess(tmp_path)
     assert media_ai.write_report(rows, report, media) == 3
     page = report.read_text()
     assert page.index("bad ") < page.index("hard ") < page.index("good ")
-    assert '<img src="../media/bad_1_ai_11111111.webp"' in page and "https://api.loffy.me/media/bad_1.jpg" in page
+    assert '<img src="../media/bad_1_ai_11111111.webp"' in page and "https://api.saynata.com/media/bad_1.jpg" in page
     assert "A &lt;b&gt;scene&lt;/b&gt;" in page and "Open guess: <b>shop</b>" in page and "Choice from bank, shop" in page
     assert "1 passed, 1 failed" in page and "1 not drawn" in page
 

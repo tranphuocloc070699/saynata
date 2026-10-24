@@ -371,7 +371,7 @@ class AdminBundledWordsTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.media.length()").value(2))
                     .andExpect(jsonPath("$.media[0].kind").value("clip"))
-                    .andExpect(jsonPath("$.media[0].url").value("https://api.loffy.me/media/admin_test_run_1.mp4"))
+                    .andExpect(jsonPath("$.media[0].url").value("https://api.saynata.com/media/admin_test_run_1.mp4"))
                     .andExpect(jsonPath("$.media[0].photographer").value("Pat Maker"))
                     .andExpect(jsonPath("$.media[0].pageUrl").value("https://pixabay.com/x/admin_test_run_1.mp4"))
                     .andExpect(jsonPath("$.media[1]").doesNotExist());

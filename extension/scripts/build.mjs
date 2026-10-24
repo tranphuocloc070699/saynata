@@ -13,7 +13,9 @@ import { build } from "vite";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = resolve(root, "dist");
 const watch = process.argv.includes("--watch") ? {} : null;
-const apiBase = process.env.VITE_API_BASE ?? "https://api.loffy.me";
+const apiBase = process.env.VITE_API_BASE ?? "https://api.saynata.com";
+// The old address stays allowed for one release, so an updated extension still works if the server is reached by either (TASK-104).
+const legacyBase = "https://api.loffy.me";
 const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
 
 rmSync(outDir, { recursive: true, force: true });
@@ -58,7 +60,7 @@ function manifest() {
     short_name: "Saynata",
     version: pkg.version,
     description:
-      "Select English on any page to see a simple English explanation. Selected text is sent to api.loffy.me and Claude.",
+      "Select English on any page to see a simple English explanation. Selected text is sent to api.saynata.com and Claude.",
     icons: { 16: "icons/icon-16.png", 32: "icons/icon-32.png", 48: "icons/icon-48.png", 128: "icons/icon-128.png" },
     action: {
       default_title: "Saynata",
@@ -70,7 +72,7 @@ function manifest() {
     // The card shows a picture in this page when the site's CSP blocks our server (src/content/media.ts).
     web_accessible_resources: [{ resources: ["media.html", "media.js"], matches: ["<all_urls>"] }],
     permissions: ["contextMenus", "storage", "activeTab", "scripting"],
-    host_permissions: [`${origin}/*`],
+    host_permissions: [...new Set([origin, new URL(legacyBase).origin])].map((o) => `${o}/*`),
     commands: {
       "explain-selection": {
         suggested_key: { default: "Alt+Shift+S" },

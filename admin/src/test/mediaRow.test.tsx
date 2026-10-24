@@ -18,7 +18,7 @@ const word: WordItem = {
   promptVersion: "v3",
   createdAt: "2026-10-14T10:00:00Z",
   entry: { senses: [] },
-  media: [{ url: "https://api.loffy.me/media/run_1_ab.webp", kind: "photo", photographer: "Jane Photo", pageUrl: "https://pixabay.com/photos/x-1/" }],
+  media: [{ url: "https://api.saynata.com/media/run_1_ab.webp", kind: "photo", photographer: "Jane Photo", pageUrl: "https://pixabay.com/photos/x-1/" }],
   mediaStatus: [null],
 };
 
@@ -60,7 +60,7 @@ describe("media row", () => {
 
   it("shows the current photo with its credit and three icon-only buttons", () => {
     renderRow();
-    expect(screen.getByRole("img", { name: "run, sense 1" })).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.webp");
+    expect(screen.getByRole("img", { name: "run, sense 1" })).toHaveAttribute("src", "https://api.saynata.com/media/run_1_ab.webp");
     expect(screen.getByRole("link", { name: "Jane Photo" })).toBeInTheDocument();
     for (const name of ["Pick another image", "No image", "Draw an AI picture"]) {
       const button = screen.getByRole("button", { name });
@@ -178,20 +178,20 @@ describe("full-size viewer (TASK-77)", () => {
     await userEvent.click(screen.getByRole("button", { name: "View run, sense 1 full size" }));
 
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByRole("img", { name: "run · sense 1" })).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.webp");
+    expect(within(dialog).getByRole("img", { name: "run · sense 1" })).toHaveAttribute("src", "https://api.saynata.com/media/run_1_ab.webp");
     expect(dialog).toHaveTextContent("run · sense 1 · Photo by Jane Photo on Pixabay");
     expect(within(dialog).getByRole("link", { name: "Jane Photo" })).toHaveAttribute("href", "https://pixabay.com/photos/x-1/");
     expect(within(dialog).getByRole("button", { name: "Close" })).toHaveTextContent("");
   });
 
   it("plays a clip with controls, muted until the viewer unmutes", async () => {
-    renderRow({ ...word, media: [{ url: "https://api.loffy.me/media/run_1_ab.mp4", kind: "clip", photographer: "Pat Maker", pageUrl: "https://pixabay.com/videos/x-2/" }] });
+    renderRow({ ...word, media: [{ url: "https://api.saynata.com/media/run_1_ab.mp4", kind: "clip", photographer: "Pat Maker", pageUrl: "https://pixabay.com/videos/x-2/" }] });
     await userEvent.click(screen.getByRole("button", { name: "View run, sense 1 full size" }));
 
     const dialog = await screen.findByRole("dialog");
     const video = within(dialog).getByLabelText("run · sense 1") as HTMLVideoElement;
     expect(video.tagName).toBe("VIDEO");
-    expect(video).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.mp4");
+    expect(video).toHaveAttribute("src", "https://api.saynata.com/media/run_1_ab.mp4");
     expect(video.controls).toBe(true);
     expect(video.muted).toBe(true);
     expect(dialog).toHaveTextContent("run · sense 1 · Clip by Pat Maker on Pixabay");

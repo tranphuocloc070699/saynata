@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-24 03:38'
+updated_date: '2026-10-24 06:05'
 ---
 # Deploy to a VPS
 
@@ -22,7 +22,7 @@ What you need:
 flowchart LR
     APP[iPhone app] -->|HTTPS 443| CADDY[Caddy, optional]
     CADDY -->|127.0.0.1:8081| BE[backend container]
-    BROWSER[Browser, loffy.me] -->|HTTPS 443| CADDY
+    BROWSER[Browser, saynata.com] -->|HTTPS 443| CADDY
     CADDY -->|"everything except /api, 127.0.0.1:3001"| WEB[web container, Next.js]
     BE --> PG[(postgres container + volume)]
     BE --> CL[Claude API]
@@ -68,17 +68,17 @@ nano .env
 | `ADMIN_INITIAL_PASSWORD` | Password of the first admin, 12+ characters. Used only when no admin exists yet; remove it from `.env` after the first start. |
 | `ADMIN_ENABLED` | Optional. `false` turns the admin API off. Default `true`. |
 | `PIXABAY_API_KEY` | Optional. Free key from https://pixabay.com/api/docs/ . With it, a new word that is not in the bundle gets a photo or clip in the background (section 9), except words saved by the prefill job. Empty = no pictures are fetched. |
-| `MEDIA_BASE_URL` | Optional. Public address of the media folder. Default `https://api.loffy.me/media`. |
+| `MEDIA_BASE_URL` | Optional. Public address of the media folder. Default `https://api.saynata.com/media`. |
 | `MEDIA_HOST_DIR` | Optional. Folder on the server with the media files. Default `/var/lib/saynata/media` (section 9). |
 | `USER_JWT_SECRET` | Optional. Signs the sign-in tokens of app users. 32+ characters, `openssl rand -base64 48`. If empty, a key is derived from `ADMIN_JWT_SECRET` (a warning is logged). Set it once and keep it: changing it signs everyone out. |
 | `RESEND_API_KEY` | Optional until Resend is ready. A "Sending access" API key from resend.com (section 10). With `EMAIL_FROM` it makes the backend send sign-in emails with Resend. |
-| `EMAIL_FROM` | The "From" address of the sign-in email, on your verified domain, for example `login@loffy.me`. **No key and no from address = no email is sent**: each code is only written to the backend log (section 10). |
+| `EMAIL_FROM` | The "From" address of the sign-in email, on your verified domain, for example `login@loffy.me`. **No key and no from address = no email is sent**: each code is only written to the backend log (section 10). | Stays on `loffy.me` until `saynata.com` is verified in Resend (section 15).
 | `SES_FROM_EMAIL` | Optional, for later. The older name of `EMAIL_FROM`, used for AWS SES when `RESEND_API_KEY` is empty (section 11). |
 | `AWS_REGION` | Only for SES. The AWS region where you set up SES, for example `ap-southeast-1`. Must be the same region as the SES identity. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The access key of the IAM user that may only send email (section 11). Read by the AWS SDK itself. |
 | `GOOGLE_CLIENT_IDS` | Optional. The iOS OAuth client ID from Google Cloud (section 13), comma-separated for more. Empty = the Google button answers "This sign-in option is not set up yet". |
 | `APPLE_CLIENT_IDS` | Optional. The bundle IDs Apple makes ID tokens for. Default `com.luke.EnglishTranslation,com.luke.EnglishTranslation.Mac`. |
-| `PUBLIC_BASE_URL` | Optional. The public HTTPS address of the backend, default `https://api.loffy.me`. The sign-in link email points to `PUBLIC_BASE_URL/auth/link?token=...`. **Change it when the domain moves** (section 13). |
+| `PUBLIC_BASE_URL` | Optional. The public HTTPS address of the backend, default `https://api.saynata.com`. The sign-in link email points to `PUBLIC_BASE_URL/auth/link?token=...`. **Change it when the domain moves** (section 13). |
 | `APP_URL_SCHEME` | Optional. The app's URL scheme the link page opens, default `saynata` (`saynata://sign-in?token=...`). |
 | `APPLE_APP_IDS` | Optional, paid Apple account only. `TEAMID.com.luke.EnglishTranslation`. Set = `/.well-known/apple-app-site-association` is served, so iOS opens the emailed link in the app directly (section 13). |
 | `REQUIRE_SIGN_IN` | Optional. `true` (default): a guest cannot cause a new Claude call (401). **Set `REQUIRE_SIGN_IN=false` until the app with sign-in is released**, because the current app sends no token. Rate limits and the daily budget cap still apply to guests' Claude calls while it is false (a guest IP may cause 30 new calls per hour, `LIMIT_CLAUDE_GUEST_IP_MAX`). Remove the line, or set `true`, when the new app is out. |
@@ -92,7 +92,7 @@ nano .env
 
 The admin API (`/api/admin`, see [Admin API](../features/doc-13%20-%20Admin-API.md)) is for the admin web app.
 Its login cookie is `SameSite=Strict`, so the admin site and the API must share a site, for example
-`admin.loffy.me` and `api.loffy.me`. Behind Caddy keep `BACKEND_BIND=127.0.0.1`: the login rate limit reads the
+`admin.saynata.com` and `api.saynata.com`. Behind Caddy keep `BACKEND_BIND=127.0.0.1`: the login rate limit reads the
 client IP from `X-Forwarded-For`, which Caddy sets.
 
 `.env` is git-ignored. Never commit it. Set `DB_PASSWORD` before the first start: Postgres keeps the first one
@@ -187,7 +187,7 @@ Each build try is stopped after 6 minutes (`DEPLOY_BUILD_TIMEOUT`, in seconds, s
 tried once more; if both tries fail, the old backend keeps running. The GitHub jobs stop after 20 minutes (backend),
 10 minutes (admin) and 15 minutes (web). A normal deploy takes about 3 minutes.
 A third job, `deploy-web`, does the same for the learner web app (section 14). A second job, `deploy-admin`, then builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
-`ADMIN_API_URL` repository variable, default `https://api.loffy.me`) and copies `admin/dist` to the server with
+`ADMIN_API_URL` repository variable, default `https://api.saynata.com`) and copies `admin/dist` to the server with
 `rsync --delete` (section 8). The VPS needs `rsync`, but no Node.
 You can also start it by hand: Actions tab, **Deploy**, **Run workflow**.
 Until the secrets below exist, the workflow does nothing and stays green.
@@ -223,25 +223,25 @@ Rules: never edit files inside `~/saynata` on the server (except `backend/.env`,
 fast-forward fails. The private key lives only in GitHub secrets and on your Mac, never in git or in a chat.
 The deploy user must be able to run `docker` (`sudo usermod -aG docker <user>`).
 
-## 8. Admin web app (admin.loffy.me)
+## 8. Admin web app (admin.saynata.com)
 
 The admin CMS ([Admin CMS](../features/doc-14%20-%20Admin-CMS.md)) is only static files. Caddy serves `admin/dist`; the backend
-at `api.loffy.me` stays the same (its `/api/admin/**` login and CORS for `https://admin.loffy.me` come from TASK-49.1).
+at `api.saynata.com` stays the same (its `/api/admin/**` login and CORS for `https://admin.saynata.com` come from TASK-49.1).
 
-1. DNS: add an `A` record `admin.loffy.me` that points to the server, like `api.loffy.me`.
+1. DNS: add an `A` record `admin.saynata.com` that points to the server, like `api.saynata.com`.
 2. Build. The Deploy workflow does this for you after every push to main (section 7). By hand, on the server or on your Mac (then copy `admin/dist`), with Node 20 or newer:
 
 ```bash
 cd ~/saynata/admin
 npm ci
-VITE_API_URL=https://api.loffy.me npm run build     # writes admin/dist
+VITE_API_URL=https://api.saynata.com npm run build     # writes admin/dist
 ```
 
-3. Add this to `/etc/caddy/Caddyfile` next to the `api.loffy.me` block (`root` is the absolute path to `admin/dist`;
+3. Add this to `/etc/caddy/Caddyfile` next to the `api.saynata.com` block (`root` is the absolute path to `admin/dist`;
    `try_files` sends every unknown path to `index.html`, so a reload on `/words` works):
 
 ```caddyfile
-admin.loffy.me {
+admin.saynata.com {
     root * /home/youruser/saynata/admin/dist
     encode gzip
     try_files {path} /index.html
@@ -249,7 +249,7 @@ admin.loffy.me {
 }
 ```
 
-4. Run `sudo systemctl reload caddy`, then open `https://admin.loffy.me` and sign in.
+4. Run `sudo systemctl reload caddy`, then open `https://admin.saynata.com` and sign in.
 
 Updates are automatic: the `deploy-admin` job replaces `admin/dist` after each push to main, and Caddy reads the new files at once, no restart. By hand, run step 2 again.
 The Caddy user must be able to read the folder (`chmod -R o+rX ~/saynata/admin/dist`, and `chmod o+x` on each parent folder).
@@ -285,7 +285,7 @@ uv run pipeline export               # read-only; builds data/out/dictionary.sql
 **The media folder (TASK-49.4).** Media files (photos and short clips) are not stored in Postgres. Postgres keeps only a row per
 file (`media`: file name, photo or clip, size, Pixabay author and page link). The files live on disk in
 `/var/lib/saynata/media` on the server. `docker-compose.prod.yml` mounts that folder into the backend container as
-`/app/media` (`MEDIA_DIR`), and Caddy serves it read-only at `https://api.loffy.me/media/<file>`.
+`/app/media` (`MEDIA_DIR`), and Caddy serves it read-only at `https://api.saynata.com/media/<file>`.
 
 1. Make the folder once. The backend runs as user id 10001 inside the container, so that user must own it:
 
@@ -295,12 +295,12 @@ sudo chown 10001:10001 /var/lib/saynata/media
 sudo chmod 755 /var/lib/saynata/media     # Caddy only needs to read it
 ```
 
-2. Add this inside the existing `api.loffy.me` block of `/etc/caddy/Caddyfile`, **before** `reverse_proxy`.
+2. Add this inside the existing `api.saynata.com` block of `/etc/caddy/Caddyfile`, **before** `reverse_proxy`.
    `handle_path` removes `/media` from the path, so `root` is the folder itself. File names contain a hash of the
    content (for example `run_1_3fa9c2d1.mp4`), so a name never changes its file and the cache can be one year:
 
 ```caddyfile
-api.loffy.me {
+api.saynata.com {
     handle_path /media/* {
         root * /var/lib/saynata/media
         header Cache-Control "public, max-age=31536000, immutable"
@@ -311,7 +311,7 @@ api.loffy.me {
 ```
 
 3. `sudo systemctl reload caddy`, then redeploy the backend (`./scripts/deploy.sh`). The image now has ffmpeg
-   (about 100 MB more). Check: `curl -I https://api.loffy.me/media/<a file name>` shows `Cache-Control: public, max-age=31536000, immutable`.
+   (about 100 MB more). Check: `curl -I https://api.saynata.com/media/<a file name>` shows `Cache-Control: public, max-age=31536000, immutable`.
 
 **Uploads from the admin (TASK-79).** The admin web app can upload a picture or clip for a sense (`POST /api/admin/words/{id}/senses/{n}/media/upload`, doc-15). The file is converted on the server with ffmpeg (already in the image) to a small WebP or MP4, so the stored file is small. The limits are two optional variables of the backend:
 
@@ -320,7 +320,7 @@ api.loffy.me {
 | `UPLOAD_MAX_FILE_SIZE` | `25MB` | The biggest file the backend accepts (`spring.servlet.multipart.max-file-size`). A bigger one gets 413 "That file is too big." |
 | `UPLOAD_MAX_REQUEST_SIZE` | `26MB` | The biggest whole request (`spring.servlet.multipart.max-request-size`). Keep it a little above the file limit. |
 
-**Does Caddy need a change? No.** Caddy's `reverse_proxy` has no request-body size limit by default (the `request_body { max_size }` option exists, but it is off). So a 25 MB upload passes to the backend and the backend answers 413 if it is too big. Only add `request_body { max_size 30MB }` to the `api.loffy.me` block if you want Caddy to refuse big bodies earlier; keep it above `UPLOAD_MAX_REQUEST_SIZE`. The new `.webp`/`.mp4` file is written to `MEDIA_DIR` like any other, so no new folder or permission is needed.
+**Does Caddy need a change? No.** Caddy's `reverse_proxy` has no request-body size limit by default (the `request_body { max_size }` option exists, but it is off). So a 25 MB upload passes to the backend and the backend answers 413 if it is too big. Only add `request_body { max_size 30MB }` to the `api.saynata.com` block if you want Caddy to refuse big bodies earlier; keep it above `UPLOAD_MAX_REQUEST_SIZE`. The new `.webp`/`.mp4` file is written to `MEDIA_DIR` like any other, so no new folder or permission is needed.
 
 **What puts files there.**
 
@@ -354,7 +354,7 @@ rsync -av data/media/ vps_sieutoc:/var/lib/saynata/media/
 | Variable | Meaning |
 |---|---|
 | `OPENAI_API_KEY` | Your OpenAI API key (https://platform.openai.com/api-keys). It is billed per picture (gpt-image-1-mini, low quality: about $0.0035), separate from a ChatGPT subscription. Also set a monthly budget in the OpenAI dashboard (Settings, Limits) as a second guard next to `--max-cost`. Never commit it. |
-| `MEDIA_BASE_URL` | Optional, default `https://api.loffy.me/media`. `--link` asks this address for each new file (`HEAD`) and links only files that answer 200, so copy the files first. |
+| `MEDIA_BASE_URL` | Optional, default `https://api.saynata.com/media`. `--link` asks this address for each new file (`HEAD`) and links only files that answer 200, so copy the files first. |
 
 ```bash
 cd pipeline
@@ -441,7 +441,7 @@ The log must now say `Sign-in codes are sent with Resend from login@loffy.me.` a
 1. Ask for a code (use your own address):
 
 ```bash
-curl -i -X POST https://api.loffy.me/api/auth/email-code \
+curl -i -X POST https://api.saynata.com/api/auth/email-code \
   -H 'Content-Type: application/json' -d '{"email":"you@gmail.com"}'
 # HTTP/2 204. The answer is 204 whether the send worked or not.
 ```
@@ -452,7 +452,7 @@ curl -i -X POST https://api.loffy.me/api/auth/email-code \
 4. Sign in with the code:
 
 ```bash
-curl -s -X POST https://api.loffy.me/api/auth/verify \
+curl -s -X POST https://api.saynata.com/api/auth/verify \
   -H 'Content-Type: application/json' -d '{"email":"you@gmail.com","code":"123456"}'
 # {"accessToken":"...","refreshToken":"...","expiresIn":3600,"user":{"id":1,"email":"you@gmail.com"}}
 ```
@@ -661,10 +661,10 @@ The app can sign in four ways: the email code (sections 10 and 11), an emailed *
 
 **The emailed link:** the email has `PUBLIC_BASE_URL/auth/link?token=...`. That page (served by the backend; Caddy already forwards every path) opens `saynata://sign-in?token=...`, so it works with a free Apple ID. Mail apps do not open a custom scheme straight from an email, so the page in between is needed. Later, with the paid account, it can become a **universal link** (iOS opens the app directly, no page and no "Open in Saynata?" question):
 
-1. Set `APPLE_APP_IDS=<TEAMID>.com.luke.EnglishTranslation` on the server. Check `curl https://api.loffy.me/.well-known/apple-app-site-association`.
-2. Add the **Associated Domains** capability to the app with `applinks:api.loffy.me` (the host of `PUBLIC_BASE_URL`). The app already reads `https://.../auth/link?token=...`.
+1. Set `APPLE_APP_IDS=<TEAMID>.com.luke.EnglishTranslation` on the server. Check `curl https://api.saynata.com/.well-known/apple-app-site-association`.
+2. Add the **Associated Domains** capability to the app with `applinks:api.saynata.com` (the host of `PUBLIC_BASE_URL`). The app already reads `https://.../auth/link?token=...`.
 
-**When the domain moves** (for example to the new domain you plan to buy; check its exact spelling first), change these:
+**When the domain moves** (done for `saynata.com` in TASK-104, see section 15; the table stays as the checklist for the next move):
 
 | Where | What |
 |---|---|
@@ -684,19 +684,19 @@ Links already sent keep the old address, so keep the old domain working for 15 m
 # 1. Ask for a link. codeChallenge is the SHA-256 (hex) of a secret you keep.
 SECRET=my-test-secret-$(date +%s)
 CHALLENGE=$(printf %s "$SECRET" | shasum -a 256 | cut -d' ' -f1)
-curl -i -X POST https://api.loffy.me/api/auth/email-link -H 'Content-Type: application/json' \
+curl -i -X POST https://api.saynata.com/api/auth/email-link -H 'Content-Type: application/json' \
   -d "{\"email\":\"you@gmail.com\",\"codeChallenge\":\"$CHALLENGE\"}"
 # HTTP/2 204. Copy the token from the link in the email.
-curl -s -X POST https://api.loffy.me/api/auth/email-link/verify -H 'Content-Type: application/json' \
+curl -s -X POST https://api.saynata.com/api/auth/email-link/verify -H 'Content-Type: application/json' \
   -d "{\"token\":\"<token>\",\"codeVerifier\":\"$SECRET\"}"
 # {"accessToken":"...","refreshToken":"...","expiresIn":3600,"user":{...}}
 # 2. Google before GOOGLE_CLIENT_IDS is set: {"code":"provider_not_configured",...}; after: {"code":"invalid_id_token",...}
-curl -s -X POST https://api.loffy.me/api/auth/google -H 'Content-Type: application/json' -d '{"idToken":"x","nonce":"y"}'
+curl -s -X POST https://api.saynata.com/api/auth/google -H 'Content-Type: application/json' -d '{"idToken":"x","nonce":"y"}'
 ```
 
-## 14. Learner web app (loffy.me, TASK-102.2)
+## 14. Learner web app (saynata.com, TASK-102.2)
 
-The learner web app ([Web app](../features/doc-23%20-%20Web-app.md), `web/`, Next.js 16) runs at `https://loffy.me`. It needs a
+The learner web app ([Web app](../features/doc-23%20-%20Web-app.md), `web/`, Next.js 16) runs at `https://saynata.com`. It needs a
 Node server (word pages and `cacheComponents` are server features), so it is not static files like the admin app.
 
 **How it runs.** `next.config.ts` has `output: "standalone"`, which builds a small self-contained server. The Deploy
@@ -706,19 +706,19 @@ and the VPS has no Node), copies the result to `web/dist` on the server with `rs
 (it only copies `dist` into `node:22-alpine`, a few seconds) and restarts the `web` service of
 [backend/docker-compose.prod.yml](../../../backend/docker-compose.prod.yml), which listens on `127.0.0.1:3001`
 (`WEB_PORT` in `.env` changes it). `deploy.sh` starts only `postgres` and `backend`, so a backend deploy never needs `web/dist`.
-At the end the job runs `curl -f https://loffy.me` (6 tries, 20 seconds each), so it turns red until DNS and Caddy below are done.
-The web app has no secrets and no `.env` values. Its `/api` calls stay on `loffy.me`, and Caddy sends them to the backend,
+At the end the job runs `curl -f https://saynata.com` (6 tries, 20 seconds each), so it turns red until DNS and Caddy below are done.
+The web app has no secrets and no `.env` values. Its `/api` calls stay on `saynata.com`, and Caddy sends them to the backend,
 so the backend needs no CORS change.
 
 **One-time setup, in this order:**
 
-1. **DNS (Cloudflare).** Add `A` `loffy.me` to `110.172.29.29`, **DNS only** (grey cloud), like `api` and `admin`. Caddy gets the
-   certificate itself, and the orange cloud (proxied) is what gives the 522 today. Add `A` (or `CNAME` to `loffy.me`) `www`, DNS only too.
+1. **DNS (Cloudflare).** Add `A` `saynata.com` to `110.172.29.29`, **DNS only** (grey cloud), like `api` and `admin`. Caddy gets the
+   certificate itself, and the orange cloud (proxied) is what gives the 522 today. Add `A` (or `CNAME` to `saynata.com`) `www`, DNS only too.
 2. **Caddy.** Add this to `/etc/caddy/Caddyfile` (the repo does not manage the Caddyfile), then `sudo systemctl reload caddy`.
    `encode` is only in the web block, so the streamed answers of `/api/translations/stream` are not buffered:
 
 ```caddyfile
-loffy.me {
+saynata.com {
     handle /api/* {
         reverse_proxy 127.0.0.1:8081
     }
@@ -728,17 +728,70 @@ loffy.me {
     }
 }
 
-www.loffy.me {
-    redir https://loffy.me{uri} permanent
+www.saynata.com {
+    redir https://saynata.com{uri} permanent
 }
 ```
 
 3. **Deploy.** Merge to `main` (or **Run workflow** on the Deploy workflow). The `deploy-web` job builds, copies, restarts
    and checks the site.
-4. **Check.** Open `https://loffy.me`, explain "give up", then a sentence.
+4. **Check.** Open `https://saynata.com`, explain "give up", then a sentence.
 
 By hand on the server (after a build is copied to `web/dist`): `web/scripts/deploy-web.sh`. Logs: `cd backend && docker compose -f docker-compose.prod.yml logs web`.
 Never run `next build` on the VPS.
+
+## 15. Domain saynata.com (TASK-104)
+
+The product domain is `saynata.com` (bought 2026-10-18 at Cloudflare). `loffy.me` stays as an alias, so installed apps, old
+links and old extension builds keep working. The code, the CI checks and the default addresses now say `saynata.com`.
+
+**DNS.** `scripts/dns.sh` creates or updates the records of `saynata.com`, `www`, `api` and `admin` in Cloudflare (`A` to the
+server, **DNS only**, grey cloud). Run it on your computer: `scripts/dns.sh` shows what would change, `scripts/dns.sh --apply`
+changes it. It needs a Cloudflare API token (zone `saynata.com`, permission "Edit zone DNS") in `scripts/.env` as
+`CLOUDFLARE_API_TOKEN=...`. That file is git-ignored and the server never needs the token.
+
+**Caddy.** Every site block lists both domains (one certificate each; add the `Caddyfile` change by hand, then
+`sudo systemctl reload caddy`):
+
+```caddyfile
+api.loffy.me, api.saynata.com {
+    # same content as before: /media/ file_server and reverse_proxy to the backend
+}
+
+admin.loffy.me, admin.saynata.com {
+    # same content as before: root to admin/dist
+}
+
+loffy.me, saynata.com {
+    # same content as section 14
+}
+
+www.loffy.me, www.saynata.com {
+    redir https://saynata.com{uri} permanent
+}
+```
+
+**What the code does with two domains**
+
+- Admin CORS (`app.admin.allowed-origins`) allows `https://admin.saynata.com` and `https://admin.loffy.me`. The admin login cookie
+  has no `Domain` and is `SameSite=Strict`, so it is stored for the API host that set it. `admin.saynata.com` calling
+  `api.saynata.com` is same-site, so the login works. The admin build points at `api.saynata.com`; do not mix the pairs
+  (`admin.saynata.com` with `api.loffy.me` is cross-site and the cookie is not sent).
+- The browser extension asks for both API hosts in `host_permissions` for one release, and shows media from either host.
+  The web app does the same for media.
+- Media: Postgres keeps only file names (`media.file_name`) and the bundled `dictionary.sqlite` keeps `media/<file>`, so there
+  is no saved address to rewrite. The address is built when an answer is sent, from `MEDIA_BASE_URL`, and the app builds it
+  from `BackendBaseURL`. The old domain keeps serving `/media/`.
+
+**Your steps on the server** (the repo never touches them):
+
+1. Resend: add and verify `saynata.com` (section 10, same records with the new name), make a sending key for it if needed.
+2. `backend/.env`: `EMAIL_FROM=login@saynata.com` (only after step 1; until then it stays on `loffy.me`),
+   `PUBLIC_BASE_URL=https://api.saynata.com`, `MEDIA_BASE_URL=https://api.saynata.com/media`.
+3. Release and deploy (merge `feature/local` to `main`). Check `curl -I https://api.saynata.com/actuator/health`.
+4. Build the new app and the new extension (they point at `api.saynata.com`).
+5. After a few weeks, when nobody uses the old builds: remove `loffy.me` from Caddy, from `allowed-origins` and from
+   the extension `host_permissions`.
 
 ## Troubleshooting
 
@@ -757,6 +810,6 @@ Never run `next build` on the VPS.
 | New explanations stop with 503 `daily_limit_reached` | Today's Claude spend reached `CLAUDE_DAILY_BUDGET_USD` (UTC day). See the spend: `GET /api/admin/usage?days=1` with the admin cookie. Raise the cap in `.env` if you want. |
 | Prefill run does nothing | `GET /api/admin/prefill` shows `running`, the counts by status and the last runs (`stoppedBecause`: `queue-empty`, `cap`, `limit`, `failures`). Items are added by the pipeline collector (TASK-83.2) or by an admin; `PREFILL_CRON` empty means no night run. A run that stops with `cap` is normal: the next run continues. |
 | Deploy hangs (the build log stops, the server is idle) | Seen on 2026-10-17: dockerd logged `session healthcheck failed fatally` and the BuildKit build waited forever. `deploy.sh` now stops a build after 6 minutes and tries once more, and the job stops after 20 minutes. If a run still hangs: 1. Cancel it (Actions tab, the run, **Cancel workflow**). 2. On the server, look for leftover build processes: `pgrep -af 'docker compose\|buildx'`, and stop them: `pkill -f 'buildx.*bake'; pkill -f 'docker compose -f docker-compose.prod.yml'`. 3. If builds still hang, restart Docker: `sudo systemctl restart docker` (the backend and Postgres restart too, a short outage). 4. Re-run the workflow (**Re-run all jobs**). The old backend keeps running until a new build succeeds. |
-| `https://loffy.me` shows Cloudflare 522 or the `deploy-web` check fails | DNS record missing or proxied (orange cloud), or the Caddy block is missing. See section 14, steps 1 and 2. `curl -I http://127.0.0.1:3001` on the server tells if the web container itself is up. |
+| `https://saynata.com` shows Cloudflare 522 or the `deploy-web` check fails | DNS record missing or proxied (orange cloud), or the Caddy block is missing. See section 14, steps 1 and 2. `curl -I http://127.0.0.1:3001` on the server tells if the web container itself is up. |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |
 | AI picture fails (TASK-91) | See section 12, "If something goes wrong": the three usual causes are a missing `AI_PICTURES_ENABLED=true`, an `auth.json` that is not owned by 10001 or has ended, and a sandbox that needs `AI_CODEX_SANDBOX=workspace-write`. |

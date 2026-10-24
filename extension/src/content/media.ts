@@ -8,14 +8,20 @@
  * One node per address is kept while the card is open, so a re-render (Listen, a row) does not restart a clip.
  */
 
+import { LEGACY_API_BASE } from "../shared/config";
+
 export const MEDIA_WIDTH = 240;
 export const MEDIA_HEIGHT = 135;
 
-/** Only our own server's media: an imageUrl is never followed to another site. */
+/**
+ * Only our own server's media: an imageUrl is never followed to another site.
+ * The old address counts as ours too, until the server writes media links with the new one (TASK-104).
+ */
 export function isAllowedMedia(url: string, apiBase: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.origin === new URL(apiBase).origin && parsed.pathname.startsWith("/media/");
+    const ours = [new URL(apiBase).origin, new URL(LEGACY_API_BASE).origin];
+    return ours.includes(parsed.origin) && parsed.pathname.startsWith("/media/");
   } catch {
     return false;
   }
