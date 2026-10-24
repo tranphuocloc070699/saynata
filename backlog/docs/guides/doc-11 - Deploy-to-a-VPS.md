@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-24 11:01'
+updated_date: '2026-10-24 11:27'
 ---
 # Deploy to a VPS
 
@@ -117,7 +117,7 @@ Useful commands:
 
 | Job | Command |
 |---|---|
-| Update after `git pull` | `./scripts/deploy.sh` (rebuilds, waits until healthy, prints logs if not) |
+| Update after `git pull` | `./scripts/deploy.sh` (checks free disk, rebuilds, waits until healthy, prints logs if not, prunes old build cache, section 18) |
 | Restart | `docker compose -f docker-compose.prod.yml restart backend` |
 | Stop (keeps data) | `docker compose -f docker-compose.prod.yml down` |
 | Back up the database | `docker compose -f docker-compose.prod.yml exec postgres pg_dump -U app english_translation > backup.sql` |
@@ -1002,5 +1002,76 @@ Put a monthly reminder in your calendar; the script is safe to run again.
 | Prefill run does nothing | `GET /api/admin/prefill` shows `running`, the counts by status and the last runs (`stoppedBecause`: `queue-empty`, `cap`, `limit`, `failures`). Items are added by the pipeline collector (TASK-83.2) or by an admin; `PREFILL_CRON` empty means no night run. A run that stops with `cap` is normal: the next run continues. |
 | Deploy hangs (the build log stops, the server is idle) | Seen on 2026-10-17: dockerd logged `session healthcheck failed fatally` and the BuildKit build waited forever. `deploy.sh` now stops a build after 6 minutes and tries once more, and the job stops after 20 minutes. If a run still hangs: 1. Cancel it (Actions tab, the run, **Cancel workflow**). 2. On the server, look for leftover build processes: `pgrep -af 'docker compose\|buildx'`, and stop them: `pkill -f 'buildx.*bake'; pkill -f 'docker compose -f docker-compose.prod.yml'`. 3. If builds still hang, restart Docker: `sudo systemctl restart docker` (the backend and Postgres restart too, a short outage). 4. Re-run the workflow (**Re-run all jobs**). The old backend keeps running until a new build succeeds. |
 | `https://saynata.com` shows Cloudflare 522 or the `deploy-web` check fails | DNS record missing or proxied (orange cloud), or the Caddy block is missing. See section 14, steps 1 and 2. `curl -I http://127.0.0.1:3001` on the server tells if the web container itself is up. |
+| Backend keeps restarting, `api.saynata.com` gives 502, and `docker compose -f docker-compose.prod.yml logs backend` says `No space left on device` (often `Unable to create tempDir`), or a deploy stops with "Not enough disk space to build" | The disk is full, usually Docker build cache (seen on 2026-10-24). 1. `df -h /` and `docker system df`. 2. Free the cache and old images: `docker builder prune -af && docker image prune -f` (**never** `docker volume prune` or `--volumes`: that deletes the database). 3. Old logs: `sudo journalctl --vacuum-size=100M`. 4. Start the backend again: `docker compose -f docker-compose.prod.yml up -d backend`, or re-run the deploy workflow. 5. Still full? `sudo du -xh / --max-depth=2 \| sort -h \| tail -20`. Then do the one-time steps in section 18 (journald cap, weekly prune) so it does not come back. |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |
 | AI picture fails (TASK-91) | See section 12, "If something goes wrong": the three usual causes are a missing `AI_PICTURES_ENABLED=true`, an `auth.json` that is not owned by 10001 or has ended, and a sandbox that needs `AI_CODEX_SANDBOX=workspace-write`. |
+
+## 18. Keep the disk from filling up
+
+On 2026-10-24 the 16 GB disk was 100% full. Every deploy builds the backend and web images on the server, and Docker
+kept the build cache of each one (5.9 GB), plus 300 MB of journald logs. The backend could not create its Tomcat temp
+folder and kept restarting (502 on `api.saynata.com`), and the release deploy failed.
+
+What the deploy scripts do now ([backend/scripts/disk.sh](../../../backend/scripts/disk.sh), used by
+[deploy.sh](../../../backend/scripts/deploy.sh) and [deploy-web.sh](../../../web/scripts/deploy-web.sh)):
+
+1. **Before the build:** if less than 2 GB is free where Docker keeps its data, prune old build cache and dangling
+   images first. Still under 2 GB: stop with "Not enough disk space to build", restart nothing (the old backend keeps
+   running) and print `df -h /`.
+2. **After a healthy start:** `docker builder prune -f --reserved-space 1GB` (keeps 1 GB of cache, so the Maven
+   download layer usually stays and builds stay fast; older Docker gets `--keep-storage 1GB`) and `docker image prune -f`
+   (only dangling images: old builds of our own images). Then `df -h /`, which is in the GitHub Actions log of every deploy.
+3. **Never** `docker volume prune` or `docker system prune --volumes`: the Postgres data is a volume.
+
+Optional settings for the deploy (environment of the deploy shell, not `.env`): `DEPLOY_MIN_FREE_GB` (default 2) and
+`DEPLOY_KEEP_BUILD_CACHE` (default `1GB`).
+
+### One-time server steps (you do these; the repo cannot reach the server)
+
+**1. Cap the journald logs at 100 MB.** Without a cap journald may use up to 10% of the disk (1.6 GB here).
+
+```bash
+sudo mkdir -p /etc/systemd/journald.conf.d
+printf '[Journal]\nSystemMaxUse=100M\n' | sudo tee /etc/systemd/journald.conf.d/saynata.conf
+sudo systemctl restart systemd-journald
+journalctl --disk-usage          # Archived and active journals take up 100M or less
+```
+
+**2. Optional: a weekly prune timer**, a second guard for builds that ran outside `deploy.sh` (a manual
+`docker compose build`, a failed deploy). It does the same prune as the deploy, every Sunday at 22:30 UTC, after the backup.
+Files: [service](../../../backend/scripts/systemd/saynata-docker-prune.service) and
+[timer](../../../backend/scripts/systemd/saynata-docker-prune.timer). They run as root and need no edits:
+
+```bash
+cd /var/www/saynata/backend/scripts/systemd
+sudo cp saynata-docker-prune.service saynata-docker-prune.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now saynata-docker-prune.timer
+systemctl list-timers saynata-docker-prune.timer     # shows the next Sunday run
+sudo systemctl start saynata-docker-prune.service    # one run now; check with: docker system df
+```
+
+**3. Check where the space goes**, now and when the disk is above 80%:
+
+```bash
+df -h /
+docker system df                                  # Images, Containers, Local Volumes, Build Cache
+sudo du -xh / --max-depth=2 2>/dev/null | sort -h | tail -20
+du -sh /var/backups/saynata ~/.cache/restic      # backup dumps and the restic cache
+```
+
+### Does the backup fit?
+
+The nightly backup (section 17) keeps the 3 newest `pg_dump -Fc` dumps in `/var/backups/saynata/db`.
+`latest/saynata.dump` is a hard link, so it takes no extra space. During a run a 4th dump exists for a moment (the new
+one is written before the oldest is deleted), and restic keeps a local cache in `~/.cache/restic` of the user who runs it.
+`-Fc` dumps are compressed, and most of the database is text (words, sentences), so each dump should be tens of MB, not GB.
+The backup log prints `Dump size: ...` every night (`journalctl -u saynata-backup.service -e`).
+
+Rule of thumb on this 16 GB disk: the backup fits while 4 dumps plus the restic cache stay under about 1 GB. If they grow
+past that, lower `KEEP_LOCAL_DUMPS=3` in [backup.sh](../../../backend/scripts/backup.sh) to 2 (a repo change; the copies in R2 keep the history), or move to a
+bigger disk. Media files are not copied locally; restic reads them in place.
+
+What else uses the 16 GB: Ubuntu, Docker, our images (backend, Postgres, web), the Postgres volume, the media
+folder (`/var/lib/saynata/media`), 1 GB of build cache, the backups and up to 100 MB of logs. `docker system df` and the
+`du` line above give the real numbers. Keep at least 3 GB free, so one deploy (a new image next to the old one) always fits.

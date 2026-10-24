@@ -1,0 +1,12 @@
+# Runs saynata-docker-prune.service every Sunday at 22:30 UTC, after the nightly backup (21:30 UTC).
+[Unit]
+Description=Prune Docker build cache every week
+
+[Timer]
+OnCalendar=Sun *-*-* 22:30:00 UTC
+Persistent=true
+RandomizedDelaySec=5min
+Unit=saynata-docker-prune.service
+
+[Install]
+WantedBy=timers.target

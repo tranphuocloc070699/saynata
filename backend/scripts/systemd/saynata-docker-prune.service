@@ -1,0 +1,14 @@
+# Weekly clean-up of Docker build cache and dangling images (doc-11, "Keep the disk from filling up").
+# Copy to /etc/systemd/system/ as it is. Runs as root. Volumes (Postgres data) are never touched.
+[Unit]
+Description=Prune old Docker build cache and dangling images
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Keep 1 GB of build cache so the next deploy stays fast. --keep-storage is the old name of --reserved-space.
+ExecStart=/bin/sh -c 'docker builder prune -f --reserved-space 1GB || docker builder prune -f --keep-storage 1GB'
+ExecStart=/usr/bin/docker image prune -f
+Nice=10
+IOSchedulingClass=idle
