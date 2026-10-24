@@ -1,9 +1,11 @@
 ---
 id: TASK-106.4
 title: 'Web and extension: word language row from POST /api/translate-lines'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-24 09:51'
+updated_date: '2026-10-24 10:10'
 labels: []
 dependencies:
   - TASK-106.2
@@ -31,3 +33,9 @@ web/src/components/home/WordCard.tsx and extension/src/content/card.ts show only
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Shared lines.ts (cache, loadLines, rowContent) copied web/extension. 2. translateLines in both api.ts (guest = cachedOnly). 3. Web WordCard row; extension worker message + card row. 4. Vitest; docs 23 and 19.
+<!-- SECTION:PLAN:END -->
