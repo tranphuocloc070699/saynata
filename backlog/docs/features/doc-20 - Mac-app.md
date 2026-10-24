@@ -3,7 +3,7 @@ id: doc-20
 title: Mac app
 type: guide
 created_date: '2026-10-16 09:43'
-updated_date: '2026-10-17 17:01'
+updated_date: '2026-10-24 06:05'
 ---
 # Mac app
 
@@ -26,7 +26,7 @@ flowchart LR
     D --> V[MenuBarContentView]
     V --> S[TranslationStore, shared with iOS]
     V --> R[TranslateResultView, shared with iOS]
-    S --> B[(api.loffy.me)]
+    S --> B[(api.saynata.com)]
     S --> L[(dictionary.sqlite, ResultCache)]
 ```
 

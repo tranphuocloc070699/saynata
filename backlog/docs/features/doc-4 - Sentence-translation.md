@@ -3,7 +3,7 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-23 10:04'
+updated_date: '2026-10-24 06:05'
 ---
 > Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-23 (TASK-89.3: prompt `v9`, a short summary: one line, or a gist line and up to 3 bullets with **bold** key words, rendered by the app, the Mac app and the extension, see "Prompt v9" below; TASK-97: home input is one composer card, hamburger and History buttons on top; before that TASK-83.13: one pair of quotes around the whole sentence is ignored by the loose match, Flyway V25 recomputes `match_key`; before that 2026-10-22: TASK-83.3 loose match grows: curly quotes and apostrophes made straight, a final `…` or comma ignored too, Flyway V24 recomputes `match_key`; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: TASK-89.1: prompt `v8`, Claude writes only `isEnglish`, `summary`, `translation`; `summary` is sent as `meaning`, `words` is always empty, see "Prompt v8" below). Before that, 2026-10-16 (prompt `v7`: a shorter, direct meaning, see "Prompt" below; TASK-83.4 `?cachedOnly=true` on both endpoints, 404 `not_cached` without reaching ClaudeGate; TASK-83.3 loose match: "how are you" finds a saved "How are you?", no prompt change; TASK-73 the meaning streams word by word, TASK-74 local word cards at once while loading, TASK-75 start-up warm-up; TASK-70 sign-in sheet, Bearer token, refresh and retry, coded errors, see doc-17 "iOS app"; TASK-56 extra words from the bundled dictionary; TASK-50 keyboard hides on tap, send and scroll; TASK-65 streaming: the meaning shows as soon as Claude has written it, see "Streaming" below; the line numbers in tables 1-4 are for the non-streaming path and may be a few lines off). Earlier: 2026-10-14 (TASK-9 personal text is never cached; Listen on the sentence header: TASK-7; TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -281,7 +281,7 @@ Warm-up (TASK-75): on `ApplicationReadyEvent`, `ClaudeWarmUp` runs one 1-token C
 
 Measure it: `BASE_URL=http://localhost:8081 python3 backend/scripts/measure_stream.py` prints, for 3 new sentences, the time to the `meaning` event and to `done`, and the old endpoint's time for comparison (real Claude calls, a few cents).
 
-Proxy: Caddy's `reverse_proxy` flushes `text/event-stream` right away, and the backend also sends `X-Accel-Buffering: no`. Check on the server with `curl -N -H 'Content-Type: application/json' -H 'Accept: text/event-stream' -d '{"text":"...","targetLang":"vi"}' https://api.loffy.me/api/translations/stream`: the `meaning` event must appear before `done`.
+Proxy: Caddy's `reverse_proxy` flushes `text/event-stream` right away, and the backend also sends `X-Accel-Buffering: no`. Check on the server with `curl -N -H 'Content-Type: application/json' -H 'Accept: text/event-stream' -d '{"text":"...","targetLang":"vi"}' https://api.saynata.com/api/translations/stream`: the `meaning` event must appear before `done`.
 
 ## Words for the night job (TASK-83.8)
 

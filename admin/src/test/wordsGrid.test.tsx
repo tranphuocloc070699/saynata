@@ -10,7 +10,7 @@ const API = "https://api.test/api/admin";
 const VIEW_KEY = "admin.words.view";
 
 function media(kind: "photo" | "clip", name: string, source?: SenseMedia["source"]): SenseMedia {
-  return { url: `https://api.loffy.me/media/${name}`, kind, photographer: "Ann", pageUrl: "https://pixabay.com/x/", source };
+  return { url: `https://api.saynata.com/media/${name}`, kind, photographer: "Ann", pageUrl: "https://pixabay.com/x/", source };
 }
 
 function word(id: number, text: string, vietnamese: string, first: SenseMedia | null, extra: Partial<WordItem> = {}): WordItem {
@@ -122,7 +122,7 @@ describe("words grid view (TASK-81)", () => {
     const grid = await screen.findByRole("list", { name: "Grid" });
     const card = (await within(grid).findByText("apple")).closest("button") as HTMLElement;
 
-    expect(within(card).getByRole("img", { name: "apple photo" })).toHaveAttribute("src", "https://api.loffy.me/media/apple.webp");
+    expect(within(card).getByRole("img", { name: "apple photo" })).toHaveAttribute("src", "https://api.saynata.com/media/apple.webp");
     expect(within(card).getByText("quả táo")).toBeInTheDocument();
     expect(within(card).queryByText(/Bundled|to review/)).not.toBeInTheDocument();
 
@@ -178,7 +178,7 @@ describe("thumbnail preview card (TASK-81)", () => {
 
     expect(await screen.findByRole("img", { name: "apple preview" }, { timeout: 2000 })).toHaveAttribute(
       "src",
-      "https://api.loffy.me/media/apple.webp",
+      "https://api.saynata.com/media/apple.webp",
     );
     expect(screen.getByText("apple · sense 1 · Pixabay")).toBeInTheDocument();
   });
@@ -196,7 +196,7 @@ describe("thumbnail preview card (TASK-81)", () => {
     await user.hover(thumb);
 
     const video = await screen.findByLabelText("run clip preview", undefined, { timeout: 2000 });
-    expect(video).toHaveAttribute("src", "https://api.loffy.me/media/run.mp4");
+    expect(video).toHaveAttribute("src", "https://api.saynata.com/media/run.mp4");
     expect((video as HTMLVideoElement).muted).toBe(true);
     expect((video as HTMLVideoElement).loop).toBe(true);
     expect(screen.getByText("run · sense 1 · AI · Wrong picture")).toBeInTheDocument();

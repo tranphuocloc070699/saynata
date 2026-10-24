@@ -264,7 +264,7 @@ describe("pictures in the word card", () => {
     ...wordResponse,
     entry: {
       senses: [
-        { ...wordResponse.entry.senses[0], imageUrl: "https://api.loffy.me/media/reluctant_1.webp" },
+        { ...wordResponse.entry.senses[0], imageUrl: "https://api.saynata.com/media/reluctant_1.webp" },
         { ...wordResponse.entry.senses[0], simpleDefinition: "Second meaning." },
       ],
     },
@@ -276,7 +276,7 @@ describe("pictures in the word card", () => {
     const media = vi.fn(() => frame);
     const state = applyEvent(initialState("reluctant", "word", "vi", false), { type: "word", response: withMedia });
     const card = renderCard(state, { ...actions(), media });
-    expect(media).toHaveBeenCalledWith("https://api.loffy.me/media/reluctant_1.webp");
+    expect(media).toHaveBeenCalledWith("https://api.saynata.com/media/reluctant_1.webp");
     expect(card.querySelectorAll(".media-row")).toHaveLength(1);
     const order = Array.from(card.children).map((e) => e.className.split(" ")[0]);
     expect(order).toEqual(["head", "sense", "media-row", "example", "sense", "example", "fold"]);

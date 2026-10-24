@@ -15,3 +15,6 @@ build/
 
 # Paid cat pixel art (CatMegaBundle, no license to redistribute). Copied in by scripts/install-cat-assets.sh
 EnglishTranslation/PaidAssets/
+
+# Cloudflare API token for scripts/dns.sh (local only)
+scripts/.env
