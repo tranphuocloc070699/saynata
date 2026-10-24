@@ -127,4 +127,26 @@ class TranslationControllerTest {
         mockMvc.perform(get("/api/words/two, words"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void noLanguageLineIsAnEmptyStringNeverNull() throws Exception {
+        // Old apps decode translation as a String, so a JSON null would break them (TASK-106.6).
+        when(claude.explainSentence("hello")).thenReturn(new Explanation("A greeting.", List.of(), ""));
+        when(claude.translateLines(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList()))
+                .thenThrow(new IllegalStateException("line call failed"));
+
+        mockMvc.perform(post("/api/translations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"hello\", \"targetLang\": \"ko\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.explanation.meaning").value("A greeting."))
+                .andExpect(jsonPath("$.explanation.translation").value(""));
+        // Now the English part is cached; cachedOnly never calls Claude and still answers "".
+        mockMvc.perform(post("/api/translations").param("cachedOnly", "true")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"hello\", \"targetLang\": \"ja\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cached").value(true))
+                .andExpect(jsonPath("$.explanation.translation").value(""));
+    }
 }

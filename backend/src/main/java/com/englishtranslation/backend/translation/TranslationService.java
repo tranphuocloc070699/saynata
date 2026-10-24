@@ -20,7 +20,7 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * A sentence answer has two parts (TASK-106.6). The English part (prompt v10) is cached once for all languages: its
  * key has no language. The language line {@code explanation.translation} comes from {@code line_translation}
- * through {@link LineTranslationService}: saved line, else one small line call, else null (a guest, a cachedOnly
+ * through {@link LineTranslationService}: saved line, else one small line call, else "" (never null: old apps decode a String; a guest, a cachedOnly
  * request, a refused or failed call). For English there is no line call; the translation is the text itself.
  *
  * There is no @Transactional here on purpose: the Claude call can take seconds, and a
@@ -156,12 +156,12 @@ public class TranslationService {
             boolean cachedOnly, boolean store, boolean alreadyGated) {
         String line = targetLang == TargetLanguage.EN
                 ? normalized
-                : lines.lineFor(targetLang, normalized, cachedOnly, store, alreadyGated).orElse(null);
+                : lines.lineFor(targetLang, normalized, cachedOnly, store, alreadyGated).orElse("");
         return new Explanation(english.meaning(), english.words(), line);
     }
 
     private Explanation readExplanation(SentenceTranslation row) {
         List<Explanation.Word> words = jsonMapper.readValue(row.getWordsJson(), WORD_LIST);
-        return new Explanation(row.getMeaning(), words, null);
+        return new Explanation(row.getMeaning(), words, "");
     }
 }

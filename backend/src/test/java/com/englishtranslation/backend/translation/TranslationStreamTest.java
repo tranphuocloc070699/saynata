@@ -39,12 +39,16 @@ class TranslationStreamTest {
     @Autowired
     SentenceTranslationRepository repository;
 
+    @Autowired
+    com.englishtranslation.backend.lines.LineTranslationRepository lineRepository;
+
     @MockitoBean
     ClaudeService claude;
 
     @BeforeEach
     void cleanDatabase() {
         repository.deleteAll();
+        lineRepository.deleteAll();
     }
 
     private static final Explanation EXPLANATION = new Explanation(
@@ -245,5 +249,20 @@ class TranslationStreamTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"text\": \"   \", \"targetLang\": \"vi\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void doneHasAnEmptyTranslationStringWhenTheLineCallFails() throws Exception {
+        claudeStreams("He was reluctant to leave", EXPLANATION);
+        when(claude.translateLines(any(), org.mockito.ArgumentMatchers.anyList()))
+                .thenThrow(new IllegalStateException("line call failed"));
+
+        String body = streamBody("He was reluctant to leave");
+
+        assertThat(eventNames(body)).containsExactly("meaning-delta", "meaning-delta", "meaning", "done");
+        assertThat(body).contains("\"translation\":\"\"},\"cached\":false}").doesNotContain("\"translation\":null");
+        // The second request is a cache hit for the English part: done only, still an empty string.
+        String again = streamBody("He was reluctant to leave");
+        assertThat(again).contains("\"translation\":\"\"},\"cached\":true}");
     }
 }
