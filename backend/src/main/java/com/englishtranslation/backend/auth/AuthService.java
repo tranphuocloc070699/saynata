@@ -52,6 +52,9 @@ public class AuthService {
 
     private final EmailLoginCodeRepository codes;
     private final EmailLoginLinkRepository links;
+    /** How often "last seen" is written at most (TASK-105): the app refreshes its token about once an hour. */
+    static final Duration LAST_SEEN_EVERY = Duration.ofHours(1);
+
     private final RefreshTokenRepository refreshTokens;
     private final UserRepository users;
     private final EmailSender emailSender;
@@ -192,6 +195,10 @@ public class AuthService {
         RANDOM.nextBytes(bytes);
         String refreshToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         Instant now = clock.instant();
+        // "Last seen" for the admin Users page (TASK-105): every sign-in and refresh, saved at most once an hour.
+        if (user.markSeen(now, LAST_SEEN_EVERY)) {
+            users.save(user);
+        }
         refreshTokens.save(new RefreshToken(user.getId(), sha256(refreshToken), now,
                 now.plus(properties.refreshTokenLifetime())));
         return new TokenResponse(accessTokens.createToken(user.getId()), refreshToken, accessTokens.lifetimeSeconds(),

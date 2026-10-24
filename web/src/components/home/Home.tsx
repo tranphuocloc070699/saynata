@@ -86,15 +86,14 @@ export function Home() {
       ? suggested.list.filter((s) => s.text.toLowerCase() !== prefix.toLowerCase())
       : [];
 
-  // Motion 1: the page enters (the intro in page.tsx too, so the whole document is searched), then the cat
-  // drops onto the card and the send button pops in. Runs once.
+  // Motion 1: the page enters (the intro in page.tsx too, so the whole document is searched) and the send
+  // button pops in. Runs once. The cat drops onto the card by itself when its picture is ready (MochiCat).
   useGSAP(
     () => {
       withMotion(() => {
         gsap
           .timeline({ defaults: { ease: "power3.out" } })
           .fromTo(gsap.utils.toArray("[data-enter]", document), { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.6, stagger: 0.08 })
-          .from(".cat", { y: -26, opacity: 0, duration: 0.75, ease: "bounce.out" }, 0.3)
           .from(".send", { scale: 0.6, opacity: 0, duration: 0.4, ease: "back.out(2)" }, 0.45);
       });
     },

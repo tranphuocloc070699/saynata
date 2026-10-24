@@ -12,6 +12,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.Set;
@@ -44,6 +45,18 @@ public class User {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    /** Set while the account is blocked (TASK-105): no new Claude call, cached answers still work. */
+    @Column(name = "blocked_at")
+    private Instant blockedAt;
+
+    /** Why the admin blocked it. Only admins see it. */
+    @Column(name = "blocked_reason", length = 300)
+    private String blockedReason;
+
+    /** The last sign-in or token refresh, saved at most once an hour (TASK-105). */
+    @Column(name = "last_seen_at")
+    private Instant lastSeenAt;
 
     protected User() {
     }
@@ -88,5 +101,44 @@ public class User {
 
     public boolean isAdmin() {
         return roles.contains(Role.ADMIN);
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getBlockedAt() {
+        return blockedAt;
+    }
+
+    public String getBlockedReason() {
+        return blockedReason;
+    }
+
+    public boolean isBlocked() {
+        return blockedAt != null;
+    }
+
+    public void block(String reason, Instant now) {
+        this.blockedAt = now;
+        this.blockedReason = reason;
+    }
+
+    public void unblock() {
+        this.blockedAt = null;
+        this.blockedReason = null;
+    }
+
+    public Instant getLastSeenAt() {
+        return lastSeenAt;
+    }
+
+    /** True when last seen is empty or older than {@code every}; then it is set to now and the caller saves it. */
+    public boolean markSeen(Instant now, Duration every) {
+        if (lastSeenAt != null && lastSeenAt.isAfter(now.minus(every))) {
+            return false;
+        }
+        lastSeenAt = now;
+        return true;
     }
 }

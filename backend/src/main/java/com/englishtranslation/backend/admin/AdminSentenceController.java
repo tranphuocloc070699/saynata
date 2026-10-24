@@ -121,7 +121,8 @@ public class AdminSentenceController {
         } catch (RuntimeException e) {
             log.warn("sentence_translation {} has words_json that cannot be read: {}", row.getId(), e.toString());
         }
-        Explanation explanation = new Explanation(row.getMeaning(), words, row.getTranslation());
+        Explanation explanation = new Explanation(row.getMeaning(), words, row.getBetter(), row.getBetterWhy(),
+                row.getTranslation());
         return new AdminSentence(row.getId(), row.getSourceText(), row.getTargetLang(), explanation,
                 row.getModel(), row.getPromptVersion(), row.isNeedsReview(), row.getCreatedAt());
     }

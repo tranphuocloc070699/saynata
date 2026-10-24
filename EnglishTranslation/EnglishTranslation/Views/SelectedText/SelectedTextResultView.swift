@@ -191,7 +191,7 @@ struct SelectedTextResultView: View {
         selectedText = text
         // Text the app cannot explain (empty, over 500 characters) never reaches the backend.
         guard TextRoute(text: text).problemMessage == nil else { return }
-        store.inputText = text
+        store.useTextFromElsewhere(text)
         await store.translate()
     }
 }

@@ -2,6 +2,8 @@ package com.englishtranslation.backend.limits;
 
 import com.englishtranslation.backend.auth.AuthProperties;
 import com.englishtranslation.backend.claude.ClaudeUsageService;
+import com.englishtranslation.backend.user.User;
+import com.englishtranslation.backend.user.UserRepository;
 import org.springframework.stereotype.Component;
 
 /**
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Component;
  * and bundled words never reach it). It checks, in this order:
  * <ol>
  * <li>Is the caller signed in? A guest gets 401 {@code sign_in_required}.</li>
+ * <li>Is the account blocked by an admin (TASK-105)? Then 403 {@code account_blocked}.</li>
  * <li>Is today's money budget left? If not, 503 {@code daily_limit_reached}.</li>
  * <li>Is the user under the hourly and daily limit? If not, 429 {@code rate_limited}. When sign-in is not required
  * (REQUIRE_SIGN_IN=false) a guest has its own, smaller per-IP limit, so guests cannot burn the budget alone.</li>
@@ -22,12 +25,15 @@ public class ClaudeGate {
     private final ClaudeUsageService usage;
     private final RateLimiter rateLimiter;
     private final LimitProperties limits;
+    private final UserRepository users;
 
-    public ClaudeGate(AuthProperties auth, ClaudeUsageService usage, RateLimiter rateLimiter, LimitProperties limits) {
+    public ClaudeGate(AuthProperties auth, ClaudeUsageService usage, RateLimiter rateLimiter, LimitProperties limits,
+            UserRepository users) {
         this.auth = auth;
         this.usage = usage;
         this.rateLimiter = rateLimiter;
         this.limits = limits;
+        this.users = users;
     }
 
     /** Call this before every NEW Claude call for a person's request. */
@@ -38,6 +44,10 @@ public class ClaudeGate {
         Long userId = CallerContext.userId().orElse(null);
         if (userId == null && auth.requireSignIn()) {
             throw new SignInRequiredException();
+        }
+        // One small read per new Claude call; a blocked account is stopped before any limit or budget is used.
+        if (userId != null && users.findById(userId).map(User::isBlocked).orElse(false)) {
+            throw new AccountBlockedException();
         }
         checkBudget();
         if (userId != null) {

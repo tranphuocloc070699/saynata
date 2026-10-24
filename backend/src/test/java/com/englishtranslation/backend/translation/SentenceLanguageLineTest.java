@@ -87,17 +87,17 @@ class SentenceLanguageLineTest {
     }
 
     @Test
-    void theEnglishPartIsSavedWithoutALanguageUnderTheV10Key() {
+    void theEnglishPartIsSavedWithoutALanguageUnderTheCurrentKey() {
         when(claude.explainSentence("Hello there")).thenReturn(ENGLISH);
         when(claude.translateLines(any(), anyList())).thenReturn(List.of("Xin chào"));
 
         service.translate("Hello there", TargetLanguage.VI);
 
-        SentenceTranslation row = sentences.findByCacheKey(CacheKeys.sentenceKey("v10", "Hello there")).orElseThrow();
-        assertThat(row.getPromptVersion()).isEqualTo("v10");
+        SentenceTranslation row = sentences.findByCacheKey(CacheKeys.sentenceKey("v11", "Hello there")).orElseThrow();
+        assertThat(row.getPromptVersion()).isEqualTo("v11");
         assertThat(row.getTargetLang()).isEqualTo("en");
         assertThat(row.getTranslation()).isEmpty();
-        assertThat(row.getMatchKey()).isEqualTo(CacheKeys.sentenceMatchKey("v10", "hello there"));
+        assertThat(row.getMatchKey()).isEqualTo(CacheKeys.sentenceMatchKey("v11", "hello there"));
     }
 
     @Test

@@ -16,4 +16,7 @@ struct SentenceResult: Equatable {
     let explanation: Explanation
     /// The language the translation was made in. The result heading uses this, not the live picker.
     let language: TargetLanguage
+    /// False when the text came from another app (copied text, Share, the Mac Services item): it is someone
+    /// else's text, so the "Better way to say it" row is hidden (TASK-110).
+    var isTyped = true
 }

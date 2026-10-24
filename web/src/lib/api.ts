@@ -46,6 +46,10 @@ export interface SentenceWord {
 export interface Explanation {
   meaning: string;
   words: SentenceWord[];
+  /** The text with its real mistakes fixed (TASK-110); null when it is natural or the answer is older. */
+  better?: string | null;
+  /** One line that says why the fix is better. */
+  betterWhy?: string | null;
   translation: string;
 }
 

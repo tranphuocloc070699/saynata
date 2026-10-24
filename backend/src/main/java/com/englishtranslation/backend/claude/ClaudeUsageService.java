@@ -1,5 +1,6 @@
 package com.englishtranslation.backend.claude;
 
+import com.englishtranslation.backend.limits.CallerContext;
 import com.englishtranslation.backend.limits.PrefillContext;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -69,7 +70,9 @@ public class ClaudeUsageService {
         }
         try {
             BigDecimal cost = cost(model, inputTokens, outputTokens);
-            repository.save(new ClaudeUsage(clock.instant(), model, feature, inputTokens, outputTokens, cost));
+            // The night job has no user; a person's call keeps their id for the admin Users page (TASK-105).
+            Long userId = feature == Feature.PREFILL ? null : CallerContext.userId().orElse(null);
+            repository.save(new ClaudeUsage(clock.instant(), model, feature, inputTokens, outputTokens, cost, userId));
         } catch (RuntimeException e) {
             log.error("Could not save the Claude usage ({} {} in={} out={}): {}", feature, model, inputTokens,
                     outputTokens, e.toString());

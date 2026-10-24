@@ -2,10 +2,12 @@
 /**
  * The sentence result, like the iOS SentenceCard (TASK-89.2): the original with tappable words (a tap opens the
  * word in WordSheet, over the result), the simple summary ("In simple words") that grows while it streams, the key
- * words, then the target language closed and last.
+ * words, "Better way to say it" (closed, TASK-110) when the text has a real mistake, then the target language
+ * closed and last.
  */
 import { useState } from "react";
 import type { Explanation } from "@/lib/api";
+import { betterPieces } from "@/lib/betterDiff";
 import { languageName, type LanguageCode } from "@/lib/languages";
 import { useSpeech } from "@/lib/speech";
 import { FoldedRow } from "../FoldedRow";
@@ -97,6 +99,13 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
             </ul>
           </div>
         )}
+        {explanation?.better && (
+          <div data-reveal>
+            <FoldedRow title="Better way to say it">
+              <BetterVersion text={text} better={explanation.better} why={explanation.betterWhy} speech={speech} />
+            </FoldedRow>
+          </div>
+        )}
         {explanation && targetLang !== "en" && explanation.translation && (
           <div data-reveal>
             <FoldedRow title={languageName(targetLang)}>
@@ -114,6 +123,57 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
           onClick={copy}
         />
       </div>
+    </div>
+  );
+}
+
+function BetterVersion({
+  text,
+  better,
+  why,
+  speech,
+}: {
+  text: string;
+  better: string;
+  why?: string | null;
+  speech: ReturnType<typeof useSpeech>;
+}) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(better);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard refused: nothing to undo.
+    }
+  };
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-start gap-2">
+        <p className="flex-1 font-serif text-[1.0625rem] leading-relaxed">
+          {betterPieces(text, better).map((piece, i) =>
+            piece.changed ? (
+              <b key={i} className="font-semibold">
+                {piece.text}
+              </b>
+            ) : (
+              <span key={i}>{piece.text}</span>
+            ),
+          )}
+        </p>
+        <ListenButton text={better} speech={speech} />
+        <IconButton
+          compact
+          variant="plain"
+          label={copied ? "Copied" : "Copy the better version"}
+          icon={copied ? <Check /> : <Copy />}
+          active={copied}
+          onClick={copy}
+          className="-my-1.5"
+        />
+      </div>
+      {why && <p className="text-sm text-ink-2">{why}</p>}
     </div>
   );
 }
