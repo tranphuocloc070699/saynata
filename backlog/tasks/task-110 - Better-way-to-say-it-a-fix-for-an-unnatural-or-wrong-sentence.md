@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-24 10:11'
-updated_date: '2026-10-24 10:11'
+updated_date: '2026-10-24 10:35'
 labels:
   - backend
   - ios
@@ -35,3 +35,20 @@ The developer writes English to practise and wants Saynata to show a corrected, 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Backend: prompt fields better/betterWhy in the sentence call, BetterCheck (40 words, same text, too many changes), columns via Flyway V30, prompt v11 on top of TASK-106.6 (v10).
+2. iOS/Mac: Explanation fields, BetterDiff, SentenceCard folded row, SentenceResult.isTyped from TranslationStore.useTextFromElsewhere.
+3. Web: betterDiff.ts + BetterVersion row. Extension: no change (page text).
+4. Tests, 10 real calls, doc-4, doc-7, CLAUDE.md.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Built on PR #173 (TASK-106.6, prompt v10): merged its branch, so this is prompt v11 and Flyway V30 (V27-V29 are taken by open PRs #162, #168, #172, #173). Merge #173 first.
+Real deepseek-v4.1-flash calls (10, about $0.003 each run): no fix on 5 correct texts (Dickens, a news line, 'gonna grab a coffee', two plain lines); good fixes for 'open the light', 'borrow me your pen', 'very like', 'Yesterday I go'. 'I already do it.' gets no fix (correct English as a habit).
+Tests: backend 560 pass; iOS 456 pass on iPhone 16 Pro iOS 18.5; SaynataMac builds; web 45 vitest pass, lint and build pass. Not checked by eye on a device: the server is still v9.
+<!-- SECTION:NOTES:END -->
