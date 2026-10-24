@@ -320,6 +320,12 @@ struct BackendClientTests {
 /// The codes must stay in sync with `TargetLanguage.java` in the backend.
 struct TargetLanguageTests {
     @Test func codesMatchTheBackend() {
-        #expect(TargetLanguage.allCases.map(\.code) == ["vi", "en", "ja", "ko", "zh", "th", "fr", "es", "de"])
+        #expect(TargetLanguage.allCases.map(\.code) == ["vi", "en", "ja", "ko", "zh", "fr", "es", "de"])
+    }
+
+    @Test func aSavedThaiChoiceReadsAsVietnamese() {
+        #expect(TargetLanguage(savedCode: "th") == .vietnamese)
+        #expect(TargetLanguage(savedCode: nil) == .vietnamese)
+        #expect(TargetLanguage(savedCode: "ko") == .korean)
     }
 }

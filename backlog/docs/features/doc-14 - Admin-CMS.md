@@ -3,7 +3,7 @@ id: doc-14
 title: Admin CMS
 type: specification
 created_date: '2026-10-14 11:29'
-updated_date: '2026-10-24 06:19'
+updated_date: '2026-10-24 10:16'
 ---
 > Status: **built against the API contract of TASK-49.1** (the backend part is built in parallel; names may need small changes in `types.ts`). TASK-49.2. Last traced from code: 2026-10-24 (Users page: TASK-105); 2026-10-23 (Filter menu with counts, Pending queue rows, one status badge: TASK-101; edit form sections and the bottom Cancel/Save bar: TASK-99.4; Sentences as a table too: TASK-99.3; Words as a table with a drawer, media chips in a Media menu: TASK-99.2; Isomorphic look: shell, top bar search, account menu, split sign-in: TASK-99.1); earlier: 2026-10-18 (the Sparkles button opens the AI picture dialog and the row shows the drawing job: TASK-91); earlier: 2026-10-16 (list/grid toggle, grid cards, side drawer and the big hover preview: TASK-81; Wrong media and Media to review chips, row badges, Looks right button, Claude verdict under the media: TASK-80; Upload button and drop on the Media row: TASK-79; earlier: Remove all media button: TASK-76; hover to play a clip in the list and the full-size viewer: TASK-77; word list rows with a thumbnail and the Vietnamese line: TASK-62; the Media row resets per word and sense: TASK-64; infinite scroll in the list: TASK-54; Media row: TASK-52; review reasons: TASK-55; every chip is a server filter, Has media and No media chips, the list is read again after the check button: TASK-57, TASK-59, TASK-60).
 > Spec: F5 Admin CMS (TASK-49). Decisions: doc-7 rows 10-14 (Admin CMS, shadcn/ui + Refine, layout A, users with roles).
@@ -77,6 +77,10 @@ sequenceDiagram
 | Sentence fields | [SentencesPage.tsx:13](../../../admin/src/pages/SentencesPage.tsx#L13) | Sentence, simple explanation, words, translation last |
 | API types | [types.ts](../../../admin/src/api/types.ts) | All shapes in one file; change them here when the backend differs |
 
+## Sources page (TASK-108)
+
+"Sources" in the left navigation (`/sources`, [SourcesPage](../../../admin/src/pages/SourcesPage.tsx)) turns a book into queue items. A drop zone ("Drop a .txt or .md file", "Up to 5 MB. Only the word list is kept, never the text.") and a Title field start an upload (`POST /sources`, multipart with `X-Requested-With`). Then four count tiles (Words in file, Known, New words, New phrases), the filter chips **Useful**, **Rare** and **Names skipped** with their counts, and a table: a pick checkbox, the word (a "phrase" badge for phrases), Times, Common (the Zipf score) and Seen in (a snippet of at most 12 words). Names are listed only to read; they cannot be picked. The footer shows "N picked" and the button "Add N to queue" (`POST /sources/{id}/queue`); afterwards the picks are locked and a green line says how many were added. The table shows 200 rows at a time. See [Admin API](doc-13%20-%20Admin-API.md#sources-a-book-into-the-queue-task-108).
+
 ## Errors
 
 | Cause | Where | What the admin sees |
@@ -110,6 +114,7 @@ The backend must allow CORS with credentials for `http://localhost:5173` (TASK-4
 |---|---|
 | `src/test/dataProvider.test.ts` | List URL (`_start`, `_end`, `_sort`, `_order`, `q`, `needs_review`), `X-Total-Count`, a level list as repeated `cefr` params with `source` and `media`, PUT, DELETE, cookies on |
 | `src/test/login.test.tsx` | Login request (method, body, `credentials: include`), 401 message, ADMIN check, login form |
+| `src/test/sourcesPage.test.tsx` | TASK-108: the drop zone text, the form upload with the header and the title (or the file name), a dropped file, the four counts and the chips, the table rows with the phrase badge, the chips switching rows, names without a checkbox, picking and "Add N to queue" with the right body, locked picks after queueing, the backend message and the 413 text |
 | `src/test/mediaUpload.test.tsx` | TASK-79: the Upload button is icon only and opens the picker (`image/*,video/*`), the file is sent as FormData with `X-Requested-With`, spinner and disabled buttons while uploading, the backend error and the 413 text, a dropped file is uploaded with a dashed outline while dragging, dragged text is ignored, the caption "Uploaded by the admin" in the row and in the viewer |
 | `src/test/mediaRow.test.tsx` | TASK-77: the full-size viewer opens from the photo, a clip and a Pick-another zoom button (right source and caption); Esc, the Close button and a backdrop click close it; the focus goes back; a zoom does not select the tile. Also:  Three icon-only buttons, panel opens inline and fills the search input, up to 6 tiles with the clip mark, search again with typed words, apply sends the chosen result (PUT, JSON header), No image (DELETE), Mark for AI (POST), the marked note, the backend error message |
 | `src/test/aiPicture.test.tsx` | TASK-91: the dialog opens with the fetched prompt, the picture, the meaning, the source line and the limits of the day; icon-only buttons with names; an empty prompt and a prompt over 4000 characters show an inline error and send nothing; the wand replaces the prompt and the undo puts the first one back; OK posts `{prompt, source}` (`edited` after a change), closes the dialog and the row shows the drawing state; server errors keep the dialog open; Cancel; with fake timers: a word that is already `ai_drawing` polls every 3 seconds and stops when done, a failed job shows the error with the old picture, one failed request does not stop the polling. |

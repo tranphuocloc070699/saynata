@@ -23,6 +23,11 @@ describe("settings", () => {
     expect(await loadSettings(broken.fake)).toEqual(DEFAULT_SETTINGS);
   });
 
+  it("reads a saved Thai choice (removed) as Vietnamese", async () => {
+    const { fake } = area({ targetLang: "th" });
+    expect((await loadSettings(fake)).targetLang).toBe("vi");
+  });
+
   it("saves a change", async () => {
     const { fake, data } = area();
     await saveSettings(fake, { targetLang: "ja" });

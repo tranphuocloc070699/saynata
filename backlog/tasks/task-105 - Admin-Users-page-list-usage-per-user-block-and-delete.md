@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-24 06:07'
-updated_date: '2026-10-24 06:22'
+updated_date: '2026-10-24 11:07'
 labels:
   - admin
   - backend
@@ -54,4 +54,6 @@ The developer wants to manage app accounts in the admin (mockup https://claude.a
 Backend 530 tests pass, admin 114 pass, build ok. The admin infinite-scroll test failed once while Maven ran at the same time (CPU load); it passes alone 3 of 3.
 
 PR #162 (admin/users into feature/local), Test it card in the PR.
+
+Flyway file renamed V27 -> V31 when merging feature/local (V27-V29 are taken there, and #174 uses V30). Release #174 before or together with this PR: Flyway does not apply a lower version after a higher one.
 <!-- SECTION:NOTES:END -->

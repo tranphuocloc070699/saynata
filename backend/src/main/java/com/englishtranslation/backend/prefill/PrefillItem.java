@@ -38,7 +38,7 @@ public class PrefillItem {
     @Column(name = "target_lang", nullable = false, length = 8)
     private String targetLang;
 
-    @Column(name = "source", nullable = false, length = 32)
+    @Column(name = "source", nullable = false, length = 110)
     private String source;
 
     @Column(name = "priority", nullable = false)

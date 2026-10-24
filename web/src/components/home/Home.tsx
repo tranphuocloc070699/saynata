@@ -13,7 +13,8 @@ import { Alert } from "../icons";
 import type { CatMood } from "../PixelCat";
 import { Composer } from "./Composer";
 import { SentenceCard } from "./SentenceCard";
-import { WordCard } from "./WordCard";
+import { WordCard, WordSkeleton } from "./WordCard";
+import { WordSheet } from "./WordSheet";
 
 const api = new SaynataApi("");
 const SUGGEST_DELAY_MS = 250;
@@ -28,6 +29,8 @@ export function Home() {
   const [targetLang, setTargetLang] = useTargetLanguage();
   /** Bumped by a submit of the same text, so "try again" runs the search again. */
   const [attempt, setAttempt] = useState(0);
+  /** A word tapped in the sentence result, shown in the sheet over it; the search itself does not change. */
+  const [sheetWord, setSheetWord] = useState<string | null>(null);
 
   const [text, setText] = useState(query);
   const [result, setResult] = useState<Result>(() => startState(query));
@@ -83,15 +86,14 @@ export function Home() {
       ? suggested.list.filter((s) => s.text.toLowerCase() !== prefix.toLowerCase())
       : [];
 
-  // Motion 1: the page enters (the intro in page.tsx too, so the whole document is searched), then the cat
-  // drops onto the card and the send button pops in. Runs once.
+  // Motion 1: the page enters (the intro in page.tsx too, so the whole document is searched) and the send
+  // button pops in. Runs once. The cat drops onto the card by itself when its picture is ready (MochiCat).
   useGSAP(
     () => {
       withMotion(() => {
         gsap
           .timeline({ defaults: { ease: "power3.out" } })
           .fromTo(gsap.utils.toArray("[data-enter]", document), { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.6, stagger: 0.08 })
-          .from(".cat", { y: -26, opacity: 0, duration: 0.75, ease: "bounce.out" }, 0.3)
           .from(".send", { scale: 0.6, opacity: 0, duration: 0.4, ease: "back.out(2)" }, 0.45);
       });
     },
@@ -175,19 +177,10 @@ export function Home() {
           meaning={result.meaning}
           explanation={result.explanation}
           targetLang={targetLang}
-          onWord={submit}
+          onWord={setSheetWord}
         />
       )}
-    </div>
-  );
-}
-
-function WordSkeleton() {
-  return (
-    <div className="flex flex-col gap-3 rounded-[20px] border border-hairline bg-surface p-5" aria-label="Looking it up">
-      <span className="h-7 w-28 animate-pulse rounded-lg bg-meaning motion-reduce:animate-none" />
-      <span className="h-16 animate-pulse rounded-2xl bg-meaning motion-reduce:animate-none" />
-      <span className="h-16 animate-pulse rounded-2xl bg-meaning motion-reduce:animate-none" />
+      <WordSheet word={sheetWord} targetLang={targetLang} onClose={() => setSheetWord(null)} />
     </div>
   );
 }

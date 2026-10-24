@@ -3,11 +3,11 @@ id: doc-18
 title: Prefill
 type: other
 created_date: '2026-10-16 08:28'
-updated_date: '2026-10-24 06:19'
+updated_date: '2026-10-24 10:21'
 ---
 # Prefill
 
-> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue, and since TASK-83.11 also with about 2,500 everyday lines ("Looks good.", "I'll get back to you.", [Common everyday sentences](#common-everyday-sentences-task-8311)); cached-only lookups and suggestions (TASK-83.4 and later) come after. The free way, entries written by Codex on the developer's Mac and pushed to `word_lookup`, is [Local collection written by Codex](#local-collection-written-by-codex-task-839) at the end (TASK-83.9). TASK-83.12 splits the runs: the night job answers only what users typed, and what the developer queues is run at once, see [Run at once](#run-at-once-task-8312). Last traced from code: 2026-10-23 (TASK-100: refused guest sentences queue their words, admin list and remove; TASK-83.3: queued phrases and sentences use the loose sentence match).
+> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue, and since TASK-83.11 also with about 2,500 everyday lines ("Looks good.", "I'll get back to you.", [Common everyday sentences](#common-everyday-sentences-task-8311)); cached-only lookups and suggestions (TASK-83.4 and later) come after. The free way, entries written by Codex on the developer's Mac and pushed to `word_lookup`, is [Local collection written by Codex](#local-collection-written-by-codex-task-839) at the end (TASK-83.9). TASK-83.12 splits the runs: the night job answers only what users typed, and what the developer queues is run at once, see [Run at once](#run-at-once-task-8312). Language lines for every definition and sentence, also written by Codex: [Language lines written by Codex](#language-lines-written-by-codex-task-1065) (TASK-106.5, 2026-10-24). Last traced from code: 2026-10-24 (TASK-106.5: `lines` command; 2026-10-23 TASK-100: refused guest sentences queue their words, admin list and remove; TASK-83.3: queued phrases and sentences use the loose sentence match).
 > Why: doc-7, decisions of 2026-10-16. Related: [Accounts and limits](doc-17%20-%20Accounts-and-limits.md) (the user budget), [Word lookup](doc-5%20-%20Word-lookup.md), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Media and images](doc-15%20-%20Media-and-images.md), the cron and env keys in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md).
 
 ## What it does
@@ -73,7 +73,7 @@ sequenceDiagram
 | Loop and stop rules | [loop:168](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L168) | Before each item it reads the real spend (`PREFILL` rows since the run start) and stops if `spent + dearest item so far > cap` (`cap`). Other stops: `queue-empty`, `limit`, 5 failures in a row (`failures`, Claude is probably down), `interrupted`. Items come by `priority DESC, id`. |
 | One item | [handle:217](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L217) | `done` after an answer; `skipped` for a non-word, personal text, an unknown language or a Claude "not English"; any other error: `attempts + 1`, `last_error`, status `failed`. |
 | Word | [answerWord:239](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L239) | `WordService.lookUp`. A cached or bundled answer is `done` with no Claude call. "No senses" means not on the word list: `skipped`, nothing saved. |
-| Phrase | [answerSentence:249](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L249) | `PersonalTextDetector` first (email, phone, link, long number): `skipped`, and never sent to Claude or saved. Else `TranslationService.translate(text, language)`. |
+| Phrase | [answerSentence:249](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L249) | `PersonalTextDetector` first (email, phone, link, long number): `skipped`, and never sent to Claude or saved. Else `TranslationService.translate(text, language)`. Since v10 (TASK-106.6) that also adds the language line: a new sentence costs one sentence call plus one small line call (checked against the run cap only, saved as `PREFILL`), and a line that is already saved costs nothing. |
 | Pace | [pause:279](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L279) | After each item that made a NEW word the run waits `app.prefill.delay` (default 0 s, so no pause). It was 3 s to protect Pixabay, but prefilled words get no picture any more, so nothing needs the pause; it stays as a knob to slow a run down. Cached items and sentences never wait. |
 | Gate | [ClaudeGate.checkPrefillCap:69](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClaudeGate.java#L69) | On a prefill thread `beforeNewCall` and `checkBudget` skip the sign-in, the per-user limits and the users' budget, and throw `PrefillCapReachedException` when this run's spend reached its cap. The runner leaves that item `pending`. The SimpleWords retry (second call) hits the same check; if it fails the first entry is kept, as for users. |
 | Money | [ClaudeUsageService.record:69](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L69), [totalCostSince](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageRepository.java#L14) | On a prefill thread every call is saved with `Feature.PREFILL`. The users' budget query leaves `PREFILL` out. `report` shows the prefill spend per day under `byFeature.prefill`, and `todayUsd` (what the users' budget counts) leaves it out; `prefillTodayUsd` is new. |
@@ -91,7 +91,7 @@ sequenceDiagram
 | `PREFILL_DELAY` | `app.prefill.delay` | `0s` | Optional pause after each new word. |
 | none | `app.prefill.max-attempts` | `3` | A failed item is tried again by later runs until it failed this many times, then stays `failed`. |
 
-**A sentence prompt bump** (TASK-89.3, prompt v9): the version is part of the cache key, so the answers the queue already saved are not read any more. Flyway [V26](../../../backend/src/main/resources/db/migration/V26__requeue_sentence_prefill_for_prompt_v9.sql) set every `done` sentence back to `pending` (attempts 0), so the next runs answer them again with the new prompt. Words are not touched. Do the same in a new Flyway file at the next sentence prompt bump.
+**A sentence prompt bump** (TASK-89.3, prompt v9): the version is part of the cache key, so the answers the queue already saved are not read any more. Flyway [V26](../../../backend/src/main/resources/db/migration/V26__requeue_sentence_prefill_for_prompt_v9.sql) set every `done` sentence back to `pending` (attempts 0), so the next runs answer them again with the new prompt. Words are not touched. Do the same in a new Flyway file at the next sentence prompt bump. Prompt v10 (TASK-106.6) did it again in the Java migration [V29](../../../backend/src/main/java/db/migration/V29__sentence_prompt_v10_seed_lines_and_requeue.java), which also copies the cached Vietnamese sentence translations into `line_translation` (source `seed`), so the requeued sentences find their Vietnamese line for free. The English part of v10 has no language in its key, so the queue needs only one run per sentence for all languages.
 
 ## Errors
 
@@ -147,6 +147,10 @@ Words are well covered (about 34 thousand cached), but the short lines a learner
 Measured on 2026-10-23 (dry run, no database): **2,488 lines, about $1.34** at $0.30 / $1.20 per million tokens ($0.00054 a line), about 925 a night at the $0.50 cap, so **about 3 nights**. The token numbers are an estimate; `prefill report` after a run shows the real spend.
 
 Items of 2-6 words are also looked up as phrases by the app (`CacheKeys.phraseQuery`, TASK-83.10) before the sentence path; they are queued as sentences all the same. To add lines: append to the TSV (or pass `--file`) and run the command again; only new lines are queued.
+
+## Words from a book (TASK-108)
+
+A third way to fill the queue, by hand. The admin opens **Sources** in the admin web app, uploads a book (`.txt` or `.md`, 5 MB at most) with a title, and sees the words and phrases that are not bundled, cached or queued yet. Picking some and pressing "Add N to queue" writes `prefill_item` rows with source **`book:<title>`** (a word is kind `word`; a phrase is kind `sentence`, language `vi`, like the pipeline phrases). The night job, or "Run at once" with `source=book:<title>`, answers them like any other row. No LLM call is made to read the book, and the book text is never stored (only the word list and a snippet of 12 words per item, cleared after queueing). How the book is read, the endpoints and the limits are in [Admin API](doc-13%20-%20Admin-API.md#sources-a-book-into-the-queue-task-108); the page is described in [Admin CMS](doc-14%20-%20Admin-CMS.md). The column `prefill_item.source` is 110 characters long since Flyway V28.
 
 ## Run at once (TASK-83.12)
 
@@ -271,3 +275,57 @@ The phrases still have to be pushed: `uv run pipeline collection push --kind phr
 - Phrases match the whole typed text only: "what time is it" does not find "what time".
 - Fixed 2026-10-18: `backend/src/main/resources/words/ngsl.txt` missed 219 NGSL lemmas and forms (the 59 NGSL words that were never bundled, such as group, eat, air, black, angry, color, and their forms), so the backend's `SimpleWords` and this copy called them hard. They are added. `uv run pipeline collection revalidate` checks the `retry` and `needs_review` entries again with no LLM call (it moved 3,585 rows to `done`).
 - With the Claude batch, about 48% of first answers failed the checks (rare words need harder words to explain them: "informal", "clever", place names). Like the backend, they get one retry with feedback and are then `needs_review`.
+
+## Language lines written by Codex (TASK-106.5)
+
+> Status: **code built, tried on 3 tiny batches, full run not started** (2026-10-24). Nothing real has been pushed.
+
+The language row of a word or sentence card (Vietnamese, Japanese, Korean, Chinese, French, Spanish, German) comes from the backend `POST /api/translate-lines` (TASK-106.2). It reads the table `line_translation`, and only a miss pays for a Claude call. The `lines` command fills that table in advance on the developer's Mac with the **Codex CLI** (the ChatGPT plan, no per-call cost), in the same way as the [local collection](#local-collection-written-by-codex-task-839) above. Thai and English have no line.
+
+```mermaid
+flowchart LR
+    PG1[("Postgres, read-only: dictionary_sense, word_lookup, sentence_translation")] --> C[lines collect]
+    SRV[("line_translation: lines the server has")] -->|"skip these"| C
+    C --> T[("lines table, pipeline.db: text x 7 languages")]
+    T --> W["lines write"]
+    JAVA["ClaudeService.LINE_PROMPT + app.claude.line-prompt-version"] --> W
+    W -->|"50 texts of ONE language a call"| CX["codex exec --output-schema"]
+    CX --> CHK["checks: not empty, not English, script, length"]
+    CHK -->|"failed: pending again, 3 tries"| W
+    CHK --> T
+    T --> P["lines push (dry run unless --yes)"]
+    P -->|"INSERT ... ON CONFLICT DO NOTHING, source codex"| SRV
+```
+
+| Step | File:line | What happens |
+|---|---|---|
+| Table | [lines.py SCHEMA:58](../../../pipeline/src/pipeline/lines.py#L58) | `lines(text_hash, text, target_lang, prompt_version, source, priority, status pending/done/needs_review/failed, attempts, translation, problems, model, pushed_at)`, unique on `(text_hash, target_lang, prompt_version)` like the server table. |
+| The key | [normalize:99](../../../pipeline/src/pipeline/lines.py#L99), [text_hash:105](../../../pipeline/src/pipeline/lines.py#L105) | The same as `LineTranslationService.normalize` and `hash`: `strip()` (Java whitespace, the no-break space is NOT stripped), then runs of ASCII whitespace become one space, case kept, then sha256 hex of the UTF-8 bytes. Python `split()` would differ for U+00A0 or U+3000, so the code does it by hand. `test_lines.py` checks 14 tricky strings against hashes computed by the Java code. A text over 500 UTF-16 units is left out (the server refuses it). |
+| Collect | [collect:269](../../../pipeline/src/pipeline/lines.py#L269), [lines_command](../../../pipeline/src/pipeline/cli.py#L483) | Opens Postgres **read-only**. Texts: the simple definition of every bundled sense (`dictionary_sense`, by word rank), of every sense in `word_lookup.entry_json` (`simpleDefinition`), and every `sentence_translation.source_text`. A text is added once (the first source keeps it) and gets one pending row per language. A `(text, language)` that `line_translation` already has for this prompt version is skipped. Before Flyway V27 ran the table is not there and nothing is skipped. Safe to run again; top it up after new words or sentences arrive. Priority: bundled senses, then backend words, then sentences. |
+| Prompt | [backend_line_prompt:124](../../../pipeline/src/pipeline/lines.py#L124), [build_prompt:142](../../../pipeline/src/pipeline/lines.py#L142) | `ClaudeService.LINE_PROMPT` is read from the Java file, so Codex and the backend write lines the same way. The message is built like `ClaudeService.linesMessage` (`<target_language>`, `<text id="n">`, tags escaped), plus a note to answer as JSON `{"lines": [...]}` with no commands. The version comes from `app.claude.line-prompt-version` (v1). A prompt change bumps it: old rows are then not pushed, and `collect` adds new rows. |
+| Write | [write_batch:345](../../../pipeline/src/pipeline/lines.py#L345), `CodexWriter` | One `codex exec` call (read-only sandbox, empty folder, no saved session, same as the collection) for up to 50 texts of **one** language, 4 calls at once. If the answer has the wrong number of lines the batch is cut in two and asked again, down to one text. Progress is saved after every call, so a stopped run goes on where it stopped. Plan limit or not logged in: the run stops, the done lines are kept. |
+| Checks | [line_problems:171](../../../pipeline/src/pipeline/lines.py#L171) | Not empty; one line; not the English text; not longer than 3 times the text (2 times for ja, ko, zh, at least 40 or 60 characters); not tiny; the script fits: ja has kana or kanji and no Hangul, ko has Hangul and no kana, zh has Han and no kana or Hangul (at least 30 percent of the letters, so a name or **bold** word is fine), vi has at least one letter with a tone mark, fr/es/de/vi have no Asian letters. A line that fails stays `pending` with the problems saved, and is tried again by the next run, up to 3 tries; then `needs_review` (bad line) or `failed` (broken call). `write --retry-failed` gives them 3 more tries. |
+| Push | [plan_push:527](../../../pipeline/src/pipeline/lines.py#L527), [push:541](../../../pipeline/src/pipeline/lines.py#L541) | `done` rows of the current prompt version into `line_translation` with `source = 'codex'`. `ON CONFLICT (text_hash, target_lang, prompt_version) DO NOTHING`: a line Claude or anyone saved first is never overwritten. Without `--yes` it opens a read-only connection and only prints the plan. Rows are marked pushed, also the ones that were already there. |
+
+### Commands and time
+
+Run in `pipeline/`, with `DATABASE_URL` in `pipeline/.env` (the SSH tunnel to the server Postgres, like the collection). Codex calls use the ChatGPT plan's limits, so agents never start the full run; the developer does.
+
+| Command | What | Time |
+|---|---|---|
+| `uv run pipeline lines collect --dry-run` | Count what would be added. | seconds |
+| `uv run pipeline lines collect` | Fill or top up the table (no LLM, read-only on Postgres). | under 1 minute |
+| `uv run pipeline lines report` | Counts per language and status, and the time to write the rest. | instant |
+| `uv run pipeline lines write --limit 50 --batch 50 --workers 1` | The trial: 50 lines of each language (7 calls). | about 2 minutes |
+| `uv run pipeline lines write` | Everything left, 4 calls at once. Stop with Ctrl-C at any time; the next run goes on. | about 1.5 hours for the 7,779 bundled senses x 7 languages (54 thousand lines, 1,090 calls), more for words and sentences found on the server |
+| `uv run pipeline lines write --lang ja ko` | Only some languages (also `--sources bundled sentence`). | |
+| `uv run pipeline lines push` | Dry run: what would go into `line_translation`. | seconds |
+| `uv run pipeline lines push --yes` | Write, only after the developer's go-ahead. | seconds |
+
+Measured on 2026-10-24 with the real Codex CLI (`gpt-6-sol`, effort low): 3 parallel calls of 5 lines took 20 s in all; one call of 50 lines took 14-17 s. The estimate in `lines report` uses 20 s a call. If the ChatGPT plan hits its limit the run stops with a message; run it again later.
+
+### Known gaps
+
+- Not tried on the real server yet: the full run and the push wait for the developer.
+- Only the English text is collected, from definitions and sentence texts. When TASK-106.6 (sentence prompt v10) changes what the app sends to `translate-lines`, run `lines collect` again; the column it reads (`sentence_translation.source_text`) stays.
+- A line that equals the English text is rejected, so a text that is already a name or a number stays `needs_review` (it needs no line).

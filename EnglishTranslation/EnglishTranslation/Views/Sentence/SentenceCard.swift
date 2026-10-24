@@ -37,6 +37,11 @@ struct SentenceCard: View {
     private let sentenceSpeechID = "sentence"
     private let summarySpeechID = "summary"
 
+    /// True when the backend sent a real language line. It sends "" (never null) when it has none.
+    static func hasLanguageLine(_ translation: String) -> Bool {
+        !translation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         VStack(alignment: .trailing, spacing: Theme.Spacing.small) {
             card
@@ -64,7 +69,8 @@ struct SentenceCard: View {
             summaryBlock
 
             // No translation yet (the answer is still streaming): the row appears when the full result arrives.
-            if let translation {
+            // "" means the backend had no line for this language (a guest, offline cache): no row (TASK-106.6).
+            if let translation, Self.hasLanguageLine(translation) {
                 FoldedRow(title: language.title, isExpanded: $isTranslationOpen) {
                     Text(translation)
                         .font(.body)

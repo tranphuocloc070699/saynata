@@ -3,12 +3,14 @@
  * item or the shortcut asks for it. Everything lives in a closed Shadow DOM, so page CSS and scripts cannot
  * reach it. Network calls happen in the service worker (EXPLAIN_PORT).
  */
+import { ApiError, type ApiErrorKind } from "../shared/api";
 import { SESSION_KEY } from "../shared/auth";
-import { EXPLAIN_PORT, type ExplainEvent, type RuntimeRequest, type TabMessage } from "../shared/messages";
+import { hasLanguageRow, LineCache, lineErrorMessage, lineTexts, loadLines } from "../shared/lines";
+import { EXPLAIN_PORT, type ExplainEvent, type RuntimeRequest, type RuntimeResponse, type TabMessage } from "../shared/messages";
 import { loadSettings, rowStartsOpen, saveSettings } from "../shared/settings";
 import { classify, cleanSelection } from "../shared/textKind";
 import { API_BASE } from "../shared/config";
-import { applyEvent, applyOpenedEvent, initialState, renderCard, type CardActions, type CardState } from "./card";
+import { activeLines, activeWord, applyEvent, applyOpenedEvent, initialState, renderCard, withLines, type CardActions, type CardState } from "./card";
 import { MediaNodes } from "./media";
 import { LOGO_CATS } from "./logo";
 import { cardMaxHeight, cardTop, iconPosition, placeCard, type CardPlacement, type Rect, type Viewport } from "./placement";
@@ -38,6 +40,16 @@ class SelectionPopover {
   private selectionRect: Rect | null = null;
   private lastLine: Rect | null = null;
   private pendingText = "";
+  /** Language lines kept per (text, language) while the page is open (TASK-106.4). */
+  private readonly lineCache = new LineCache();
+  private readonly lineApi = {
+    // The service worker makes the call (it holds the session); a guest's call is cachedOnly there.
+    translateLines: async (texts: string[], targetLang: CardState["targetLang"]) => {
+      const response = await chrome.runtime.sendMessage<RuntimeRequest, RuntimeResponse>({ type: "lines", texts, targetLang });
+      if (!response?.ok) throw new ApiError((response?.kind ?? "server") as ApiErrorKind, response?.message ?? "Something went wrong. Try again.");
+      return { translations: response.translations ?? texts.map(() => null), signedIn: response.signedIn ?? false };
+    },
+  };
   private readonly speech = new Speech((speaking) => this.update({ speaking }));
 
   constructor() {
@@ -107,6 +119,7 @@ class SelectionPopover {
   private onSignedIn(): void {
     if (this.state?.opened?.error?.kind === "signInRequired") this.requestOpenedWord();
     else if (this.state?.error?.kind === "signInRequired") this.actions.retry();
+    else this.askAgainForLines();
   }
 
   // The icon.
@@ -199,6 +212,40 @@ class SelectionPopover {
     port.postMessage({ text: opened.word, targetLang: this.state.targetLang });
   }
 
+  /**
+   * The language row of the word card: one request with all sense explanations, once per card. It starts when the
+   * row opens (or at once when the row starts open); an error can be asked again by closing and opening the row.
+   */
+  private loadLines(): void {
+    const state = this.state;
+    const word = state && activeWord(state);
+    if (!state || !word || !hasLanguageRow(state.targetLang)) return;
+    const status = activeLines(state).status;
+    if (status === "loading" || status === "done") return;
+    const texts = lineTexts(word.entry.senses.map((sense) => sense.simpleDefinition));
+    if (texts.length === 0) return;
+    this.state = withLines(state, { status: "loading" });
+    this.render();
+    loadLines(this.lineApi, this.lineCache, state.targetLang, texts)
+      .then((result) => ({ status: "done", ...result }) as const)
+      .catch((error: unknown) => ({ status: "error", message: lineErrorMessage(error) }) as const)
+      .then((lines) => {
+        // The card may be closed, or show another word by now.
+        if (!this.state || activeWord(this.state) !== word) return;
+        this.state = withLines(this.state, lines);
+        this.render();
+      });
+  }
+
+  /** After a sign-in the guest's missing lines are asked again. */
+  private askAgainForLines(): void {
+    if (!this.state) return;
+    const lines = activeLines(this.state);
+    if (lines.status !== "done" || lines.signedIn) return;
+    this.state = withLines(this.state, { status: "idle" });
+    if (this.state.rowOpen) this.loadLines();
+  }
+
   private closeCard(): void {
     this.port?.disconnect();
     this.port = null;
@@ -231,6 +278,7 @@ class SelectionPopover {
       // The row already changed itself (and animates); only remember it, without a re-render.
       if (this.state) this.state = { ...this.state, rowOpen: open };
       void saveSettings(chrome.storage.sync, { lastRowOpen: open });
+      if (open) this.loadLines();
     },
     signIn: () => {
       void chrome.runtime.sendMessage<RuntimeRequest>({ type: "openSignIn" });
@@ -292,6 +340,8 @@ class SelectionPopover {
     next.style.maxHeight = `${cardMaxHeight(this.placement, top)}px`;
     // Once the answer is complete the top stays: a row, a word or a picture only grows the card downward.
     if (this.state.phase === "done" || this.state.phase === "error") this.frozenTop = top;
+    // A row that starts open asks for its lines as soon as the word is there (after the card is placed).
+    if (this.state.rowOpen && activeLines(this.state).status === "idle") this.loadLines();
   }
 }
 

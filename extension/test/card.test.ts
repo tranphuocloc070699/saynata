@@ -147,8 +147,41 @@ describe("word card", () => {
     expect(card.lastElementChild?.querySelector(".fold-button")?.textContent).toBe("Vietnamese");
   });
 
-  it("has no target-language row for other languages yet", () => {
-    expect(renderCard(wordDone("ja"), actions()).querySelector(".fold")).toBeNull();
+  it("has a language row for every language except English (TASK-106.4)", () => {
+    expect(renderCard(wordDone("ja"), actions()).querySelector(".fold-button")?.textContent).toBe("Japanese");
+    const english = applyEvent(initialState("reluctant", "word", "en", false), { type: "word", response: wordResponse as WordResponse });
+    expect(renderCard(english, actions()).querySelector(".fold")).toBeNull();
+  });
+
+  describe("language row content", () => {
+    const rowText = (state: CardState, a: CardActions = actions()) => renderCard(state, a).querySelector(".fold-text")!;
+    const withLines = (lang: "vi" | "ja", lines: CardState["lines"]): CardState => ({ ...wordDone(lang), lines });
+
+    it("signed in: shows the backend line", () => {
+      const state = withLines("ja", { status: "done", translations: ["したくない"], signedIn: true });
+      expect(rowText(state).textContent).toBe("したくない");
+    });
+
+    it("loading: Vietnamese shows the dictionary at once, Japanese a loading bar", () => {
+      expect(rowText(withLines("vi", { status: "loading" })).textContent).toBe("miễn cưỡng");
+      expect(rowText(withLines("ja", { status: "loading" })).querySelector(".skeleton")).not.toBeNull();
+    });
+
+    it("guest miss: Vietnamese shows the dictionary text, Japanese the sign-in hint with a button", () => {
+      const miss: CardState["lines"] = { status: "done", translations: [null], signedIn: false };
+      expect(rowText(withLines("vi", miss)).textContent).toBe("miễn cưỡng");
+      const a = { ...actions(), signIn: vi.fn() };
+      const hint = rowText(withLines("ja", miss), a);
+      expect(hint.textContent).toBe("Sign in to get a new explanation.");
+      (hint.querySelector('[aria-label="Sign in"]') as HTMLButtonElement).click();
+      expect(a.signIn).toHaveBeenCalled();
+    });
+
+    it("error: Vietnamese falls back to the dictionary, Japanese shows a short error line", () => {
+      const error: CardState["lines"] = { status: "error", message: "Can't reach Saynata." };
+      expect(rowText(withLines("vi", error)).textContent).toBe("miễn cưỡng");
+      expect(rowText(withLines("ja", error)).querySelector('[role="alert"]')?.textContent).toBe("Can't reach Saynata.");
+    });
   });
 
   it("says when the word is not English", () => {

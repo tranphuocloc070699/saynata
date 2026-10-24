@@ -2,7 +2,7 @@
  * The service worker: every network call happens here (host_permissions, so the backend needs no CORS rule),
  * plus the right-click menu item, the keyboard shortcut and the sign-in calls from the popup.
  */
-import { SaynataApi } from "../shared/api";
+import { ApiError, SaynataApi } from "../shared/api";
 import { AuthClient, AuthError, AuthStore } from "../shared/auth";
 import { API_BASE } from "../shared/config";
 import { explain } from "../shared/explain";
@@ -72,8 +72,11 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
       case "openSignIn":
         await openSignIn();
         return { ok: true };
+      case "lines":
+        return { ok: true, ...(await api.translateLines(request.texts, request.targetLang)) };
     }
   } catch (error) {
+    if (error instanceof ApiError) return { ok: false, kind: error.kind, message: error.message };
     if (error instanceof AuthError) return { ok: false, kind: error.kind, message: error.message };
     return { ok: false, kind: "server", message: "Something went wrong. Try again." };
   }

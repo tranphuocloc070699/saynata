@@ -123,7 +123,7 @@ class SentenceWordQueueTest {
 
     @Test
     void wordsOfATranslatedSentenceAreQueuedAfterTheResponse() throws Exception {
-        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
 
         mockMvc.perform(post("/api/translations").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"text\": \"The lantern glows.\", \"targetLang\": \"vi\"}"))
@@ -144,7 +144,7 @@ class SentenceWordQueueTest {
 
     @Test
     void aCachedAnswerQueuesItsWordsToo() throws Exception {
-        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
         String body = "{\"text\": \"A lantern.\", \"targetLang\": \"vi\"}";
 
         mockMvc.perform(post("/api/translations").contentType(MediaType.APPLICATION_JSON).content(body))
@@ -160,7 +160,7 @@ class SentenceWordQueueTest {
 
     @Test
     void aCachedOnlyPrefetchQueuesNothing() throws Exception {
-        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
         String body = "{\"text\": \"A lantern.\", \"targetLang\": \"vi\"}";
 
         mockMvc.perform(post("/api/translations").contentType(MediaType.APPLICATION_JSON).content(body))
@@ -177,7 +177,7 @@ class SentenceWordQueueTest {
 
     @Test
     void theStreamingEndpointQueuesTheWordsToo() throws Exception {
-        when(claude.explainSentenceStreaming(anyString(), any(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentenceStreaming(anyString(), any())).thenReturn(EXPLANATION);
 
         var started = mockMvc.perform(post("/api/translations/stream").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"text\": \"The lantern glows.\", \"targetLang\": \"vi\"}")).andReturn();
@@ -190,7 +190,7 @@ class SentenceWordQueueTest {
 
     @Test
     void personalTextIsNeverScanned() throws Exception {
-        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
 
         mockMvc.perform(post("/api/translations").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"text\": \"Write to jane@example.com about the lantern\", \"targetLang\": \"vi\"}"))

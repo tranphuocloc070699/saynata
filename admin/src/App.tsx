@@ -5,6 +5,7 @@ import { Layout } from "@/components/Layout";
 import { LoginPage } from "@/pages/LoginPage";
 import { MediaPage } from "@/pages/MediaPage";
 import { SentencesPage } from "@/pages/SentencesPage";
+import { SourcesPage } from "@/pages/SourcesPage";
 import { UsersPage } from "@/pages/UsersPage";
 import { WordsPage } from "@/pages/WordsPage";
 import { authProvider } from "@/providers/authProvider";
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="/words" element={<WordsPage />} />
             <Route path="/sentences" element={<SentencesPage />} />
             <Route path="/media" element={<MediaPage />} />
+            <Route path="/sources" element={<SourcesPage />} />
             <Route path="/users" element={<UsersPage />} />
           </Route>
           <Route

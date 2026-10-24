@@ -1,0 +1,48 @@
+---
+id: TASK-106.5
+title: 'Pipeline: fill every language line locally with the Codex CLI'
+status: In Progress
+assignee:
+  - '@implementer'
+created_date: '2026-10-24 09:52'
+updated_date: '2026-10-24 10:14'
+labels: []
+dependencies:
+  - TASK-106.2
+parent_task_id: TASK-106
+ordinal: 117000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+The developer wants all words and sentences translated into all supported languages before users ask, at no per-call cost, using the local Codex CLI on the ChatGPT plan (like collection write). About 7,779 bundled senses x 7 languages plus backend words and cached sentences. Agents write the code and run only a tiny sample; the developer starts the full run.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 lines collect reads (read-only) every bundled sense and backend-word sense simple explanation and every cached sentence text from Postgres into a lines table in pipeline.db, one row per (text, language)
+- [ ] #2 lines write asks codex exec for many texts of one language per call, checks each answer (not empty, not English, sensible length) and saves progress so a stopped run resumes
+- [ ] #3 lines push --yes inserts done rows into the server line_translation with source codex and the current line prompt version, never over an existing row
+- [ ] #4 lines report counts done and pending per language; pytest covers collect, the answer checks and push (no real Codex call in tests)
+- [ ] #5 doc-6 and doc-18 describe the commands; the final message gives the developer the exact commands and the expected run time
+<!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [ ] #1 Tests pass
+- [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
+- [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
+<!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. lines.py: normalize/hash like LineTranslationService, collect from Postgres (read-only), write with Codex (50 per call, one language per call, checks, resumable), push to line_translation, report. 2. CLI lines collect/write/push/report. 3. pytest with fake Codex, Postgres tests for collect and push, hashes checked against Java. 4. Try codex on 3 tiny batches. 5. doc-6, doc-18, CLAUDE.md.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/171 (into feature/local; based on lines/task-106.2, merge #168 first). Test it: Goal: run a Codex trial, check the lines, push, then the full run. Steps (in pipeline/, DATABASE_URL = tunnel): 1) uv run pipeline lines collect --dry-run, then lines collect. 2) uv run pipeline lines write --limit 50 --batch 50 --workers 1 (7 calls, about 2 min). 3) lines report; look at lines in data/pipeline.db. 4) lines push (dry run), then lines push --yes. 5) full run: uv run pipeline lines write (about 1.5 h for 54k bundled lines, resumable), then lines push --yes. Expected: lines in each script, bad lines retried 3 times then needs_review, push adds only new rows, second push says Nothing to push; plan limit stops the run and keeps the done lines. Automated: cd pipeline && uv run pytest tests/test_lines.py (51 tests, no real Codex).
+<!-- SECTION:NOTES:END -->

@@ -42,3 +42,6 @@ next-env.d.ts
 
 # deploy: the standalone build copied to the server (web/Dockerfile)
 /dist
+
+# Paid Mochi sprites (CatMegaBundle): never in git. Copy them here only to try the cat locally (doc-23).
+/public/cats/

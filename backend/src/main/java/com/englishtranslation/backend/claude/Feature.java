@@ -9,5 +9,7 @@ public enum Feature {
     /** The tiny call at start-up that warms the connection (TASK-75). It costs about nothing. */
     WARMUP,
     /** The nightly prefill job (TASK-83.1). It has its own cap and does not count toward the users' daily budget. */
-    PREFILL
+    PREFILL,
+    /** The language line for a short text (TASK-106.2, POST /api/translate-lines). Counts toward the users' budget. */
+    LINE
 }

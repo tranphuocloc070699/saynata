@@ -1,5 +1,5 @@
 import { useGetIdentity, useLogout } from "@refinedev/core";
-import { BookOpen, Image, LogOut, MessageSquareText, Search, Users } from "lucide-react";
+import { BookOpen, FileText, Image, LogOut, MessageSquareText, Search, Users } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ const sections = [
       { to: "/words", label: "Words", icon: BookOpen },
       { to: "/sentences", label: "Sentences", icon: MessageSquareText },
       { to: "/media", label: "Media", icon: Image },
+      { to: "/sources", label: "Sources", icon: FileText },
     ],
   },
   { label: "People", links: [{ to: "/users", label: "Users", icon: Users }] },

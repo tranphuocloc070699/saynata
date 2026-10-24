@@ -43,6 +43,12 @@ describe("shell", () => {
     expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Content·Sentences");
   });
 
+  it("has a Sources link in the left navigation and titles its page (TASK-108)", () => {
+    renderShell("/sources");
+    expect(screen.getByRole("link", { name: "Sources" })).toHaveAttribute("href", "/sources");
+    expect(screen.getByRole("heading", { level: 1, name: "Sources" })).toBeInTheDocument();
+  });
+
   it("the top bar search opens the Words page with the text as its search", async () => {
     renderShell("/sentences");
     await userEvent.type(screen.getByRole("searchbox", { name: "Search words" }), "give up{Enter}");

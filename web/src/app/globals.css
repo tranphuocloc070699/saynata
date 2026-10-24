@@ -72,9 +72,13 @@ body {
   color: var(--ink);
 }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* In the base layer, so a utility such as outline-none on one element can turn it off (the composer textarea,
+   whose card shows the focus instead). Unlayered CSS would beat every Tailwind utility. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 }
 
 /*
@@ -100,6 +104,28 @@ body {
   overflow: hidden;
 }
 
+/*
+ * The Mochi cat (components/MochiCat.tsx): one row of frames, shown one frame at a time with steps(), so the loop
+ * needs no JavaScript timer. Sizes come from lib/mochi.ts (--mochi-*). Square pixels at an integer scale.
+ */
+.mochi {
+  width: var(--mochi-size);
+  height: var(--mochi-size);
+  background-repeat: no-repeat;
+  background-size: var(--mochi-strip) var(--mochi-size);
+  background-position: 0 0;
+  image-rendering: pixelated;
+  animation: mochi-play var(--mochi-duration) steps(var(--mochi-frames)) infinite;
+}
+@keyframes mochi-play {
+  to {
+    background-position: calc(-1 * var(--mochi-strip)) 0;
+  }
+}
+:root[data-tab-hidden] .mochi {
+  animation-play-state: paused;
+}
+
 .stream-caret::after {
   content: "";
   display: inline-block;
@@ -117,6 +143,11 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Frame 1 only. */
+  .mochi {
+    animation: none;
+    background-position: 0 0;
+  }
   .fold-body {
     transition: none;
   }

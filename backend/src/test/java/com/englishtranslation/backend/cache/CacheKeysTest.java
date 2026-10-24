@@ -74,6 +74,17 @@ class CacheKeysTest {
     }
 
     @Test
+    void sentenceKeysHaveNoLanguageSinceV10() {
+        assertThat(CacheKeys.sentenceKey("v10", "How are you?"))
+                .isEqualTo(CacheKeys.key("sentence", "v10", "How are you?"))
+                .isNotEqualTo(CacheKeys.sentenceKey("v9", "How are you?"))
+                .hasSize(64);
+        assertThat(CacheKeys.sentenceMatchKey("v10", "How are you?"))
+                .isEqualTo(CacheKeys.key("sentence-loose", "v10", "how are you"))
+                .isEqualTo(CacheKeys.sentenceMatchKey("v10", "how are you"));
+    }
+
+    @Test
     void keyChangesWithPromptVersionAndKind() {
         String v1 = CacheKeys.key("sentence", "v1", "hello");
         assertThat(v1).hasSize(64).isEqualTo(CacheKeys.key("sentence", "v1", "hello"));

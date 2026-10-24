@@ -3,9 +3,10 @@
  * Order follows the product rule (CLAUDE.md): the text, the simple English meaning, the words,
  * and the target-language row last, closed unless the Show translation setting says otherwise.
  */
-import type { ApiErrorKind, Sense, TranslationResponse, WordResponse } from "../shared/api";
+import { MESSAGES, type ApiErrorKind, type Sense, type TranslationResponse, type WordResponse } from "../shared/api";
 import { parseSummary } from "../shared/summary";
 import { languageName, type LanguageCode } from "../shared/languages";
+import { hasLanguageRow, rowContent, type LineState, type RowContent } from "../shared/lines";
 import type { ExplainEvent } from "../shared/messages";
 import { wordQuery } from "../shared/textKind";
 import { ICONS } from "./icons";
@@ -29,12 +30,28 @@ export interface CardState {
   copied: boolean;
   /** A word opened from the sentence card's Words list; the sentence answer stays for Back. */
   opened?: OpenedWord;
+  /** The language row of the word card (TASK-106.4); missing = not asked yet. */
+  lines?: LineState;
 }
 
 export interface OpenedWord {
   word: string;
   response?: WordResponse;
   error?: { kind: ErrorKind; message: string };
+  lines?: LineState;
+}
+
+/** The word card on screen: the opened word, else the card's own word. */
+export function activeWord(state: CardState): WordResponse | undefined {
+  return state.opened ? state.opened.response : state.kind === "word" ? state.word : undefined;
+}
+
+export function activeLines(state: CardState): LineState {
+  return (state.opened ? state.opened.lines : state.lines) ?? { status: "idle" };
+}
+
+export function withLines(state: CardState, lines: LineState): CardState {
+  return state.opened ? { ...state, opened: { ...state.opened, lines } } : { ...state, lines };
 }
 
 export interface CardActions {
@@ -102,6 +119,7 @@ function openedView(state: CardState, opened: OpenedWord): CardState {
     word: opened.response,
     phase: opened.error ? "error" : opened.response ? "done" : "loading",
     error: opened.error,
+    lines: opened.lines,
     opened: undefined,
   };
 }
@@ -287,14 +305,32 @@ function wordBody(state: CardState, actions: CardActions): HTMLElement[] {
     const example = sense.examples?.[0]?.text;
     if (example) parts.push(h("div", { class: "example", style: indent }, example));
   });
-  // The dictionary only has Vietnamese for a word; other languages have no row yet (doc-19 known gaps).
-  if (state.targetLang === "vi") {
-    const lines = senses
-      .map((sense, index) => (senses.length > 1 ? `${index + 1}. ${sense.vietnamese}` : sense.vietnamese))
-      .filter((line) => line.trim().length > 0);
-    if (lines.length > 0) parts.push(fold(languageName("vi"), lines, state.rowOpen, actions));
+  // Every language except English has a row (TASK-106.4); the text comes from POST /api/translate-lines.
+  if (hasLanguageRow(state.targetLang)) {
+    const content = rowContent(
+      state.targetLang,
+      senses.map((sense) => sense.simpleDefinition),
+      senses.map((sense) => sense.vietnamese ?? ""),
+      state.lines ?? { status: "idle" },
+    );
+    parts.push(fold(languageName(state.targetLang), languageRowNodes(content, senses.length > 1, actions), state.rowOpen, actions));
   }
   return parts;
+}
+
+function languageRowNodes(content: RowContent, numbered: boolean, actions: CardActions): (string | HTMLElement)[] {
+  switch (content.kind) {
+    case "lines":
+      return content.lines.flatMap((line, index) => (line ? [numbered ? `${index + 1}. ${line}` : line] : []));
+    case "loading":
+      return [h("div", { class: "skeleton", role: "status", "aria-label": "Loading", style: "width: 60%" })];
+    case "signIn": {
+      const button = actions.signIn ? iconButton(ICONS.signIn, "Sign in", () => actions.signIn?.(), "prominent") : null;
+      return [h("div", { class: "lines-hint", style: "display: flex; align-items: center; gap: 8px" }, h("span", {}, MESSAGES.signIn), button)];
+    }
+    case "error":
+      return [h("p", { role: "alert" }, content.message)];
+  }
 }
 
 function chipText(sense: Sense): string {
@@ -305,7 +341,7 @@ function chipText(sense: Sense): string {
  * A row that opens and closes, like the app's FoldedRow. The body is always in the DOM and the button toggles
  * the `open` class in place (no re-render), so CSS can animate the real height (styles.ts, "Folded rows").
  */
-function fold(title: string, lines: string[], open: boolean, actions: CardActions): HTMLElement {
+function fold(title: string, lines: (string | HTMLElement)[], open: boolean, actions: CardActions): HTMLElement {
   const id = `saynata-fold-${++foldCount}`;
   const button = h(
     "button",
@@ -313,7 +349,7 @@ function fold(title: string, lines: string[], open: boolean, actions: CardAction
     title,
     svgNode(ICONS.chevronDown),
   );
-  const inner = h("div", { class: "fold-inner" }, h("div", { class: "fold-text" }, ...lines.map((line) => h("p", {}, line))));
+  const inner = h("div", { class: "fold-inner" }, h("div", { class: "fold-text" }, ...lines.map((line) => (typeof line === "string" ? h("p", {}, line) : line))));
   const body = h("div", { class: "fold-body", id, role: "region" }, inner);
   const row = h("div", { class: open ? "fold open" : "fold" }, button, body);
   // Closed content cannot be reached with Tab or read aloud.
