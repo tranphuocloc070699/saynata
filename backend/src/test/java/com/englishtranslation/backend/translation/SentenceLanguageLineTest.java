@@ -132,7 +132,7 @@ class SentenceLanguageLineTest {
         TranslationResponse response = service.translate("Hello there", TargetLanguage.VI);
 
         assertThat(response.explanation().meaning()).isEqualTo("A friendly hello.");
-        assertThat(response.explanation().translation()).isNull();
+        assertThat(response.explanation().translation()).isEmpty();
         assertThat(sentences.count()).isEqualTo(1);
     }
 
@@ -177,7 +177,7 @@ class SentenceLanguageLineTest {
 
         assertThat(vi.explanation().translation()).isEqualTo("Xin chào");
         assertThat(ko.explanation().meaning()).isEqualTo("A friendly hello.");
-        assertThat(ko.explanation().translation()).isNull();
+        assertThat(ko.explanation().translation()).isEmpty();
         verify(claude, never()).translateLines(any(), anyList());
         verify(claude, never()).explainSentence(anyString());
     }

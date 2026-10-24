@@ -48,7 +48,7 @@ class SentenceLanguageLineGuestTest {
 
         assertThat(response.cached()).isTrue();
         assertThat(response.explanation().meaning()).isEqualTo("A friendly hello.");
-        assertThat(response.explanation().translation()).isNull();
+        assertThat(response.explanation().translation()).isEmpty();
         verify(claude, never()).translateLines(any(), anyList());
         assertThat(lines.count()).isZero();
     }

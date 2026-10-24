@@ -1,0 +1,13 @@
+# Runs saynata-backup.service every night at 21:30 UTC (04:30 in Vietnam), after the night prefill job (20:00 UTC).
+[Unit]
+Description=Run the Saynata backup every night
+
+[Timer]
+OnCalendar=*-*-* 21:30:00 UTC
+# If the server was off at that time, run once when it is back.
+Persistent=true
+RandomizedDelaySec=5min
+Unit=saynata-backup.service
+
+[Install]
+WantedBy=timers.target

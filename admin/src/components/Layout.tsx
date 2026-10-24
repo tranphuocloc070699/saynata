@@ -1,5 +1,5 @@
 import { useGetIdentity, useLogout } from "@refinedev/core";
-import { BookOpen, Image, LogOut, MessageSquareText, Search } from "lucide-react";
+import { BookOpen, FileText, Image, LogOut, MessageSquareText, Search } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ const links = [
   { to: "/words", label: "Words", icon: BookOpen },
   { to: "/sentences", label: "Sentences", icon: MessageSquareText },
   { to: "/media", label: "Media", icon: Image },
+  { to: "/sources", label: "Sources", icon: FileText },
 ];
 
 // The Saynata mark: a teal square with an S, next to the name.

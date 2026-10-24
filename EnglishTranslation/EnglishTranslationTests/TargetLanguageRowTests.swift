@@ -32,8 +32,8 @@ struct TargetLanguageRowTests {
         #expect(!sense.hasTargetLanguageRow(for: .english))
     }
 
-    @Test func vietnameseRowIsHiddenWithoutText() {
-        #expect(!WordEntry.sparse.senses[0].hasTargetLanguageRow(for: .vietnamese))
+    @Test func vietnameseRowStaysWithoutDictionaryTextBecauseTheBackendMakesTheLine() {
+        #expect(WordEntry.sparse.senses[0].hasTargetLanguageRow(for: .vietnamese))
         #expect(WordEntry.sparse.senses[0].hasTargetLanguageRow(for: .korean))
     }
 

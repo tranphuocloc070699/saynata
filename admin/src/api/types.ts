@@ -160,3 +160,36 @@ export interface PrefillQueueItem {
   createdAt: string;
   updatedAt: string;
 }
+
+// The Sources page (TASK-108): a book the admin uploaded, and the new words and phrases found in it.
+export interface SourceCandidate {
+  kind: "word" | "phrase" | "name";
+  text: string; // the base form
+  times: number; // how often it was seen in the file
+  zipf: number; // how common, 0-8 (3 or more is "useful")
+  snippet: string; // at most 12 words; empty after queueing
+  useful: boolean;
+}
+
+export interface SourceView {
+  id: number;
+  title: string;
+  status: "ready" | "queued";
+  queuedCount: number;
+  counts: {
+    wordsInFile: number;
+    known: number;
+    newWords: number;
+    newPhrases: number;
+    useful: number;
+    rare: number;
+    namesSkipped: number;
+  };
+  candidates: SourceCandidate[];
+}
+
+export interface SourceQueueResult {
+  queued: number;
+  alreadyQueued: number;
+  source: string;
+}

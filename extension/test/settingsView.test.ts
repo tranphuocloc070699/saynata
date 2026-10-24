@@ -26,7 +26,7 @@ const checked = () => options().find((o) => o.getAttribute("aria-checked") === "
 describe("settings popup", () => {
   it("lists every backend language and starts on the saved one", async () => {
     await mountSettings(document, area({ targetLang: "ko" }).fake);
-    expect(Array.from(select().options).map((o) => o.value)).toEqual(["vi", "en", "ja", "ko", "zh", "th", "fr", "es", "de"]);
+    expect(Array.from(select().options).map((o) => o.value)).toEqual(["vi", "en", "ja", "ko", "zh", "fr", "es", "de"]);
     expect(select().value).toBe("ko");
   });
 
