@@ -1,7 +1,8 @@
 "use client";
 /**
- * The sentence result, like the iOS SentenceCard (TASK-89.2): the original with tappable words, the simple
- * summary ("In simple words") that grows while it streams, the key words, then the target language closed and last.
+ * The sentence result, like the iOS SentenceCard (TASK-89.2): the original with tappable words (a tap opens the
+ * word in WordSheet, over the result), the simple summary ("In simple words") that grows while it streams, the key
+ * words, then the target language closed and last.
  */
 import { useState } from "react";
 import type { Explanation } from "@/lib/api";

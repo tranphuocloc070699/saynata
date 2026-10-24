@@ -72,9 +72,13 @@ body {
   color: var(--ink);
 }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* In the base layer, so a utility such as outline-none on one element can turn it off (the composer textarea,
+   whose card shows the focus instead). Unlayered CSS would beat every Tailwind utility. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 }
 
 /*
