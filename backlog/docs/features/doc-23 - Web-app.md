@@ -3,7 +3,7 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-24 06:05'
+updated_date: '2026-10-24 06:41'
 ---
 # Web app
 
@@ -56,12 +56,13 @@ sequenceDiagram
 | Step | File | What happens |
 |---|---|---|
 | Page | [page.tsx](../../../web/src/app/page.tsx) | Static header and intro; `Home` inside `Suspense` because it reads `?q=` |
-| State | [Home.tsx:24](../../../web/src/components/home/Home.tsx#L24) | The address is the source of truth. A new query, language or retry sets the first state during render ([Home.tsx:38](../../../web/src/components/home/Home.tsx#L38)) and an effect fetches the rest ([Home.tsx:51](../../../web/src/components/home/Home.tsx#L51)) |
+| State | [Home.tsx:25](../../../web/src/components/home/Home.tsx#L25) | The address is the source of truth. A new query, language or retry sets the first state during render ([Home.tsx:41](../../../web/src/components/home/Home.tsx#L41)) and an effect fetches the rest ([Home.tsx:54](../../../web/src/components/home/Home.tsx#L54)) |
 | Search | [explain.ts:20](../../../web/src/lib/explain.ts#L20), [explain.ts:35](../../../web/src/lib/explain.ts#L35) | `startState` and `fetchResult`, no React, tested. One word (or a/an/the + word) goes to the word API, the rest to the sentence stream |
 | Client | [api.ts:180](../../../web/src/lib/api.ts#L180) | Copied from the extension (`extension/src/shared/api.ts`) plus `suggest()`. Stream first, `POST /api/translations` once as a fallback |
-| Suggestions | [Home.tsx:66](../../../web/src/components/home/Home.tsx#L66) | 1-40 characters, 250 ms after the last key, cached and bundled only, so a guest costs nothing |
+| Suggestions | [Home.tsx:69](../../../web/src/components/home/Home.tsx#L69) | 1-40 characters, 250 ms after the last key, cached and bundled only, so a guest costs nothing |
 | Word card | [WordCard.tsx](../../../web/src/components/home/WordCard.tsx) | Headword, IPA, Listen; one card per sense with level chip and picture or clip; Examples, How to use it, Vietnamese as closed rows, Vietnamese last |
-| Sentence card | [SentenceCard.tsx](../../../web/src/components/home/SentenceCard.tsx) | Original with tappable words (a tap searches the word), summary that grows while it streams, key words, the target language last and closed, Copy under the card |
+| Sentence card | [SentenceCard.tsx](../../../web/src/components/home/SentenceCard.tsx) | Original with tappable words (a tap opens the word sheet; the box, `?q=` and the sentence stay), summary that grows while it streams, key words, the target language last and closed, Copy under the card |
+| Word sheet | [WordSheet.tsx](../../../web/src/components/home/WordSheet.tsx) | A word tapped in a sentence (or in its Words list) opens the same `WordCard` in a native `<dialog>` with `showModal()`: a bottom sheet on a phone, a centered card from 640 px. It looks the word up with the same `fetchResult` call as a search. Esc, a click on the backdrop and the Close button (aria-label "Close") close it; focus goes back to where it was. Like the iOS `SentenceWordSheet` |
 | Language | [targetLanguage.ts](../../../web/src/lib/targetLanguage.ts) | `localStorage` through `useSyncExternalStore`; a change runs the search again |
 | Speech | [speech.ts](../../../web/src/lib/speech.ts) | Web Speech API, en-US, rate 0.92 |
 
@@ -72,12 +73,15 @@ All motion runs through [withMotion](../../../web/src/lib/motion.ts#L15) (`gsap.
 
 | Moment | Where | What moves |
 |---|---|---|
-| Page enters, once | [Home.tsx:86](../../../web/src/components/home/Home.tsx#L86) | `[data-enter]` (intro, composer) rise and fade in, the cat drops onto the card with `bounce.out`, the send button pops in. CSS hides `[data-enter]` only when motion is allowed, and a `<noscript>` rule in `layout.tsx` shows it without JavaScript |
-| A result arrives | [Home.tsx:101](../../../web/src/components/home/Home.tsx#L101) | Each new `[data-reveal]` part rises 12 px, 0.42 s, 0.06 s apart. Parts already shown are marked `data-shown`, so the stream finishing does not replay the card |
-| Suggestions change | [Home.tsx:117](../../../web/src/components/home/Home.tsx#L117) | Chips fan out, 0.25 s, 0.03 s apart |
+| Page enters, once | [Home.tsx:89](../../../web/src/components/home/Home.tsx#L89) | `[data-enter]` (intro, composer) rise and fade in, the cat drops onto the card with `bounce.out`, the send button pops in. CSS hides `[data-enter]` only when motion is allowed, and a `<noscript>` rule in `layout.tsx` shows it without JavaScript |
+| A result arrives | [Home.tsx:104](../../../web/src/components/home/Home.tsx#L104) | Each new `[data-reveal]` part rises 12 px, 0.42 s, 0.06 s apart. Parts already shown are marked `data-shown`, so the stream finishing does not replay the card |
+| Suggestions change | [Home.tsx:120](../../../web/src/components/home/Home.tsx#L120) | Chips fan out, 0.25 s, 0.03 s apart |
 | The cat | [PixelCat.tsx:68](../../../web/src/components/PixelCat.tsx#L68) | Asleep: slow breathing and three z letters; awake: faster breathing, open eyes; busy: small hops |
+| The word sheet opens | [WordSheet.tsx](../../../web/src/components/home/WordSheet.tsx) | The panel rises 28 px and fades in, 0.32 s |
 
 Folded rows open with a CSS grid-rows transition, not GSAP and not `height`, and a closed row is `inert`.
+
+Focus: the global `:focus-visible` outline sits in `@layer base` (`globals.css`), so a Tailwind utility can turn it off. The composer textarea uses `outline-none`, and its card shows focus instead (`focus-within`: accent border and a soft ring).
 
 ## Deploy (saynata.com, TASK-102.2, moved from loffy.me in TASK-104)
 
