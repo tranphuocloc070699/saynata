@@ -2,6 +2,7 @@ package com.englishtranslation.backend.limits;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -215,12 +216,12 @@ class ClaudeGateTest {
 
     @Test
     void aSignedInUserGetsANewSentenceFromClaude() throws Exception {
-        when(claude.explainSentence("A brand new sentence", TargetLanguage.VI)).thenReturn(EXPLANATION);
+        when(claude.explainSentence("A brand new sentence")).thenReturn(EXPLANATION);
 
         translate("A brand new sentence", userToken).andExpect(status().isOk())
                 .andExpect(jsonPath("$.cached").value(false));
 
-        verify(claude).explainSentence("A brand new sentence", TargetLanguage.VI);
+        verify(claude).explainSentence("A brand new sentence");
     }
 
     @Test
@@ -234,7 +235,7 @@ class ClaudeGateTest {
 
     @Test
     void theStreamKnowsTheUserEvenThoughItRunsOnAnotherThread() throws Exception {
-        when(claude.explainSentenceStreaming(eq("A brand new sentence"), eq(TargetLanguage.VI), any()))
+        when(claude.explainSentenceStreaming(eq("A brand new sentence"), any()))
                 .thenReturn(EXPLANATION);
 
         String body = stream("A brand new sentence", userToken);
@@ -245,7 +246,7 @@ class ClaudeGateTest {
     @Test
     void aUserOverTheirHourlyLimitGets429WithRetryAfterAndNoClaudeCall() throws Exception {
         // The limit is 2 per hour in this test class.
-        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
         translate("First new sentence", userToken).andExpect(status().isOk());
         translate("Second new sentence", userToken).andExpect(status().isOk());
 
@@ -254,23 +255,25 @@ class ClaudeGateTest {
                 .andExpect(header().exists("Retry-After"))
                 .andExpect(jsonPath("$.code").value("rate_limited"));
 
-        verify(claude, times(2)).explainSentence(anyString(), any());
+        verify(claude, times(2)).explainSentence(anyString());
     }
 
     @Test
     void cacheHitsDoNotUseUpTheUsersClaudeLimit() throws Exception {
         cacheSentence("Hello there");
+        // The first request saves the language line (one small call); the next ones are free hits.
+        when(claude.translateLines(any(), anyList())).thenReturn(List.of("Xin chào"));
         for (int i = 0; i < 6; i++) {
             translate("Hello there", userToken).andExpect(status().isOk());
         }
-        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
 
         translate("A brand new sentence", userToken).andExpect(status().isOk());
     }
 
     @Test
     void theStreamReportsRateLimitedInTheErrorEvent() throws Exception {
-        when(claude.explainSentenceStreaming(anyString(), any(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentenceStreaming(anyString(), any())).thenReturn(EXPLANATION);
         stream("First new sentence", userToken);
         stream("Second new sentence", userToken);
 
@@ -328,7 +331,7 @@ class ClaudeGateTest {
     void aCallStillGoesThroughWhenTheSpendIsJustBelowTheCap() throws Exception {
         // Spend just below the cap: a call still goes through.
         usage.record(Feature.WORD, "claude-haiku-5-5", 0, 1_000_000); // $0.50
-        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
 
         translate("A brand new sentence", userToken).andExpect(status().isOk());
     }

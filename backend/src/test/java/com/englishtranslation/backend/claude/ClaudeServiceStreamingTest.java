@@ -85,25 +85,24 @@ class ClaudeServiceStreamingTest {
     @Test
     void everyPieceOfTextIsPassedOnAndTheWholeAnswerIsReturned() {
         ClaudeService service = serviceStreaming(streamOf("end_turn",
-                "{\"isEnglish\":true,\"summary\":\"He did not ", "want to leave.\",",
-                "\"translation\":\"Anh ấy không muốn đi.\"}"));
+                "{\"isEnglish\":true,\"summary\":\"He did not ", "want to leave.\"", "}"));
         List<String> pieces = new ArrayList<>();
 
-        Explanation explanation = service.explainSentenceStreaming("He was reluctant", TargetLanguage.VI, pieces::add);
+        Explanation explanation = service.explainSentenceStreaming("He was reluctant", pieces::add);
 
         assertThat(pieces).hasSize(3);
         assertThat(pieces.get(0)).startsWith("{\"isEnglish\":true");
         assertThat(explanation.meaning()).isEqualTo("He did not want to leave.");
         assertThat(explanation.words()).isEmpty();
-        assertThat(explanation.translation()).isEqualTo("Anh ấy không muốn đi.");
+        assertThat(explanation.translation()).isEmpty();
     }
 
     @Test
     void anAnswerThatIsNotEnglishThrowsLikeTheNormalCall() {
         ClaudeService service = serviceStreaming(streamOf("end_turn",
-                "{\"isEnglish\":false,\"summary\":\"\",\"translation\":\"\"}"));
+                "{\"isEnglish\":false,\"summary\":\"\"}"));
 
-        assertThatThrownBy(() -> service.explainSentenceStreaming("asdkj qwe zzxq", TargetLanguage.VI, piece -> {
+        assertThatThrownBy(() -> service.explainSentenceStreaming("asdkj qwe zzxq", piece -> {
         })).isInstanceOf(NotEnglishException.class);
     }
 
@@ -111,7 +110,7 @@ class ClaudeServiceStreamingTest {
     void aRefusalThrowsLikeTheNormalCall() {
         ClaudeService service = serviceStreaming(streamOf("refusal", ""));
 
-        assertThatThrownBy(() -> service.explainSentenceStreaming("anything", TargetLanguage.VI, piece -> {
+        assertThatThrownBy(() -> service.explainSentenceStreaming("anything", piece -> {
         })).isInstanceOf(ClaudeRefusedException.class);
     }
 
@@ -119,9 +118,9 @@ class ClaudeServiceStreamingTest {
     void theTokensClaudeReportsAreRecordedForTheSentenceFeature() {
         ClaudeUsageService usage = org.mockito.Mockito.mock(ClaudeUsageService.class);
         ClaudeService service = serviceStreaming(streamOf("end_turn",
-                "{\"isEnglish\":true,\"summary\":\"Hi.\",\"translation\":\"Chào\"}"), usage);
+                "{\"isEnglish\":true,\"summary\":\"Hi.\"}"), usage);
 
-        service.explainSentenceStreaming("Hello", TargetLanguage.VI, piece -> {
+        service.explainSentenceStreaming("Hello", piece -> {
         });
 
         // message_start reported 10 input tokens, message_delta reported 20 output tokens.
@@ -133,7 +132,7 @@ class ClaudeServiceStreamingTest {
         ClaudeUsageService usage = org.mockito.Mockito.mock(ClaudeUsageService.class);
         ClaudeService service = serviceStreaming(streamOf("refusal", ""), usage);
 
-        assertThatThrownBy(() -> service.explainSentenceStreaming("anything", TargetLanguage.VI, piece -> {
+        assertThatThrownBy(() -> service.explainSentenceStreaming("anything", piece -> {
         })).isInstanceOf(ClaudeRefusedException.class);
 
         org.mockito.Mockito.verify(usage).record(Feature.SENTENCE, "claude-haiku-5-5", 10, 20);
