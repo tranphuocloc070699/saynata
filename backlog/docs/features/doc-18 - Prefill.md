@@ -3,7 +3,7 @@ id: doc-18
 title: Prefill
 type: other
 created_date: '2026-10-16 08:28'
-updated_date: '2026-10-23 10:03'
+updated_date: '2026-10-24 10:16'
 ---
 # Prefill
 
@@ -147,6 +147,10 @@ Words are well covered (about 34 thousand cached), but the short lines a learner
 Measured on 2026-10-23 (dry run, no database): **2,488 lines, about $1.34** at $0.30 / $1.20 per million tokens ($0.00054 a line), about 925 a night at the $0.50 cap, so **about 3 nights**. The token numbers are an estimate; `prefill report` after a run shows the real spend.
 
 Items of 2-6 words are also looked up as phrases by the app (`CacheKeys.phraseQuery`, TASK-83.10) before the sentence path; they are queued as sentences all the same. To add lines: append to the TSV (or pass `--file`) and run the command again; only new lines are queued.
+
+## Words from a book (TASK-108)
+
+A third way to fill the queue, by hand. The admin opens **Sources** in the admin web app, uploads a book (`.txt` or `.md`, 5 MB at most) with a title, and sees the words and phrases that are not bundled, cached or queued yet. Picking some and pressing "Add N to queue" writes `prefill_item` rows with source **`book:<title>`** (a word is kind `word`; a phrase is kind `sentence`, language `vi`, like the pipeline phrases). The night job, or "Run at once" with `source=book:<title>`, answers them like any other row. No LLM call is made to read the book, and the book text is never stored (only the word list and a snippet of 12 words per item, cleared after queueing). How the book is read, the endpoints and the limits are in [Admin API](doc-13%20-%20Admin-API.md#sources-a-book-into-the-queue-task-108); the page is described in [Admin CMS](doc-14%20-%20Admin-CMS.md). The column `prefill_item.source` is 110 characters long since Flyway V28.
 
 ## Run at once (TASK-83.12)
 

@@ -208,7 +208,7 @@ public class SentenceWordQueue {
      * The words this word may be a form of, found by the usual endings (-s, -es, -ies, -ing, -ed). Not exact on
      * purpose: it only decides to skip a word, never to change one.
      */
-    static List<String> candidateBases(String word) {
+    public static List<String> candidateBases(String word) {
         Set<String> out = new LinkedHashSet<>();
         int n = word.length();
         if (word.endsWith("ies") && n > 4) {
