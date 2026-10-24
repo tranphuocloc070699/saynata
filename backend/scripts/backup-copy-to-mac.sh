@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Monthly copy to the developer's Mac (TASK-107). Run it ON THE MAC, not on the VPS (doc-11, section 16):
+# Monthly copy to the developer's Mac (TASK-107). Run it ON THE MAC, not on the VPS (doc-11, section 17):
 #   brew install restic
 #   export RESTIC_FROM_REPOSITORY='s3:https://<account>.r2.cloudflarestorage.com/<bucket>'
 #   export RESTIC_FROM_PASSWORD='<the same RESTIC_PASSWORD as the server>'

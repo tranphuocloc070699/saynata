@@ -1,4 +1,4 @@
-# Nightly backup of Postgres and media (TASK-107, doc-11 section 16).
+# Nightly backup of Postgres and media (TASK-107, doc-11 section 17).
 # Replace __USER__ and __BACKEND_DIR__ first (the guide has a sed command), then copy to /etc/systemd/system/.
 [Unit]
 Description=Saynata backup (Postgres dump + media to Cloudflare R2)

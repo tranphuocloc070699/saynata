@@ -15,7 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * CSRF protection for /api/admin. The login cookie is SameSite=Strict, and on top of that every
  * write (POST, PUT, DELETE) must send "Content-Type: application/json". A web form on another site
  * cannot send that header, and a script on another site would need a CORS preflight that we refuse.
- * One exception (TASK-79): the file upload is a multipart form, so it may send "multipart/form-data" instead,
+ * One exception (TASK-79, TASK-108: the media upload and the Sources upload): the file upload is a multipart form, so it may send "multipart/form-data" instead,
  * but only together with the header "X-Requested-With". A form on another site cannot add a custom header,
  * and a script on another site would again need a CORS preflight that we refuse.
  * Not a @Component: SecurityConfig adds it to the security chain by hand.
@@ -23,7 +23,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JsonWritesOnlyFilter extends OncePerRequestFilter {
 
     private static final Set<String> READ_METHODS = Set.of("GET", "HEAD", "OPTIONS");
-    private static final Pattern UPLOAD_PATH = Pattern.compile("^/api/admin/words/[^/]+/senses/[0-9]+/media/upload$");
+    private static final Pattern UPLOAD_PATH = Pattern.compile(
+            "^/api/admin/(words/[^/]+/senses/[0-9]+/media/upload|sources)$");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)

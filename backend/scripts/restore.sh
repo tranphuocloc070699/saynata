@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Restore test (TASK-107): take a restic snapshot from R2, load its database dump into a SCRATCH Postgres
 # (a temporary container, never the live database) and print the row count of every table.
-# Run on the VPS, once a month (doc-11, section 16):
+# Run on the VPS, once a month (doc-11, section 17):
 #   ~/saynata/backend/scripts/restore.sh            # newest snapshot
 #   ~/saynata/backend/scripts/restore.sh 1a2b3c4d   # a snapshot ID from: restic snapshots
 #   KEEP_FILES=1 ~/saynata/backend/scripts/restore.sh   # keep the restored files in the printed folder
@@ -36,7 +36,7 @@ export RESTIC_REPOSITORY RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 export AWS_DEFAULT_REGION=auto
 
 for tool in docker restic; do
-  command -v "$tool" >/dev/null || { log "Missing tool: $tool. See doc-11, section 16."; exit 1; }
+  command -v "$tool" >/dev/null || { log "Missing tool: $tool. See doc-11, section 17."; exit 1; }
 done
 for key in RESTIC_REPOSITORY RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
   [ -n "${!key}" ] || { log "$key is empty. Fill RESTIC_REPOSITORY, RESTIC_PASSWORD, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY in backend/.env."; exit 1; }

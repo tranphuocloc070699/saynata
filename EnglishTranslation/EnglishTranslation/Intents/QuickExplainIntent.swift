@@ -35,6 +35,7 @@ struct QuickExplainIntent: AppIntent {
             makeWordLookup: { try TranslatorFactory.makeWordLookup() },
             makeTranslator: { try TranslatorFactory.makeTranslator() })
         let result = await explainer.explain(text)
-        return .result(view: QuickExplainCard(result: result))
+        let line = await explainer.languageLine(for: result)
+        return .result(view: QuickExplainCard(result: result, language: explainer.language, wordLine: line))
     }
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Nightly backup (TASK-107): dump Postgres, then send the dump and the media folder to Cloudflare R2 with restic.
-# Run on the VPS (a systemd timer does it; guide: doc-11, section 16):  ~/saynata/backend/scripts/backup.sh
+# Run on the VPS (a systemd timer does it; guide: doc-11, section 17):  ~/saynata/backend/scripts/backup.sh
 #
 # Steps: 1. pg_dump -Fc from the Docker Postgres into BACKUP_DIR/db, keep the last 3 dumps
 #        2. restic backup of the newest dump + MEDIA_HOST_DIR to the R2 repository
@@ -60,7 +60,7 @@ trap on_exit EXIT
 
 # --- Check the setup before we start -------------------------------------------------------------------
 for tool in docker restic curl; do
-  command -v "$tool" >/dev/null || { log "Missing tool: $tool. See doc-11, section 16."; exit 1; }
+  command -v "$tool" >/dev/null || { log "Missing tool: $tool. See doc-11, section 17."; exit 1; }
 done
 for key in RESTIC_REPOSITORY RESTIC_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
   [ -n "${!key}" ] || { log "$key is empty. Set RESTIC_REPOSITORY, RESTIC_PASSWORD, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY in backend/.env."; exit 1; }
@@ -104,7 +104,7 @@ ln -f "$dump_file" "$latest_dir/saynata.dump"
 # --- 2. Send to R2 -------------------------------------------------------------------------------------
 if ! restic cat config >/dev/null 2>&1; then
   log "Cannot open the restic repository $RESTIC_REPOSITORY."
-  log "First time? Run 'restic init' once (doc-11, section 16, step 5). Otherwise check the keys and the password."
+  log "First time? Run 'restic init' once (doc-11, section 17, step 5). Otherwise check the keys and the password."
   exit 1
 fi
 

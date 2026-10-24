@@ -26,6 +26,10 @@ export type RuntimeRequest =
   | { type: "auth/requestCode"; email: string }
   | { type: "auth/verify"; email: string; code: string }
   | { type: "auth/signOut" }
-  | { type: "openSignIn" };
+  | { type: "openSignIn" }
+  /** The language row of a word card: POST /api/translate-lines (guest: cachedOnly). */
+  | { type: "lines"; texts: string[]; targetLang: LanguageCode };
 
-export type RuntimeResponse = { ok: true; email?: string } | { ok: false; kind: string; message: string };
+export type RuntimeResponse =
+  | { ok: true; email?: string; translations?: (string | null)[]; signedIn?: boolean }
+  | { ok: false; kind: string; message: string };

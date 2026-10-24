@@ -39,14 +39,15 @@ class TranslationStreamingHttpTest {
     @Test
     void theMeaningArrivesBeforeClaudeHasFinished() throws Exception {
         CountDownLatch clientSawMeaning = new CountDownLatch(1);
-        when(claude.explainSentenceStreaming(eq("Real http streaming test"), eq(TargetLanguage.VI), any()))
+        when(claude.translateLines(any(), org.mockito.ArgumentMatchers.anyList())).thenReturn(List.of("Tiếng Việt"));
+        when(claude.explainSentenceStreaming(eq("Real http streaming test"), any()))
                 .thenAnswer(call -> {
-                    Consumer<String> onText = call.getArgument(2);
+                    Consumer<String> onText = call.getArgument(1);
                     onText.accept("{\"isEnglish\":true,\"summary\":\"Xin chào, đây là nghĩa.\",\"tra");
                     // Claude is "still working" until the client has read the meaning event.
                     boolean seen = clientSawMeaning.await(10, TimeUnit.SECONDS);
                     assertThat(seen).as("the client read the meaning before Claude finished").isTrue();
-                    return new Explanation("Xin chào, đây là nghĩa.", List.of(), "Tiếng Việt");
+                    return new Explanation("Xin chào, đây là nghĩa.", List.of(), "");
                 });
 
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/translations/stream"))

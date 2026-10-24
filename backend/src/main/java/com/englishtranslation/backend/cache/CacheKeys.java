@@ -81,9 +81,22 @@ public final class CacheKeys {
     }
 
     /**
-     * The match_key of a saved sentence: key("sentence-loose", promptVersion, targetLang, looseText).
-     * Flyway V18 filled old rows with this method, and V24 filled them again when the loose form grew (curly quotes,
-     * …, commas), so the database and new code always agree.
+     * The cache key of a sentence's English part (prompt v10, TASK-106.6): key("sentence", promptVersion, text).
+     * There is no language in it: the English explanation is paid once for all languages.
+     */
+    public static String sentenceKey(String promptVersion, String normalizedText) {
+        return key("sentence", promptVersion, normalizedText);
+    }
+
+    /** The match_key of a saved sentence (v10): key("sentence-loose", promptVersion, looseText). No language. */
+    public static String sentenceMatchKey(String promptVersion, String text) {
+        return key("sentence-loose", promptVersion, normalizeSentenceLoose(text));
+    }
+
+    /**
+     * The match_key before v10 had the language too: key("sentence-loose", promptVersion, targetLang, looseText).
+     * Flyway V18 filled old rows with this method, and V24 and V25 filled them again when the loose form grew
+     * (curly quotes, …, commas, quotes), so the old Java migrations keep using it.
      */
     public static String sentenceMatchKey(String promptVersion, String targetLang, String text) {
         return key("sentence-loose", promptVersion, targetLang, normalizeSentenceLoose(text));

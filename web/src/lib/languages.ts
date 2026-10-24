@@ -5,7 +5,6 @@ export const LANGUAGES = [
   { code: "ja", name: "Japanese" },
   { code: "ko", name: "Korean" },
   { code: "zh", name: "Chinese" },
-  { code: "th", name: "Thai" },
   { code: "fr", name: "French" },
   { code: "es", name: "Spanish" },
   { code: "de", name: "German" },
@@ -21,4 +20,9 @@ export function isLanguageCode(value: unknown): value is LanguageCode {
 
 export function languageName(code: LanguageCode): string {
   return LANGUAGES.find((language) => language.code === code)?.name ?? code;
+}
+
+/** A saved value as a language: a code that is gone (Thai "th") or broken reads as Vietnamese. */
+export function languageFromSaved(value: unknown): LanguageCode {
+  return isLanguageCode(value) ? value : DEFAULT_LANGUAGE;
 }

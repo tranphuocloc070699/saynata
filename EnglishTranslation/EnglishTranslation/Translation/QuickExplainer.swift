@@ -44,6 +44,10 @@ struct QuickExplainer {
     /// A Shortcuts card cannot show an answer that is still coming, so after this many seconds the card says
     /// "still working" instead. Bundled and cached answers come back long before this.
     var timeLimit: Duration = .seconds(8)
+    /// Where the word's language line comes from (TASK-106.3).
+    var lines: LanguageLines = .shared
+    /// The line has its own, shorter limit: the card is useful without it.
+    var lineTimeLimit: Duration = .seconds(3)
 
     /// Explains `text`. A pasted Apple Books citation is left out, as in the app.
     func explain(_ text: String) async -> QuickExplainResult {
@@ -72,6 +76,30 @@ struct QuickExplainer {
             return .word(entry)
         }
         return await explainSentence(cleaned, lookup: lookup)
+    }
+
+    /// The backend line for the first meaning of a word card, in the picked language. Nil for a sentence (its
+    /// explanation already has the line), for English, and when the backend has no line in time: the card then uses
+    /// the dictionary text (Vietnamese) or shows no line (no Apple Translation over another app).
+    func languageLine(for result: QuickExplainResult) async -> String? {
+        guard language.hasTargetLanguageRow, case let .word(entry) = result,
+              let english = entry.senses.first?.simpleDefinition, !english.isEmpty else { return nil }
+        let language = language
+        // Race the request against the timer. The request goes on in the background and fills the cache.
+        let limit = lineTimeLimit
+        let lines = lines
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let finish = OnceResumer(continuation)
+            Task { @MainActor in
+                await lines.load([english], in: language)
+                finish.resume()
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: limit)
+                finish.resume()
+            }
+        }
+        return lines.line(for: english, in: language)
     }
 
     private func explainWord(_ word: String, lookup: (any WordLooking)?) async -> QuickExplainResult {
@@ -148,6 +176,19 @@ struct QuickExplainer {
         recognizer.processString(text)
         guard let (language, confidence) = recognizer.languageHypotheses(withMaximum: 1).first else { return true }
         return language == .english || confidence < 0.9
+    }
+}
+
+/// Resumes a continuation the first time `resume()` is called; later calls do nothing.
+@MainActor
+private final class OnceResumer {
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    init(_ continuation: CheckedContinuation<Void, Never>) { self.continuation = continuation }
+
+    func resume() {
+        continuation?.resume()
+        continuation = nil
     }
 }
 

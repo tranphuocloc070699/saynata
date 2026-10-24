@@ -3,7 +3,16 @@
 import { useId, useState, type ReactNode } from "react";
 import { Chevron } from "./icons";
 
-export function FoldedRow({ title, children }: { title: string; children: ReactNode }) {
+export function FoldedRow({
+  title,
+  children,
+  onToggle,
+}: {
+  title: string;
+  children: ReactNode;
+  /** Called with the new state after each tap (the language row loads its line when it opens). */
+  onToggle?: (open: boolean) => void;
+}) {
   const [open, setOpen] = useState(false);
   const id = useId();
   return (
@@ -12,7 +21,10 @@ export function FoldedRow({ title, children }: { title: string; children: ReactN
         type="button"
         aria-expanded={open}
         aria-controls={id}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          setOpen(!open);
+          onToggle?.(!open);
+        }}
         className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 py-2 text-left text-sm font-semibold text-ink-2"
       >
         {title}

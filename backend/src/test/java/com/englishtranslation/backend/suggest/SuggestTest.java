@@ -80,7 +80,7 @@ class SuggestTest {
     }
 
     private void phrase(String text, String lang) {
-        sentences.save(new SentenceTranslation(CacheKeys.key("sentence", sentencePromptVersion, lang, text), text, lang,
+        sentences.save(new SentenceTranslation(CacheKeys.sentenceKey(sentencePromptVersion, text), text, lang,
                 "m", "[]", "t", "m", sentencePromptVersion));
     }
 
@@ -124,13 +124,14 @@ class SuggestTest {
     }
 
     @Test
-    void theSamePhraseInTwoLanguagesIsOneSuggestionAndLangFilters() {
-        phrase("Good morning", "vi");
-        phrase("Good morning", "ja");
-        phrase("Good night", "ja");
+    void theSamePhraseSavedTwiceIsOneSuggestionAndLangIsIgnored() {
+        // Since v10 (TASK-106.6) a saved sentence has no language, so ?lang= no longer filters phrases.
+        phrase("Good morning", "en");
+        phrase("good morning", "en");
+        phrase("Good night", "en");
 
         assertThat(texts("good", null)).containsExactly("Good night", "Good morning");
-        assertThat(texts("good", "vi")).containsExactly("Good morning");
+        assertThat(texts("good", "vi")).containsExactly("Good night", "Good morning");
     }
 
     @Test

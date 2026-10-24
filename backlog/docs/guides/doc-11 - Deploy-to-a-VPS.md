@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-24 09:57'
+updated_date: '2026-10-24 10:02'
 ---
 # Deploy to a VPS
 
@@ -793,7 +793,14 @@ www.loffy.me, www.saynata.com {
 5. After a few weeks, when nobody uses the old builds: remove `loffy.me` from Caddy, from `allowed-origins` and from
    the extension `host_permissions`.
 
-## 16. Backups to Cloudflare R2 (TASK-107)
+## 16. Language lines (TASK-106.2)
+
+`POST /api/translate-lines` needs no new key and no new server setting. It uses the same Claude settings as the sentence and word calls (`CLAUDE_BASE_URL`, `CLAUDE_AUTH_TOKEN`, `CLAUDE_MODEL`; through a gateway the JSON Schema goes in the prompt). Flyway V27 creates the table `line_translation` on the next start. The prompt version is `app.claude.line-prompt-version` in `application.properties` (default `v1`); bump it when `LINE_PROMPT` in `ClaudeService.java` changes, so old lines are not served for the new prompt. Its Claude spend appears as feature `line` in `GET /api/admin/usage` and counts toward `app.claude.daily-budget-usd`.
+
+Quick check on the server (use a signed-in user's token):
+`curl -s -X POST https://api.saynata.com/api/translate-lines -H 'Content-Type: application/json' -H "Authorization: Bearer $TOKEN" -d '{"targetLang":"vi","texts":["a place that keeps your money safe"]}'`
+
+## 17. Backups to Cloudflare R2 (TASK-107)
 
 Before this, nothing was backed up. The server Postgres holds the dictionary, every cached answer, the users and the liked
 items, and the media folder holds the pictures and clips. If the VPS is lost, all of it is lost. This section sets up the
