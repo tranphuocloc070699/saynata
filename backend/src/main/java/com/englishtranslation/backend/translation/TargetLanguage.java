@@ -12,7 +12,6 @@ public enum TargetLanguage {
     JA("ja", "Japanese"),
     KO("ko", "Korean"),
     ZH("zh", "Simplified Chinese"),
-    TH("th", "Thai"),
     FR("fr", "French"),
     ES("es", "Spanish"),
     DE("de", "German");
