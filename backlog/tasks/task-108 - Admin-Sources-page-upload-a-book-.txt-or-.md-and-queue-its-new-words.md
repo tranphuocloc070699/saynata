@@ -48,4 +48,6 @@ The developer wants to find new words every day from books and news. First step:
 
 <!-- SECTION:NOTES:BEGIN -->
 Built: pipeline source-lists (free, ran locally), backend sources/ (Flyway V28), admin Sources page, docs 13/14/18/6 and CLAUDE.md. Tests: backend 539 pass, admin 118 pass + build, pipeline 247 pass. Test it: start backend + admin, open Sources, upload a .txt/.md with a title, check tiles and chips, pick words, Add N to queue, see them Pending (source book:<title>); failure: .pdf gives 'Upload a .txt or .md file.', over 5 MB gives 'That file is too big.'
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/172
 <!-- SECTION:NOTES:END -->
