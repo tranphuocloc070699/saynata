@@ -173,6 +173,30 @@ export class SaynataApi {
     return (await response.json()) as WordResponse;
   }
 
+  /**
+   * POST /api/translate-lines (doc-5): the language line of short texts. A signed-in user may cause a new
+   * Claude call; a guest sends cachedOnly=true, so a miss comes back as null and costs nothing.
+   */
+  async translateLines(
+    texts: string[],
+    targetLang: LanguageCode,
+    signal?: AbortSignal,
+  ): Promise<{ translations: (string | null)[]; signedIn: boolean }> {
+    const signedIn = (await this.tokens.accessToken()) !== null;
+    const url = `${this.baseUrl}/api/translate-lines${signedIn ? "" : "?cachedOnly=true"}`;
+    const response = await this.withAuth((token) =>
+      this.send(url, {
+        method: "POST",
+        headers: this.headers(token, true),
+        body: JSON.stringify({ targetLang, texts }),
+        signal,
+      }),
+    );
+    if (!response.ok) throw await errorFromResponse(response);
+    const body = (await response.json()) as { lines?: { translation?: string | null }[] };
+    return { translations: texts.map((_, index) => body.lines?.[index]?.translation ?? null), signedIn };
+  }
+
   /** The stream first; if it fails with anything but a final 4xx answer or a cancel, the old endpoint once. */
   async explainSentence(
     text: string,
