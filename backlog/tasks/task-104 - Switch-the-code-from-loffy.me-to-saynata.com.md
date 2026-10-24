@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-24 06:03'
-updated_date: '2026-10-24 06:13'
+updated_date: '2026-10-24 06:14'
 labels: []
 dependencies: []
 ordinal: 111000
@@ -44,4 +44,6 @@ The developer bought saynata.com (Cloudflare, 2026-10-18). DNS and Caddy already
 
 <!-- SECTION:NOTES:BEGIN -->
 Done in code; PR into feature/local. Test it: developer verifies saynata.com in Resend then sets EMAIL_FROM, PUBLIC_BASE_URL, MEDIA_BASE_URL in VPS backend/.env; release + deploy; build new app and extension. Media URLs are built at read time (file names in Postgres, media/<file> in dictionary.sqlite), no data rewrite. Both domains kept in admin CORS and extension host_permissions.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/160
 <!-- SECTION:NOTES:END -->
