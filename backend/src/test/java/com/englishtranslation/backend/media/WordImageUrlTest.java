@@ -74,7 +74,7 @@ class WordImageUrlTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.word").value("reluctant"))
                 .andExpect(jsonPath("$.cached").value(true))
-                .andExpect(jsonPath("$.entry.senses[0].imageUrl").value("https://api.loffy.me/media/reluctant_1_ab12cd34.webp"))
+                .andExpect(jsonPath("$.entry.senses[0].imageUrl").value("https://api.saynata.com/media/reluctant_1_ab12cd34.webp"))
                 .andExpect(jsonPath("$.entry.senses[0].simpleDefinition").value("not wanting to"))
                 .andExpect(jsonPath("$.entry.senses[0].vietnamese").value("miễn cưỡng"))
                 .andExpect(jsonPath("$.entry.senses[0].examples[0].level").value("easy"));

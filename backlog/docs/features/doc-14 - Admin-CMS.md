@@ -21,7 +21,7 @@ In a word's detail, each sense has a **Media row**: the current photo or clip wi
 
 ```mermaid
 flowchart LR
-    B[Browser: admin.loffy.me] -->|static files| C[Caddy]
+    B[Browser: admin.saynata.com] -->|static files| C[Caddy]
     B -->|"fetch + cookie, /api/admin/**"| API[Spring Boot backend]
     API --> PG[(Postgres: word_lookup, sentence_translation)]
 ```

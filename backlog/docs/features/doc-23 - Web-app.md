@@ -3,7 +3,7 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-24 03:38'
+updated_date: '2026-10-24 06:05'
 ---
 # Web app
 
@@ -30,7 +30,7 @@ flowchart LR
 ```
 
 The backend has no CORS setup, so the browser only calls its own origin. In dev, `next.config.ts` rewrites `/api/*` to
-`SAYNATA_API_ORIGIN` (default `https://api.loffy.me`), see [next.config.ts:20](../../../web/next.config.ts#L20).
+`SAYNATA_API_ORIGIN` (default `https://api.saynata.com`), see [next.config.ts:20](../../../web/next.config.ts#L20).
 
 ## Step by step
 
@@ -79,13 +79,13 @@ All motion runs through [withMotion](../../../web/src/lib/motion.ts#L15) (`gsap.
 
 Folded rows open with a CSS grid-rows transition, not GSAP and not `height`, and a closed row is `inert`.
 
-## Deploy (loffy.me, TASK-102.2)
+## Deploy (saynata.com, TASK-102.2, moved from loffy.me in TASK-104)
 
 ```mermaid
 flowchart LR
     GH["GitHub Actions: npm ci, next build"] -->|"rsync web/dist"| VPS[VPS web/dist]
     VPS -->|"deploy-web.sh: docker build, up web"| W["web container 127.0.0.1:3001"]
-    U[Browser] --> C{Caddy loffy.me}
+    U[Browser] --> C{Caddy saynata.com}
     C -->|"/api/*"| B["backend 127.0.0.1:8081"]
     C -->|"everything else"| W
 ```
@@ -110,7 +110,7 @@ In production Caddy sends `/api/*` to the backend, so the rewrite in `next.confi
 
 ## Tests
 
-`cd web && npm test` (Vitest) and `npm run build`. CI runs both (job `web`). The deploy has no unit test; its check is `curl -f https://loffy.me` at the end of `deploy-web`.
+`cd web && npm test` (Vitest) and `npm run build`. CI runs both (job `web`). The deploy has no unit test; its check is `curl -f https://saynata.com` at the end of `deploy-web`.
 
 | Test file | What it covers |
 |---|---|

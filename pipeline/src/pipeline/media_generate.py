@@ -40,7 +40,7 @@ DEFAULT_PROVIDER = "openai"
 DEFAULT_MODEL = "gpt-image-1-mini"
 DEFAULT_MAX_COST = 5.0
 DEFAULT_REPORT = Path("data/out/media-generate.html")
-DEFAULT_MEDIA_BASE_URL = "https://api.loffy.me/media"
+DEFAULT_MEDIA_BASE_URL = "https://api.saynata.com/media"
 STATUS_DONE = "ai_generated"
 
 # 3:2 is the closest size to the app's 16:9 frame (240 x 135, the picture is cropped to fill it). The prompt

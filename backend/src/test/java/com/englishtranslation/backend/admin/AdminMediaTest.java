@@ -290,7 +290,7 @@ class AdminMediaTest {
                 .andExpect(jsonPath("$.media[0].kind").value("photo"))
                 .andExpect(jsonPath("$.media[0].photographer").value("Jane Photo"))
                 .andExpect(jsonPath("$.media[0].pageUrl").value("https://pixabay.com/photos/x-77/"))
-                .andExpect(jsonPath("$.media[0].url").value(org.hamcrest.Matchers.startsWith("https://api.loffy.me/media/run_1_")))
+                .andExpect(jsonPath("$.media[0].url").value(org.hamcrest.Matchers.startsWith("https://api.saynata.com/media/run_1_")))
                 .andExpect(jsonPath("$.media[1]").doesNotExist());
 
         String fileName = jdbc.queryForObject("select m.file_name from media m join dictionary_sense s on s.media_id = m.id"
@@ -317,7 +317,7 @@ class AdminMediaTest {
         mockMvc.perform(asAdmin(put("/api/admin/words/" + id + "/senses/0/media")).content(chosen("photo", 5)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.media[0].kind").value("photo"))
-                .andExpect(jsonPath("$.media[0].url").value(org.hamcrest.Matchers.startsWith("https://api.loffy.me/media/zebra_1_")));
+                .andExpect(jsonPath("$.media[0].url").value(org.hamcrest.Matchers.startsWith("https://api.saynata.com/media/zebra_1_")));
         assertThat(jdbc.queryForObject("select count(*) from word_lookup_media where media_id is not null", Integer.class))
                 .isEqualTo(1);
     }

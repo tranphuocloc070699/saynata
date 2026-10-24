@@ -747,7 +747,7 @@ def main() -> None:
     gen_parser.add_argument("--workers", type=int, default=2, help="image calls in parallel (default 2)")
     gen_parser.add_argument("--media-dir", default="data/media", help="folder for the files (default data/media)")
     gen_parser.add_argument("--media-base-url", help="where the server serves the files (default MEDIA_BASE_URL "
-                            "or https://api.loffy.me/media)")
+                            "or https://api.saynata.com/media)")
     gen_parser.add_argument("--report", default="data/out/media-generate.html")
     gen_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     ai_parser = commands.add_parser("media-ai", help="AI pictures for every sense: Claude scene, Codex draws, blind guess")
@@ -765,7 +765,7 @@ def main() -> None:
                            help="thinking effort of the scene call (default: the API default); lower is cheaper")
     ai_parser.add_argument("--media-dir", default="data/media", help="folder for the files (default data/media)")
     ai_parser.add_argument("--media-base-url", help="where the server serves the files (default MEDIA_BASE_URL "
-                           "or https://api.loffy.me/media)")
+                           "or https://api.saynata.com/media)")
     ai_parser.add_argument("--report", default="data/out/media-ai.html")
     ai_parser.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     commands.add_parser("revalidate")

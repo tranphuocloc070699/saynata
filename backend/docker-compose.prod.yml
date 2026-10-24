@@ -63,7 +63,7 @@ services:
       # off, so the defaults are repeated. GOOGLE_CLIENT_IDS empty = the Google button answers "not set up yet".
       GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
       APPLE_CLIENT_IDS: ${APPLE_CLIENT_IDS:-com.luke.EnglishTranslation,com.luke.EnglishTranslation.Mac}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://api.loffy.me}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://api.saynata.com}
       APP_URL_SCHEME: ${APP_URL_SCHEME:-saynata}
       APPLE_APP_IDS: ${APPLE_APP_IDS:-}
       # true = guests cannot cause new Claude calls. Set false until the app with sign-in is released.
@@ -73,7 +73,7 @@ services:
       APP_CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-haiku-5-5}
       # Photos and clips for new words. Empty PIXABAY_API_KEY = none are fetched. MEDIA_DIR is /app/media (Dockerfile).
       PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
-      MEDIA_BASE_URL: ${MEDIA_BASE_URL:-https://api.loffy.me/media}
+      MEDIA_BASE_URL: ${MEDIA_BASE_URL:-https://api.saynata.com/media}
       # AI pictures drawn from the admin with the Codex CLI and the developer's ChatGPT login (TASK-91, doc-11,
       # "AI pictures with Codex"). false = the admin gets 503 ai_unavailable and nothing is drawn.
       AI_PICTURES_ENABLED: ${AI_PICTURES_ENABLED:-false}

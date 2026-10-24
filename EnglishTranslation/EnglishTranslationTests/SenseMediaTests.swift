@@ -26,9 +26,9 @@ struct SenseMediaTests {
     }
 
     @Test func senseDecodesSnakeCaseImageUrl() throws {
-        let json = Self.senseJSON(extra: #","image_url":"https://api.loffy.me/media/dog_1_ab12cd34.webp""#)
+        let json = Self.senseJSON(extra: #","image_url":"https://api.saynata.com/media/dog_1_ab12cd34.webp""#)
         let sense = try JSONDecoder().decode(Sense.self, from: json)
-        #expect(sense.imageUrl == "https://api.loffy.me/media/dog_1_ab12cd34.webp")
+        #expect(sense.imageUrl == "https://api.saynata.com/media/dog_1_ab12cd34.webp")
     }
 
     @Test func senseWithoutImageUrlIsNil() throws {
@@ -128,7 +128,7 @@ struct SenseMediaTests {
     // MARK: - SenseMediaSource (TASK-51)
 
     @Test func httpsAddressIsRemote() throws {
-        let text = "https://api.loffy.me/media/run_1_3fa9c2d1.mp4"
+        let text = "https://api.saynata.com/media/run_1_3fa9c2d1.mp4"
         let source = try #require(SenseMediaSource(path: text))
         #expect(source == .remote(URL(string: text)!))
         #expect(source.isClip)
@@ -149,7 +149,7 @@ struct SenseMediaTests {
     @Test func emptyTextAndOtherSchemesGiveNoSource() {
         #expect(SenseMediaSource(path: "") == nil)
         #expect(SenseMediaSource(path: "   ") == nil)
-        #expect(SenseMediaSource(path: "http://api.loffy.me/media/a.webp") == nil)
+        #expect(SenseMediaSource(path: "http://api.saynata.com/media/a.webp") == nil)
         #expect(SenseMediaSource(path: "ftp://x.test/a.webp") == nil)
         #expect(SenseMediaSource(path: "https://") == nil)
     }
@@ -166,7 +166,7 @@ struct SenseMediaTests {
 
     // MARK: - SenseMediaSource.resolved (bundled words load from the server)
 
-    private static let server = URL(string: "https://api.loffy.me")!
+    private static let server = URL(string: "https://api.saynata.com")!
 
     @Test func bundledPathWithABundledFileUsesTheBundle() throws {
         let source = try #require(SenseMediaSource(path: "media/dog_1.webp"))
@@ -175,7 +175,7 @@ struct SenseMediaTests {
 
     @Test func bundledPathWithoutABundledFileMapsToTheServer() throws {
         let source = try #require(SenseMediaSource(path: "media/thirst_1.webp"))
-        let expected = URL(string: "https://api.loffy.me/media/thirst_1.webp")!
+        let expected = URL(string: "https://api.saynata.com/media/thirst_1.webp")!
         #expect(source.resolved(serverBase: Self.server) == .remote(expected))
 
         let clip = try #require(SenseMediaSource(path: "media/fade_1.mp4"))
@@ -187,8 +187,8 @@ struct SenseMediaTests {
 
     @Test func serverAddressWithASlashAtTheEndGivesTheSameUrl() throws {
         let source = try #require(SenseMediaSource(path: "media/thirst_1.webp"))
-        let base = URL(string: "https://api.loffy.me/")!
-        #expect(source.resolved(serverBase: base) == .remote(URL(string: "https://api.loffy.me/media/thirst_1.webp")!))
+        let base = URL(string: "https://api.saynata.com/")!
+        #expect(source.resolved(serverBase: base) == .remote(URL(string: "https://api.saynata.com/media/thirst_1.webp")!))
     }
 
     @Test func httpsAddressStaysAsItIs() throws {
@@ -199,7 +199,7 @@ struct SenseMediaTests {
 
     @Test func badValuesGiveNothing() throws {
         #expect(SenseMediaSource(path: "") == nil)
-        #expect(SenseMediaSource(path: "http://api.loffy.me/media/a.webp") == nil)
+        #expect(SenseMediaSource(path: "http://api.saynata.com/media/a.webp") == nil)
         // A bundled path with no file in the app and no server address cannot be loaded.
         let source = try #require(SenseMediaSource(path: "media/thirst_1.webp"))
         #expect(source.resolved(serverBase: nil) == nil)
@@ -231,7 +231,7 @@ struct SenseMediaTests {
             calls.increase()
             return Data("photo".utf8)
         }
-        let url = URL(string: "https://api.loffy.me/media/dog_1_ab12cd34.webp")!
+        let url = URL(string: "https://api.saynata.com/media/dog_1_ab12cd34.webp")!
 
         let first = try await cache.file(for: url)
         let second = try await cache.file(for: url)
@@ -245,7 +245,7 @@ struct SenseMediaTests {
     @Test func savedFileSurvivesWhenTheNetworkIsOff() async throws {
         let folder = Self.makeFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let url = URL(string: "https://api.loffy.me/media/dog_1_ab12cd34.webp")!
+        let url = URL(string: "https://api.saynata.com/media/dog_1_ab12cd34.webp")!
         let online = MediaFileCache(directory: folder, maxBytes: 1_000) { _ in Data("photo".utf8) }
         _ = try await online.file(for: url)
 
@@ -260,7 +260,7 @@ struct SenseMediaTests {
         let folder = Self.makeFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let cache = MediaFileCache(directory: folder, maxBytes: 1_000) { _ in throw URLError(.notConnectedToInternet) }
-        let url = URL(string: "https://api.loffy.me/media/dog_1_ab12cd34.webp")!
+        let url = URL(string: "https://api.saynata.com/media/dog_1_ab12cd34.webp")!
 
         await #expect(throws: URLError.self) { try await cache.file(for: url) }
 
@@ -272,7 +272,7 @@ struct SenseMediaTests {
         let folder = Self.makeFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let cache = MediaFileCache(directory: folder, maxBytes: 1_000) { _ in Data() }
-        let url = URL(string: "https://api.loffy.me/media/a.webp")!
+        let url = URL(string: "https://api.saynata.com/media/a.webp")!
 
         await #expect(throws: MediaFileCache.CacheError.self) { try await cache.file(for: url) }
     }

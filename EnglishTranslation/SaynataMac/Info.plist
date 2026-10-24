@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>BackendBaseURL</key>
-	<string>https://api.loffy.me</string>
+	<string>https://api.saynata.com</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSServices</key>

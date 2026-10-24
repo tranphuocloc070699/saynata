@@ -116,7 +116,7 @@ class BackendWordMediaServiceTest {
         assertThat(saved.kind()).isEqualTo("photo");
         assertThat(saved.photographer()).isEqualTo("Jane Photo");
         assertThat(saved.pageUrl()).isEqualTo("https://pixabay.com/photos/x-777/");
-        assertThat(saved.url()).startsWith("https://api.loffy.me/media/reluctance_1_").endsWith(".webp");
+        assertThat(saved.url()).startsWith("https://api.saynata.com/media/reluctance_1_").endsWith(".webp");
         String fileName = saved.url().substring(saved.url().lastIndexOf('/') + 1);
         assertThat(mediaDir.resolve(fileName)).exists().hasBinaryContent(new byte[] {1, 2, 3, 4});
         assertThat(jdbc.sql("select pixabay_id from media where file_name = :f").param("f", fileName)
@@ -223,7 +223,7 @@ class BackendWordMediaServiceTest {
             Thread.sleep(50);
             imageUrl = wordService.lookUp("reluctant").entry().senses().get(0).imageUrl();
         }
-        assertThat(imageUrl).startsWith("https://api.loffy.me/media/reluctant_1_").endsWith(".webp");
+        assertThat(imageUrl).startsWith("https://api.saynata.com/media/reluctant_1_").endsWith(".webp");
     }
 
     @Test

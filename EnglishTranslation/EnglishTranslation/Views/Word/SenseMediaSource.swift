@@ -12,7 +12,7 @@ import Foundation
 /// `Sense.imageUrl` holds one of two things:
 /// - a bundled path from the dictionary file, like `media/run_1.mp4` or `run_1.webp`. Only a few files are inside the
 ///   app, so `resolved` sends the other paths to the server (same file name under `/media/`).
-/// - an absolute https address from the backend, like `https://api.loffy.me/media/run_1_3fa9c2d1.mp4`
+/// - an absolute https address from the backend, like `https://api.saynata.com/media/run_1_3fa9c2d1.mp4`
 nonisolated enum SenseMediaSource: Equatable, Sendable {
     case bundled(path: String)
     case remote(URL)
