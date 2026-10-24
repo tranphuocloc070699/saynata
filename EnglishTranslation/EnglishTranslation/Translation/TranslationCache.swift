@@ -5,8 +5,9 @@
 
 import Foundation
 
-/// Keeps on-device translations in memory, so reopening a row is instant (TASK-40).
-/// One entry per (English text, language). It is gone when the app quits.
+/// Keeps language lines in memory, so reopening a row is instant (TASK-40, TASK-106.3).
+/// One entry per (English text, language). It holds the lines from the backend only; Apple Translation results
+/// are not saved here, so a backend line can still replace them. It is gone when the app quits.
 @MainActor
 final class TranslationCache {
     static let shared = TranslationCache()
@@ -34,7 +35,8 @@ extension TargetLanguage {
         self == .chinese ? "zh-Hans" : code
     }
 
-    /// Vietnamese comes from the dictionary. Every other language is translated on the device.
+    /// The fallback when the backend has no line: Vietnamese uses the dictionary text, every other language is
+    /// translated on the device.
     var needsOnDeviceTranslation: Bool { self != .vietnamese }
 
     /// English is the language of the explanation itself, so it gets no extra row.
@@ -49,9 +51,10 @@ extension Sense {
         return vietnamese
     }
 
-    /// Whether the card shows a last row for this language.
+    /// Whether the card shows a last row for this language: every language except English, when the sense has
+    /// something to translate (the backend line is made from the simple explanation).
     func hasTargetLanguageRow(for language: TargetLanguage) -> Bool {
         guard language.hasTargetLanguageRow else { return false }
-        return language.needsOnDeviceTranslation ? !simpleDefinition.isEmpty : !vietnamese.isEmpty
+        return !simpleDefinition.isEmpty || dictionaryText(for: language) != nil
     }
 }

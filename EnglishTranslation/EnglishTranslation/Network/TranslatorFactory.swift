@@ -17,6 +17,11 @@ enum TranslatorFactory {
         BackendClient(baseURL: try AppConfig.backendBaseURL(), cache: ResultCache.shared, auth: AccountStore.shared)
     }
 
+    /// The client for the language lines of a word card (TASK-106.3). Same backend, same sign-in.
+    static func makeLineTranslator() throws -> any LineTranslating {
+        BackendClient(baseURL: try AppConfig.backendBaseURL(), cache: ResultCache.shared, auth: AccountStore.shared)
+    }
+
     /// One cheap request, so the first lookup reuses an open connection (TASK-83.5). Does nothing without `BackendBaseURL`.
     static func warmUpConnection() async {
         guard let url = try? AppConfig.backendBaseURL() else { return }
