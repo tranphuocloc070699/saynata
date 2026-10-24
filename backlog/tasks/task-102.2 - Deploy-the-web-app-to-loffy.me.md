@@ -45,4 +45,6 @@ The learner web app (web/, TASK-102.1) only runs on the developer's Mac. loffy.m
 
 <!-- SECTION:NOTES:BEGIN -->
 Built: standalone web container, deploy-web job, doc-11 section 14, doc-23, doc-7, CLAUDE.md. Test it: (1) Cloudflare A loffy.me + www -> 110.172.29.29 DNS only; (2) add the loffy.me and www Caddy blocks from doc-11 section 14 and reload caddy; (3) merge to feature/local, release PR to main (deploy-web runs); (4) open https://loffy.me, explain 'give up' and a sentence. Automated: cd web && npm test && npm run build. PR: see below.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/159
 <!-- SECTION:NOTES:END -->
