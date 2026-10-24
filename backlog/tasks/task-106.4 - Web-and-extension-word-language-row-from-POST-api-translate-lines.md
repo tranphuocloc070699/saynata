@@ -39,3 +39,9 @@ web/src/components/home/WordCard.tsx and extension/src/content/card.ts show only
 <!-- SECTION:PLAN:BEGIN -->
 1. Shared lines.ts (cache, loadLines, rowContent) copied web/extension. 2. translateLines in both api.ts (guest = cachedOnly). 3. Web WordCard row; extension worker message + card row. 4. Vitest; docs 23 and 19.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/169 (includes #168). Test it: Goal: word card shows a language row for every language except English; opening it sends one POST /api/translate-lines. Steps: web npm run dev, pick Korean, look up run, open the row twice; extension build with VITE_API_BASE=http://localhost:8081, load dist, select run, open the row, sign in from the card; stop backend and open a new word's row. Expected: one request, second open none; guest = cachedOnly=true; Vietnamese keeps dictionary text on miss/error; others show sign-in line or short error. Automated: cd web && npm test && npm run build; cd extension && npm test && npm run build.
+<!-- SECTION:NOTES:END -->
