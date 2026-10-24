@@ -33,7 +33,8 @@ struct QuickExplainIntent: AppIntent {
     func perform() async throws -> some IntentResult & ShowsSnippetView {
         let explainer = QuickExplainer(
             makeWordLookup: { try TranslatorFactory.makeWordLookup() },
-            makeTranslator: { try TranslatorFactory.makeTranslator() })
+            makeTranslator: { try TranslatorFactory.makeTranslator() },
+            language: TargetLanguagePreference.shared.language)
         let result = await explainer.explain(text)
         let line = await explainer.languageLine(for: result)
         return .result(view: QuickExplainCard(result: result, language: explainer.language, wordLine: line))

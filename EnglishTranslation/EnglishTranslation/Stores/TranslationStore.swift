@@ -14,8 +14,11 @@ final class TranslationStore {
     var inputText = "" {
         didSet { if inputText != oldValue { schedulePrefetch() } }
     }
-    /// The language of the translation at the bottom of the result.
-    var targetLanguage: TargetLanguage = .vietnamese
+    /// The language of the translation at the bottom of the result. Every change is saved (TASK-109),
+    /// so the app, the extensions and Quick explain start with the language the learner picked.
+    var targetLanguage: TargetLanguage {
+        didSet { if targetLanguage != oldValue { languagePreference.language = targetLanguage } }
+    }
     private(set) var state: TranslationState = .idle
     /// While a sentence waits for Claude: the sentence, shown at once in its card (TASK-74, TASK-89.2).
     /// Nil at all other times.
@@ -38,6 +41,8 @@ final class TranslationStore {
     private let makeWordLookup: @MainActor () throws -> any WordLooking
     /// Every final result is added here (TASK-93). Nil: no History.
     let history: (any HistoryStoring)?
+    /// Where the picked language is saved.
+    private let languagePreference: TargetLanguagePreference
 
     /// - Parameter makeTranslator: Builds the translator on each request, so a
     ///   missing setting shows as a `.failed` state instead of crashing at launch.
@@ -45,8 +50,11 @@ final class TranslationStore {
         makeTranslator: @escaping @MainActor () throws -> any Translating = TranslatorFactory.makeTranslator,
         makeWordLookup: @escaping @MainActor () throws -> any WordLooking = TranslatorFactory.makeWordLookup,
         history: (any HistoryStoring)? = HistoryStore.shared,
-        prefetchDelay: Duration = .milliseconds(400)
+        prefetchDelay: Duration = .milliseconds(400),
+        languagePreference: TargetLanguagePreference = .shared
     ) {
+        self.languagePreference = languagePreference
+        self.targetLanguage = languagePreference.language
         self.prefetchDelay = prefetchDelay
         self.makeTranslator = makeTranslator
         self.makeWordLookup = makeWordLookup
