@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-24 10:01'
-updated_date: '2026-10-24 10:56'
+updated_date: '2026-10-24 10:57'
 labels: []
 dependencies: []
 priority: medium
@@ -37,3 +37,9 @@ The iPhone and Mac apps keep the picked language only in memory, so it goes back
 <!-- SECTION:PLAN:BEGIN -->
 TargetLanguagePreference (App Group UserDefaults) saves the code; TranslationStore loads it in init and saves in didSet; QuickExplainIntent uses it; tests with in-memory defaults; update doc-4, doc-21.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/176 . Test it: pick Korean in the app chip, force-quit and reopen -> chip shows Korean; Share extension sheet and the Quick explain card use Korean; Mac popover picker keeps its value; saved th or unknown code opens as Vietnamese. Automated: TargetLanguagePreferenceTests; full iOS run 477 tests pass on iPhone 16 Pro iOS 18.5; SaynataMac scheme builds.
+<!-- SECTION:NOTES:END -->
