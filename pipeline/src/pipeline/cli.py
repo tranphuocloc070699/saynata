@@ -48,6 +48,12 @@
     uv run pipeline collection compare --claude      # data/out/collection-compare.html: Codex next to Claude (about $0.30)
     uv run pipeline collection push                  # dry run: what would go into the server cache word_lookup
     uv run pipeline collection push --yes            # write it (only after the developer's go-ahead)
+    uv run pipeline lines collect        # TASK-106.5: every definition and sentence x 7 languages into pipeline.db (no LLM)
+    uv run pipeline lines write --limit 6 --batch 3  # the trial: Codex writes 6 lines of each language (no API cost)
+    uv run pipeline lines write          # the full run, with Codex; safe to stop and run again
+    uv run pipeline lines push           # dry run: what would go into the server table line_translation
+    uv run pipeline lines push --yes     # write it (only after the developer's go-ahead)
+    uv run pipeline lines report         # counts per language and status, and the time to write the rest
 """
 
 import argparse
@@ -475,6 +481,91 @@ def prefill_sentences(args, pg, queue_ready: bool, dry_run: bool) -> None:
         prefill_start_run([prefill.SOURCE_SENTENCES], args.max_usd)
 
 
+def lines_command(args) -> None:
+    """Language lines written by Codex (TASK-106.5). See lines.py."""
+    from pipeline import lines
+
+    db = lines.connect(store.DB_PATH)
+    version = lines.backend_line_prompt_version()
+    if args.lines_command == "report":
+        print(f"Line prompt version: {version}")
+        print("\n".join(lines.report_lines(db)))
+    elif args.lines_command == "collect":
+        pg = postgres.connect(postgres.database_url(args.database_url), read_only=True)
+        found = lines.collect(db, pg, version, args.sources, args.lang, args.dry_run)
+        pg.close()
+        print(f"Texts: " + ", ".join(f"{s} {found.texts[s]}" for s in lines.SOURCES)
+              + f" ({found.too_long} empty or over {lines.MAX_TEXT} characters, left out)")
+        print(f"{'Would add' if args.dry_run else 'Added'} {sum(found.added.values())} lines (prompt {version}): "
+              + (", ".join(f"{lang} {found.added[lang]}" for lang in lines.LANGUAGES if found.added[lang]) or "none")
+              + f". Already here: {found.existing}. Already on the server: {found.on_server}.")
+        if not args.dry_run:
+            print("\n".join(lines.report_lines(db)[-3:]))
+    elif args.lines_command == "write":
+        _write_lines(db, args, version)
+    elif args.lines_command == "push":
+        _push_lines(db, args, version)
+    db.close()
+
+
+def _write_lines(db, args, version: str) -> None:
+    from pipeline import collection, lines
+
+    by_language = lines.rows_to_write(db, version, args.lang, args.sources, args.limit, args.retry_failed)
+    total = sum(len(rows) for rows in by_language.values())
+    if not total:
+        print("Nothing to write.")
+        return
+    model = args.model or collection.default_codex_model()
+    hours = lines.estimate_hours(total, args.batch, args.workers)
+    print(f"Writing {total} lines ({', '.join(f'{lang} {len(rows)}' for lang, rows in by_language.items())}) with codex "
+          f"({model or 'its default model'}, effort {args.effort}), {args.batch} per call, {args.workers} calls at once: "
+          f"about {hours * 60:.0f} minutes ({hours:.1f} hours).")
+    if args.dry_run:
+        lang, rows = next(iter(by_language.items()))
+        print("\nThe first Codex message:\n")
+        print(lines.build_prompt(lang, [row["text"] for row in rows[:args.batch]], lines.backend_line_prompt()))
+        print("\nDry run: nothing was called or saved.")
+        return
+    writer = lines.CodexWriter(model, args.effort)
+    done = [0]
+
+    def progress(lang, results) -> None:
+        done[0] += len(results)
+        bad = [r for r in results if r.status != "done"]
+        note = f"  ({bad[0].text[:40]!r}: {bad[0].problems[0][:70]})" if bad else ""
+        print(f"[{done[0]}/{total}] {lang} {len(results) - len(bad)} done, {len(bad)} not{note}", flush=True)
+
+    summary = lines.write_rows(db, by_language, writer, batch_size=args.batch, workers=args.workers, progress=progress)
+    print(f"\nDone in {summary.seconds / 60:.1f} minutes, {summary.calls} Codex calls: "
+          + ", ".join(f"{status} {count}" for status, count in summary.counts.most_common()))
+    if summary.stopped:
+        print(f"Stopped early: {summary.stopped}")
+        print("Run the same command again later; it goes on where it stopped.")
+
+
+def _push_lines(db, args, version: str) -> None:
+    from pipeline import lines
+
+    rows, stale = lines.push_rows(db, version, args.lang, args.limit)
+    if stale:
+        print(f"{stale} done lines have an older prompt version and are not pushed.")
+    if not rows:
+        print("Nothing to push.")
+        return
+    pg = postgres.connect(postgres.database_url(args.database_url), read_only=not args.yes)
+    plan = lines.plan_push(pg, rows, version, stale)
+    print(f"{len(rows)} lines: {len(plan.to_insert)} to add to line_translation (prompt {version}, source codex), "
+          f"{len(plan.exists)} already there (left as they are).")
+    for row in plan.to_insert[:8]:
+        print(f"  + {row['target_lang']} {row['text'][:50]!r} -> {row['translation'][:50]!r}")
+    if not args.yes:
+        print("Dry run: nothing was written. Add --yes to write.")
+    else:
+        print(f"Added {lines.push(db, pg, plan, version)} rows to line_translation.")
+    pg.close()
+
+
 def collection_command(args) -> None:
     """Local collection written by Codex (TASK-83.9). See collection.py."""
     from pipeline import collection
@@ -874,6 +965,31 @@ def main() -> None:
     b_collect.add_argument("--wait", action="store_true", help="check every 2 minutes until every batch ended")
     b_collect.add_argument("--verbose", action="store_true", help="print every row")
     batch_commands.add_parser("status", help="the batches, their counts and cost")
+    lines_parser = commands.add_parser("lines", help="language lines for every text, written by Codex (TASK-106.5)")
+    lines_commands = lines_parser.add_subparsers(dest="lines_command", required=True)
+    lang_choices = ["vi", "ja", "ko", "zh", "fr", "es", "de"]
+    source_choices = ["bundled", "backend-word", "sentence"]
+    l_collect = lines_commands.add_parser("collect", help="fill the lines table from Postgres (read-only, no LLM)")
+    l_collect.add_argument("--sources", nargs="+", choices=source_choices, help="default: all three")
+    l_collect.add_argument("--lang", nargs="+", choices=lang_choices, help="default: all seven")
+    l_collect.add_argument("--dry-run", action="store_true", help="count only, save nothing")
+    l_collect.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    lines_commands.add_parser("report", help="counts per language and status, and the time to write the rest")
+    l_write = lines_commands.add_parser("write", help="Codex writes the pending lines")
+    l_write.add_argument("--lang", nargs="+", choices=lang_choices, help="default: all seven")
+    l_write.add_argument("--sources", nargs="+", choices=source_choices)
+    l_write.add_argument("--limit", type=int, help="at most N lines of each language (the trial: 6)")
+    l_write.add_argument("--batch", type=int, default=50, help="texts per Codex call (default 50)")
+    l_write.add_argument("--workers", type=int, default=4, help="Codex calls at once (default 4)")
+    l_write.add_argument("--model", help="Codex model (default: model in ~/.codex/config.toml)")
+    l_write.add_argument("--effort", default="low", choices=["minimal", "low", "medium", "high"])
+    l_write.add_argument("--retry-failed", action="store_true", help="also try the failed and needs_review lines again")
+    l_write.add_argument("--dry-run", action="store_true", help="print the first Codex message, call nothing")
+    l_push = lines_commands.add_parser("push", help="done lines into the server table line_translation")
+    l_push.add_argument("--lang", nargs="+", choices=lang_choices)
+    l_push.add_argument("--limit", type=int)
+    l_push.add_argument("--yes", action="store_true", help="write; without it this is a dry run")
+    l_push.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     args = parser.parse_args()
     if args.command == "prefill" and args.prefill_command == "collect" and args.all_wordfreq \
             and args.source != "words":
@@ -924,6 +1040,8 @@ def main() -> None:
         prefill_command(args)
     elif args.command == "collection":
         collection_command(args)
+    elif args.command == "lines":
+        lines_command(args)
     elif args.command == "export-local":
         path, count, without_usage, without_levels = export.export_from_pipeline_db(store.connect())
         print(f"Exported {count} words to {path}")

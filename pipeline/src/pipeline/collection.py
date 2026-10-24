@@ -543,6 +543,8 @@ class CodexWriter:
     """
 
     STOP_WORDS = ("usage limit", "rate limit", "not logged in", "please log in", "codex login")
+    schema = BATCH_SCHEMA  # lines.py (TASK-106.5) uses the same call with another schema and answer key
+    answer_key = "entries"
 
     def __init__(self, model: str | None, effort: str = DEFAULT_EFFORT, timeout: int = CODEX_TIMEOUT,
                  run: Callable = subprocess.run):
@@ -554,10 +556,10 @@ class CodexWriter:
     def name(self) -> str:
         return f"codex:{self.model or 'default'}"
 
-    def write(self, prompt: str) -> list[dict]:
+    def write(self, prompt: str) -> list:
         with tempfile.TemporaryDirectory() as folder:
             schema, answer = Path(folder) / "schema.json", Path(folder) / "answer.json"
-            schema.write_text(json.dumps(BATCH_SCHEMA), encoding="utf-8")
+            schema.write_text(json.dumps(self.schema), encoding="utf-8")
             command = ["codex", "exec", "--skip-git-repo-check", "--sandbox", "read-only", "--ephemeral",
                        "--ignore-user-config", "-c", f"model_reasoning_effort={self.effort}",
                        "--output-schema", str(schema), "-o", str(answer)]
@@ -575,7 +577,7 @@ class CodexWriter:
                 raise ProviderStop(f"codex: {output.strip()[-300:]}")
             raise WriteError(f"codex gave no answer (exit {proc.returncode}): {output.strip()[-300:]}")
         try:
-            return json.loads(text)["entries"]
+            return json.loads(text)[self.answer_key]
         except (json.JSONDecodeError, KeyError, TypeError) as error:
             raise WriteError(f"codex answer is not the batch JSON: {text[:200]}") from error
 
