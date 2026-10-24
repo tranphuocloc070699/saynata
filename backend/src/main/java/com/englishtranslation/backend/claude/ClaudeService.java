@@ -49,10 +49,11 @@ public class ClaudeService {
                         0. isEnglish: true only if the text is English (names, numbers, emoji and links inside an
                            English sentence are fine). false if the text is program code, random letters
                            (like "asdkj qwe zzxq") or written in another language. When it is false, write ""
-                           for summary. Do not explain it.
+                           for summary, better and betterWhy. Do not explain it.
                         1. summary: what the text says, so a learner gets it at once. Use only common words (level B1)
                            and short sentences (at most 12 words each). Say the content itself. Never describe the text
-                           ("The speaker says...", "This sentence...", "The writer thinks...").
+                           ("The speaker says...", "This sentence...", "The writer thinks..."). If the text has mistakes,
+                           say what the writer means.
                            - Short text (one sentence of up to 15 words): one plain sentence, about as long as the text.
                              No list, no bold. For an idiom, say what it really means.
                            - Longer text: summarize, do not rewrite. Keep only the main ideas; drop examples, names of
@@ -61,6 +62,16 @@ public class ClaudeService {
                              The whole summary must be shorter than the text: at most half its words.
                            - Formatting: only plain text, lines starting with "- ", and **bold** for 1-3 key words.
                              No headings, no numbered lists, no other Markdown. Put each bullet on its own line (\\n).
+                        2. better: the text with its real mistakes fixed, for a learner who wrote it. The default is "".
+                           - Fix only: grammar mistakes (tense, verb form, articles, plurals, word order), a wrong word,
+                             or a phrase a native speaker would never say ("open the light" -> "turn on the light").
+                           - Write "" when the text is correct, even if you would say it another way. Write "" for style,
+                             formality, commas, informal speech ("gonna", "wanna"), slang, headlines, old or literary
+                             language, and any text that reads like a book, the news or a website. Write "" when the text
+                             has more than 40 words.
+                           - Change as few words as possible and copy every other word exactly. Keep the meaning and the tone.
+                        3. betterWhy: "" when better is "". Otherwise one short line (at most 12 words, B1 words) that says
+                           why, for example: Use "have done" for a finished action that matters now.
                         """;
 
         static final String WORD_PROMPT = """

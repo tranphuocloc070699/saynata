@@ -185,10 +185,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         speechPlayer.stop()
     }
 
-    /// Opens the panel and explains `text`, as if the user had typed it.
+    /// Opens the panel and explains `text` from another app (no "Better way to say it" row, TASK-110).
     func explain(_ text: String) {
         showPanel()
-        store.inputText = text
+        store.useTextFromElsewhere(text)
         Task { await store.translate() }
     }
 

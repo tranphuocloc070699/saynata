@@ -9,6 +9,8 @@ import SwiftUI
 /// - the sentence the user typed (serif, larger) and its Listen button;
 /// - a hairline;
 /// - the simple summary (serif) with its own Listen button, and the small caption "In simple words";
+/// - when the text has a real mistake, the folded row "Better way to say it" (closed): the fixed text with the
+///   changed words in bold, its Listen and Copy buttons, and one line that says why (TASK-110);
 /// - the target language, folded and closed (CLAUDE.md "Product rule"), last.
 /// Under the card, on the right, one Copy button for the original sentence.
 ///
@@ -22,6 +24,10 @@ struct SentenceCard: View {
     let translation: String?
     /// The language the translation was made in. It titles the folded row.
     let language: TargetLanguage
+    /// The text with its mistakes fixed. Nil hides the row: no fix, or text from another app.
+    var better: String?
+    /// One line that says why the fix is better.
+    var betterWhy: String?
     /// Gets the full word card for a tapped word. The real one is `TranslationStore.wordEntry(for:)`.
     var loadWordEntry: (SentenceWordInfo) async throws -> WordEntry = { word in
         guard let entry = word.entry else { throw WordLookupError.notOneWord }
@@ -33,9 +39,13 @@ struct SentenceCard: View {
     @State private var isTranslationOpen = TranslationRowPreference().startsOpen
     /// True for a moment after Copy, so the icon shows a check mark.
     @State private var didCopy = false
+    /// "Better way to say it" starts closed, like the language row.
+    @State private var isBetterOpen = false
+    @State private var didCopyBetter = false
 
     private let sentenceSpeechID = "sentence"
     private let summarySpeechID = "summary"
+    private let betterSpeechID = "better"
 
     /// True when the backend sent a real language line. It sends "" (never null) when it has none.
     static func hasLanguageLine(_ translation: String) -> Bool {
@@ -67,6 +77,11 @@ struct SentenceCard: View {
             HairlineDivider()
 
             summaryBlock
+
+            // Only with the finished answer, so the row does not appear in the middle of the stream.
+            if translation != nil, let better {
+                betterRow(better)
+            }
 
             // No translation yet (the answer is still streaming): the row appears when the full result arrives.
             // "" means the backend had no line for this language (a guest, offline cache): no row (TASK-106.6).
@@ -111,6 +126,36 @@ struct SentenceCard: View {
         }
     }
 
+    private func betterRow(_ better: String) -> some View {
+        FoldedRow(title: "Better way to say it", isExpanded: $isBetterOpen) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
+                HStack(alignment: .top, spacing: Theme.Spacing.small) {
+                    Text(BetterDiff(original: sentence, better: better).attributedString)
+                        .font(.system(.body, design: .serif))
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .speechHighlight(isPlaying: speechPlayer.currentID == betterSpeechID)
+                        .padding(.top, Theme.Spacing.small)
+                    listenButton(text: better, id: betterSpeechID, label: "Listen to the better version")
+                    IconButton(
+                        systemImage: didCopyBetter ? "checkmark" : "doc.on.doc",
+                        label: "Copy the better version"
+                    ) {
+                        copyBetter(better)
+                    }
+                }
+                if let betterWhy {
+                    Text(betterWhy)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
     private func listenButton(text: String, id: String, label: String) -> some View {
         IconButton(
             systemImage: speechPlayer.currentID == id ? "stop.fill" : "speaker.wave.2",
@@ -121,6 +166,15 @@ struct SentenceCard: View {
             } else {
                 speechPlayer.speak(text, id: id)
             }
+        }
+    }
+
+    private func copyBetter(_ better: String) {
+        Pasteboard.copy(better)
+        didCopyBetter = true
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            didCopyBetter = false
         }
     }
 
@@ -140,6 +194,20 @@ struct SentenceCard: View {
         summary: "The fog made everything hard to see, so the walkers went back before midday.",
         translation: "Sương mù làm mờ mọi thứ, nên những người đi bộ quay lại trước buổi trưa.",
         language: .vietnamese,
+        loadWordEntry: { _ in .depend })
+        .padding()
+        .background(Theme.Colors.background)
+        .environment(SpeechPlayer.silent())
+}
+
+#Preview("Better way to say it") {
+    SentenceCard(
+        sentence: "Please open the light, it's too dark.",
+        summary: "You want someone to make the room bright.",
+        translation: "Làm ơn bật đèn lên, tối quá.",
+        language: .vietnamese,
+        better: "Please turn on the light. It's too dark.",
+        betterWhy: "In English you \"turn on\" a light, not \"open\" it.",
         loadWordEntry: { _ in .depend })
         .padding()
         .background(Theme.Colors.background)
