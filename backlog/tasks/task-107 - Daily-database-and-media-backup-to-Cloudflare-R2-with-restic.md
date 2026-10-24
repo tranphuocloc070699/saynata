@@ -43,4 +43,6 @@ There is no backup today. The server Postgres holds the source of truth for the 
 
 <!-- SECTION:NOTES:BEGIN -->
 Scripts and docs written; shellcheck passes. R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY are used instead of AWS_* in .env because AWS_ACCESS_KEY_ID is already the SES key and compose passes it to the backend; backup.sh maps them for restic.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/166. Test it: on the VPS follow doc-11 section 16 (R2 bucket + token, restic init, run backup.sh, run restore.sh and read the row counts, install the timer). Failure case: wrong R2_SECRET_ACCESS_KEY makes backup.sh stop with 'Cannot open the restic repository' and ping /fail. Automated: shellcheck on the three scripts.
 <!-- SECTION:NOTES:END -->
