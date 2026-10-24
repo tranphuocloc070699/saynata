@@ -33,7 +33,8 @@ if ! build; then
 fi
 
 # The image is built, so up only starts it. --wait blocks until every service passes its health check (or fails).
-if ! timeout --kill-after=30 360 $compose up -d --wait --wait-timeout 300; then
+# Only postgres and backend: the web app has its own script (web/scripts/deploy-web.sh).
+if ! timeout --kill-after=30 360 $compose up -d --wait --wait-timeout 300 postgres backend; then
   echo "Backend did not become healthy. Last logs:" >&2
   $compose logs --tail 80 backend >&2
   exit 1

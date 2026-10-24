@@ -7,6 +7,8 @@ import type { NextConfig } from "next";
 const apiOrigin = process.env.SAYNATA_API_ORIGIN ?? "https://api.loffy.me";
 
 const nextConfig: NextConfig = {
+  // A small self-contained server (.next/standalone) that runs in the web container (doc-23, Deploy).
+  output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
