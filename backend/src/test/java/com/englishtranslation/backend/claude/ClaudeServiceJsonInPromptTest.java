@@ -112,6 +112,19 @@ class ClaudeServiceJsonInPromptTest {
     }
 
     @Test
+    void languageLinesAreOneCallWithTheSchemaInThePrompt() {
+        replies.add(message("{\"lines\":[\"Nơi giữ tiền an toàn.\",\"Tôi bỏ cuộc.\"]}"));
+
+        List<String> lines = service().translateLines(TargetLanguage.VI, List.of("a safe place for money", "I gave up."));
+
+        assertThat(lines).containsExactly("Nơi giữ tiền an toàn.", "Tôi bỏ cuộc.");
+        assertThat(requests).hasSize(1);
+        assertThat(requests.get(0)).doesNotContain("output_config").contains("Answer with ONLY one JSON object")
+                .contains("Vietnamese").contains("a safe place for money");
+        verify(usage).record(Feature.LINE, "gpt-6-luna", 100, 40);
+    }
+
+    @Test
     void temperatureIsSentWithSentenceCallsOnlyWhenSet() {
         replies.add(message(SENTENCE_JSON));
         replies.add(message(SENTENCE_JSON));
