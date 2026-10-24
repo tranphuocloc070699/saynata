@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-24 10:21'
+updated_date: '2026-10-24 10:36'
 ---
 # Decisions and reasons
 
@@ -42,6 +42,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-17 | **Sentence result = original + simple summary (TASK-89, mockup option B)**: one card with the sentence and the same sentence in simple B1 words; every word has a dotted underline and opens the word card; selecting a part opens a small popup with that part summarized. Prompt v8 drops Claude's words list (about 0.7 s faster) | "update to summarize the sentence with simple words instead of explaining, and I want to only show 2 sentences, the original and the summary, and the user can click words in each sentence to show a bottom dialog with the word definition, or select a part of a sentence to show another sentence popup." New sentences felt slow. Why option B over A and C: reason not recorded | A: two cards, menu item for a part; C: big summary, small grey original, stacked cards; keep the words list | Developer |
 | 10-24 | **The target-language line comes from the LLM for every language, one line per (text, language), paid once** (TASK-106): `POST /api/translate-lines` and a `line_translation` cache shared by all users; the English part of a sentence is cached once without a language (prompt v10) and the line is added per language. The dictionary Vietnamese stays as an instant fallback, and iOS/Mac keep Apple Translation as a fallback | The developer wants every language line from the LLM through our backend, not the dictionary; the sentence cache had the language in its key, so the same English explanation was paid once per language | Keep dictionary Vietnamese + Apple Translation; a `lang` param on the word endpoint; translate whole sentence answers per language | Claude, chosen by developer |
 | 10-24 | **Supported languages: English (no row), Vietnamese, Japanese, Korean, Simplified Chinese, French, Spanish, German; Thai removed** (TASK-106.1) | "only keep Vietnamese, Japanese, Korean, Chinese, French, Spanish, German. Remove Thai" | Keep Thai | Developer |
+| 10-24 | **One new sentence counts as one call against the user's hourly limit** (TASK-106.6, option A): when the same request already asked the LLM for the English part, the language line call checks only the money budget, not the hourly and daily call limits again. A line asked alone (English part cached) counts as one call. A refused or failed line still returns the English part, with `translation` "" | The developer chose option A after the example: with 60 calls an hour, option B would stop a user after 30 new sentences. The hourly limit stops spam per question; the money budget still counts every line (about $0.00005 each) | B: the line call counts as a second call against the hourly limit | Claude, chosen by developer |
 
 | 10-22 | An unrecognized single word or compound tries the existing text explanation after its word lookup returns no senses (TASK-94); known words still use word cards | "Users don't know about it, and I want to translate as much as possible rather than require users to follow my rules." The word list misses some useful compounds, so its miss must not end the user's request. | Stop with "not an English word" when the word list misses; add every possible compound to the word list | Developer |
 
@@ -221,5 +222,4 @@ go here as questions.
 - 10-18: Why add Google, Apple and an emailed link now (TASK-92), and is the new domain "saynanta.com" or "saynata.com"? Reason and spelling not recorded.
 - 10-18: Why the STEYG gateway over a new Anthropic key? Reason not recorded.
 - 10-22: Is ignoring the final `?` in the loose sentence match OK (TASK-83.3, Claude's call)? Developer's view not recorded.
-- 10-24: Is it OK that the language line of a new sentence only checks the daily money budget and not the user's hourly limit again, and that a refused or failed line call still returns the English part with `translation` null (TASK-106.6, implementer's call)? Developer's view not recorded.
 - 10-24: Why copy the web build to the VPS (like the admin) instead of pushing an image to GHCR, and is the web app on the root domain loffy.me for good? Reason not recorded (TASK-102.2).
