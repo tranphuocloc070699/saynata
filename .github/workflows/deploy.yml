@@ -80,7 +80,7 @@ jobs:
         working-directory: admin
         env:
           # The backend address baked into the build. Change it with the ADMIN_API_URL repository variable.
-          VITE_API_URL: ${{ vars.ADMIN_API_URL || 'https://api.loffy.me' }}
+          VITE_API_URL: ${{ vars.ADMIN_API_URL || 'https://api.saynata.com' }}
         run: |
           npm ci
           npm run build
@@ -107,7 +107,7 @@ jobs:
 
   # The learner web app (web/, Next.js). Same idea as the admin job: `next build` runs here, not on the VPS (a small VPS
   # can run out of memory during it). The standalone server is copied to web/dist on the server; web/scripts/deploy-web.sh
-  # puts it into a node:22-alpine image and restarts only the web container. Caddy sends loffy.me to it (doc-11, section 14).
+  # puts it into a node:22-alpine image and restarts only the web container. Caddy sends saynata.com to it (doc-11, section 14).
   deploy-web:
     name: Deploy web app to VPS
     needs: deploy
@@ -160,7 +160,7 @@ jobs:
           # --delete removes files of the old build, so the folder holds only this build.
           rsync -az --delete -e "$ssh_cmd" web/dist/ "$target:$app/web/dist/"
           $ssh_cmd "$target" "bash $app/web/scripts/deploy-web.sh"
-      - name: Check https://loffy.me
+      - name: Check https://saynata.com
         if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
-        # Fails the job when DNS or Caddy for loffy.me is not set up yet (doc-11, section 14).
-        run: curl -fsS --max-time 20 --retry 6 --retry-delay 10 --retry-all-errors https://loffy.me -o /dev/null
+        # Fails the job when DNS or Caddy for saynata.com is not set up yet (doc-11, section 14).
+        run: curl -fsS --max-time 20 --retry 6 --retry-delay 10 --retry-all-errors https://saynata.com -o /dev/null

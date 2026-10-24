@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * code: when the domain moves, only these values (and the app's Info.plist) change. See doc-17.
  *
  * @param lifetime      how long a link works
- * @param publicBaseUrl the public HTTPS address of this backend, for example https://api.loffy.me. The email links
+ * @param publicBaseUrl the public HTTPS address of this backend, for example https://api.saynata.com. The email links
  *                      to {publicBaseUrl}/auth/link?token=...
  * @param appUrlScheme  the app's own URL scheme. The link page opens {scheme}://sign-in?token=... (free Apple ID).
  * @param appleAppIds   "TEAMID.bundle.id" values for the apple-app-site-association file. Empty = no file (404).

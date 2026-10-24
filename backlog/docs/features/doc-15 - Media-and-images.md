@@ -3,11 +3,11 @@ id: doc-15
 title: Media and images
 type: specification
 created_date: '2026-10-15 04:02'
-updated_date: '2026-10-18 16:10'
+updated_date: '2026-10-24 06:05'
 ---
 # Media and images
 
-> Status: **working for photos and clips from Pixabay, and for files the admin uploads** (TASK-23, 49.3, 49.4, 52, 79). AI images for `needs_ai` senses: built as a pipeline command (`media-generate`, TASK-53, OpenAI GPT Image mini), trial not run yet. **AI pictures for every sense** (`media-ai`, TASK-82: Claude scene, Codex draws, blind guess, meaning check): built; the 20-sense trial ran on 2026-10-16 (9 passed, 8 failed, 3 none), and the meaning check was added after it. Picture review in the admin ("Wrong media" and "Media to review" chips, "Looks right" approval tied to one picture): TASK-80. The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-18 (the admin draws an AI picture for one sense with Codex on the server: TASK-91); earlier: 2026-10-17 (the picture frame keeps the picture's shape, from `media.width`/`height`: no more cut-off heads; AI pictures for every sense with `pipeline media-ai`: TASK-82; AI images with `pipeline media-generate`: TASK-53; the admin can upload their own picture or clip: TASK-79; Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.loffy.me/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
+> Status: **working for photos and clips from Pixabay, and for files the admin uploads** (TASK-23, 49.3, 49.4, 52, 79). AI images for `needs_ai` senses: built as a pipeline command (`media-generate`, TASK-53, OpenAI GPT Image mini), trial not run yet. **AI pictures for every sense** (`media-ai`, TASK-82: Claude scene, Codex draws, blind guess, meaning check): built; the 20-sense trial ran on 2026-10-16 (9 passed, 8 failed, 3 none), and the meaning check was added after it. Picture review in the admin ("Wrong media" and "Media to review" chips, "Looks right" approval tied to one picture): TASK-80. The iOS app shows a bundled word's media from the server (TASK-51, PR #48), saved on the phone for offline. Last traced from code: 2026-10-18 (the admin draws an AI picture for one sense with Codex on the server: TASK-91); earlier: 2026-10-17 (the picture frame keeps the picture's shape, from `media.width`/`height`: no more cut-off heads; AI pictures for every sense with `pipeline media-ai`: TASK-82; AI images with `pipeline media-generate`: TASK-53; the admin can upload their own picture or clip: TASK-79; Claude check of the pictures: TASK-78; removing media now deletes the file, and the admin can remove all media of a word: TASK-76; the app loads `media/<file>` from `https://api.saynata.com/media/<file>`, TASK-51; Pixabay 429 is tried again: TASK-63; the admin words list can filter by media with `media=with|without`, TASK-60; a bundled word is answered from Postgres with its media, TASK-58).
 > Why: a small picture or a short clip helps a learner remember a meaning (doc-1, Vision and spec). Postgres on the server is the source of truth for content (doc-7).
 
 ## What it does
@@ -45,7 +45,7 @@ flowchart LR
     ADMIN -->|"search, pick, remove, mark"| BE
     PX -->|"search results"| ADMIN
     DIR --> CADDY
-    CADDY -->|"https://api.loffy.me/media/file"| APP
+    CADDY -->|"https://api.saynata.com/media/file"| APP
     BE -->|"GET /api/words: imageUrl"| APP
 ```
 
@@ -91,7 +91,7 @@ sequenceDiagram
 | Import (one time) | [import_dictionary:89](../../../pipeline/src/pipeline/postgres.py#L89), command at [cli.py:164](../../../pipeline/src/pipeline/cli.py#L164) | The first copy of the bundled dictionary into Postgres. It also creates `media` rows. It reads file sizes from `--media-dir`. |
 | Export from Postgres | [export_from_postgres:119](../../../pipeline/src/pipeline/export.py#L119), [copy_media:197](../../../pipeline/src/pipeline/export.py#L197), command at [cli.py:196](../../../pipeline/src/pipeline/cli.py#L196) | Builds `data/out/dictionary.sqlite` and copies the files that senses use into `data/out/media/`. Files missing from `--media-dir` are listed as a warning. |
 
-Then the developer copies only `dictionary.sqlite` into the app (`EnglishTranslation/EnglishTranslation/Resources`). The media files stay on the server (63 MB; the app does not carry them, see doc-7, 2026-10-15). The app loads `media/<file>` from `https://api.loffy.me/media/<file>` and saves it on the phone. How the run works from the start is in [Dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md).
+Then the developer copies only `dictionary.sqlite` into the app (`EnglishTranslation/EnglishTranslation/Resources`). The media files stay on the server (63 MB; the app does not carry them, see doc-7, 2026-10-15). The app loads `media/<file>` from `https://api.saynata.com/media/<file>` and saves it on the phone. How the run works from the start is in [Dictionary pipeline](doc-6%20-%20Dictionary-pipeline.md).
 
 ## 2. Backend: new words
 
@@ -124,7 +124,7 @@ sequenceDiagram
     App->>WS: GET /api/words/dance (next time)
     WS->>DB: read word_lookup_media + media
     WS-->>App: senses with imageUrl
-    App->>FS: GET https://api.loffy.me/media/file (through Caddy)
+    App->>FS: GET https://api.saynata.com/media/file (through Caddy)
 ```
 
 | Step | File:line | What happens |
@@ -140,7 +140,7 @@ sequenceDiagram
 | Link to the sense | [fetchOneSense:100](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L100) | Sets `word_lookup_media.media_id`. |
 | Tables | [V7](../../../backend/src/main/resources/db/migration/V7__create_word_lookup_media.sql), [V8](../../../backend/src/main/resources/db/migration/V8__add_media_status.sql) | `word_lookup_media (word_lookup_id, sense_position, media_id, media_status)`. A deleted word deletes its rows. Bundled words use `dictionary_sense.media_id` and `media_status` instead. |
 | Read for the answer | [SenseMediaReader.forBackendWords:26](../../../backend/src/main/java/com/englishtranslation/backend/media/SenseMediaReader.java#L26), [WordService.mediaOf:148](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L148) | Joins `word_lookup_media` to `media`. A read problem is logged and ignored. |
-| The address | [MediaProperties.urlFor:18](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaProperties.java#L18), [application.properties:41-45](../../../backend/src/main/resources/application.properties#L41-L45) | `imageUrl` = `app.media.base-url` + `/` + file name. Default base URL: `https://api.loffy.me/media`. |
+| The address | [MediaProperties.urlFor:18](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaProperties.java#L18), [application.properties:41-45](../../../backend/src/main/resources/application.properties#L41-L45) | `imageUrl` = `app.media.base-url` + `/` + file name. Default base URL: `https://api.saynata.com/media`. |
 | The JSON | [WordEntryView.of:18](../../../backend/src/main/java/com/englishtranslation/backend/word/WordEntryView.java#L18) | Adds `imageUrl` to a sense that has media, and `imageWidth`/`imageHeight` from `media.width`/`height` when they are known (the pipeline fills them for photos; media the backend saves from Pixabay or an upload has none yet). Each field is left out when empty, so old app versions see nothing new. |
 | Serve the file | Caddy, see [doc-11 section 9](../guides/doc-11%20-%20Deploy-to-a-VPS.md); folder mount in [docker-compose.prod.yml:49-55](../../../backend/docker-compose.prod.yml#L49-L55) | `handle_path /media/*` reads `/var/lib/saynata/media` and adds `Cache-Control: public, max-age=31536000, immutable` (one year). The backend writes to the folder; Caddy only reads it. |
 
@@ -230,7 +230,7 @@ Limit: only the 320 px WebP or the 3 s MP4 is kept. The original upload is not s
 
 ### Removing media for real (TASK-76)
 
-Before TASK-76, "No image" only unlinked the media in Postgres. The file stayed in `MEDIA_DIR`, and the app's bundled `dictionary.sqlite` still says `image_url = media/<file>`, so the app kept loading `https://api.loffy.me/media/<file>` and showed the picture. Now the file is deleted, the address answers 404, and the app already shows nothing when a download fails.
+Before TASK-76, "No image" only unlinked the media in Postgres. The file stayed in `MEDIA_DIR`, and the app's bundled `dictionary.sqlite` still says `image_url = media/<file>`, so the app kept loading `https://api.saynata.com/media/<file>` and showed the picture. Now the file is deleted, the address answers 404, and the app already shows nothing when a download fails.
 
 ```mermaid
 sequenceDiagram
@@ -506,7 +506,7 @@ WHERE g.sense_id = s.id AND g.prompt_version = 'ai-v1' AND g.linked_at IS NOT NU
 
 This SQL is tested (`test_pg_undo_with_the_sql_from_doc_15_brings_the_old_picture_back`). The approval of the old picture is not restored; approve it again in the admin. To draw a sense again, run with `--redo --words <word>`; to redraw everything after a rule change, raise `PROMPT_VERSION`.
 
-Known limits: the scene prompt still asks Claude for 3 distractors, which the code ignores (the guess uses its own separate call; the prompt text is kept word for word from the trial). The report shows old pictures from `https://api.loffy.me/media/`.
+Known limits: the scene prompt still asks Claude for 3 distractors, which the code ignores (the guess uses its own separate call; the prompt text is kept word for word from the trial). The report shows old pictures from `https://api.saynata.com/media/`.
 
 ## AI picture from the admin (TASK-91)
 

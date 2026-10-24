@@ -107,7 +107,7 @@ class BundledWordWinsTest {
 
         WordResponse response = service.lookUp("run");
 
-        assertThat(response.entry().senses().get(0).imageUrl()).isEqualTo("https://api.loffy.me/media/bundled_wins_run_1.mp4");
+        assertThat(response.entry().senses().get(0).imageUrl()).isEqualTo("https://api.saynata.com/media/bundled_wins_run_1.mp4");
     }
 
     @Test

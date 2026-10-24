@@ -258,7 +258,7 @@ describe("words page", () => {
       ...run,
       entry: { senses: [run.entry.senses[0], { ...run.entry.senses[0], simpleDefinition: "A race." }] },
       media: [
-        { url: "https://api.loffy.me/media/run_1_ab.webp", kind: "photo", photographer: "Jane Photo", pageUrl: "https://pixabay.com/photos/x-1/" },
+        { url: "https://api.saynata.com/media/run_1_ab.webp", kind: "photo", photographer: "Jane Photo", pageUrl: "https://pixabay.com/photos/x-1/" },
         null,
       ],
     };
@@ -266,7 +266,7 @@ describe("words page", () => {
     await userEvent.click(await screen.findByRole("button", { name: /run/ }));
 
     const entry = screen.getByRole("region", { name: "Entry" });
-    expect(within(entry).getByRole("img", { name: "run, sense 1" })).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.webp");
+    expect(within(entry).getByRole("img", { name: "run, sense 1" })).toHaveAttribute("src", "https://api.saynata.com/media/run_1_ab.webp");
     expect(within(entry).getByRole("link", { name: "Jane Photo" })).toHaveAttribute("href", "https://pixabay.com/photos/x-1/");
     expect(within(entry).queryByRole("img", { name: "run, sense 2" })).not.toBeInTheDocument();
   });
@@ -274,14 +274,14 @@ describe("words page", () => {
   it("plays a clip as a muted looping video", async () => {
     const withClip: WordItem = {
       ...run,
-      media: [{ url: "https://api.loffy.me/media/run_1_ab.mp4", kind: "clip", photographer: "Pat Maker", pageUrl: "https://pixabay.com/videos/x-2/" }],
+      media: [{ url: "https://api.saynata.com/media/run_1_ab.mp4", kind: "clip", photographer: "Pat Maker", pageUrl: "https://pixabay.com/videos/x-2/" }],
     };
     renderWords([withClip]);
     await userEvent.click(await screen.findByRole("button", { name: /run/ }));
 
     const video = within(screen.getByRole("region", { name: "Entry" })).getByLabelText("run, sense 1");
     expect(video.tagName).toBe("VIDEO");
-    expect(video).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.mp4");
+    expect(video).toHaveAttribute("src", "https://api.saynata.com/media/run_1_ab.mp4");
     expect((video as HTMLVideoElement).muted).toBe(true);
   });
 

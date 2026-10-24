@@ -23,7 +23,7 @@ const word: WordItem = {
       { pos: "verb", cefr: "A1", simpleDefinition: "to move fast on your feet", vietnamese: "chay", examples: [], usage: [] },
     ],
   },
-  media: [{ url: "https://api.loffy.me/media/run_1_ab.webp", kind: "photo", photographer: "Jane Photo", pageUrl: "https://pixabay.com/photos/x-1/" }],
+  media: [{ url: "https://api.saynata.com/media/run_1_ab.webp", kind: "photo", photographer: "Jane Photo", pageUrl: "https://pixabay.com/photos/x-1/" }],
   mediaStatus: [null],
 };
 
@@ -85,7 +85,7 @@ describe("AI picture dialog", () => {
     expect(within(dialog).getByText("AI picture")).toBeInTheDocument();
     expect(within(dialog).getByText("run, sense 1 (verb)")).toBeInTheDocument();
     expect(within(dialog).getByText("to move fast on your feet")).toBeInTheDocument();
-    expect(within(dialog).getByRole("img", { name: "Current picture" })).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.webp");
+    expect(within(dialog).getByRole("img", { name: "Current picture" })).toHaveAttribute("src", "https://api.saynata.com/media/run_1_ab.webp");
     expect(within(dialog).getByLabelText("Prompt")).toHaveValue("TEMPLATE PROMPT");
     expect(within(dialog).getByText("Prompt from: template")).toBeInTheDocument();
     expect(within(dialog).getByText("today 3 of 30 pictures · $0.04 of $1.00")).toBeInTheDocument();
@@ -278,7 +278,7 @@ describe("AI picture job in the media row", () => {
     // The word list is read again by Refine; here the same row gets the new word.
     const aiWord: WordItem = {
       ...word,
-      media: [{ url: "https://api.loffy.me/media/run_1_ai_12345678.webp", kind: "photo", photographer: null, pageUrl: null, source: "ai", licenseNote: "AI image (codex)" }],
+      media: [{ url: "https://api.saynata.com/media/run_1_ai_12345678.webp", kind: "photo", photographer: null, pageUrl: null, source: "ai", licenseNote: "AI image (codex)" }],
       mediaStatus: ["ai_generated"],
     };
     // Render a second row with the new word to see its caption.
@@ -294,7 +294,7 @@ describe("AI picture job in the media row", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("The ChatGPT plan limit is reached. Try again later.");
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "run, sense 1" })).toHaveAttribute("src", "https://api.loffy.me/media/run_1_ab.webp");
+    expect(screen.getByRole("img", { name: "run, sense 1" })).toHaveAttribute("src", "https://api.saynata.com/media/run_1_ab.webp");
     expect(screen.getByRole("button", { name: "Draw an AI picture" })).toBeEnabled();
   });
 

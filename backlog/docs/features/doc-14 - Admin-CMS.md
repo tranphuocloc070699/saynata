@@ -3,7 +3,7 @@ id: doc-14
 title: Admin CMS
 type: specification
 created_date: '2026-10-14 11:29'
-updated_date: '2026-10-23 10:09'
+updated_date: '2026-10-24 06:05'
 ---
 > Status: **built against the API contract of TASK-49.1** (the backend part is built in parallel; names may need small changes in `types.ts`). TASK-49.2. Last traced from code: 2026-10-23 (Filter menu with counts, Pending queue rows, one status badge: TASK-101; edit form sections and the bottom Cancel/Save bar: TASK-99.4; Sentences as a table too: TASK-99.3; Words as a table with a drawer, media chips in a Media menu: TASK-99.2; Isomorphic look: shell, top bar search, account menu, split sign-in: TASK-99.1); earlier: 2026-10-18 (the Sparkles button opens the AI picture dialog and the row shows the drawing job: TASK-91); earlier: 2026-10-16 (list/grid toggle, grid cards, side drawer and the big hover preview: TASK-81; Wrong media and Media to review chips, row badges, Looks right button, Claude verdict under the media: TASK-80; Upload button and drop on the Media row: TASK-79; earlier: Remove all media button: TASK-76; hover to play a clip in the list and the full-size viewer: TASK-77; word list rows with a thumbnail and the Vietnamese line: TASK-62; the Media row resets per word and sense: TASK-64; infinite scroll in the list: TASK-54; Media row: TASK-52; review reasons: TASK-55; every chip is a server filter, Has media and No media chips, the list is read again after the check button: TASK-57, TASK-59, TASK-60).
 > Spec: F5 Admin CMS (TASK-49). Decisions: doc-7 rows 10-14 (Admin CMS, shadcn/ui + Refine, layout A, users with roles).
@@ -21,7 +21,7 @@ In a word's detail, each sense has a **Media row**: the current photo or clip wi
 
 ```mermaid
 flowchart LR
-    B[Browser: admin.loffy.me] -->|static files| C[Caddy]
+    B[Browser: admin.saynata.com] -->|static files| C[Caddy]
     B -->|"fetch + cookie, /api/admin/**"| API[Spring Boot backend]
     API --> PG[(Postgres: word_lookup, sentence_translation)]
 ```

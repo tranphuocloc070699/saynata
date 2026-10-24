@@ -163,12 +163,21 @@ class AdminAuthTest {
     }
 
     @Test
-    void corsAllowsTheAdminSiteWithCredentialsAndExposesTotalCount() throws Exception {
+    void corsStillAllowsTheOldAdminAddress() throws Exception {
         mockMvc.perform(options("/api/admin/words")
                         .header("Origin", "https://admin.loffy.me")
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "https://admin.loffy.me"))
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://admin.loffy.me"));
+    }
+
+    @Test
+    void corsAllowsTheAdminSiteWithCredentialsAndExposesTotalCount() throws Exception {
+        mockMvc.perform(options("/api/admin/words")
+                        .header("Origin", "https://admin.saynata.com")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://admin.saynata.com"))
                 .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
 
         mockMvc.perform(get("/api/admin/words").header("Origin", "http://localhost:5173"))
@@ -200,7 +209,7 @@ class AdminAuthTest {
 
     @Test
     void publicEndpointsDoNotSendCorsHeaders() throws Exception {
-        mockMvc.perform(get("/api/words/zzzzzzzz").header("Origin", "https://admin.loffy.me"))
+        mockMvc.perform(get("/api/words/zzzzzzzz").header("Origin", "https://admin.saynata.com"))
                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
 }
