@@ -3,10 +3,47 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-24 06:05'
+updated_date: '2026-10-24 10:27'
 ---
-> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-23 (TASK-89.3: prompt `v9`, a short summary: one line, or a gist line and up to 3 bullets with **bold** key words, rendered by the app, the Mac app and the extension, see "Prompt v9" below; TASK-97: home input is one composer card, hamburger and History buttons on top; before that TASK-83.13: one pair of quotes around the whole sentence is ignored by the loose match, Flyway V25 recomputes `match_key`; before that 2026-10-22: TASK-83.3 loose match grows: curly quotes and apostrophes made straight, a final `…` or comma ignored too, Flyway V24 recomputes `match_key`; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: TASK-89.1: prompt `v8`, Claude writes only `isEnglish`, `summary`, `translation`; `summary` is sent as `meaning`, `words` is always empty, see "Prompt v8" below). Before that, 2026-10-16 (prompt `v7`: a shorter, direct meaning, see "Prompt" below; TASK-83.4 `?cachedOnly=true` on both endpoints, 404 `not_cached` without reaching ClaudeGate; TASK-83.3 loose match: "how are you" finds a saved "How are you?", no prompt change; TASK-73 the meaning streams word by word, TASK-74 local word cards at once while loading, TASK-75 start-up warm-up; TASK-70 sign-in sheet, Bearer token, refresh and retry, coded errors, see doc-17 "iOS app"; TASK-56 extra words from the bundled dictionary; TASK-50 keyboard hides on tap, send and scroll; TASK-65 streaming: the meaning shows as soon as Claude has written it, see "Streaming" below; the line numbers in tables 1-4 are for the non-streaming path and may be a few lines off). Earlier: 2026-10-14 (TASK-9 personal text is never cached; Listen on the sentence header: TASK-7; TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
+> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-24 (TASK-110: prompt `v10` adds "Better way to say it", see below; before that 2026-10-23: TASK-89.3: prompt `v9`, a short summary: one line, or a gist line and up to 3 bullets with **bold** key words, rendered by the app, the Mac app and the extension, see "Prompt v9" below; TASK-97: home input is one composer card, hamburger and History buttons on top; before that TASK-83.13: one pair of quotes around the whole sentence is ignored by the loose match, Flyway V25 recomputes `match_key`; before that 2026-10-22: TASK-83.3 loose match grows: curly quotes and apostrophes made straight, a final `…` or comma ignored too, Flyway V24 recomputes `match_key`; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: TASK-89.1: prompt `v8`, Claude writes only `isEnglish`, `summary`, `translation`; `summary` is sent as `meaning`, `words` is always empty, see "Prompt v8" below). Before that, 2026-10-16 (prompt `v7`: a shorter, direct meaning, see "Prompt" below; TASK-83.4 `?cachedOnly=true` on both endpoints, 404 `not_cached` without reaching ClaudeGate; TASK-83.3 loose match: "how are you" finds a saved "How are you?", no prompt change; TASK-73 the meaning streams word by word, TASK-74 local word cards at once while loading, TASK-75 start-up warm-up; TASK-70 sign-in sheet, Bearer token, refresh and retry, coded errors, see doc-17 "iOS app"; TASK-56 extra words from the bundled dictionary; TASK-50 keyboard hides on tap, send and scroll; TASK-65 streaming: the meaning shows as soon as Claude has written it, see "Streaming" below; the line numbers in tables 1-4 are for the non-streaming path and may be a few lines off). Earlier: 2026-10-14 (TASK-9 personal text is never cached; Listen on the sentence header: TASK-7; TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
+
+## Prompt v10: Better way to say it (TASK-110, 2026-10-24)
+
+The same sentence call now also returns a fixed version of the text when it has a real mistake, so a learner sees how to say their own sentence. No extra call: when the text is natural the two new fields are empty, which costs a few output tokens.
+
+| Field | What it is |
+|---|---|
+| `better` | The text with only its real mistakes fixed (grammar, a wrong word, a phrase a native speaker would never say). The fewest words changed, the rest copied. `""` (sent as `null`) when the text is correct, longer than 40 words, or reads like a book, the news or a website. |
+| `betterWhy` | One line in B1 words that says why, at most 12 words. `null` when there is no fix. |
+
+Field order in the answer: `isEnglish`, `summary`, `better`, `betterWhy`, `translation`. The summary still streams first (`meaning-delta`, `meaning`); the fix comes in the final `done` event (no new event). Public JSON: `explanation` is `meaning`, `words`, `better`, `betterWhy`, `translation`; old apps ignore the new fields.
+
+```mermaid
+flowchart TD
+    A[App sends the sentence] --> B{Cache: text + v10}
+    B -- hit --> F[done event, saved fix or null]
+    B -- miss --> C[ClaudeGate, then the LLM: summary streams, then better + why]
+    C --> D[BetterCheck: same text, rewrite or over 40 words gives null]
+    D --> E[(sentence_translation: better, better_why)]
+    E --> F
+    F --> G[App shows the folded row only for typed text]
+```
+
+**Two guards against fixing correct text** (the developer: no "fixes" for text pasted from a book or the news):
+
+| Where | File | What it does |
+|---|---|---|
+| Backend | [BetterCheck.java](../../../backend/src/main/java/com/englishtranslation/backend/translation/BetterCheck.java), called in `TranslationService` right after the model answers, before the row is saved | Drops the fix (and its reason) when the text has more than 40 words, when it is the same text once case, punctuation and curly quotes are ignored, or when it changes more words than allowed: at least 3, else 40% of the words (longest common word list). |
+| iOS, Mac | `TranslationStore.useTextFromElsewhere`, `SentenceResult.isTyped` in [SentenceResult.swift](../../../EnglishTranslation/EnglishTranslation/Translation/SentenceResult.swift) | Text from Back Tap copied text, the Share and Translate extensions, and the Mac Services item, copied-text watcher and hot key is someone else's text: the row is hidden. Typing a change in it makes it the user's. |
+| Web | [SentenceCard.tsx](../../../web/src/components/home/SentenceCard.tsx) `BetterVersion` | The only input is the composer (or a shared `?q=` link), so the row shows whenever there is a fix. |
+| Extension | none | The text is always a selection on a web page, so the card never shows the row (it ignores the new fields). |
+
+**What the row looks like** (developer's choice: a folded row like the others, no tinted background): "Better way to say it", closed, between the summary and the target-language row. Open: the fixed text in serif with the changed words in bold ([BetterDiff.swift](../../../EnglishTranslation/EnglishTranslation/Translation/BetterDiff.swift), [betterDiff.ts](../../../web/src/lib/betterDiff.ts): the same word comparison as `BetterCheck`), Listen and Copy icon buttons, and the reason line. iOS/Mac: `betterRow` in [SentenceCard.swift](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceCard.swift).
+
+**Real deepseek-v4.1-flash answers** (2026-10-24, 10 calls, $0.004): "Please open the light, it's too dark." gave "Please turn on the light, it's too dark."; "Can you borrow me your pen?" gave "lend"; "I very like this song." gave "I really like this song."; "Yesterday I go to the market..." gave "went". No fix for "It was the best of times, it was the worst of times.", a central bank news line, "gonna grab a coffee, want one?", "She has lived in Hanoi since 2019." and "I can't decide which one to buy." "I already do it." got no fix either (the model reads it as a habit, which is correct English).
+
+**Cost and cache:** about 150 more prompt tokens per call and 30-40 more output tokens when there is a fix: under $0.0001 a call. `app.claude.sentence-prompt-version=v10` and `PromptVersions.sentence` in [CacheKeys.swift](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift), so every v9 row is a miss once; Flyway [V30](../../../backend/src/main/resources/db/migration/V30__sentence_better_version.sql) adds the two columns and puts every `done` sentence in `prefill_item` back to `pending` (about $0.75 for 2,500). TASK-106.6 (the English part cached once) becomes v11.
 
 ## Prompt v9: short summary with bullets (TASK-89.3, 2026-10-23)
 
@@ -22,7 +59,7 @@ Real deepseek-v4.1-flash answers (2026-10-23): 58 words in, 30 out ("Your **care
 
 | Where | File | What it does |
 |---|---|---|
-| Prompt | [ClaudeService.java](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java) `SENTENCE_PROMPT` | The rules above. `app.claude.sentence-prompt-version=v9` (and `PromptVersions.sentence` in [CacheKeys.swift](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift)), so v8 rows and phone cache entries are not read any more. |
+| Prompt | [ClaudeService.java](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java) `SENTENCE_PROMPT` | The rules above. `app.claude.sentence-prompt-version=v9` at the time, now v10 (and `PromptVersions.sentence` in [CacheKeys.swift](../../../EnglishTranslation/EnglishTranslation/Cache/CacheKeys.swift)), so v8 rows and phone cache entries are not read any more. |
 | Clean | [SummaryFormat.java](../../../backend/src/main/java/com/englishtranslation/backend/claude/SummaryFormat.java), called from `SentenceAnswer.toExplanation` | `* `, `• `, `1. ` become `- `; a 4th bullet, headings and empty lines go; a line with an unclosed `**` loses its bold. The streamed `meaning-delta` pieces are raw, but the final `meaning` event is the clean text, and it wins. |
 | Temperature | `app.claude.temperature` (`CLAUDE_TEMPERATURE`, empty = not sent) | Sent with sentence calls only. Claude Haiku 5.5 refuses it; deepseek through the gateway takes 0. Two calls with 0 still gave two different (similar) summaries, so the cache, not the temperature, keeps an answer stable. |
 | iOS, Mac | [SummaryMarkup.swift](../../../EnglishTranslation/EnglishTranslation/Translation/SummaryMarkup.swift), used by [SentenceTextView.swift](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceTextView.swift) for `style: .summary` | Removes the markers: a bullet line starts with "•" and a tab (hanging indent in `SelectableSentenceText` on iOS), bold ranges use the bold serif font. The ranges point into the shown text, so a word tap and the part popup still work. While streaming, an open `**` makes the rest of the line bold. `plainText` (no bullets) is what Listen, the popup's Listen, Liked and History use. The quick explain snippet uses `attributedString`. The typed sentence (`style: .original`) is never read as Markdown. |

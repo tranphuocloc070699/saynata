@@ -37,7 +37,7 @@ class ClaudeServiceTest {
     void sentencePromptAsksForTheSummaryFirstAndTheTranslationLast() {
         String prompt = ClaudeService.SENTENCE_PROMPT;
 
-        assertThat(prompt.indexOf("1. summary")).isPositive().isLessThan(prompt.indexOf("2. translation"));
+        assertThat(prompt.indexOf("1. summary")).isPositive().isLessThan(prompt.indexOf("4. translation"));
         assertThat(prompt).contains("main answer is a short summary in simple English", "small helper");
     }
 
@@ -68,19 +68,31 @@ class ClaudeServiceTest {
     }
 
     @Test
+    void v10PromptAsksForAFixOnlyForRealMistakesAndNeverForBookOrNewsText() {
+        String prompt = onOneLine(ClaudeService.SENTENCE_PROMPT);
+
+        assertThat(prompt.indexOf("1. summary")).isLessThan(prompt.indexOf("2. better"));
+        assertThat(prompt.indexOf("2. better")).isLessThan(prompt.indexOf("3. betterWhy"));
+        assertThat(prompt).contains("The default is \"\"")
+                .contains("reads like a book, the news or a website")
+                .contains("more than 40 words")
+                .contains("Change as few words as possible");
+    }
+
+    @Test
     void sentenceSchemaHasTheIsEnglishFlag() {
         String schema = StructuredOutputConfig.<SentenceAnswer>builder().format(SentenceAnswer.class).build().toString();
 
-        assertThat(schema).contains("isEnglish", "summary", "translation").doesNotContain("words");
+        assertThat(schema).contains("isEnglish", "summary", "better", "betterWhy", "translation").doesNotContain("words");
     }
 
     @Test
     void v8PromptAsksForSummaryThenTranslationAndNoWordsList() {
         String prompt = onOneLine(ClaudeService.SENTENCE_PROMPT);
 
-        assertThat(prompt).contains("1. summary", "2. translation").doesNotContain("words:", "meaning:", "base form");
+        assertThat(prompt).contains("1. summary", "4. translation").doesNotContain("words:", "meaning:", "base form");
         assertThat(prompt.indexOf("0. isEnglish")).isLessThan(prompt.indexOf("1. summary"));
-        assertThat(prompt.indexOf("1. summary")).isLessThan(prompt.indexOf("2. translation"));
+        assertThat(prompt.indexOf("1. summary")).isLessThan(prompt.indexOf("4. translation"));
     }
 
     @Test
@@ -94,7 +106,28 @@ class ClaudeServiceTest {
         assertThat(ClaudeService.toExplanation(answer))
                 .isEqualTo(new Explanation("He did not want to leave.", List.of(), "Anh ấy không muốn đi."));
         assertThat(mapper.writeValueAsString(ClaudeService.toExplanation(answer)))
-                .isEqualTo("{\"meaning\":\"He did not want to leave.\",\"words\":[],\"translation\":\"Anh ấy không muốn đi.\"}");
+                .isEqualTo("{\"meaning\":\"He did not want to leave.\",\"words\":[],\"better\":null,\"betterWhy\":null,"
+                        + "\"translation\":\"Anh ấy không muốn đi.\"}");
+    }
+
+    @Test
+    void v10AnswerWithAFixKeepsItAndItsReason() {
+        JsonMapper mapper = JsonMapper.builder().build();
+
+        SentenceAnswer answer = mapper.readValue("{\"isEnglish\":true,\"summary\":\"You finished it before now.\","
+                + "\"better\":\"I've already done it.\",\"betterWhy\":\"Use \\\"have done\\\" for a finished action.\","
+                + "\"translation\":\"Tôi đã làm rồi.\"}", SentenceAnswer.class);
+
+        assertThat(ClaudeService.toExplanation(answer)).isEqualTo(new Explanation("You finished it before now.",
+                List.of(), "I've already done it.", "Use \"have done\" for a finished action.", "Tôi đã làm rồi."));
+    }
+
+    @Test
+    void blankFixBecomesNullAndDropsItsReason() {
+        SentenceAnswer answer = new SentenceAnswer(true, "A greeting.", " ", "No reason.", "Xin chào");
+
+        assertThat(ClaudeService.toExplanation(answer))
+                .isEqualTo(new Explanation("A greeting.", List.of(), "Xin chào"));
     }
 
     @Test

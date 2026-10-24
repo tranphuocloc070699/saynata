@@ -23,6 +23,11 @@ final class TranslationStore {
     /// True once the full `meaning` arrived. Late word-by-word pieces are then ignored (TASK-73).
     private var meaningIsFinal = false
 
+    /// Text put in the input by another app (copied text, Share, the Mac Services item), trimmed (TASK-110).
+    /// While the input still holds it, the result hides "Better way to say it": it is not the user's own English.
+    /// Typing a change makes the text the user's.
+    private var textFromElsewhere: String?
+
     /// The text whose request the server refused because the user is a guest (401 `sign_in_required`, TASK-70).
     /// Set when that happens, cleared by the next `translate()`. The extensions read it to say "Open Saynata to sign in".
     private(set) var textNeedingSignIn: String?
@@ -178,6 +183,12 @@ final class TranslationStore {
         await translate()
     }
 
+    /// Puts text from another app in the input, so its result does not offer a fix (TASK-110).
+    func useTextFromElsewhere(_ text: String) {
+        inputText = text
+        textFromElsewhere = trimmedInput
+    }
+
     /// Back Tap opened the app (TASK-87, `CopiedTextLaunch`): copied text goes into the input and is explained.
     /// With nothing copied, or the paste not allowed, the input and the result are cleared instead.
     /// - Returns: true when the input is empty, so the screen gives it the keyboard.
@@ -188,7 +199,7 @@ final class TranslationStore {
         if case let .text(copied) = await clipboard.content() {
             let cleaned = CopiedText.cleaned(copied)
             if !cleaned.isEmpty {
-                inputText = cleaned
+                useTextFromElsewhere(cleaned)
                 await translate()
                 return false
             }
@@ -255,7 +266,8 @@ final class TranslationStore {
                 onMeaning: { [weak self] meaning in
                     self?.showMeaning(SentenceMeaning(sentence: sentence, meaning: meaning, language: language))
                 })
-            let result = SentenceResult(sentence: sentence, explanation: explanation, language: language)
+            let result = SentenceResult(
+                sentence: sentence, explanation: explanation, language: language, isTyped: sentence != textFromElsewhere)
             state = .loaded(result)
             await history?.record(SavedItem(result: result))
         } catch BackendError.signInRequired {

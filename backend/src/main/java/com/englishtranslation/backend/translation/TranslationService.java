@@ -89,7 +89,7 @@ public class TranslationService {
                 throw new NotCachedException();
             }
             gate.beforeNewCall();
-            return callClaude.apply(normalizedText);
+            return BetterCheck.apply(normalizedText, callClaude.apply(normalizedText));
         };
         String normalized = CacheKeys.normalizeSentence(text);
 
@@ -122,7 +122,8 @@ public class TranslationService {
         try {
             repository.saveAndFlush(new SentenceTranslation(
                     cacheKey, normalized, targetLang.code(), explanation.meaning(),
-                    jsonMapper.writeValueAsString(explanation.words()), explanation.translation(),
+                    jsonMapper.writeValueAsString(explanation.words()), explanation.better(),
+                    explanation.betterWhy(), explanation.translation(),
                     properties.model(), properties.sentencePromptVersion()));
             return new TranslationResponse(normalized, targetLang, explanation, false);
         } catch (DataIntegrityViolationException e) {
@@ -134,6 +135,6 @@ public class TranslationService {
 
     private Explanation readExplanation(SentenceTranslation row) {
         List<Explanation.Word> words = jsonMapper.readValue(row.getWordsJson(), WORD_LIST);
-        return new Explanation(row.getMeaning(), words, row.getTranslation());
+        return new Explanation(row.getMeaning(), words, row.getBetter(), row.getBetterWhy(), row.getTranslation());
     }
 }

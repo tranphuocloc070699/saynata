@@ -36,6 +36,13 @@ public class SentenceTranslation {
     @Column(name = "words_json", nullable = false, columnDefinition = "TEXT")
     private String wordsJson;
 
+    /** The text with its mistakes fixed (TASK-110, prompt v10); null when it is natural or the row is older. */
+    @Column(name = "better", columnDefinition = "TEXT")
+    private String better;
+
+    @Column(name = "better_why", columnDefinition = "TEXT")
+    private String betterWhy;
+
     @Column(name = "translation", nullable = false, columnDefinition = "TEXT")
     private String translation;
 
@@ -56,12 +63,19 @@ public class SentenceTranslation {
 
     public SentenceTranslation(String cacheKey, String sourceText, String targetLang, String meaning, String wordsJson,
             String translation, String model, String promptVersion) {
+        this(cacheKey, sourceText, targetLang, meaning, wordsJson, null, null, translation, model, promptVersion);
+    }
+
+    public SentenceTranslation(String cacheKey, String sourceText, String targetLang, String meaning, String wordsJson,
+            String better, String betterWhy, String translation, String model, String promptVersion) {
         this.cacheKey = cacheKey;
         this.matchKey = CacheKeys.sentenceMatchKey(promptVersion, targetLang, sourceText);
         this.sourceText = sourceText;
         this.targetLang = targetLang;
         this.meaning = meaning;
         this.wordsJson = wordsJson;
+        this.better = better;
+        this.betterWhy = betterWhy;
         this.translation = translation;
         this.model = model;
         this.promptVersion = promptVersion;
@@ -117,6 +131,14 @@ public class SentenceTranslation {
 
     public String getWordsJson() {
         return wordsJson;
+    }
+
+    public String getBetter() {
+        return better;
+    }
+
+    public String getBetterWhy() {
+        return betterWhy;
     }
 
     public String getTranslation() {

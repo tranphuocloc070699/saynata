@@ -69,6 +69,34 @@ class TranslationServiceTest {
     }
 
     @Test
+    void fixIsSavedAndReadBackFromTheCache() {
+        Explanation explanation = new Explanation("You finished it before now.", List.of(), "I've already done it.",
+                "Use \"have done\" for a finished action that matters now.", "Tôi đã làm rồi.");
+        when(claude.explainSentence("I already do it.", TargetLanguage.VI)).thenReturn(explanation);
+
+        TranslationResponse first = service.translate("I already do it.", TargetLanguage.VI);
+        TranslationResponse cached = service.translate("i already do it", TargetLanguage.VI);
+
+        assertThat(first.explanation()).isEqualTo(explanation);
+        assertThat(cached.cached()).isTrue();
+        assertThat(cached.explanation()).isEqualTo(explanation);
+    }
+
+    @Test
+    void rewriteOfCorrectTextIsDroppedBeforeItIsSaved() {
+        String text = "The committee postponed its decision until further evidence was available.";
+        when(claude.explainSentence(text, TargetLanguage.VI)).thenReturn(new Explanation("They will decide later.",
+                List.of(), "The group waited to decide until they had more proof.", "It sounds better.", "Họ hoãn."));
+
+        TranslationResponse first = service.translate(text, TargetLanguage.VI);
+        TranslationResponse cached = service.translate(text, TargetLanguage.VI);
+
+        assertThat(first.explanation().better()).isNull();
+        assertThat(first.explanation().betterWhy()).isNull();
+        assertThat(cached.explanation().better()).isNull();
+    }
+
+    @Test
     void textThatIsNotEnglishIsNotCachedAndAsksClaudeAgainNextTime() {
         when(claude.explainSentence("for (int i = 0; i < n; i++) {}", TargetLanguage.VI))
                 .thenThrow(new NotEnglishException());
