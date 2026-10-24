@@ -39,6 +39,10 @@ public class ClaudeUsage {
     @Column(name = "cost_usd", nullable = false, precision = 14, scale = 8)
     private BigDecimal costUsd;
 
+    /** The signed-in user who caused the call (TASK-105); null for the night job, guests and old rows. */
+    @Column(name = "user_id")
+    private Long userId;
+
     protected ClaudeUsage() {
     }
 
@@ -50,6 +54,16 @@ public class ClaudeUsage {
         this.inputTokens = inputTokens;
         this.outputTokens = outputTokens;
         this.costUsd = costUsd;
+    }
+
+    public ClaudeUsage(Instant createdAt, String model, Feature feature, long inputTokens, long outputTokens,
+            BigDecimal costUsd, Long userId) {
+        this(createdAt, model, feature, inputTokens, outputTokens, costUsd);
+        this.userId = userId;
+    }
+
+    public Long getUserId() {
+        return userId;
     }
 
     public Instant getCreatedAt() {

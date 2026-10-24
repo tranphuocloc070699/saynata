@@ -29,8 +29,8 @@ interface Props {
   chips: Chip[];
   active: string[];
   onToggle: (chip: Chip) => void;
-  // The queue rows of the Pending choice (TASK-100): kind word or sentence.
-  pendingKind: "word" | "sentence";
+  // The queue rows of the Pending choice (TASK-100): kind word or sentence. Pages without Pending leave it out.
+  pendingKind?: "word" | "sentence";
 }
 
 // One Filter button with a menu of parent groups and their choices (TASK-101, mockup 2026-10-23).
@@ -119,7 +119,7 @@ export function FilterMenu({ resource, chips, active, onToggle, pendingKind }: P
                           filters={
                             chip.pending
                               ? [
-                                  { field: "kind", operator: "eq", value: pendingKind },
+                                  { field: "kind", operator: "eq", value: pendingKind ?? "word" },
                                   { field: "status", operator: "eq", value: "pending" },
                                 ]
                               : [chipFilter(chip)]

@@ -5,6 +5,7 @@ import { Layout } from "@/components/Layout";
 import { LoginPage } from "@/pages/LoginPage";
 import { MediaPage } from "@/pages/MediaPage";
 import { SentencesPage } from "@/pages/SentencesPage";
+import { UsersPage } from "@/pages/UsersPage";
 import { WordsPage } from "@/pages/WordsPage";
 import { authProvider } from "@/providers/authProvider";
 import { dataProvider } from "@/providers/dataProvider";
@@ -19,6 +20,7 @@ export default function App() {
         resources={[
           { name: "words", list: "/words" },
           { name: "sentences", list: "/sentences" },
+          { name: "users", list: "/users" },
         ]}
         options={{ disableTelemetry: true, syncWithLocation: false }}
       >
@@ -34,6 +36,7 @@ export default function App() {
             <Route path="/words" element={<WordsPage />} />
             <Route path="/sentences" element={<SentencesPage />} />
             <Route path="/media" element={<MediaPage />} />
+            <Route path="/users" element={<UsersPage />} />
           </Route>
           <Route
             element={
