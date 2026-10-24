@@ -328,7 +328,7 @@ struct BackendClient: Translating, WordFetching {
 
     /// Sends the request with the token (when there is one). Returns the body of a 200 reply;
     /// any other status throws a `BackendError`. A 401 with a token refreshes it once and tries again.
-    private func sendChecked(_ request: URLRequest) async throws -> Data {
+    func sendChecked(_ request: URLRequest) async throws -> Data {
         try await withAuthRetry { token in
             let (data, response) = try await session.data(for: authorized(request, token: token))
 

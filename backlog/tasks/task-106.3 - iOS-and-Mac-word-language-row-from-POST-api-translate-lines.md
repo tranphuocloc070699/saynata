@@ -1,9 +1,11 @@
 ---
 id: TASK-106.3
 title: 'iOS and Mac: word language row from POST /api/translate-lines'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-24 09:51'
+updated_date: '2026-10-24 10:13'
 labels: []
 dependencies:
   - TASK-106.2
@@ -32,3 +34,9 @@ The word card (WordCardView, WordCardCompactView, Views/Word/TargetLanguageRowCo
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+iOS/Mac done. Test it: open the language row of a word card signed in (one request with all senses), guest (cachedOnly=true), offline (fallback: vi dictionary, others Apple Translation). Tests: 466 pass on iPhone 16 Pro iOS 18.5; SaynataMac builds. Includes PR 168 until it merges.
+<!-- SECTION:NOTES:END -->
