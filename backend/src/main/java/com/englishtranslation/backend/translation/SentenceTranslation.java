@@ -57,7 +57,7 @@ public class SentenceTranslation {
     public SentenceTranslation(String cacheKey, String sourceText, String targetLang, String meaning, String wordsJson,
             String translation, String model, String promptVersion) {
         this.cacheKey = cacheKey;
-        this.matchKey = CacheKeys.sentenceMatchKey(promptVersion, targetLang, sourceText);
+        this.matchKey = CacheKeys.sentenceMatchKey(promptVersion, sourceText);
         this.sourceText = sourceText;
         this.targetLang = targetLang;
         this.meaning = meaning;

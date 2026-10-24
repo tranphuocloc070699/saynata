@@ -3,9 +3,9 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-24 06:05'
+updated_date: '2026-10-24 10:02'
 ---
-> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-22 (unknown-word fallback: TASK-94; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
+> Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-24 (language lines `POST /api/translate-lines`: TASK-106.2; before that 2026-10-22: unknown-word fallback: TASK-94; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -472,3 +472,37 @@ flowchart TD
 Rules this keeps: only `cachedOnly` requests (no Claude call, `ClaudeGate` is never reached), no error text and no sign-in sheet (a prefetch never sets `state` or `textNeedingSignIn`), and nothing in History until the user submits.
 
 Tests: [TranslationStorePrefetchTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TranslationStorePrefetchTests.swift) (pause, cancel, route, history), [BackendClientTests.swift](../../../EnglishTranslation/EnglishTranslationTests/BackendClientTests.swift) (`prefetch*`, `warmUp`), [WordLookupTests.swift](../../../EnglishTranslation/EnglishTranslationTests/WordLookupTests.swift) (`prefetch*`).
+
+## Language lines: POST /api/translate-lines (TASK-106.2)
+
+> Last traced from code: 2026-10-24. Backend only. The apps (TASK-106.3, 106.4) and the sentence prompt (TASK-106.6) build on it.
+
+A **language line** is one short, natural line in the user's language (Vietnamese, Japanese, Korean, Chinese, French, Spanish, German) for a short English text, for example the simple explanation of a word sense. It is saved once per (text, language, prompt version) and shared by all users.
+
+```mermaid
+flowchart TD
+    A["POST /api/translate-lines (targetLang, texts 1-20)"] --> V{"en, empty, too long, more than 20?"}
+    V -- yes --> E["400 invalid_target_lang / invalid_texts"]
+    V -- no --> N["Normalize each text (trim, collapse spaces), sha256"]
+    N --> DB[("line_translation: one query for all hashes")]
+    DB --> M{"Any miss?"}
+    M -- "no" --> OUT["200, every line cached: true"]
+    M -- "yes, cachedOnly=true" --> NUL["200, misses: translation null, cached false (no ClaudeGate)"]
+    M -- "yes" --> G["ClaudeGate.beforeNewCall (401 / 503 / 429)"]
+    G --> C["ONE Claude call for all misses (Feature.LINE)"]
+    C --> S["Save each line (source llm)"]
+    S --> OUT2["200, new lines cached: false"]
+```
+
+| Step | Code | What happens |
+|---|---|---|
+| Endpoint | [LinesController.translate:22](../../../backend/src/main/java/com/englishtranslation/backend/lines/LinesController.java#L22) | `POST /api/translate-lines`, body `{"targetLang":"ko","texts":["..."]}`, optional `?cachedOnly=true`. An unknown language code fails JSON parsing (400). |
+| Check | [LineTranslationService.translate:45](../../../backend/src/main/java/com/englishtranslation/backend/lines/LineTranslationService.java#L45) | `targetLang` must not be `en` (400 `invalid_target_lang`). 1-20 texts, each 1-500 characters after normalizing (400 `invalid_texts`). Normalizing = trim + collapse inner whitespace to one space; the sha256 hex of that text is the key. The same text twice in one request is asked once. |
+| Cache | [LineTranslationService.translate:70](../../../backend/src/main/java/com/englishtranslation/backend/lines/LineTranslationService.java#L70) | One query for all hashes with the current `app.claude.line-prompt-version`. Hits answer `cached: true`. |
+| Miss | [LineTranslationService.askClaude:98](../../../backend/src/main/java/com/englishtranslation/backend/lines/LineTranslationService.java#L98) | Calls `ClaudeGate.beforeNewCall()` once, then `ClaudeService.translateLines` once for all misses ([ClaudeService:411](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeService.java#L411), prompt `LINE_PROMPT`, one JSON object with a `lines` list; in gateway mode the schema is in the prompt like the other calls). The answer must have one line per text, else the request fails. Each non-empty line is saved with source `llm` ([save:119](../../../backend/src/main/java/com/englishtranslation/backend/lines/LineTranslationService.java#L119); a unique-key race is ignored). Usage is saved as `Feature.LINE`. |
+| cachedOnly | same | No gate, no Claude call, so a guest may use it. A miss comes back as `{"text":"...","translation":null,"cached":false}`. |
+
+Answer: `{"targetLang":"ko","lines":[{"text","translation","cached"}]}`, same order and same `text` as sent. Table `line_translation` (Flyway V27): `text_hash`, `text`, `target_lang`, `prompt_version`, `translation`, `source` (`llm`, `codex` or `seed`), `created_at`; unique on `(text_hash, target_lang, prompt_version)`. Changing `LINE_PROMPT` means bumping `app.claude.line-prompt-version`.
+
+Errors: 400 `invalid_target_lang`, `invalid_texts`; 401 `sign_in_required` (guest, miss, not cachedOnly); 429 `rate_limited`; 503 `daily_limit_reached`. Tests: [TranslateLinesApiTest.java](../../../backend/src/test/java/com/englishtranslation/backend/lines/TranslateLinesApiTest.java) (hit, miss, one call for many misses, order, cachedOnly, guest, `en`, bad sizes), and `ClaudeServiceJsonInPromptTest.languageLinesAreOneCallWithTheSchemaInThePrompt`.
+

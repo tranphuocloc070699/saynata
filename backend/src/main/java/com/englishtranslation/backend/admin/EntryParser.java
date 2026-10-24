@@ -43,7 +43,7 @@ public class EntryParser {
     public Explanation parseExplanation(JsonNode body) {
         Explanation explanation = read(body, "explanation", Explanation.class);
         requireText(explanation.meaning(), "explanation.meaning");
-        requireText(explanation.translation(), "explanation.translation");
+        // Since prompt v10 (TASK-106.6) a saved sentence has no translation: the language line is in line_translation.
         if (explanation.words() == null) {
             throw invalid("explanation.words must be a list (it can be empty).");
         }
