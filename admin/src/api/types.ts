@@ -161,6 +161,51 @@ export interface PrefillQueueItem {
   updatedAt: string;
 }
 
+// App accounts on the admin Users page (TASK-105). GET /users and GET /users/{id}.
+export type SignInProvider = "google" | "apple";
+
+export interface UserRow {
+  id: number;
+  email: string;
+  displayName: string;
+  createdAt: string;
+  lastSeenAt?: string | null; // saved on sign-in and token refresh, at most once an hour
+  blocked: boolean;
+  admin: boolean;
+  providers: SignInProvider[]; // empty = signs in with an email code only
+  explanationsToday: number;
+  explanationsTotal: number;
+  costTotalUsd: number;
+}
+
+export interface UsersSummary {
+  accounts: number;
+  activeToday: number;
+  explanationsToday: number;
+  costTodayUsd: number;
+  usageSince?: string | null; // per-user usage was not saved before this
+}
+
+export interface UsagePeriod {
+  calls: number;
+  costUsd: number;
+}
+
+export interface UserDetail {
+  user: UserRow;
+  blockedReason?: string | null;
+  blockedAt?: string | null;
+  today: UsagePeriod;
+  last7Days: UsagePeriod;
+  total: UsagePeriod;
+  wordsTotal: number;
+  sentencesTotal: number;
+  days: { date: string; calls: number }[];
+  identities: { provider: SignInProvider; email?: string | null; since: string }[];
+  likedCount: number;
+  devicesSignedIn: number;
+}
+
 // The Sources page (TASK-108): a book the admin uploaded, and the new words and phrases found in it.
 export interface SourceCandidate {
   kind: "word" | "phrase" | "name";

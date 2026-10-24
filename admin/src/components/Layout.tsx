@@ -1,5 +1,5 @@
 import { useGetIdentity, useLogout } from "@refinedev/core";
-import { BookOpen, FileText, Image, LogOut, MessageSquareText, Search } from "lucide-react";
+import { BookOpen, FileText, Image, LogOut, MessageSquareText, Search, Users } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -7,12 +7,20 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
 
-const links = [
-  { to: "/words", label: "Words", icon: BookOpen },
-  { to: "/sentences", label: "Sentences", icon: MessageSquareText },
-  { to: "/media", label: "Media", icon: Image },
-  { to: "/sources", label: "Sources", icon: FileText },
+// The sidebar sections; the label is also the first breadcrumb of their pages.
+const sections = [
+  {
+    label: "Content",
+    links: [
+      { to: "/words", label: "Words", icon: BookOpen },
+      { to: "/sentences", label: "Sentences", icon: MessageSquareText },
+      { to: "/media", label: "Media", icon: Image },
+      { to: "/sources", label: "Sources", icon: FileText },
+    ],
+  },
+  { label: "People", links: [{ to: "/users", label: "Users", icon: Users }] },
 ];
+const links = sections.flatMap((section) => section.links.map((link) => ({ ...link, section: section.label })));
 
 // The Saynata mark: a teal square with an S, next to the name.
 export function Logo() {
@@ -110,9 +118,11 @@ export function Layout() {
         <div className="px-2 pb-4">
           <Logo />
         </div>
-        <p className="mx-2 mb-2 mt-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Content</p>
-        <nav className="flex flex-col gap-1" aria-label="Sections">
-          {links.map(({ to, label, icon: Icon }) => (
+        {sections.map((section) => (
+          <div key={section.label}>
+            <p className="mx-2 mb-2 mt-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{section.label}</p>
+            <nav className="flex flex-col gap-1" aria-label={section.label}>
+          {section.links.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -129,13 +139,15 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
+          </div>
+        ))}
       </aside>
       <header className="flex items-center justify-between border-b border-border bg-card px-6">
         <HeaderSearch />
         <AccountMenu />
       </header>
       <main className="flex min-h-0 flex-col gap-4 overflow-hidden p-6">
-        {current && <PageHeader title={current.label} crumbs={["Content", current.label]} />}
+        {current && <PageHeader title={current.label} crumbs={[current.section, current.label]} />}
         <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card">
           <Outlet />
         </div>
