@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-23 10:25'
+updated_date: '2026-10-24 03:38'
 ---
 # Decisions and reasons
 
@@ -86,6 +86,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-15 | **Topic words** (TASK-61): add about 1,000-1,400 everyday concrete words NGSL misses (apple, giraffe, scarf, tram), each with one topic. Start from the **first-sense list** (Open English WordNet 2025 + wordfreq Zipf ≥ 3.5, NGSL removed: 1,271 words, 1,378 with a short hand list), then a **Claude Haiku judge** keeps or drops each word (names, rare meanings, technical words) before any Sonnet money is spent | The developer noticed everyday words are missing ("apple" is not in NGSL, because NGSL is chosen by frequency) and asked where to find vocabulary for streets, vegetables, animals and tools. First-sense list: picked the recommended option (cleaner; the any-sense list finds more animals but much more noise). The judge costs under $0.10. | Any-sense list (1,888 words, more noise); copying the Cambridge Young Learners lists (© Cambridge, used only to check coverage); hand-picking every word | Developer chose, Claude recommended |
 | 10-18 | **The admin draws an AI picture for one sense on the server with the Codex CLI**, signed in with the developer's ChatGPT login (`auth.json` copied to the VPS; Codex is in the backend Docker image) (TASK-91) | No per-picture cost, the same prompt texts and style as `media-ai`, about 1 minute a picture. Reason in the developer's words: not recorded (picked from the options). Known risks: `auth.json` is like a password; the ChatGPT plan has limits (so 30 pictures a day); OpenAI's consumer Terms forbid taking Output "automatically or programmatically". | **The OpenAI image API** (`gpt-image-1-mini`, about $0.004 a picture; OpenAI's own docs say API keys are "the recommended default for automation", https://learn.chatgpt.com/docs/auth) | Developer chose from Claude's options |
 | 10-23 | **Web app: Next.js 16 (App Router) + Tailwind 4 + GSAP, in `web/`** (TASK-102) | "I want to use gsap in homepage." Next.js because word pages need finished HTML for Google and for link previews in Zalo and Messenger, whose bots do not run JavaScript. `/api` stays on the same origin (rewrite in dev, Caddy in production) because the backend has no CORS setup. | React + Vite like the admin (pages start empty, no link previews) | Claude, accepted |
+| 10-24 | **The web app runs as a `node:22-alpine` container (`output: "standalone"`) on the VPS, built in GitHub Actions and copied like the admin app, not built on the VPS and not pushed to GHCR** (TASK-102.2) | Reason: not recorded (the orchestrator's brief: a small VPS can run out of memory during `next build`, and the VPS has no Node). Copying the build needs no registry login on the server and keeps the deploy the same shape as `deploy-admin`; the image build is only a file copy. `cacheComponents` needs a Node server, so a static export (like the admin) would block word pages later. | `next build` on the VPS (memory); image pushed to GHCR (needs a token and `docker login` on the server); static export (no server features); Vercel (a second host and bill) | Orchestrator, built by Claude |
 
 ## Workflow
 
@@ -214,3 +215,4 @@ go here as questions.
 - 10-18: Why add Google, Apple and an emailed link now (TASK-92), and is the new domain "saynanta.com" or "saynata.com"? Reason and spelling not recorded.
 - 10-18: Why the STEYG gateway over a new Anthropic key? Reason not recorded.
 - 10-22: Is ignoring the final `?` in the loose sentence match OK (TASK-83.3, Claude's call)? Developer's view not recorded.
+- 10-24: Why copy the web build to the VPS (like the admin) instead of pushing an image to GHCR, and is the web app on the root domain loffy.me for good? Reason not recorded (TASK-102.2).

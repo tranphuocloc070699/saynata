@@ -104,3 +104,63 @@ jobs:
           # Caddy runs as its own user and must be able to read the files.
           $ssh_cmd "$target" "chmod -R o+rX $dist"
           echo "Admin app deployed to $dist."
+
+  # The learner web app (web/, Next.js). Same idea as the admin job: `next build` runs here, not on the VPS (a small VPS
+  # can run out of memory during it). The standalone server is copied to web/dist on the server; web/scripts/deploy-web.sh
+  # puts it into a node:22-alpine image and restarts only the web container. Caddy sends loffy.me to it (doc-11, section 14).
+  deploy-web:
+    name: Deploy web app to VPS
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+    steps:
+      - name: Skip when VPS secrets are not set
+        if: env.VPS_HOST == '' || env.VPS_SSH_KEY == ''
+        run: echo "::notice::VPS secrets are not set, so the web app was not deployed. See doc-11, section Auto deploy."
+      - uses: actions/checkout@v4
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+          # What the container needs: the server, the static files and the public folder (Next.js standalone layout).
+          mkdir dist
+          cp -R .next/standalone/. dist/
+          mkdir -p dist/.next
+          cp -R .next/static dist/.next/static
+          cp -R public dist/public
+      - name: Copy web/dist to the VPS and restart the web container
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh_cmd="ssh -i $HOME/.ssh/deploy_key -p ${VPS_PORT:-22} -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=6"
+          target="${VPS_USER:-root}@$VPS_HOST"
+          app="${VPS_APP_DIR:-saynata}"
+          $ssh_cmd "$target" "mkdir -p $app/web/dist"
+          # --delete removes files of the old build, so the folder holds only this build.
+          rsync -az --delete -e "$ssh_cmd" web/dist/ "$target:$app/web/dist/"
+          $ssh_cmd "$target" "bash $app/web/scripts/deploy-web.sh"
+      - name: Check https://loffy.me
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        # Fails the job when DNS or Caddy for loffy.me is not set up yet (doc-11, section 14).
+        run: curl -fsS --max-time 20 --retry 6 --retry-delay 10 --retry-all-errors https://loffy.me -o /dev/null

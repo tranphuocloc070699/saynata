@@ -3,11 +3,11 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-23 10:25'
+updated_date: '2026-10-24 03:38'
 ---
 # Web app
 
-> Status: homepage built (TASK-102.1), the other 7 MVP pages not started (TASK-102). Last traced from code: 2026-10-23.
+> Status: homepage built (TASK-102.1), the other 7 MVP pages not started (TASK-102). Last traced from code: 2026-10-24.
 > Spec: R1 and R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Brainstorm and mockups: https://claude.ai/artifact/P4yQXKHykS8zMhFkFKtHyA
 
 ## What it does
@@ -79,6 +79,25 @@ All motion runs through [withMotion](../../../web/src/lib/motion.ts#L15) (`gsap.
 
 Folded rows open with a CSS grid-rows transition, not GSAP and not `height`, and a closed row is `inert`.
 
+## Deploy (loffy.me, TASK-102.2)
+
+```mermaid
+flowchart LR
+    GH["GitHub Actions: npm ci, next build"] -->|"rsync web/dist"| VPS[VPS web/dist]
+    VPS -->|"deploy-web.sh: docker build, up web"| W["web container 127.0.0.1:3001"]
+    U[Browser] --> C{Caddy loffy.me}
+    C -->|"/api/*"| B["backend 127.0.0.1:8081"]
+    C -->|"everything else"| W
+```
+
+`next.config.ts` sets `output: "standalone"` ([next.config.ts:11](../../../web/next.config.ts#L11)), so the build writes a small
+Node server. The job `deploy-web` in [deploy.yml](../../../.github/workflows/deploy.yml) builds it on GitHub (not on the VPS: `next build`
+can run out of memory there), copies server, static files and `public` to `web/dist` on the server, and runs
+[deploy-web.sh](../../../web/scripts/deploy-web.sh). That builds [web/Dockerfile](../../../web/Dockerfile) (`node:22-alpine`, only a copy) and
+restarts the `web` service of [docker-compose.prod.yml](../../../backend/docker-compose.prod.yml). `cacheComponents` and the prerendered
+homepage work in this mode (checked with `node server.js` locally). Caddy lines, DNS and the by-hand steps: doc-11 section 14.
+In production Caddy sends `/api/*` to the backend, so the rewrite in `next.config.ts` is not used.
+
 ## Errors
 
 | Cause | Where | HTTP | What the user sees |
@@ -91,7 +110,7 @@ Folded rows open with a CSS grid-rows transition, not GSAP and not `height`, and
 
 ## Tests
 
-`cd web && npm test` (Vitest) and `npm run build`.
+`cd web && npm test` (Vitest) and `npm run build`. CI runs both (job `web`). The deploy has no unit test; its check is `curl -f https://loffy.me` at the end of `deploy-web`.
 
 | Test file | What it covers |
 |---|---|
@@ -111,5 +130,5 @@ Folded rows open with a CSS grid-rows transition, not GSAP and not `height`, and
 - Only the homepage exists. Word page (`/word/run`), Introduction, Sign in, History & Liked, Settings, Privacy & Terms and 404 are TASK-102.
 - No sign-in yet, so a guest's miss ends with a message, not a sign-in sheet. No Like star.
 - The word card shows the Vietnamese dictionary line only; other languages need a translation source (iOS uses Apple Translation on the device).
-- Not deployed: needs a Caddy route (`/` to the Next.js container, `/api` to the backend) and a domain (doc-11 section 13).
+- The `deploy-web` check fails until the developer adds the DNS record and the Caddy block once (doc-11 section 14); the repo does not manage the Caddyfile.
 - The cat is our own pixel drawing, not the paid sprite pack the iOS app uses.

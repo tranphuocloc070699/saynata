@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-23 08:54'
+updated_date: '2026-10-24 03:38'
 ---
 # Deploy to a VPS
 
@@ -22,6 +22,8 @@ What you need:
 flowchart LR
     APP[iPhone app] -->|HTTPS 443| CADDY[Caddy, optional]
     CADDY -->|127.0.0.1:8081| BE[backend container]
+    BROWSER[Browser, loffy.me] -->|HTTPS 443| CADDY
+    CADDY -->|"everything except /api, 127.0.0.1:3001"| WEB[web container, Next.js]
     BE --> PG[(postgres container + volume)]
     BE --> CL[Claude API]
 ```
@@ -182,9 +184,9 @@ over SSH, moves `~/saynata` to the commit CI tested (`git merge --ff-only`), and
 (`docker compose build backend`), then runs `docker compose up -d --wait`, so the run turns red if the backend does not
 become healthy, and it prints the last backend logs.
 Each build try is stopped after 6 minutes (`DEPLOY_BUILD_TIMEOUT`, in seconds, set it on the server to change it) and
-tried once more; if both tries fail, the old backend keeps running. The GitHub jobs stop after 20 minutes (backend)
-and 10 minutes (admin). A normal deploy takes about 3 minutes.
-A second job, `deploy-admin`, then builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
+tried once more; if both tries fail, the old backend keeps running. The GitHub jobs stop after 20 minutes (backend),
+10 minutes (admin) and 15 minutes (web). A normal deploy takes about 3 minutes.
+A third job, `deploy-web`, does the same for the learner web app (section 14). A second job, `deploy-admin`, then builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
 `ADMIN_API_URL` repository variable, default `https://api.loffy.me`) and copies `admin/dist` to the server with
 `rsync --delete` (section 8). The VPS needs `rsync`, but no Node.
 You can also start it by hand: Actions tab, **Deploy**, **Run workflow**.
@@ -692,6 +694,52 @@ curl -s -X POST https://api.loffy.me/api/auth/email-link/verify -H 'Content-Type
 curl -s -X POST https://api.loffy.me/api/auth/google -H 'Content-Type: application/json' -d '{"idToken":"x","nonce":"y"}'
 ```
 
+## 14. Learner web app (loffy.me, TASK-102.2)
+
+The learner web app ([Web app](../features/doc-23%20-%20Web-app.md), `web/`, Next.js 16) runs at `https://loffy.me`. It needs a
+Node server (word pages and `cacheComponents` are server features), so it is not static files like the admin app.
+
+**How it runs.** `next.config.ts` has `output: "standalone"`, which builds a small self-contained server. The Deploy
+workflow job `deploy-web` runs `npm ci && npm run build` on GitHub (a small VPS can run out of memory during `next build`,
+and the VPS has no Node), copies the result to `web/dist` on the server with `rsync --delete`, and runs
+[web/scripts/deploy-web.sh](../../../web/scripts/deploy-web.sh). That script builds [web/Dockerfile](../../../web/Dockerfile)
+(it only copies `dist` into `node:22-alpine`, a few seconds) and restarts the `web` service of
+[backend/docker-compose.prod.yml](../../../backend/docker-compose.prod.yml), which listens on `127.0.0.1:3001`
+(`WEB_PORT` in `.env` changes it). `deploy.sh` starts only `postgres` and `backend`, so a backend deploy never needs `web/dist`.
+At the end the job runs `curl -f https://loffy.me` (6 tries, 20 seconds each), so it turns red until DNS and Caddy below are done.
+The web app has no secrets and no `.env` values. Its `/api` calls stay on `loffy.me`, and Caddy sends them to the backend,
+so the backend needs no CORS change.
+
+**One-time setup, in this order:**
+
+1. **DNS (Cloudflare).** Add `A` `loffy.me` to `110.172.29.29`, **DNS only** (grey cloud), like `api` and `admin`. Caddy gets the
+   certificate itself, and the orange cloud (proxied) is what gives the 522 today. Add `A` (or `CNAME` to `loffy.me`) `www`, DNS only too.
+2. **Caddy.** Add this to `/etc/caddy/Caddyfile` (the repo does not manage the Caddyfile), then `sudo systemctl reload caddy`.
+   `encode` is only in the web block, so the streamed answers of `/api/translations/stream` are not buffered:
+
+```caddyfile
+loffy.me {
+    handle /api/* {
+        reverse_proxy 127.0.0.1:8081
+    }
+    handle {
+        encode gzip
+        reverse_proxy 127.0.0.1:3001
+    }
+}
+
+www.loffy.me {
+    redir https://loffy.me{uri} permanent
+}
+```
+
+3. **Deploy.** Merge to `main` (or **Run workflow** on the Deploy workflow). The `deploy-web` job builds, copies, restarts
+   and checks the site.
+4. **Check.** Open `https://loffy.me`, explain "give up", then a sentence.
+
+By hand on the server (after a build is copied to `web/dist`): `web/scripts/deploy-web.sh`. Logs: `cd backend && docker compose -f docker-compose.prod.yml logs web`.
+Never run `next build` on the VPS.
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -709,5 +757,6 @@ curl -s -X POST https://api.loffy.me/api/auth/google -H 'Content-Type: applicati
 | New explanations stop with 503 `daily_limit_reached` | Today's Claude spend reached `CLAUDE_DAILY_BUDGET_USD` (UTC day). See the spend: `GET /api/admin/usage?days=1` with the admin cookie. Raise the cap in `.env` if you want. |
 | Prefill run does nothing | `GET /api/admin/prefill` shows `running`, the counts by status and the last runs (`stoppedBecause`: `queue-empty`, `cap`, `limit`, `failures`). Items are added by the pipeline collector (TASK-83.2) or by an admin; `PREFILL_CRON` empty means no night run. A run that stops with `cap` is normal: the next run continues. |
 | Deploy hangs (the build log stops, the server is idle) | Seen on 2026-10-17: dockerd logged `session healthcheck failed fatally` and the BuildKit build waited forever. `deploy.sh` now stops a build after 6 minutes and tries once more, and the job stops after 20 minutes. If a run still hangs: 1. Cancel it (Actions tab, the run, **Cancel workflow**). 2. On the server, look for leftover build processes: `pgrep -af 'docker compose\|buildx'`, and stop them: `pkill -f 'buildx.*bake'; pkill -f 'docker compose -f docker-compose.prod.yml'`. 3. If builds still hang, restart Docker: `sudo systemctl restart docker` (the backend and Postgres restart too, a short outage). 4. Re-run the workflow (**Re-run all jobs**). The old backend keeps running until a new build succeeds. |
+| `https://loffy.me` shows Cloudflare 522 or the `deploy-web` check fails | DNS record missing or proxied (orange cloud), or the Caddy block is missing. See section 14, steps 1 and 2. `curl -I http://127.0.0.1:3001` on the server tells if the web container itself is up. |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |
 | AI picture fails (TASK-91) | See section 12, "If something goes wrong": the three usual causes are a missing `AI_PICTURES_ENABLED=true`, an `auth.json` that is not owned by 10001 or has ended, and a sandbox that needs `AI_CODEX_SANDBOX=workspace-write`. |
