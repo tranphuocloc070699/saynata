@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-24 06:07'
-updated_date: '2026-10-24 06:19'
+updated_date: '2026-10-24 06:22'
 labels:
   - admin
   - backend
@@ -52,4 +52,6 @@ The developer wants to manage app accounts in the admin (mockup https://claude.a
 
 <!-- SECTION:NOTES:BEGIN -->
 Backend 530 tests pass, admin 114 pass, build ok. The admin infinite-scroll test failed once while Maven ran at the same time (CPU load); it passes alone 3 of 3.
+
+PR #162 (admin/users into feature/local), Test it card in the PR.
 <!-- SECTION:NOTES:END -->
