@@ -3,7 +3,7 @@ id: doc-6
 title: Dictionary pipeline
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-24 10:13'
+updated_date: '2026-10-24 10:16'
 ---
 > Status: **done: 2,750 of 2,809 words exported**, 59 left as `needs_review` (TASK-3). Last traced from code: 2026-10-24 (new `lines` command: the language lines for every definition and sentence written by the Codex CLI and pushed to `line_translation`, TASK-106.5, see [Prefill](doc-18%20-%20Prefill.md#language-lines-written-by-codex-task-1065); 2026-10-23 `prefill collect --source sentences`: about 2,500 everyday lines from `data/common_sentences.tsv`, TASK-83.11; new `collection` command: a local collection of words, phrasal verbs, idioms and collocations written by the Codex CLI with the backend word prompt and checks, pushed to `word_lookup`, TASK-83.9, see [Prefill](doc-18%20-%20Prefill.md#local-collection-written-by-codex-task-839); `export` writes `senses.image_width`/`image_height` from `media`; `prefill collect --all-wordfreq`: every word wordfreq has seen, TASK-83.7; new `prefill collect` and `prefill report` commands: the word and phrase queue for the backend night job, TASK-83.2; new `media-generate` command: AI pictures for `needs_ai` senses with OpenAI, TASK-53; new `media-check` command: Claude looks at every sense picture, TASK-78; `link-media` and `export` skip senses the admin removed media from: TASK-76; topic words, TASK-61; before that Postgres as the source of truth, TASK-49.3). **The usage and examples passes have not run on the real data yet:** until they do, the `done` entries have no usage and only 2 plain examples (exported as easy, medium).
 > **Since TASK-49.3 the server Postgres is the source of truth** for the bundled words, senses, forms and media rows. `dictionary.sqlite` is built *from* Postgres by `export`; the generate passes below still fill `data/pipeline.db`.
@@ -329,7 +329,17 @@ Cost to answer them, from production `claude_usage` on 2026-10-16 (Claude Haiku 
 
 **All wordfreq words (TASK-83.7).** `--all-wordfreq` (words only, ignores `--zipf`) queues every SCOWL-70 lemma with wordfreq Zipf **> 0** (strictly: `--zipf 0` would also let in words wordfreq never saw). The set is SCOWL-70 plus `ngsl.txt`, the same list the backend `EnglishWords` uses, filtered by Zipf, not wordfreq's own list: `iter_wordlist('en')` has 288 thousand plain lowercase words, but only 98.8 thousand of them are on the backend list, and the backend would reject the rest (names, junk). Bundled forms and lemmas, kept topic words and queued rows are skipped as before, and priority is still `round(Zipf x 100)`, so the night job answers common words first. Measured on 2026-10-16 (dry run against production, read-only): **68,669 new word lemmas, about $48.07**. At the default night cap ($0.50, 714 words) one run takes about 83 minutes (3 s `PREFILL_DELAY` plus about 4 s per Claude call), so the whole list needs about **96 nights**. Every dry run prints the count, the cost and this night estimate. Some lowercase proper names are on SCOWL-70 (london, john, york), so they are queued too; the backend accepts them.
 
-### 15. Language lines: [lines.py](../../../pipeline/src/pipeline/lines.py) (TASK-106.5)
+### 15. Source lists: [source_lists.py](../../../pipeline/src/pipeline/source_lists.py) (TASK-108)
+
+The admin Sources page (a book into the prefill queue, [Admin API](doc-13%20-%20Admin-API.md#sources-a-book-into-the-queue-task-108)) needs two small files in `backend/src/main/resources/words/`, both made here with **no paid call**:
+
+| File | Lines | Made from |
+|---|---|---|
+| `zipf-en.tsv` | `word<TAB>zipf`, about 99,000 | every word of `scowl-70.txt` and `ngsl.txt` (lower case, letters only) that wordfreq has seen (Zipf above 0) |
+| `phrases-en.tsv` | `phrase<TAB>zipf`, about 3,800 | the phrasal verbs and idioms of Open English WordNet 2025: the same rules as `prefill collect --source phrases` (2 to 4 words, verbs, adjectives and adverbs, no names, no placeholders like "somebody"), but **no minimum Zipf**; the score is wordfreq's for the whole phrase |
+
+Run `cd pipeline && uv run pipeline source-lists` and commit the two files. The first run adds WordNet to the local `wn` database (a few minutes, the 11 MB archive is downloaded once into `pipeline/data/raw`); later runs take about 30 seconds. Run it again when the backend word list or WordNet changes. Zipf is wordfreq's scale: 7 is "the", 3 is a word you meet now and then, below 3 is rare; the Sources page calls 3.0 and above "useful".
+### 16. Language lines: [lines.py](../../../pipeline/src/pipeline/lines.py) (TASK-106.5)
 
 The app shows a line in the learner's language under every word and sentence (`POST /api/translate-lines`, table `line_translation`). `lines` fills that table in advance, for free, with the local Codex CLI: `collect` reads the simple definitions and cached sentences from Postgres (read-only) into a `lines` table in `pipeline.db` (one row per text and language: vi, ja, ko, zh, fr, es, de), `write` has Codex write 50 texts of one language per call with the backend `LINE_PROMPT` and checks each answer (not empty, not English, the script fits, a sensible length), `push --yes` inserts the good ones with `source = 'codex'` and never over an existing row. The key is the sha256 of the normalized text, computed exactly like `LineTranslationService`. Details, commands and the run time: [Prefill, Language lines written by Codex](doc-18%20-%20Prefill.md#language-lines-written-by-codex-task-1065).
 
@@ -347,6 +357,7 @@ The app shows a line in the learner's language under every word and sentence (`P
 | `uv run pipeline usage` | Yes, 1 call per word (~$8 for 2,750 words) | Add usage to every done word that has none. Resume-safe; run it again to retry failed words ([cli.py:118-129](../../../pipeline/src/pipeline/cli.py#L118-L129)) |
 | `uv run pipeline revalidate` | No | Re-check stored `needs_review` entries after the checks change; passing ones become `done` ([cli.py:99-115](../../../pipeline/src/pipeline/cli.py#L99-L115)) |
 | `uv run pipeline report` | No | Counts per status + the problem list |
+| `uv run pipeline source-lists` | No | TASK-108: write `zipf-en.tsv` and `phrases-en.tsv` into the backend resources for the admin Sources page |
 | `uv run pipeline lines collect` / `report` / `write` / `push` | `write`: Codex (ChatGPT plan, no per-call cost) | Language lines for every definition and sentence (TASK-106.5). `write` about 1.5 hours for the bundled senses; `push --yes` only after the developer's go-ahead. See [Prefill](doc-18%20-%20Prefill.md#language-lines-written-by-codex-task-1065) |
 | `uv run pipeline import-to-postgres` | No | One time: copy the bundled `dictionary.sqlite` (+ media facts) into Postgres. Re-run safe; `--overwrite`, `--sqlite`, `--media-dir`, `--database-url` |
 | `uv run pipeline link-media` | No | After the media pass: add its media rows and links to senses in Postgres, changing no text and no existing media. It also skips a sense with `image_type = 'none'` or `media_status = 'removed'` (the admin removed its media, TASK-76), so a removed picture does not come back from an older file. `--sqlite` (default `data/out/dictionary.sqlite`, from `export-local`), `--media-dir`, `--database-url`. Then `rsync` the files to the server (doc-11, section 9) |
@@ -374,6 +385,7 @@ The app shows a line in the learner's language under every word and sentence (`P
 
 | Test | Covers |
 |---|---|
+| [test_source_lists.py](../../../pipeline/tests/test_source_lists.py) | TASK-108: words need Zipf above 0 and a plain lowercase spelling; only verb, adjective and adverb phrases without names or placeholders; both files are written |
 | [test_senses.py](../../../pipeline/tests/test_senses.py) | Drops archaic and form-of senses, keeps both homograph entries, skips names, reads Vietnamese hints |
 | [test_validate.py](../../../pipeline/tests/test_validate.py) | Simple definition passes, hard word and headword reported, missing Vietnamese/examples, numbers and grammar terms allowed, grammar words may use themselves, possessive `'s`, basic words outside NGSL, a topic word may use itself in its usage and example sentences |
 

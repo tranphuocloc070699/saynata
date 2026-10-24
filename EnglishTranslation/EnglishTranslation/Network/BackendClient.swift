@@ -115,7 +115,7 @@ struct BackendClient: Translating, WordFetching {
     /// the answer. Throws `BackendError` or a `URLError`.
     func explain(_ text: String, translatingTo language: TargetLanguage) async throws -> Explanation {
         let key = CacheKeys.sentenceKey(text, targetLang: language.code)
-        if let saved = await savedExplanation(forKey: key) {
+        if let saved = await savedExplanation(forKey: key, language: language) {
             return saved
         }
 
@@ -125,9 +125,17 @@ struct BackendClient: Translating, WordFetching {
     }
 
     /// The answer we already saved for this key. A saved blob that no longer decodes counts as missing.
-    private func savedExplanation(forKey key: String) async -> Explanation? {
+    /// An answer with no language line ("" from the backend for a guest, TASK-106.6) is not kept: after sign-in the
+    /// next request must ask again, or the line would never come.
+    private func savedExplanation(forKey key: String, language: TargetLanguage) async -> Explanation? {
         guard let saved = await cache?.data(forKey: key) else { return nil }
-        return (try? JSONDecoder().decode(TranslationResponse.self, from: saved))?.explanation
+        guard let explanation = (try? JSONDecoder().decode(TranslationResponse.self, from: saved))?.explanation else { return nil }
+        return Self.isComplete(explanation, for: language) ? explanation : nil
+    }
+
+    /// English needs no language line; every other language needs a non-empty one.
+    static func isComplete(_ explanation: Explanation, for language: TargetLanguage) -> Bool {
+        language == .english || !explanation.translation.isEmpty
     }
 
     /// Like `explain`, but asks `POST /api/translations/stream` and calls `onMeaning` as soon as the
@@ -150,7 +158,7 @@ struct BackendClient: Translating, WordFetching {
         onMeaning: @escaping @MainActor @Sendable (String) -> Void
     ) async throws -> Explanation {
         let key = CacheKeys.sentenceKey(text, targetLang: language.code)
-        if let saved = await savedExplanation(forKey: key) {
+        if let saved = await savedExplanation(forKey: key, language: language) {
             return saved
         }
 
@@ -312,7 +320,7 @@ struct BackendClient: Translating, WordFetching {
     /// A miss (404 `not_cached`) or any error does nothing, and no sign-in sheet follows.
     func prefetchCachedExplanation(_ text: String, translatingTo language: TargetLanguage) async {
         let key = CacheKeys.sentenceKey(text, targetLang: language.code)
-        guard await savedExplanation(forKey: key) == nil else { return }
+        guard await savedExplanation(forKey: key, language: language) == nil else { return }
 
         var request = URLRequest(url: baseURL.appending(path: "api/translations")
             .appending(queryItems: [URLQueryItem(name: "cachedOnly", value: "true")]))
@@ -322,13 +330,14 @@ struct BackendClient: Translating, WordFetching {
         request.httpBody = body
 
         guard let data = try? await sendChecked(request),
-              (try? JSONDecoder().decode(TranslationResponse.self, from: data)) != nil else { return }
+              let response = try? JSONDecoder().decode(TranslationResponse.self, from: data),
+              Self.isComplete(response.explanation, for: language) else { return }
         await cache?.save(data, forKey: key, kind: .sentence)
     }
 
     /// Sends the request with the token (when there is one). Returns the body of a 200 reply;
     /// any other status throws a `BackendError`. A 401 with a token refreshes it once and tries again.
-    private func sendChecked(_ request: URLRequest) async throws -> Data {
+    func sendChecked(_ request: URLRequest) async throws -> Data {
         try await withAuthRetry { token in
             let (data, response) = try await session.data(for: authorized(request, token: token))
 

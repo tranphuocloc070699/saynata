@@ -3,7 +3,7 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-24 10:02'
+updated_date: '2026-10-24 10:30'
 ---
 # Accounts and limits
 
@@ -333,7 +333,7 @@ JSON: `GET` answers `{"items":[{"kind","text","preview","createdAt"}]}` newest f
 
 ## Language lines and the gate (TASK-106.2)
 
-`POST /api/translate-lines` ([doc-5](doc-5%20-%20Word-lookup.md), "Language lines") is a third place that calls `ClaudeGate.beforeNewCall()` ([LineTranslationService.askClaude:98](../../../backend/src/main/java/com/englishtranslation/backend/lines/LineTranslationService.java#L98)), once per request, only when at least one text is not in `line_translation`. Its usage is saved as `Feature.LINE` and counts toward the users' $1 daily budget (only `PREFILL` is left out). A guest gets 401 `sign_in_required` for a miss (unless `REQUIRE_SIGN_IN=false`), 429 `rate_limited`, 503 `daily_limit_reached`. A request with `?cachedOnly=true` never reaches the gate, and a request whose texts are all saved needs no sign-in.
+`POST /api/translate-lines` ([doc-5](doc-5%20-%20Word-lookup.md), "Language lines") is a third place that calls `ClaudeGate.beforeNewCall()` ([LineTranslationService.askClaude:98](../../../backend/src/main/java/com/englishtranslation/backend/lines/LineTranslationService.java#L98)), once per request, only when at least one text is not in `line_translation`. Its usage is saved as `Feature.LINE` and counts toward the users' $1 daily budget (only `PREFILL` is left out). A guest gets 401 `sign_in_required` for a miss (unless `REQUIRE_SIGN_IN=false`), 429 `rate_limited`, 503 `daily_limit_reached`. A request with `?cachedOnly=true` never reaches the gate, and a request whose texts are all saved needs no sign-in. `/api/translate-lines` is also under the per-IP `PublicReadRateLimitFilter` (TASK-106.6). **A sentence answer** (prompt v10) can make a line call too ([LineTranslationService.lineFor](../../../backend/src/main/java/com/englishtranslation/backend/lines/LineTranslationService.java)): when the English part is new, the request already passed the gate, so the line call only checks the money budget (`checkBudget`) and does not use a second allowance of the hourly limit; when the English part was cached (a second language), the line call goes through `beforeNewCall`. If it is refused (401, 429, 503) or fails, the sentence is still answered with `translation` empty (`""`, never null).
 
 ## Browser extension (TASK-86.3)
 

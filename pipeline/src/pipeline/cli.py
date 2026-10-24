@@ -31,6 +31,7 @@
     uv run pipeline topics promote       # kept topic words join the words table as pending (no LLM), then generate
     uv run pipeline topics report        # counts and samples per topic
     uv run pipeline topics export-tsv    # data/out/topic_words.tsv for review
+    uv run pipeline source-lists         # TASK-108: backend zipf-en.tsv and phrases-en.tsv for the Sources page (no LLM)
     uv run pipeline prefill collect --source words --dry-run   # TASK-83.2: counts and a sample, writes nothing
     uv run pipeline prefill collect --source words    # queue common words the backend night job will answer (no LLM)
     uv run pipeline prefill collect --source words --all-wordfreq --dry-run  # TASK-83.7: every word wordfreq has seen
@@ -886,6 +887,7 @@ def main() -> None:
     topics_commands.add_parser("promote", help="add the kept topic words to the words table for generate")
     topics_commands.add_parser("report")
     topics_commands.add_parser("export-tsv")
+    commands.add_parser("source-lists", help="word frequency and phrase lists for the admin Sources page (no LLM)")
     prefill_parser = commands.add_parser("prefill", help="queue words and phrases for the backend night job (no LLM)")
     prefill_commands = prefill_parser.add_subparsers(dest="prefill_command", required=True)
     collect_parser = prefill_commands.add_parser("collect", help="add common words or phrases to prefill_item")
@@ -1029,6 +1031,11 @@ def main() -> None:
         export_from_postgres(args)
     elif args.command == "topics":
         topic_words(args)
+    elif args.command == "source-lists":
+        from pipeline import prefill, source_lists
+
+        words, phrases = source_lists.export()
+        print(f"Wrote {words} words and {phrases} phrases to {prefill.WORDS_DIR}")
     elif args.command == "prefill":
         prefill_command(args)
     elif args.command == "collection":

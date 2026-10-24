@@ -1,15 +1,14 @@
 "use client";
 /** The target language picked last on this browser (localStorage), read with useSyncExternalStore. */
 import { useCallback, useSyncExternalStore } from "react";
-import { DEFAULT_LANGUAGE, isLanguageCode, type LanguageCode } from "./languages";
+import { DEFAULT_LANGUAGE, languageFromSaved, type LanguageCode } from "./languages";
 
 const KEY = "saynata.targetLang";
 const CHANGED = "saynata:target-lang";
 
 function read(): LanguageCode {
   try {
-    const saved = localStorage.getItem(KEY);
-    return isLanguageCode(saved) ? saved : DEFAULT_LANGUAGE;
+    return languageFromSaved(localStorage.getItem(KEY));
   } catch {
     return DEFAULT_LANGUAGE; // storage blocked, a private window
   }

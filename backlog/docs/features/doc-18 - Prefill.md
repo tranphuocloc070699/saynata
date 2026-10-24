@@ -3,7 +3,7 @@ id: doc-18
 title: Prefill
 type: other
 created_date: '2026-10-16 08:28'
-updated_date: '2026-10-24 10:13'
+updated_date: '2026-10-24 10:21'
 ---
 # Prefill
 
@@ -73,7 +73,7 @@ sequenceDiagram
 | Loop and stop rules | [loop:168](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L168) | Before each item it reads the real spend (`PREFILL` rows since the run start) and stops if `spent + dearest item so far > cap` (`cap`). Other stops: `queue-empty`, `limit`, 5 failures in a row (`failures`, Claude is probably down), `interrupted`. Items come by `priority DESC, id`. |
 | One item | [handle:217](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L217) | `done` after an answer; `skipped` for a non-word, personal text, an unknown language or a Claude "not English"; any other error: `attempts + 1`, `last_error`, status `failed`. |
 | Word | [answerWord:239](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L239) | `WordService.lookUp`. A cached or bundled answer is `done` with no Claude call. "No senses" means not on the word list: `skipped`, nothing saved. |
-| Phrase | [answerSentence:249](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L249) | `PersonalTextDetector` first (email, phone, link, long number): `skipped`, and never sent to Claude or saved. Else `TranslationService.translate(text, language)`. |
+| Phrase | [answerSentence:249](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L249) | `PersonalTextDetector` first (email, phone, link, long number): `skipped`, and never sent to Claude or saved. Else `TranslationService.translate(text, language)`. Since v10 (TASK-106.6) that also adds the language line: a new sentence costs one sentence call plus one small line call (checked against the run cap only, saved as `PREFILL`), and a line that is already saved costs nothing. |
 | Pace | [pause:279](../../../backend/src/main/java/com/englishtranslation/backend/prefill/PrefillRunner.java#L279) | After each item that made a NEW word the run waits `app.prefill.delay` (default 0 s, so no pause). It was 3 s to protect Pixabay, but prefilled words get no picture any more, so nothing needs the pause; it stays as a knob to slow a run down. Cached items and sentences never wait. |
 | Gate | [ClaudeGate.checkPrefillCap:59](../../../backend/src/main/java/com/englishtranslation/backend/limits/ClaudeGate.java#L59) | On a prefill thread `beforeNewCall` and `checkBudget` skip the sign-in, the per-user limits and the users' budget, and throw `PrefillCapReachedException` when this run's spend reached its cap. The runner leaves that item `pending`. The SimpleWords retry (second call) hits the same check; if it fails the first entry is kept, as for users. |
 | Money | [ClaudeUsageService.record:68](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageService.java#L68), [totalCostSince](../../../backend/src/main/java/com/englishtranslation/backend/claude/ClaudeUsageRepository.java#L14) | On a prefill thread every call is saved with `Feature.PREFILL`. The users' budget query leaves `PREFILL` out. `report` shows the prefill spend per day under `byFeature.prefill`, and `todayUsd` (what the users' budget counts) leaves it out; `prefillTodayUsd` is new. |
@@ -91,7 +91,7 @@ sequenceDiagram
 | `PREFILL_DELAY` | `app.prefill.delay` | `0s` | Optional pause after each new word. |
 | none | `app.prefill.max-attempts` | `3` | A failed item is tried again by later runs until it failed this many times, then stays `failed`. |
 
-**A sentence prompt bump** (TASK-89.3, prompt v9): the version is part of the cache key, so the answers the queue already saved are not read any more. Flyway [V26](../../../backend/src/main/resources/db/migration/V26__requeue_sentence_prefill_for_prompt_v9.sql) set every `done` sentence back to `pending` (attempts 0), so the next runs answer them again with the new prompt. Words are not touched. Do the same in a new Flyway file at the next sentence prompt bump.
+**A sentence prompt bump** (TASK-89.3, prompt v9): the version is part of the cache key, so the answers the queue already saved are not read any more. Flyway [V26](../../../backend/src/main/resources/db/migration/V26__requeue_sentence_prefill_for_prompt_v9.sql) set every `done` sentence back to `pending` (attempts 0), so the next runs answer them again with the new prompt. Words are not touched. Do the same in a new Flyway file at the next sentence prompt bump. Prompt v10 (TASK-106.6) did it again in the Java migration [V29](../../../backend/src/main/java/db/migration/V29__sentence_prompt_v10_seed_lines_and_requeue.java), which also copies the cached Vietnamese sentence translations into `line_translation` (source `seed`), so the requeued sentences find their Vietnamese line for free. The English part of v10 has no language in its key, so the queue needs only one run per sentence for all languages.
 
 ## Errors
 
@@ -147,6 +147,10 @@ Words are well covered (about 34 thousand cached), but the short lines a learner
 Measured on 2026-10-23 (dry run, no database): **2,488 lines, about $1.34** at $0.30 / $1.20 per million tokens ($0.00054 a line), about 925 a night at the $0.50 cap, so **about 3 nights**. The token numbers are an estimate; `prefill report` after a run shows the real spend.
 
 Items of 2-6 words are also looked up as phrases by the app (`CacheKeys.phraseQuery`, TASK-83.10) before the sentence path; they are queued as sentences all the same. To add lines: append to the TSV (or pass `--file`) and run the command again; only new lines are queued.
+
+## Words from a book (TASK-108)
+
+A third way to fill the queue, by hand. The admin opens **Sources** in the admin web app, uploads a book (`.txt` or `.md`, 5 MB at most) with a title, and sees the words and phrases that are not bundled, cached or queued yet. Picking some and pressing "Add N to queue" writes `prefill_item` rows with source **`book:<title>`** (a word is kind `word`; a phrase is kind `sentence`, language `vi`, like the pipeline phrases). The night job, or "Run at once" with `source=book:<title>`, answers them like any other row. No LLM call is made to read the book, and the book text is never stored (only the word list and a snippet of 12 words per item, cleared after queueing). How the book is read, the endpoints and the limits are in [Admin API](doc-13%20-%20Admin-API.md#sources-a-book-into-the-queue-task-108); the page is described in [Admin CMS](doc-14%20-%20Admin-CMS.md). The column `prefill_item.source` is 110 characters long since Flyway V28.
 
 ## Run at once (TASK-83.12)
 
