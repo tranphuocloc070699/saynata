@@ -85,6 +85,14 @@ class TranslationControllerTest {
     }
 
     @Test
+    void thaiIsNoLongerSupported() throws Exception {
+        mockMvc.perform(post("/api/translations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"hello\", \"targetLang\": \"th\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void missingLanguageIsRejected() throws Exception {
         mockMvc.perform(post("/api/translations")
                         .contentType(MediaType.APPLICATION_JSON)

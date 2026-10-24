@@ -220,6 +220,17 @@ class PrefillRunnerTest {
     }
 
     @Test
+    void anOldSentenceRowInThaiIsSkippedWithoutClaudeAndWithoutACrash() {
+        queue.save(new PrefillItem("sentence", "Looks good!", "th", "test", 0, Instant.now()));
+
+        PrefillRunner.RunSummary summary = runner.runNow("test", null, null);
+
+        assertThat(summary.skipped()).isEqualTo(1);
+        assertThat(item("Looks good!").getStatus()).isEqualTo("skipped");
+        verify(claude, never()).explainSentence(anyString(), any());
+    }
+
+    @Test
     void theRunStopsBeforeAnItemWouldPassTheCap() {
         claudeAnswersWords(1_000_000); // $0.10 per word
         queueWord("lantern", 5);

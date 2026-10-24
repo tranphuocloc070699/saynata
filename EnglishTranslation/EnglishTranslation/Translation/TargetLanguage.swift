@@ -13,10 +13,15 @@ enum TargetLanguage: String, CaseIterable, Identifiable {
     case japanese = "ja"
     case korean = "ko"
     case chinese = "zh"
-    case thai = "th"
     case french = "fr"
     case spanish = "es"
     case german = "de"
+
+    /// Reads a saved code (for example from UserDefaults). A code that is gone (Thai "th") or broken
+    /// reads as Vietnamese.
+    init(savedCode: String?) {
+        self = savedCode.flatMap(TargetLanguage.init(rawValue:)) ?? .vietnamese
+    }
 
     /// Lets `ForEach` loop over the cases.
     var id: Self { self }
@@ -32,7 +37,6 @@ enum TargetLanguage: String, CaseIterable, Identifiable {
         case .japanese: "Japanese"
         case .korean: "Korean"
         case .chinese: "Simplified Chinese"
-        case .thai: "Thai"
         case .french: "French"
         case .spanish: "Spanish"
         case .german: "German"
