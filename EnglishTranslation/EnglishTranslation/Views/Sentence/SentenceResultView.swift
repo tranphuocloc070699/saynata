@@ -6,7 +6,7 @@
 import SwiftUI
 
 /// A sentence result (TASK-41, TASK-89.2): one `SentenceCard` with the sentence, its simple summary, and the
-/// target language folded last. The language comes from the result, not from the picker (TASK-14).
+/// target language folded last. Text the user typed also gets "Better way to say it" when it has a fix (TASK-110). The language comes from the result, not from the picker (TASK-14).
 struct SentenceResultView: View {
     let result: SentenceResult
     /// Gets the full word card for a tapped word. The real one is `TranslationStore.wordEntry(for:)`.
@@ -21,6 +21,8 @@ struct SentenceResultView: View {
             summary: result.explanation.meaning,
             translation: result.explanation.translation,
             language: result.language,
+            better: result.isTyped ? result.explanation.better : nil,
+            betterWhy: result.explanation.betterWhy,
             loadWordEntry: loadWordEntry)
             .frame(maxWidth: .infinity, alignment: .leading)
     }

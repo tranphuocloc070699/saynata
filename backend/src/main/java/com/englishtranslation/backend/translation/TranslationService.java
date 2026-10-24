@@ -98,7 +98,7 @@ public class TranslationService {
                 throw new NotCachedException();
             }
             gate.beforeNewCall();
-            return callClaude.apply(normalizedText);
+            return BetterCheck.apply(normalizedText, callClaude.apply(normalizedText));
         };
         String normalized = CacheKeys.normalizeSentence(text);
 
@@ -134,8 +134,8 @@ public class TranslationService {
             // The row has no language: "en" is the language of the explanation, and the translation column stays empty.
             repository.saveAndFlush(new SentenceTranslation(
                     cacheKey, normalized, "en", explanation.meaning(),
-                    jsonMapper.writeValueAsString(explanation.words()), "",
-                    properties.model(), version));
+                    jsonMapper.writeValueAsString(explanation.words()), explanation.better(),
+                    explanation.betterWhy(), "", properties.model(), version));
             return answer(normalized, targetLang, explanation, false, cachedOnly);
         } catch (DataIntegrityViolationException e) {
             // Another request saved the same key while we waited for Claude. Keep the first answer.
@@ -157,11 +157,11 @@ public class TranslationService {
         String line = targetLang == TargetLanguage.EN
                 ? normalized
                 : lines.lineFor(targetLang, normalized, cachedOnly, store, alreadyGated).orElse("");
-        return new Explanation(english.meaning(), english.words(), line);
+        return new Explanation(english.meaning(), english.words(), english.better(), english.betterWhy(), line);
     }
 
     private Explanation readExplanation(SentenceTranslation row) {
         List<Explanation.Word> words = jsonMapper.readValue(row.getWordsJson(), WORD_LIST);
-        return new Explanation(row.getMeaning(), words, "");
+        return new Explanation(row.getMeaning(), words, row.getBetter(), row.getBetterWhy(), "");
     }
 }

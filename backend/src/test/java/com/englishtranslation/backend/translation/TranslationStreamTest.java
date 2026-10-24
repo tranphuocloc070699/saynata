@@ -142,7 +142,7 @@ class TranslationStreamTest {
         assertThat(doneLine).isEqualTo("data:{\"text\":\"He was reluctant to leave\",\"targetLang\":\"vi\","
                 + "\"explanation\":{\"meaning\":\"He did not want to leave.\","
                 + "\"words\":[{\"word\":\"reluctant\",\"partOfSpeech\":\"adjective\",\"meaning\":\"not wanting to do something\"}],"
-                + "\"translation\":\"Anh ấy không muốn đi.\"},\"cached\":false}");
+                + "\"better\":null,\"betterWhy\":null,\"translation\":\"Anh ấy không muốn đi.\"},\"cached\":false}");
     }
 
     @Test
