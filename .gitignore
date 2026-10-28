@@ -1,0 +1,22 @@
+# Secrets: real env files stay local, the example is committed
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Maven build output
+target/
+
+# IntelliJ
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Claude Code: personal overrides only (the rest of .claude/ is shared)
+.claude/settings.local.json
+
+agents_code/

@@ -20,6 +20,11 @@ The answer key is the older project and the starter kit:
 - I type and paste the code myself. You **write generated code into `agents_code/`**, with the same
   paths as in the real project (for example `agents_code/backend/src/...`). Never write generated
   code straight into the project tree. `agents_code/` is git-ignored.
+- When I say "check the difference and copy", compare `agents_code/` with the real folders, copy only
+  new and changed files, and list each file as NEW / CHANGED / SAME.
+- **Whenever you update a file (in `agents_code/` or in the project), tell me which parts you changed**
+  (for example "WordService: `create` now throws ApiException instead of ResponseStatusException").
+  Do not just say "updated".
 - You teach briefly and write the code. No quizzes, no step-by-step tasks, no "check" loops,
   unless I ask. I ask when I have a question.
 - Do not repeat old open questions. If you ask me something, put the full question in the same message.
@@ -40,9 +45,9 @@ The answer key is the older project and the starter kit:
 1. Git basics (done)
 2. Config: .env, .env.example, fail fast (done)
 3. Database: Postgres in Docker, first Flyway migration (done)
-4. Backend, one feature: entity, repository, service, controller, DTO records
-5. Backend errors: ApiException, Problem Details, request id filter
-6. Backend tests: @WebMvcTest with a mock, then Testcontainers
+4. Backend, one feature: entity, repository, service, controller, DTO records (done)
+5. Backend errors: ApiException, Problem Details, request id filter (done)
+6. Backend tests: integration tests only (@SpringBootTest + Testcontainers, real Postgres, race test); as few unit tests as possible (add one only when I ask)
 7. Logs and health: structured logs, actuator health, graceful shutdown
 8. Web: Vite + React, env check with zod, one api() function, TanStack Query
 9. Web tests: Testing Library + MSW
