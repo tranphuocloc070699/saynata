@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: saynata-backend
+  # Read backend/.env if it exists (local development). In production the
+  # same names come from real environment variables, so no file is needed.
+  config:
+    import: "optional:file:.env[.properties]"
+  datasource:
+    # No default on purpose: a missing value stops the app at startup.
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate # Flyway owns the schema; Hibernate only checks it
+    open-in-view: false
+  lifecycle:
+    # On shutdown, wait up to 20 s for running requests to finish.
+    timeout-per-shutdown-phase: 20s
+
+server:
+  port: ${SERVER_PORT:8090}
+  # Stop accepting new requests, but let the running ones finish.
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only health is public. Add more endpoints one by one, never "*".
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true # adds /actuator/health/liveness and /actuator/health/readiness
+      show-details: never
+
+logging:
+  pattern:
+    # Print the request id (set by RequestIdFilter) in front of every log line.
+    correlation: "[%X{requestId:-}] "
+
+app:
+  public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8090}
+  cors-allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  llm:
+    provider: ${LLM_PROVIDER:fake}
+    daily-budget-usd: ${LLM_DAILY_BUDGET_USD:5.00}
+    cost-per-call-usd: ${LLM_COST_PER_CALL_USD:0.001}
+    max-calls-per-ip-per-hour: ${LLM_MAX_CALLS_PER_IP_PER_HOUR:30}
+
+springdoc:
+  api-docs:
+    enabled: ${DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${DOCS_ENABLED:true}

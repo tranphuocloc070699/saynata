@@ -1,0 +1,12 @@
+# Used when SPRING_PROFILES_ACTIVE=prod.
+logging:
+  structured:
+    format:
+      # One JSON object per line (Elastic Common Schema). The requestId from the MDC is included.
+      console: ecs
+
+server:
+  # Behind Nginx or a cloud load balancer, trust X-Forwarded-For so request.getRemoteAddr() is the real
+  # client IP. Without this, every user shares the proxy's IP and the LLM gate's per-IP limit hits everyone.
+  # Only safe when the proxy is the ONLY way to reach the app (otherwise a client can fake the header).
+  forward-headers-strategy: native
